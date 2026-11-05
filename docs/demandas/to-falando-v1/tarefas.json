@@ -206,9 +206,9 @@
         "CA-51"
       ],
       "validacao": "integração: edição marca editada, membro alheio recusado, admin apaga; digitando repassado",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "e29b5dd"
     },
     {
       "id": "T11",

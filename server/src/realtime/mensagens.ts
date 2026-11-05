@@ -34,12 +34,16 @@ function lerCanalTexto(banco: Banco, dados: unknown): number {
 /** RF-8, RF-10, RF-11: enviar, editar, apagar e "digitando" em canal de texto (DMs na T12). */
 export function registrarEventosMensagens(io: ServidorTempoReal, socket: SocketTofalando, banco: Banco, registrarErro: (e: unknown) => void) {
   const usuarioId = socket.data.usuarioId;
+  /** Último sinal de "digitando" aceito deste socket (ver o tratador no fim). */
+  let ultimoDigitando = 0;
 
   socket.on(
     'mensagem:enviar',
     comAck(registrarErro, (dados: unknown) => {
       const canalId = lerCanalTexto(banco, dados);
       const mensagem = criarMensagemCanal(banco, canalId, usuarioId, lerTexto(dados));
+      // Enviou: o próximo "digitando" (a pessoa já começa a próxima mensagem) não pode ser descartado.
+      ultimoDigitando = 0;
       io.emit('mensagem:nova', mensagem);
       return mensagem;
     }),
@@ -96,8 +100,8 @@ export function registrarEventosMensagens(io: ServidorTempoReal, socket: SocketT
     }),
   );
 
-  // Sem resposta: sinal descartável. Inválido é só ignorado; mais de um por segundo do mesmo socket também.
-  let ultimoDigitando = 0;
+  // Sem resposta: sinal descartável. Inválido é só ignorado; mais de um por segundo do mesmo socket também
+  // (barra enxurrada; enviar mensagem zera o limite, para o sinal da próxima não se perder).
   socket.on('digitando', (dados: unknown) => {
     const agora = Date.now();
     if (agora - ultimoDigitando < 1000) return;

@@ -101,6 +101,16 @@ describe('digitando (CA-17)', () => {
     await new Promise((r) => setTimeout(r, 200));
     expect(recebidos).toBe(1);
   });
+
+  it('enviar mensagem libera o próximo sinal na hora (quem já começa a próxima mensagem)', async () => {
+    const { ana, bia, canal } = await trio();
+    let recebidos = 0;
+    bia.s.on('digitando', () => recebidos++);
+    ana.s.emit('digitando', { destino: { canalId: canal } });
+    await enviar(ana.s, canal, 'primeira');
+    ana.s.emit('digitando', { destino: { canalId: canal } });
+    await expect.poll(() => recebidos).toBe(2);
+  });
 });
 
 describe('auditoria de mensagens (CA-50, CA-51 — parte de canal)', () => {
