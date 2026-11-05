@@ -29,7 +29,7 @@ describe('TelaServidor', () => {
 
   it('avança com a URL normalizada quando o servidor responde', async () => {
     const aoConectar = vi.fn();
-    const testar = vi.fn(() => Promise.resolve({ ok: true as const, valor: { app: 'tofalando' as const, nome: 'T', versao: '0.1.0', limiteContas: 20 } }));
+    const testar = vi.fn(() => Promise.resolve({ ok: true as const, valor: { app: 'tofalando' as const, nome: 'T', versao: '0.1.0', contas: 0, limiteContas: 20 } }));
     render(<TelaServidor aoConectar={aoConectar} testar={testar} />);
     preencher('100.64.0.1:3000');
     await waitFor(() => expect(aoConectar).toHaveBeenCalledWith('http://100.64.0.1:3000'));
@@ -37,7 +37,7 @@ describe('TelaServidor', () => {
   });
 
   it('mostra erro se guardar falhar e libera o botão', async () => {
-    const testar = () => Promise.resolve({ ok: true as const, valor: { app: 'tofalando' as const, nome: 'T', versao: '0.1.0', limiteContas: 20 } });
+    const testar = () => Promise.resolve({ ok: true as const, valor: { app: 'tofalando' as const, nome: 'T', versao: '0.1.0', contas: 0, limiteContas: 20 } });
     render(<TelaServidor aoConectar={() => Promise.reject(new Error('ipc'))} testar={testar} />);
     preencher('100.64.0.1:3000');
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Não foi possível guardar o endereço. Tente de novo.');

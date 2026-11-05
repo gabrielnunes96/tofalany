@@ -7,7 +7,7 @@ const NAO_E_TOFALANDO = 'Esse endereço não é de um servidor Tô Falando.';
 function ehServidorInfo(v: unknown): v is ServidorInfo {
   if (!v || typeof v !== 'object') return false;
   const o = v as Record<string, unknown>;
-  return o.app === APP_ID && typeof o.nome === 'string' && typeof o.versao === 'string' && typeof o.limiteContas === 'number';
+  return o.app === APP_ID && typeof o.nome === 'string' && typeof o.versao === 'string' && typeof o.contas === 'number' && typeof o.limiteContas === 'number';
 }
 
 /** Confere se a URL responde como um servidor Tô Falando (RF-1). */

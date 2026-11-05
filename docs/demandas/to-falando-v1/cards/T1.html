@@ -1,0 +1,28 @@
+<!-- T1 — Esqueleto do monorepo e primeira execução -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1, RF-1 e CA-1: na primeira execução o app pede a URL do servidor, testa a conexão e a guarda; URL inacessível mostra erro e não avança.</p>
+<h3>Padrão</h3>
+<p>Monorepo npm (shared, server, client) conforme a técnica §2; Electron com contextIsolation, sandbox e sem nodeIntegration; configurações locais em userData validadas no processo principal.</p>
+
+<h3>Implementação (04/11/2026, commit a26d78d)</h3>
+<ul>
+  <li><b>Rota/contrato:</b> <code>GET /api/servidor</code> → <code>{ app: "tofalando", nome, versao, limiteContas }</code> (o campo <code>contas</code> entra na T2); <code>GET /api/saude</code> → <code>{ ok }</code>. CORS liberado (autenticação será por token).</li>
+  <li><b>Servidor:</b> Fastify 5, configuração por variáveis de ambiente (PORTA 1–65535, HOST, NOME_SERVIDOR, LIMITE_CONTAS padrão 20, LOG).</li>
+  <li><b>App:</b> Electron 45 + React 19 (electron-vite). Tela "Endereço do servidor": normaliza (sem esquema assume http://), testa em <code>/api/servidor</code> com tempo limite de 5 s e só guarda se for um servidor Tô Falando. "Trocar servidor" com "Cancelar"; o endereço anterior só é substituído quando o novo passa no teste.</li>
+  <li><b>Segurança do Electron:</b> corretor ortográfico desligado, links externos no navegador do sistema, navegação da janela bloqueada, pasta de dados de teste só fora do app empacotado.</li>
+  <li><b>Fora desta tarefa:</b> CSP (T23); tela após conectar é provisória até o login (T2).</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>shared/src/validacao.test.ts</code> (normalização da URL), <code>server/test/servidor.test.ts</code> (contrato, CORS, configuração), <code>client/src/main/configuracoes.test.ts</code> (persistência, validação no main, arquivo corrompido), <code>client/src/renderer/servicos/servidor.test.ts</code> (servidor válido, inacessível, outro serviço, tipos errados, tempo esgotado, erro HTTP), <code>client/src/renderer/telas/TelaServidor.test.tsx</code> (erros, avanço, falha ao guardar, cancelar). Suíte: 26 testes passando. Lint e build verdes.</p>
+
+<h3>Validação (local, 04/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: abrir app sem configuração</td><td>ok</td><td>tela pede o endereço do servidor</td></tr>
+  <tr><td>E2E: endereço 127.0.0.1:1 (recusado)</td><td>ok</td><td>"Não foi possível conectar…"; continua na tela</td></tr>
+  <tr><td>E2E: endereço do servidor de teste</td><td>ok</td><td>conectado a "Turma E2E"</td></tr>
+  <tr><td>E2E: reabrir o app</td><td>ok</td><td>entra direto no servidor guardado</td></tr>
+  <tr><td>E2E: trocar servidor → cancelar; trocar → fechar app → reabrir</td><td>ok</td><td>servidor anterior mantido nos dois casos</td></tr>
+</table>
+<p>Revisão: 13 achados (0 graves, 3 médios, 10 menores), todos corrigidos.</p>

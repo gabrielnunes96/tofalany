@@ -6,9 +6,9 @@ const json = (corpo: unknown, status = 200) =>
 
 describe('testarServidor', () => {
   it('aceita um servidor Tô Falando', async () => {
-    const buscar = vi.fn(() => json({ app: 'tofalando', nome: 'Turma', versao: '0.1.0', limiteContas: 20 }));
+    const buscar = vi.fn(() => json({ app: 'tofalando', nome: 'Turma', versao: '0.1.0', contas: 2, limiteContas: 20 }));
     const r = await testarServidor('http://s:3000', buscar);
-    expect(r).toEqual({ ok: true, valor: { app: 'tofalando', nome: 'Turma', versao: '0.1.0', limiteContas: 20 } });
+    expect(r).toEqual({ ok: true, valor: { app: 'tofalando', nome: 'Turma', versao: '0.1.0', contas: 2, limiteContas: 20 } });
     expect(buscar).toHaveBeenCalledWith('http://s:3000/api/servidor', expect.anything());
   });
 

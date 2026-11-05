@@ -1,6 +1,7 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, safeStorage, shell } from 'electron';
 import { criarArmazemConfiguracoes } from './configuracoes';
+import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
@@ -49,7 +50,15 @@ function criarJanela(): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
-  registrarIpc(criarArmazemConfiguracoes(join(app.getPath('userData'), 'configuracoes.json')));
+  const dados = app.getPath('userData');
+  registrarIpc(
+    criarArmazemConfiguracoes(join(dados, 'configuracoes.json')),
+    criarArmazemSessao(join(dados, 'sessao.json'), {
+      disponivel: () => safeStorage.isEncryptionAvailable(),
+      cifrar: (texto) => safeStorage.encryptString(texto),
+      decifrar: (bytes) => safeStorage.decryptString(bytes),
+    }),
+  );
   criarJanela();
 
   app.on('activate', () => {

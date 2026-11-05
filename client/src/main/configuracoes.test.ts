@@ -1,12 +1,18 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { criarArmazemConfiguracoes } from './configuracoes';
 
+const pastas: string[] = [];
 function arquivoTemp(): string {
-  return join(mkdtempSync(join(tmpdir(), 'tofalando-cfg-')), 'sub', 'configuracoes.json');
+  const pasta = mkdtempSync(join(tmpdir(), 'tofalando-cfg-'));
+  pastas.push(pasta);
+  return join(pasta, 'sub', 'configuracoes.json');
 }
+afterEach(() => {
+  for (const p of pastas.splice(0)) rmSync(p, { recursive: true, force: true });
+});
 
 describe('criarArmazemConfiguracoes', () => {
   it('começa com o padrão quando não há arquivo', () => {

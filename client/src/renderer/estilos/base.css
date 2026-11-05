@@ -67,3 +67,10 @@ button.secundario { background: transparent; border: 1px solid var(--borda); col
 :focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 
 .erro { color: var(--erro); margin: 4px 0 0; }
+
+button.link { background: transparent; color: var(--texto-suave); text-decoration: underline; padding: 4px; margin-top: 0; }
+button.link:hover:not(:disabled) { background: transparent; color: var(--texto); }
+
+.abas { display: flex; gap: 4px; margin-bottom: 8px; }
+.abas button { flex: 1; margin: 0; background: var(--fundo); color: var(--texto-suave); border: 1px solid var(--borda); }
+.abas button[aria-pressed='true'] { background: var(--destaque); color: #fff; border-color: var(--destaque); }

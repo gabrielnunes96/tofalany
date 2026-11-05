@@ -8,6 +8,14 @@ export interface Config {
   limiteContas: number;
   versao: string;
   log: boolean;
+  /** Arquivo do SQLite (":memory:" nos testes). */
+  caminhoBanco: string;
+  /** Código de convite inicial (RN-1); depois da primeira subida vale o do banco. */
+  codigoConvite: string | undefined;
+  /** Tentativas de cadastro/login por IP por minuto. */
+  tentativasPorMinuto: number;
+  /** Atrás do Caddy (VPS): usa o IP real do cabeçalho X-Forwarded-For. */
+  atrasDeProxy: boolean;
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -35,5 +43,9 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     limiteContas: inteiro('LIMITE_CONTAS', ambiente.LIMITE_CONTAS, LIMITE_CONTAS_PADRAO, 1),
     versao: lerVersao(),
     log: ambiente.LOG !== 'false',
+    caminhoBanco: ambiente.BANCO || 'data/tofalando.db',
+    codigoConvite: ambiente.CODIGO_CONVITE?.trim() || undefined,
+    tentativasPorMinuto: inteiro('TENTATIVAS_POR_MINUTO', ambiente.TENTATIVAS_POR_MINUTO, 10, 1),
+    atrasDeProxy: ambiente.ATRAS_DE_PROXY === 'true',
   };
 }

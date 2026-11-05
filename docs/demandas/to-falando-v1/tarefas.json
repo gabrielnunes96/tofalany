@@ -14,9 +14,9 @@
         "CA-1"
       ],
       "validacao": "npm run build && npm test verdes; E2E: URL inválida mostra erro, válida avança",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "a26d78d"
     },
     {
       "id": "T2",
@@ -35,7 +35,7 @@
         "CA-6"
       ],
       "validacao": "integração dos 4 erros de cadastro e da 1ª conta admin; E2E: reabrir entra sem senha",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

@@ -1,3 +1,5 @@
+import { SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
+
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
 
 /**
@@ -19,4 +21,29 @@ export function normalizarUrlServidor(texto: string): Resultado<string> {
   }
   if (!url.hostname) return { ok: false, erro: 'Endereço inválido.' };
   return { ok: true, valor: url.origin };
+}
+
+const PADRAO_USUARIO = /^[a-zA-Z0-9_.-]+$/;
+
+/** RN-3: login único sem diferenciar maiúsculas; letras sem acento, números, ponto, hífen e sublinhado. */
+export function validarUsuario(texto: string): Resultado<string> {
+  const usuario = texto.trim();
+  if (usuario.length < USUARIO_MIN || usuario.length > USUARIO_MAX) {
+    return { ok: false, erro: `O nome de usuário deve ter de ${USUARIO_MIN} a ${USUARIO_MAX} caracteres.` };
+  }
+  if (!PADRAO_USUARIO.test(usuario)) {
+    return { ok: false, erro: 'Use só letras sem acento, números, ponto, hífen ou sublinhado no nome de usuário.' };
+  }
+  return { ok: true, valor: usuario };
+}
+
+/** Forma usada para comparar logins (RN-3). */
+export function normalizarUsuario(usuario: string): string {
+  return usuario.trim().toLowerCase();
+}
+
+export function validarSenha(senha: string): Resultado<string> {
+  if (senha.length < SENHA_MIN) return { ok: false, erro: `A senha deve ter pelo menos ${SENHA_MIN} caracteres.` };
+  if (senha.length > SENHA_MAX) return { ok: false, erro: `A senha deve ter no máximo ${SENHA_MAX} caracteres.` };
+  return { ok: true, valor: senha };
 }
