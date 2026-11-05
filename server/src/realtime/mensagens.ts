@@ -7,6 +7,7 @@ import { buscarPorId } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { arquivosDaMensagem, vincularAnexos } from '../dominio/anexos.js';
 import { abrirDm, dmPara, exigirParticipante } from '../dominio/dms.js';
+import { chaveDoDestino, marcarLido } from '../dominio/leituras.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import { comAck } from './acoes.js';
 import { salaUsuario, type ServidorTempoReal, type SocketTofalando } from './tempo-real.js';
@@ -164,6 +165,25 @@ export function registrarEventosMensagens(
       return undefined;
     }),
   );
+
+  // Sem resposta: leitura é descartável (a próxima marca de novo). Vale para os outros computadores da pessoa.
+  socket.on('lido:marcar', (dados: unknown) => {
+    try {
+      const ultima = ehObjeto(dados) ? dados.ultimaMensagemId : undefined;
+      if (!ehId(ultima)) return;
+      const d = ehObjeto(dados) && ehObjeto(dados.destino) ? dados.destino : undefined;
+      // Ler uma DM com conta removida continua valendo (lerDestino recusaria por ser só leitura).
+      let destino: Destino;
+      if (d && ehId(d.dmId)) {
+        exigirParticipante(banco, d.dmId, usuarioId);
+        destino = { dmId: d.dmId };
+      } else destino = lerDestino(banco, dados, usuarioId).destino;
+      const ultimaMensagemId = marcarLido(banco, usuarioId, destino, ultima);
+      if (ultimaMensagemId !== undefined) io.to(salaUsuario(usuarioId)).emit('lido:atualizado', { chave: chaveDoDestino(destino), ultimaMensagemId });
+    } catch {
+      /* ignora */
+    }
+  });
 
   socket.on(
     'dm:abrir',

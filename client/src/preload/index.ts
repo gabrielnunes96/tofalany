@@ -23,6 +23,14 @@ const api: ApiTofalando = {
   areaTransferencia: {
     copiar: (texto) => ipcRenderer.invoke('area:copiar', texto),
   },
+  notificacoes: {
+    mostrar: (p) => ipcRenderer.invoke('notificar', p),
+    aoClicar: (fn) => {
+      const ouvinte = (_e: IpcRendererEvent, chave: string) => fn(chave);
+      ipcRenderer.on('notificacao:abrir', ouvinte);
+      return () => ipcRenderer.removeListener('notificacao:abrir', ouvinte);
+    },
+  },
   arquivos: {
     baixar: (url, nome) => ipcRenderer.invoke('arquivo:baixar', url, nome),
     abrir: (caminho) => ipcRenderer.invoke('arquivo:abrir', caminho),

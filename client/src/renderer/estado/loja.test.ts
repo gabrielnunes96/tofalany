@@ -7,7 +7,7 @@ describe('useLoja', () => {
   beforeEach(() => useLoja.getState().limpar());
 
   it('aplica o retrato inicial e limpa ao sair', () => {
-    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, convite: { link: 'http://s/convite/a' }, eu, usuarios: [eu], canais: [], dms: [] });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, convite: { link: 'http://s/convite/a' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {} });
     expect(useLoja.getState().linkConvite).toBe('http://s/convite/a');
     useLoja.getState().definirLinkConvite('http://s/convite/b');
     expect(useLoja.getState().linkConvite).toBe('http://s/convite/b');
@@ -32,7 +32,7 @@ describe('useLoja', () => {
 describe('canais na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
   const ola = (canais: { id: number; tipo: 'texto' | 'voz'; nome: string; posicao: number }[]) =>
-    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais, dms: [] });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais, dms: [], naoLidas: {} });
 
   it('ordena texto antes de voz, abre o primeiro de texto e troca ao remover o aberto', () => {
     ola([
@@ -90,7 +90,7 @@ describe('histórico de mensagens na loja', () => {
     l.receberPagina('c:2', { mensagens: [msg(2, 2)], fim: true }, l.iniciarCarga('c:2'));
     l.removerCanal(2);
     expect(useLoja.getState().historicos['c:2']).toBeUndefined();
-    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [] });
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {} });
     expect(useLoja.getState().historicos).toEqual({});
   });
 });
@@ -102,7 +102,7 @@ describe('respostas atrasadas do histórico', () => {
   it('resposta de antes da reconexão é ignorada; a ordem fica certa', () => {
     const l = useLoja.getState();
     const velha = l.iniciarCarga('c:1');
-    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [] });
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {} });
     const nova = l.iniciarCarga('c:1');
     l.receberPagina('c:1', { mensagens: [msg(11), msg(12)], fim: false }, nova);
     l.receberPagina('c:1', { mensagens: [msg(1), msg(2)], fim: false }, velha);
@@ -146,7 +146,7 @@ describe('edição, exclusão e digitando na loja', () => {
 describe('DMs na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
   const ola = (dms: { id: number; outroId: number; ultimaEm: number }[]) =>
-    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }], dms });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }], dms, naoLidas: {} });
 
   it('ordena pela mais recente; abrir DM e voltar ao canal; reconectar mantém a DM aberta se ela existe', () => {
     ola([{ id: 1, outroId: 2, ultimaEm: 10 }, { id: 2, outroId: 3, ultimaEm: 20 }]);
@@ -170,5 +170,43 @@ describe('DMs na loja', () => {
     l.adicionarMensagem({ id: 5, canalId: null, dmId: 1, autorId: 2, texto: 'oi', criadaEm: 1, editadaEm: null, anexos: [] });
     expect(useLoja.getState().historicos['d:1']!.mensagens.map((m) => m.id)).toEqual([5]);
     expect(useLoja.getState().historicos['c:1']!.mensagens).toEqual([]);
+  });
+});
+
+describe('não lidas na loja', () => {
+  beforeEach(() => useLoja.getState().limpar());
+
+  it('vem do retrato inicial (ignorando chaves estranhas), conta e zera', () => {
+    useLoja.getState().aplicarOla({
+      servidor: { nome: 'T' },
+      convite: { link: 'x' },
+      eu,
+      usuarios: [eu],
+      canais: [],
+      dms: [],
+      naoLidas: { 'c:1': 3, 'd:2': 1, lixo: 9 },
+    });
+    expect(useLoja.getState().naoLidas).toEqual({ 'c:1': 3, 'd:2': 1 });
+    useLoja.getState().contarNaoLida('c:1', 10);
+    useLoja.getState().contarNaoLida('c:5', 11);
+    expect(useLoja.getState().naoLidas).toEqual({ 'c:1': 4, 'd:2': 1, 'c:5': 1 });
+    useLoja.getState().zerarNaoLidas('c:1');
+    expect(useLoja.getState().naoLidas).toEqual({ 'd:2': 1, 'c:5': 1 });
+  });
+
+  it('leitura de outro computador só tira o que foi lido; apagada desconta', () => {
+    const l = useLoja.getState();
+    l.contarNaoLida('c:1', 10);
+    l.contarNaoLida('c:1', 12);
+    l.contarNaoLida('c:1', 14);
+    l.aplicarLeitura('c:1', 12);
+    expect(useLoja.getState().naoLidas['c:1']).toBe(1);
+    l.descontarApagada('c:1', 99);
+    expect(useLoja.getState().naoLidas['c:1']).toBe(1);
+    l.descontarApagada('c:1', 14);
+    expect(useLoja.getState().naoLidas['c:1']).toBeUndefined();
+    l.contarNaoLida('d:2', 20);
+    l.aplicarLeitura('d:2', 20);
+    expect(useLoja.getState().naoLidas['d:2']).toBeUndefined();
   });
 });

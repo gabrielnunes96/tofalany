@@ -26,6 +26,12 @@ export interface ApiTofalando {
   areaTransferencia: {
     copiar(texto: string): Promise<void>;
   };
+  notificacoes: {
+    /** Pede ao sistema para avisar; o processo principal decide pelo foco da janela. */
+    mostrar(p: { titulo: string; corpo: string; chave: string; conversaAberta: boolean }): Promise<boolean>;
+    /** Clique na notificação: abre a conversa. Devolve a função que para de ouvir. */
+    aoClicar(fn: (chave: string) => void): () => void;
+  };
   arquivos: {
     /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */
     baixar(url: string, nome: string): Promise<string | null>;

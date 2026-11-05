@@ -5,6 +5,7 @@ import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
 import { prepararLinks } from './deeplink';
 import { criarArquivos } from './arquivos';
+import { criarNotificacoes } from './notificacoes';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -91,6 +92,7 @@ if (links.principal) {
         () => janelaPrincipal,
         () => configuracoes.ler().servidorUrl,
       ),
+      criarNotificacoes(() => janelaPrincipal),
     );
     criarJanela();
 

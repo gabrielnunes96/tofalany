@@ -22,6 +22,10 @@ interface Loja {
   dmAtiva: number | null;
   /** Histórico já carregado por conversa (some ao reconectar, para recarregar sem buracos). */
   historicos: Partial<Record<Chave, Historico>>;
+  /** Mensagens não lidas por conversa (RF-12). */
+  naoLidas: Partial<Record<Chave, number>>;
+  /** Ids das não lidas que chegaram nesta conexão (para descontar se forem apagadas e para o aviso de leitura). */
+  naoLidasIds: Partial<Record<Chave, number[]>>;
   /** Quem está digitando em cada conversa: usuarioId → até quando (ms). */
   digitando: Partial<Record<Chave, Record<number, number>>>;
   definirConexao(estado: EstadoConexao): void;
@@ -44,6 +48,12 @@ interface Loja {
   atualizarMensagem(mensagem: MensagemDto): void;
   removerMensagem(id: number, chave: Chave | null): void;
   registrarDigitando(chave: Chave, usuarioId: number, ate: number): void;
+  contarNaoLida(chave: Chave, mensagemId: number): void;
+  zerarNaoLidas(chave: Chave): void;
+  /** Leitura feita (aqui ou em outro computador) até `ultimaMensagemId`: tira o que foi lido. */
+  aplicarLeitura(chave: Chave, ultimaMensagemId: number): void;
+  /** Mensagem apagada: se era uma não lida desta conexão, desconta. */
+  descontarApagada(chave: Chave, mensagemId: number): void;
   limpar(): void;
 }
 
@@ -79,6 +89,8 @@ const inicial = {
   dms: [] as DmDto[],
   dmAtiva: null as number | null,
   historicos: {} as Partial<Record<Chave, Historico>>,
+  naoLidas: {} as Partial<Record<Chave, number>>,
+  naoLidasIds: {} as Partial<Record<Chave, number[]>>,
   digitando: {} as Partial<Record<Chave, Record<number, number>>>,
 };
 
@@ -96,7 +108,7 @@ function canalValido(canais: CanalDto[], atual: number | null): number | null {
 export const useLoja = create<Loja>((set) => ({
   ...inicial,
   definirConexao: (conexao) => set({ conexao }),
-  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms }) =>
+  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -111,6 +123,8 @@ export const useLoja = create<Loja>((set) => ({
         // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
         historicos: {},
         digitando: {},
+        naoLidasIds: {},
+        naoLidas: Object.fromEntries(Object.entries(naoLidas).filter(([k]) => /^[cd]:\d+$/.test(k))) as Partial<Record<Chave, number>>,
       };
     }),
   salvarCanal: (canal) =>
@@ -175,6 +189,48 @@ export const useLoja = create<Loja>((set) => ({
     }),
   registrarDigitando: (chave, usuarioId, ate) =>
     set((s) => ({ digitando: { ...s.digitando, [chave]: { ...(s.digitando[chave] ?? {}), [usuarioId]: ate } } })),
+  contarNaoLida: (chave, mensagemId) =>
+    set((s) => ({
+      naoLidas: { ...s.naoLidas, [chave]: (s.naoLidas[chave] ?? 0) + 1 },
+      naoLidasIds: { ...s.naoLidasIds, [chave]: [...(s.naoLidasIds[chave] ?? []), mensagemId] },
+    })),
+  zerarNaoLidas: (chave) =>
+    set((s) => {
+      if (!s.naoLidas[chave] && !s.naoLidasIds[chave]) return {};
+      const naoLidas = { ...s.naoLidas };
+      const naoLidasIds = { ...s.naoLidasIds };
+      delete naoLidas[chave];
+      delete naoLidasIds[chave];
+      return { naoLidas, naoLidasIds };
+    }),
+  aplicarLeitura: (chave, ultimaMensagemId) =>
+    set((s) => {
+      const ids = s.naoLidasIds[chave] ?? [];
+      // Chegou não lida mais nova que a leitura (ex.: outro computador marcou antes dela): fica só ela.
+      const restantes = ids.filter((id) => id > ultimaMensagemId);
+      const naoLidas = { ...s.naoLidas };
+      const naoLidasIds = { ...s.naoLidasIds };
+      if (restantes.length) {
+        naoLidas[chave] = restantes.length;
+        naoLidasIds[chave] = restantes;
+      } else {
+        delete naoLidas[chave];
+        delete naoLidasIds[chave];
+      }
+      return { naoLidas, naoLidasIds };
+    }),
+  descontarApagada: (chave, mensagemId) =>
+    set((s) => {
+      const ids = s.naoLidasIds[chave];
+      if (!ids?.includes(mensagemId)) return {};
+      const restantes = ids.filter((id) => id !== mensagemId);
+      const naoLidas = { ...s.naoLidas };
+      const naoLidasIds = { ...s.naoLidasIds, [chave]: restantes };
+      const n = (naoLidas[chave] ?? 1) - 1;
+      if (n > 0) naoLidas[chave] = n;
+      else delete naoLidas[chave];
+      return { naoLidas, naoLidasIds };
+    }),
   abrirCanal: (id) => set((s) => ({ canalAtivo: canalValido(s.canais, id), dmAtiva: null })),
   definirLinkConvite: (linkConvite) => set({ linkConvite }),
   adicionarUsuario: (usuario) =>

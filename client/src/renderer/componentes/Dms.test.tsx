@@ -42,6 +42,31 @@ describe('BarraLateral — mensagens diretas', () => {
   });
 });
 
+describe('BarraLateral — contadores de não lidas', () => {
+  it('mostra o número por canal e por DM, com rótulo acessível e 99+', () => {
+    render(
+      <BarraLateral
+        nomeServidor="T"
+        canais={[{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }, { id: 2, tipo: 'texto', nome: 'jogos', posicao: 2 }]}
+        canalAtivo={1}
+        ehAdmin={false}
+        aoAbrir={vi.fn()}
+        aoCriar={fn()}
+        aoRenomear={fn()}
+        aoRemover={fn()}
+        dms={[dm]}
+        usuarios={[bia]}
+        dmAtiva={null}
+        aoAbrirDm={vi.fn()}
+        naoLidas={{ 'c:2': 3, 'd:7': 150 }}
+      />,
+    );
+    expect(screen.getByText('3 não lidas').parentElement!.querySelector('[aria-hidden="true"]')!.textContent).toBe('3');
+    expect(screen.getByText('150 não lidas').parentElement!.querySelector('[aria-hidden="true"]')!.textContent).toBe('99+');
+    expect(screen.getByRole('button', { name: /geral/ }).textContent).not.toMatch(/\d/);
+  });
+});
+
 describe('DmAberta', () => {
   const props = {
     usuarios: [bia],

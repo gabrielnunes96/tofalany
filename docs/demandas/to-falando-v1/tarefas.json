@@ -244,9 +244,9 @@
         "CA-19b"
       ],
       "validacao": "integração: só B recebe; C e admin recusados ao ler/apagar; E2E: DM com texto e imagem",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "e1564ab"
     },
     {
       "id": "T13",
@@ -261,7 +261,7 @@
         "CA-19"
       ],
       "validacao": "unidade do contador; E2E: contador em outro canal e notificação com app sem foco; usuário confirma a notificação",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
@@ -465,7 +465,7 @@
     {
       "id": "T24",
       "titulo": "Instaladores Windows e Linux",
-      "descricao": "electron-builder: npm run dist:win (NSIS via wine) e npm run dist:linux (.AppImage e .deb), ícone, registro do protocolo tofalany://, uiohook-napi e sharp corretos por plataforma.",
+      "descricao": "electron-builder: npm run dist:win (NSIS via wine) e npm run dist:linux (.AppImage e .deb), ícone, registro do protocolo tofalany://, uiohook-napi e sharp corretos por plataforma. Pendência da T13: app.setAppUserModelId no Windows, para as notificações aparecerem no app instalado.",
       "repo": ".",
       "stack": "front",
       "depende_de": [

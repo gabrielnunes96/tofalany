@@ -38,4 +38,5 @@ export function renomearCanal(banco: Banco, id: number, nome: string): CanalDto 
 /** Remove o canal; as mensagens saem junto pelo ON DELETE CASCADE (RN-8). Os arquivos de anexo entram na T11. */
 export function removerCanal(banco: Banco, id: number): void {
   banco.prepare('DELETE FROM canais WHERE id = ?').run(id);
+  banco.prepare('DELETE FROM leituras WHERE chave = ?').run(`c:${id}`);
 }

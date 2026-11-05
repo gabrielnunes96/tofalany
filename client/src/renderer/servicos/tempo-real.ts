@@ -30,6 +30,7 @@ export interface OuvintesTempoReal {
   aoMensagemApagada(id: number, chave: Chave | null): void;
   aoDigitando(chave: Chave, usuarioId: number): void;
   aoDmAtualizada(dm: DmDto): void;
+  aoLidoAtualizado(chave: Chave, ultimaMensagemId: number): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -62,12 +63,14 @@ export interface ConexaoTempoReal {
   desconectar(): void;
   /** Sinal de "digitando" (descartável: sem conexão, não faz nada). */
   avisarDigitando(destino: Destino): void;
+  /** Leu a conversa até esta mensagem. */
+  avisarLido(destino: Destino, ultimaMensagemId: number): void;
   /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
   pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
 }
 
 /** Eventos que esperam resposta (ack); "digitando" é só um sinal. */
-type EventoComResposta = Exclude<keyof EventosCliente, 'digitando'>;
+type EventoComResposta = Exclude<keyof EventosCliente, 'digitando' | 'lido:marcar'>;
 
 type AckValor<K extends EventoComResposta> = Parameters<Parameters<EventosCliente[K]>[1]>[0] extends infer R
   ? R extends { ok: true; valor: infer V }
@@ -120,6 +123,9 @@ export function conectarTempoReal(
     if (chave) ouvintes.aoDigitando(chave, p.usuarioId);
   });
   socket.on('dm:atualizada', (dm) => ouvintes.aoDmAtualizada(dm));
+  socket.on('lido:atualizado', ({ chave, ultimaMensagemId }) => {
+    if (/^[cd]:\d+$/.test(chave)) ouvintes.aoLidoAtualizado(chave as Chave, ultimaMensagemId);
+  });
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');
@@ -145,6 +151,9 @@ export function conectarTempoReal(
       pararRede();
       socket.removeAllListeners();
       socket.disconnect();
+    },
+    avisarLido(destino, ultimaMensagemId) {
+      if (socket.connected) socket.emit('lido:marcar', { destino, ultimaMensagemId });
     },
     avisarDigitando(destino) {
       if (socket.connected) socket.emit('digitando', { destino });

@@ -160,6 +160,8 @@ export interface OlaPayload {
   usuarios: UsuarioDto[];
   canais: CanalDto[];
   dms: DmDto[];
+  /** RF-12: mensagens não lidas por conversa ("c:<id>" / "d:<id>"), só as que têm alguma. */
+  naoLidas: Record<string, number>;
 }
 
 /** Eventos servidor → cliente. */
@@ -180,6 +182,8 @@ export interface EventosServidor {
   'mensagem:apagada': (payload: { id: number; canalId: number | null; dmId: number | null }) => void;
   /** Alguém está digitando no canal ou na DM (não chega para quem digita; DM só para o outro participante). */
   digitando: (payload: { canalId: number | null; dmId: number | null; usuarioId: number }) => void;
+  /** A própria pessoa leu uma conversa (em qualquer computador): o contador zera em todos. */
+  'lido:atualizado': (payload: { chave: string; ultimaMensagemId: number }) => void;
   /** Conversa direta nova (ou com mensagem nova): chega só para os dois participantes. */
   'dm:atualizada': (dm: DmDto) => void;
   /** Conta removida por um administrador: some da lista. */
@@ -202,6 +206,8 @@ export interface EventosCliente {
   'mensagem:apagar': (dados: { id: number }, ack: Ack) => void;
   /** Sinal de "digitando" (sem resposta). */
   digitando: (dados: { destino: Destino }) => void;
+  /** RF-12: leu a conversa até esta mensagem (sem resposta; só avança, nunca volta). */
+  'lido:marcar': (dados: { destino: Destino; ultimaMensagemId: number }) => void;
   /** RF-12a: abre (ou cria) a conversa direta com outra pessoa. */
   'dm:abrir': (dados: { usuarioId: number }, ack: Ack<DmDto>) => void;
 }

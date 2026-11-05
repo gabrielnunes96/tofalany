@@ -15,6 +15,19 @@ interface Props {
   usuarios: UsuarioDto[];
   dmAtiva: number | null;
   aoAbrirDm: (id: number) => void;
+  /** RF-12: não lidas por conversa ("c:<id>" / "d:<id>"). */
+  naoLidas?: Partial<Record<string, number>>;
+}
+
+/** Bolinha com o número de não lidas (99+ acima disso). */
+function Contador({ n }: { n: number | undefined }) {
+  if (!n) return null;
+  return (
+    <span className="contador">
+      <span aria-hidden="true">{n > 99 ? '99+' : n}</span>
+      <span className="so-leitor">{`${n} não ${n === 1 ? 'lida' : 'lidas'}`}</span>
+    </span>
+  );
 }
 
 const TITULOS: Record<TipoCanal, string> = { texto: 'Canais de texto', voz: 'Canais de voz' };
@@ -88,7 +101,21 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover }: { canal: CanalDto } 
 }
 
 /** RF-7: lista de canais de texto e de voz; qualquer membro cria e renomeia, só administrador remove (RN-7). */
-export function BarraLateral({ nomeServidor, canais, canalAtivo, ehAdmin, aoAbrir, aoCriar, aoRenomear, aoRemover, dms, usuarios, dmAtiva, aoAbrirDm }: Props) {
+export function BarraLateral({
+  nomeServidor,
+  canais,
+  canalAtivo,
+  ehAdmin,
+  aoAbrir,
+  aoCriar,
+  aoRenomear,
+  aoRemover,
+  dms,
+  usuarios,
+  dmAtiva,
+  aoAbrirDm,
+  naoLidas = {},
+}: Props) {
   const [criando, setCriando] = useState<TipoCanal | null>(null);
 
   return (
@@ -127,6 +154,7 @@ export function BarraLateral({ nomeServidor, canais, canalAtivo, ehAdmin, aoAbri
                       onClick={() => aoAbrir(c.id)}
                     >
                       <span aria-hidden="true">#</span> {c.nome}
+                      <Contador n={naoLidas[`c:${c.id}`]} />
                     </button>
                   ) : (
                     <ItemVoz canal={c} ehAdmin={ehAdmin} aoRenomear={aoRenomear} aoRemover={aoRemover} />
@@ -153,6 +181,7 @@ export function BarraLateral({ nomeServidor, canais, canalAtivo, ehAdmin, aoAbri
                   onClick={() => aoAbrirDm(d.id)}
                 >
                   <span aria-hidden="true">@</span> {nome}
+                  <Contador n={naoLidas[`d:${d.id}`]} />
                 </button>
               </li>
             );

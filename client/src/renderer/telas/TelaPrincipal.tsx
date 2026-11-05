@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DIGITANDO_DURACAO_MS, type Destino, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
+import { DIGITANDO_DURACAO_MS, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -13,7 +13,8 @@ import { Avatar } from '../componentes/Avatar';
 import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
 import { DmAberta } from '../componentes/DmAberta';
-import type { Chave, Historico } from '../estado/loja';
+import { chaveCanal, chaveDm, type Chave, type Historico } from '../estado/loja';
+import { decidirMensagemNova } from '../estado/notificar';
 
 interface Props {
   servidorUrl: string;
@@ -27,10 +28,17 @@ interface Props {
 
 type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite';
 
+/** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
+const destinoDe = (chave: Chave): Destino => {
+  const id = Number(chave.slice(2));
+  return chave.startsWith('c:') ? { canalId: id } : { dmId: id };
+};
+
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada }: Props) {
-  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva } = useLoja(
+  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas } = useLoja(
     useShallow((s) => ({
+      naoLidas: s.naoLidas,
       dms: s.dms,
       dmAtiva: s.dmAtiva,
       conexao: s.conexao,
@@ -54,6 +62,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       removerCanal: s.removerCanal,
       abrirCanal: s.abrirCanal,
       salvarDm: s.salvarDm,
+      contarNaoLida: s.contarNaoLida,
+      zerarNaoLidas: s.zerarNaoLidas,
+      aplicarLeitura: s.aplicarLeitura,
+      descontarApagada: s.descontarApagada,
       abrirDm: s.abrirDm,
       adicionarMensagem: s.adicionarMensagem,
       atualizarMensagem: s.atualizarMensagem,
@@ -66,8 +78,28 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [copiado, setCopiado] = useState<string | null>(null);
   const [pessoasAuditoria, setPessoasAuditoria] = useState<PessoaFiltro[]>([]);
   const conexaoRef = useRef<ConexaoTempoReal | null>(null);
+  const chaveAbertaRef = useRef<Chave | null>(null);
 
   useEffect(() => {
+    /** RF-12: conta como não lida ou marca como lida, e pede a notificação (o processo principal decide pelo foco). */
+    function avisarMensagemNova(m: MensagemDto) {
+      const estado = useLoja.getState();
+      if (!estado.eu) return;
+      const d = decidirMensagemNova(m, {
+        euId: estado.eu.id,
+        chaveAberta: chaveAbertaRef.current,
+        focado: document.hasFocus(),
+        usuarios: estado.usuarios,
+        canais: estado.canais,
+      });
+      if (!d) return;
+      if (d.acao === 'lido') conexaoRef.current?.avisarLido(destinoDe(d.chave), m.id);
+      else acoes.contarNaoLida(d.chave, m.id);
+      void ponte()
+        .notificacoes.mostrar(d.notificacao)
+        .catch(() => undefined);
+    }
+
     const conexao = conectarTempoReal(servidorUrl, token, {
       aoEstado: acoes.definirConexao,
       aoOla: acoes.aplicarOla,
@@ -85,11 +117,18 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoCanalCriado: acoes.salvarCanal,
       aoCanalRenomeado: acoes.salvarCanal,
       aoCanalRemovido: acoes.removerCanal,
-      aoMensagemNova: acoes.adicionarMensagem,
+      aoMensagemNova: (m) => {
+        acoes.adicionarMensagem(m);
+        avisarMensagemNova(m);
+      },
       aoMensagemEditada: acoes.atualizarMensagem,
-      aoMensagemApagada: acoes.removerMensagem,
+      aoMensagemApagada: (id, chave) => {
+        acoes.removerMensagem(id, chave);
+        if (chave) acoes.descontarApagada(chave, id);
+      },
       aoDigitando: (chave, usuarioId) => acoes.registrarDigitando(chave, usuarioId, Date.now() + DIGITANDO_DURACAO_MS),
       aoDmAtualizada: acoes.salvarDm,
+      aoLidoAtualizado: acoes.aplicarLeitura,
       aoRevogada: aoSessaoRevogada,
     });
     conexaoRef.current = conexao;
@@ -104,6 +143,42 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
   const ehAdmin = usuario.cargo === 'admin';
   const vistaAtual: Vista = !ehAdmin && (vista === 'auditoria' || vista === 'membros' || vista === 'convite') ? 'canal' : vista;
+
+  /** Conversa na tela agora (null em perfil/administração). */
+  const chaveAberta: Chave | null =
+    vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
+  useEffect(() => {
+    chaveAbertaRef.current = chaveAberta;
+  }, [chaveAberta]);
+
+  // Conversa aberta com a janela em foco: zera o contador e marca como lida até a última mensagem.
+  const ultimoIdAberta = useLoja((s) => (chaveAberta ? s.historicos[chaveAberta]?.mensagens.at(-1)?.id : undefined));
+  useEffect(() => {
+    if (!chaveAberta) return;
+    const marcar = () => {
+      if (!document.hasFocus()) return;
+      // Só zera quando há o que marcar (histórico carregado); senão o contador voltaria na reconexão.
+      const id = useLoja.getState().historicos[chaveAberta]?.mensagens.at(-1)?.id;
+      if (!id) return;
+      acoes.zerarNaoLidas(chaveAberta);
+      conexaoRef.current?.avisarLido(destinoDe(chaveAberta), id);
+    };
+    marcar();
+    window.addEventListener('focus', marcar);
+    return () => window.removeEventListener('focus', marcar);
+  }, [chaveAberta, ultimoIdAberta, acoes]);
+
+  // Clique na notificação do sistema: abre a conversa.
+  useEffect(
+    () =>
+      ponte().notificacoes.aoClicar((chave) => {
+        const [tipo, id] = chave.split(':');
+        if (tipo === 'c') acoes.abrirCanal(Number(id));
+        else if (tipo === 'd') acoes.abrirDm(Number(id));
+        setVista('canal');
+      }),
+    [acoes],
+  );
 
   /** Ação em tempo real; devolve a mensagem de erro (ou null) e aplica o resultado na hora. */
   async function pedir<T>(fn: (c: ConexaoTempoReal) => Promise<{ ok: true; valor: T } | { ok: false; erro: string }>, aplicar: (v: T) => void) {
@@ -179,6 +254,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             dms={dms}
             usuarios={usuarios}
             dmAtiva={vistaAtual === 'canal' ? dmAtiva : null}
+            naoLidas={naoLidas}
             aoAbrirDm={(id) => {
               acoes.abrirDm(id);
               setVista('canal');

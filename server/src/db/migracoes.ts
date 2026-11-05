@@ -100,5 +100,14 @@ export const MIGRACOES: readonly string[] = [
   ALTER TABLE mensagens ADD COLUMN dm_id INTEGER REFERENCES dms(id) ON DELETE CASCADE;
   CREATE INDEX mensagens_dm ON mensagens(dm_id, id);
   `,
+  // 007 — leituras (T13): até onde cada pessoa leu cada conversa ("c:<id>" / "d:<id>").
+  `
+  CREATE TABLE leituras (
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    chave TEXT NOT NULL,
+    ultima_mensagem_id INTEGER NOT NULL,
+    PRIMARY KEY (usuario_id, chave)
+  );
+  `,
 ];
 

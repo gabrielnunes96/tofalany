@@ -19,7 +19,7 @@ function socketFalso() {
 
 function montar() {
   const s = socketFalso();
-  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn(), aoDmAtualizada: vi.fn() };
+  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn(), aoDmAtualizada: vi.fn(), aoLidoAtualizado: vi.fn() };
   const fabrica = vi.fn(() => s as unknown as SocketTofalando);
   let avisarRede: (online: boolean) => void = () => undefined;
   const pararRede = vi.fn();
@@ -115,6 +115,10 @@ describe('conectarTempoReal', () => {
     expect(ouvintes.aoDigitando).toHaveBeenCalledWith('c:1', 2);
     expect(ouvintes.aoDigitando).toHaveBeenCalledWith('d:4', 3);
     expect(ouvintes.aoDmAtualizada).toHaveBeenCalledWith({ id: 4, outroId: 3, ultimaEm: 1 });
+    s.disparar('lido:atualizado', { chave: 'd:4', ultimaMensagemId: 9 });
+    s.disparar('lido:atualizado', { chave: 'lixo', ultimaMensagemId: 9 });
+    expect(ouvintes.aoLidoAtualizado).toHaveBeenCalledTimes(1);
+    expect(ouvintes.aoLidoAtualizado).toHaveBeenCalledWith('d:4', 9);
   });
 
   it('o ola chega ao ouvinte; desconectar remove os ouvintes', () => {

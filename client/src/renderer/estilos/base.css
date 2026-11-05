@@ -238,3 +238,6 @@ button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); 
 .somente-leitura { padding: 10px; border-top: 1px solid var(--borda); text-align: center; margin: 0; }
 .dica-dm { font-size: 0.78rem; margin: 4px 6px; }
 .titulo-dm { display: flex; align-items: center; gap: 8px; }
+.contador { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--magenta); color: var(--texto-no-destaque); font-size: 0.72rem; font-weight: 800; line-height: 18px; text-align: center; }
+button.canal { display: flex; align-items: center; gap: 4px; }
+.so-leitor { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
