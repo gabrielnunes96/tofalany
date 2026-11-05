@@ -266,3 +266,11 @@ button.canal { display: flex; align-items: center; gap: 4px; }
 .medidor-nivel { height: 100%; background: var(--texto-suave); transition: width 60ms linear; }
 .medidor-nivel.acima { background: var(--destaque); box-shadow: 0 0 10px var(--destaque); }
 .medidor-marca { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--magenta); }
+
+/* Painel de voz: transmitindo, mute e deafen (RF-14, RF-16) */
+.transmitindo { width: 10px; height: 10px; border-radius: 50%; background: var(--borda); flex: none; }
+.transmitindo.ativo { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+button.icone.controle { font-size: 1rem; padding: 4px 6px; position: relative; }
+button.icone.controle.desligado { color: var(--magenta); background: rgba(255, 42, 109, 0.14); }
+button.icone.controle.desligado::after { content: ''; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; background: var(--magenta); transform: rotate(-35deg); }
+kbd { font-family: inherit; font-size: 0.85rem; padding: 2px 8px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--campo); color: var(--destaque); }

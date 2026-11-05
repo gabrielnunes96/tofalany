@@ -10,6 +10,16 @@ export interface OuvintesVoz {
   aoCaiu(): void;
   /** Algo deu errado sem tirar da sala (ex.: microfone negado). */
   aoAviso(mensagem: string): void;
+  /** RF-14: o portão do meu microfone abriu (transmitindo) ou fechou. */
+  aoTransmitindo?(aberto: boolean): void;
+}
+
+/** Controles do microfone e da saída durante a chamada (RF-14, RF-16). */
+export interface ControlesVoz {
+  mudo: boolean;
+  surdo: boolean;
+  /** Atalho de push-to-talk apertado. */
+  ptt: boolean;
 }
 
 export interface SalaVoz {
@@ -19,6 +29,8 @@ export interface SalaVoz {
   aplicarAudio(audio: PreferenciasAudio): Promise<void>;
   /** Microfone publicado agora (para o medidor e para a supressão efetiva). */
   microfone(): Microfone | undefined;
+  /** RF-16: mute (fecha o microfone), deafen (zera quem está na sala e também muta) e PTT apertado. */
+  controlar(c: Partial<ControlesVoz>): void;
   sair(): Promise<void>;
   /** Sessão de mídia atual (participant.sid), para o servidor reconhecer a saída certa. */
   sid(): string | undefined;
@@ -33,7 +45,10 @@ export interface SalaLivekit {
   disconnect(): Promise<void>;
   localParticipant: {
     sid?: string;
-    publishTrack(faixa: MediaStreamTrack, opcoes: { source: Track.Source; name: string }): Promise<{ track?: { replaceTrack(f: MediaStreamTrack, doUsuario?: boolean): Promise<unknown> } }>;
+    publishTrack(
+      faixa: MediaStreamTrack,
+      opcoes: { source: Track.Source; name: string },
+    ): Promise<{ track?: { replaceTrack(f: MediaStreamTrack, doUsuario?: boolean): Promise<unknown>; mute(): Promise<unknown>; unmute(): Promise<unknown> } }>;
   };
   switchActiveDevice(tipo: MediaDeviceKind, id: string): Promise<unknown>;
 }
@@ -70,7 +85,30 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     fila = p.catch(() => undefined);
     return p;
   };
+  const controles: ControlesVoz = { mudo: false, surdo: false, ptt: false };
+  let pararTransmitindo: (() => void) | undefined;
+  /** Leva o estado de mute/deafen/PTT ao portão, à publicação e ao volume de quem está na sala. */
+  /** Volume escolhido por pessoa (RF-19, T17); o deafen zera sem perder o valor. */
+  const volumes = new Map<string, number>();
+  function aplicarVolume(elemento: HTMLMediaElement, faixa: RemoteTrack) {
+    const v = controles.surdo ? 0 : (volumes.get(elemento.dataset.participante ?? '') ?? 1);
+    (faixa as RemoteTrack & { setVolume?(v: number): void }).setVolume?.(v);
+    elemento.dataset.volume = String(v);
+  }
+  function aplicarControles() {
+    const fechado = controles.mudo || controles.surdo;
+    if (mic) {
+      mic.portao.definir({ mudo: fechado, ptt: controles.ptt });
+      mic.faixa.enabled = !fechado;
+    }
+    const faixa = publicacao?.track;
+    if (faixa) void (fechado ? faixa.mute() : faixa.unmute()).catch(() => undefined);
+    for (const [elemento, t] of faixas) aplicarVolume(elemento, t);
+  }
   const pararMic = () => {
+    pararTransmitindo?.();
+    pararTransmitindo = undefined;
+    ouvintes.aoTransmitindo?.(false);
     mic?.parar();
     mic = undefined;
     micPrefs = undefined;
@@ -110,7 +148,12 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       saidaAplicada = desejado.saidaId;
       await saida(atual, desejado.saidaId);
     }
-    if (micPrefs && mesmoMic(micPrefs, desejado)) return;
+    if (micPrefs && mesmoMic(micPrefs, desejado)) {
+      // Sensibilidade e modo vão direto ao portão, sem reabrir o microfone.
+      mic?.portao.definir({ modo: desejado.modoMicrofone, limiarDb: desejado.sensibilidadeDb });
+      micPrefs = desejado;
+      return;
+    }
     let novo: Microfone;
     try {
       novo = await abrir(desejado);
@@ -119,6 +162,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       return;
     }
     if (sala !== atual) return novo.parar();
+    // Mute/deafen valem antes de a faixa nova sair (nem alguns milissegundos de microfone aberto).
+    const fechado = controles.mudo || controles.surdo;
+    novo.portao.definir({ mudo: fechado, ptt: controles.ptt });
+    novo.faixa.enabled = !fechado;
     try {
       if (publicacao?.track) {
         // Troca a quente: a mesma publicação passa a mandar a faixa nova (RF-17).
@@ -134,8 +181,13 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     // Saiu da sala durante a troca: ninguém mais vai parar esta faixa.
     if (sala !== atual) return novo.parar();
     if (mic !== novo) mic?.parar();
+    pararTransmitindo?.();
+    // O portão novo só avisa quando abre: o indicador começa apagado.
+    ouvintes.aoTransmitindo?.(false);
     mic = novo;
     micPrefs = desejado;
+    pararTransmitindo = novo.portao.aoMudar((aberto) => ouvintes.aoTransmitindo?.(aberto));
+    aplicarControles();
     if (novo.usouPadrao) ouvintes.aoAviso('O microfone escolhido não foi encontrado; usando o padrão do sistema.');
   }
 
@@ -156,6 +208,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         elemento.dataset.participante = participante?.identity ?? '';
         faixas.set(elemento, track);
         caixa.appendChild(elemento);
+        aplicarVolume(elemento, track);
       }) as never);
       atual.on(RoomEvent.TrackUnsubscribed, ((track: RemoteTrack) => {
         for (const [e, t] of [...faixas]) if (t === track) tirarElemento(e);
@@ -197,6 +250,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     microfone: () => mic,
+    controlar(c) {
+      Object.assign(controles, c);
+      aplicarControles();
+    },
     async sair() {
       const atual = sala;
       if (!atual) return;

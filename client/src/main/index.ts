@@ -1,11 +1,12 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
 import { prepararLinks } from './deeplink';
 import { criarArquivos } from './arquivos';
 import { criarNotificacoes } from './notificacoes';
+import { criarAtalhos, type Modificadores } from './atalhos';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -86,6 +87,21 @@ if (links.principal) {
   void app.whenReady().then(() => {
     const dados = app.getPath('userData');
     const configuracoes = criarArmazemConfiguracoes(join(dados, 'configuracoes.json'));
+    // RF-15: atalhos globais mandam aperto/soltura para a janela (funcionam com ela em segundo plano).
+    const atalhos = criarAtalhos(
+      (e) => {
+        if (janelaPrincipal && !janelaPrincipal.isDestroyed()) janelaPrincipal.webContents.send('atalhos:evento', e);
+      },
+      undefined,
+      (erro) => console.error('Atalhos globais indisponíveis:', erro),
+    );
+    atalhos.definir(configuracoes.ler().atalhos);
+    app.on('will-quit', () => atalhos.parar());
+    // E2E: o Playwright não gera teclas do sistema; simula o que o uiohook entregaria (só fora do empacotado).
+    if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
+      (globalThis as { __teclaGlobal?: unknown }).__teclaGlobal = (tipo: 'down' | 'up', codigo: string, mods: Modificadores = {}) => atalhos.tratarCodigo(tipo, codigo, mods);
+    }
+    ipcMain.handle('atalhos:pausar', (_e, sim: unknown) => atalhos.pausar(sim === true));
     registrarIpc(
       configuracoes,
       criarArmazemSessao(join(dados, 'sessao.json'), {
@@ -99,6 +115,7 @@ if (links.principal) {
         () => configuracoes.ler().servidorUrl,
       ),
       criarNotificacoes(() => janelaPrincipal),
+      (c) => atalhos.definir(c.atalhos),
     );
     criarJanela();
 

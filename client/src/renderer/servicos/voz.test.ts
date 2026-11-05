@@ -10,6 +10,8 @@ vi.mock('./pipeline-audio', () => ({ abrirMicrofone: vi.fn() }));
 function salaFalsa(opcoes: { conectar?: 'ok' | 'falha' } = {}) {
   const ouvintes = new Map<string, (...a: unknown[]) => void>();
   const replaceTrack = vi.fn(async () => undefined);
+  const mute = vi.fn(async () => undefined);
+  const unmute = vi.fn(async () => undefined);
   const sala = {
     on: vi.fn((e: string, fn: (...a: unknown[]) => void) => ouvintes.set(e, fn)),
     connect: vi.fn(async () => {
@@ -19,15 +21,32 @@ function salaFalsa(opcoes: { conectar?: 'ok' | 'falha' } = {}) {
     switchActiveDevice: vi.fn(async () => undefined),
     localParticipant: {
       sid: 'PA_1',
-      publishTrack: vi.fn(async () => ({ track: { replaceTrack } })),
+      publishTrack: vi.fn(async () => ({ track: { replaceTrack, mute, unmute } })),
     },
   };
   const emitir = (e: RoomEvent, ...args: unknown[]) => ouvintes.get(e)?.(...args);
-  return { sala: sala as unknown as SalaLivekit & typeof sala, emitir, replaceTrack };
+  return { sala: sala as unknown as SalaLivekit & typeof sala, emitir, replaceTrack, mute, unmute };
 }
 
 function microfone(nome = 'mic') {
-  return { faixa: { nome } as unknown as MediaStreamTrack, supressao: 'forte' as const, usouPadrao: false, dispositivoId: nome, parar: vi.fn() } satisfies Microfone;
+  let aoMudar: ((aberto: boolean) => void) | undefined;
+  const portao = {
+    definir: vi.fn(),
+    aoMudar: vi.fn((fn: (aberto: boolean) => void) => {
+      aoMudar = fn;
+      return () => (aoMudar = undefined);
+    }),
+    abrir: (aberto: boolean) => aoMudar?.(aberto),
+  };
+  return {
+    faixa: { nome } as unknown as MediaStreamTrack,
+    faixaMedicao: { nome: nome + '-medicao' } as unknown as MediaStreamTrack,
+    portao,
+    supressao: 'forte' as const,
+    usouPadrao: false,
+    dispositivoId: nome,
+    parar: vi.fn(),
+  } satisfies Microfone;
 }
 
 const ouvintesVoz = () => ({ aoFalando: vi.fn(), aoCaiu: vi.fn(), aoAviso: vi.fn() });
@@ -141,6 +160,42 @@ describe('sala de voz (RF-13)', () => {
     expect(mics[2]!.parar).toHaveBeenCalled();
     expect(mics[0]!.parar).toHaveBeenCalled();
     expect(voz.microfone()).toBeUndefined();
+  });
+
+  it('RF-16: mute fecha o portão e silencia a publicação; deafen zera quem está na sala e também muta; PTT abre', async () => {
+    const { sala, emitir, mute, unmute } = salaFalsa();
+    const o = { ...ouvintesVoz(), aoTransmitindo: vi.fn() };
+    const mic = microfone();
+    const voz = criarSalaVoz(o, () => sala, vi.fn(async () => mic));
+    await voz.entrar('ws://lk', 'tok', { ...AUDIO_PADRAO, modoMicrofone: 'ptt' });
+    const remota = { kind: 'audio', attach: () => document.createElement('audio'), detach: vi.fn(() => []), setVolume: vi.fn() };
+    emitir(RoomEvent.TrackSubscribed, remota, {}, { identity: '2' });
+
+    mic.portao.abrir(true);
+    expect(o.aoTransmitindo).toHaveBeenLastCalledWith(true);
+
+    voz.controlar({ ptt: true });
+    expect(mic.portao.definir).toHaveBeenLastCalledWith({ mudo: false, ptt: true });
+    voz.controlar({ mudo: true });
+    expect(mic.portao.definir).toHaveBeenLastCalledWith({ mudo: true, ptt: true });
+    expect(mute).toHaveBeenCalled();
+    voz.controlar({ mudo: false, surdo: true });
+    expect(mic.portao.definir).toHaveBeenLastCalledWith({ mudo: true, ptt: true });
+    expect(remota.setVolume).toHaveBeenLastCalledWith(0);
+    // Quem entra durante o deafen também chega mudo.
+    const nova = { kind: 'audio', attach: () => document.createElement('audio'), detach: vi.fn(() => []), setVolume: vi.fn() };
+    emitir(RoomEvent.TrackSubscribed, nova, {}, { identity: '3' });
+    expect(nova.setVolume).toHaveBeenCalledWith(0);
+    voz.controlar({ surdo: false });
+    expect(remota.setVolume).toHaveBeenLastCalledWith(1);
+    expect(unmute).toHaveBeenCalled();
+
+    // Sensibilidade e modo vão ao portão sem reabrir o microfone.
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, modoMicrofone: 'deteccao', sensibilidadeDb: -30 });
+    expect(mic.portao.definir).toHaveBeenLastCalledWith({ modo: 'deteccao', limiarDb: -30 });
+
+    await voz.sair();
+    expect(o.aoTransmitindo).toHaveBeenLastCalledWith(false);
   });
 
   it('queda sem pedir para sair avisa; microfone negado entra só para ouvir', async () => {

@@ -11,5 +11,7 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     plugins: [react()],
+    // Worklets saem como arquivo (data: URL embutida seria barrada pela CSP de script da T23).
+    build: { assetsInlineLimit: (arquivo: string) => (arquivo.endsWith('.worklet.js') ? false : undefined) },
   },
 });

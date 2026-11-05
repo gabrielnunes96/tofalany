@@ -1,3 +1,4 @@
+import { ATALHOS_PADRAO, type Atalhos } from './atalhos.js';
 /** Tempo máximo do teste de conexão com o servidor (RF-1). */
 export const TEMPO_TESTE_SERVIDOR_MS = 5000;
 
@@ -95,8 +96,10 @@ export interface PreferenciasAudio {
   supressaoRuido: boolean;
   cancelamentoEco: boolean;
   ganhoAutomatico: boolean;
-  /** Sensibilidade da detecção de voz em dBFS (-100 a 0): abaixo disso não transmite (T16). */
+  /** Sensibilidade da detecção de voz em dBFS (-100 a 0): abaixo disso não transmite. */
   sensibilidadeDb: number;
+  /** RF-14: detecção de voz (padrão) ou push-to-talk. */
+  modoMicrofone: 'deteccao' | 'ptt';
 }
 
 export const AUDIO_PADRAO: PreferenciasAudio = {
@@ -106,17 +109,21 @@ export const AUDIO_PADRAO: PreferenciasAudio = {
   cancelamentoEco: true,
   ganhoAutomatico: true,
   sensibilidadeDb: -50,
+  modoMicrofone: 'deteccao',
 };
 
 /** Configurações guardadas por máquina (RN-14). */
 export interface ConfiguracoesLocais {
   servidorUrl: string | null;
   audio: PreferenciasAudio;
+  /** RF-15: atalhos globais (PTT, mute, deafen). */
+  atalhos: Atalhos;
 }
 
 export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   servidorUrl: null,
   audio: AUDIO_PADRAO,
+  atalhos: ATALHOS_PADRAO,
 };
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */

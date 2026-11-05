@@ -200,3 +200,105 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   await reaberto.app.close();
   await ana.app.close();
 });
+
+/** Simula o que o uiohook entregaria (tecla do sistema, com a janela em segundo plano). */
+const teclaGlobal = (app: ElectronApplication, tipo: 'down' | 'up', codigo: string, mods: Record<string, boolean> = {}) =>
+  app.evaluate((_e, [t, c, m]) => (globalThis as unknown as { __teclaGlobal: (...a: unknown[]) => void }).__teclaGlobal(t, c, m), [tipo, codigo, mods] as const);
+
+test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global, atalho trocado e deafen', async () => {
+  test.setTimeout(150_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const j = dono.janela;
+  const donoFalando = ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem', { name: 'dono, falando' });
+  /** Fica `ms` sem ver o dono falando na janela da ana. */
+  const semFalar = async (ms: number) => {
+    for (let t = 0; t < ms; t += 200) {
+      expect(await donoFalando.count()).toBe(0);
+      await ana.janela.waitForTimeout(200);
+    }
+  };
+
+  // O apito do microfone falso é abafado pelo RNNoise: desliga a supressão para medir o portão.
+  await j.getByRole('button', { name: 'Configurações' }).click();
+  await j.getByLabel('Supressão de ruído').uncheck();
+  await j.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await j.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await j.getByRole('button', { name: 'Criar', exact: true }).click();
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+
+  // CA-21: sensibilidade no máximo (0 dB) — o apito não abre o portão; baixando, abre.
+  await j.getByLabel(/Sensibilidade da detecção de voz/).fill('0');
+  await ana.janela.waitForTimeout(1500);
+  await semFalar(3000);
+  await j.getByLabel(/Sensibilidade da detecção de voz/).fill('-60');
+  await expect(donoFalando).toBeVisible({ timeout: 15_000 });
+  await expect(j.getByRole('img', { name: 'Transmitindo' })).toBeVisible();
+
+  // CA-22: push-to-talk com a tecla ` (crase) definida pela tela; a tecla vem do sistema (janela sem foco).
+  await j.getByRole('radio', { name: /Push-to-talk/ }).check();
+  const linhaPtt = j.getByRole('listitem', { name: 'Push-to-talk' });
+  await linhaPtt.getByRole('button', { name: /^Alterar atalho/ }).click();
+  await j.keyboard.press('Backquote');
+  await expect(j.getByTestId('atalho-ptt')).toHaveText('`');
+  await ana.janela.waitForTimeout(1500);
+  await semFalar(2000);
+  await teclaGlobal(dono.app, 'down', 'Backquote');
+  await expect(donoFalando).toBeVisible({ timeout: 15_000 });
+  await print(ana.janela, 'T16-ptt-segurado-ana-ve-dono-falando');
+  await teclaGlobal(dono.app, 'up', 'Backquote');
+  await expect(donoFalando).toHaveCount(0, { timeout: 10_000 });
+
+  // CA-23: troca o atalho do mute para F8; o novo funciona, o antigo não (e continua depois de reiniciar).
+  const linhaMudo = j.getByRole('listitem', { name: 'Mute (microfone)' });
+  await linhaMudo.getByRole('button', { name: /^Alterar atalho/ }).click();
+  await j.keyboard.press('Control+Shift+KeyD');
+  await expect(j.getByRole('alert')).toContainText('já é o atalho de Deafen');
+  await j.keyboard.press('F8');
+  await expect(j.getByTestId('atalho-mudo')).toHaveText('F8');
+  const botaoMute = j.getByRole('button', { name: 'Mutar microfone', exact: true });
+  await teclaGlobal(dono.app, 'down', 'KeyM', { ctrl: true, shift: true });
+  await teclaGlobal(dono.app, 'up', 'KeyM', { ctrl: true, shift: true });
+  await expect(botaoMute).toHaveAttribute('aria-pressed', 'false');
+  await teclaGlobal(dono.app, 'down', 'F8');
+  await teclaGlobal(dono.app, 'up', 'F8');
+  await expect(botaoMute).toHaveAttribute('aria-pressed', 'true');
+  await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('microfone desligado')).toBeVisible();
+  await teclaGlobal(dono.app, 'down', 'F8');
+  await teclaGlobal(dono.app, 'up', 'F8');
+  await expect(botaoMute).toHaveAttribute('aria-pressed', 'false');
+
+  // CA-24: deafen pelo atalho (Ctrl+Shift+D): microfone também muda, e a ana vê os ícones.
+  await teclaGlobal(dono.app, 'down', 'KeyD', { ctrl: true, shift: true });
+  await teclaGlobal(dono.app, 'up', 'KeyD', { ctrl: true, shift: true });
+  await expect(j.getByRole('button', { name: 'Desligar áudio', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(botaoMute).toHaveAttribute('aria-pressed', 'true');
+  await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('sem áudio')).toBeVisible();
+  // O dono não ouve ninguém: o áudio da ana fica com volume 0.
+  const audiosDoDono = j.locator('[data-testid="audios-voz"] audio');
+  await expect(audiosDoDono).toHaveCount(1);
+  await expect(audiosDoDono).toHaveAttribute('data-volume', '0');
+  // Com PTT apertado e deafen, nada sai.
+  await teclaGlobal(dono.app, 'down', 'Backquote');
+  await ana.janela.waitForTimeout(1500);
+  await semFalar(2000);
+  await teclaGlobal(dono.app, 'up', 'Backquote');
+  await print(j, 'T16-painel-voz-deafen');
+  await j.getByRole('button', { name: 'Desligar áudio', exact: true }).click();
+  await expect(audiosDoDono).toHaveAttribute('data-volume', '1');
+  await expect(j.getByRole('button', { name: 'Mutar microfone', exact: true })).toHaveAttribute('aria-pressed', 'false');
+
+  await dono.app.close();
+  const reaberto = await abrirApp('dono');
+  await reaberto.janela.getByRole('button', { name: 'Configurações' }).click();
+  await expect(reaberto.janela.getByTestId('atalho-mudo')).toHaveText('F8');
+  await expect(reaberto.janela.getByTestId('atalho-ptt')).toHaveText('`');
+  await expect(reaberto.janela.getByRole('radio', { name: /Push-to-talk/ })).toBeChecked();
+  await print(reaberto.janela, 'T16-atalhos-depois-de-reiniciar');
+  await reaberto.app.close();
+  await ana.app.close();
+});

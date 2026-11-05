@@ -1,4 +1,4 @@
-import type { ConfiguracoesLocais, ConviteLink } from '@tofalando/shared';
+import type { AcaoAtalho, ConfiguracoesLocais, ConviteLink } from '@tofalando/shared';
 
 /** Sessão guardada no computador: o token vale só para o servidor em que foi criado. */
 export interface SessaoLocal {
@@ -31,6 +31,12 @@ export interface ApiTofalando {
     mostrar(p: { titulo: string; corpo: string; chave: string; conversaAberta: boolean }): Promise<boolean>;
     /** Clique na notificação: abre a conversa. Devolve a função que para de ouvir. */
     aoClicar(fn: (chave: string) => void): () => void;
+  };
+  /** RF-15: aperto/soltura dos atalhos globais. Devolve a função que para de ouvir. */
+  atalhos: {
+    aoEvento(fn: (e: { acao: AcaoAtalho; pressionado: boolean }) => void): () => void;
+    /** Enquanto a tela captura um atalho novo, os globais não disparam. */
+    pausar(sim: boolean): Promise<void>;
   };
   arquivos: {
     /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */

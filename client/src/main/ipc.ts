@@ -12,13 +12,18 @@ export function registrarIpc(
   pegarConvitePendente: () => ConviteLink | undefined,
   arquivos: ReturnType<typeof criarArquivos>,
   notificacoes: ReturnType<typeof criarNotificacoes>,
+  aoMudarConfig: (c: ConfiguracoesLocais) => void = () => undefined,
 ): void {
   ipcMain.handle('notificar', (_e, p: PedidoNotificacao) => {
     if (!p || typeof p.titulo !== 'string' || typeof p.corpo !== 'string' || typeof p.chave !== 'string') throw new Error('Pedido inválido.');
     return notificacoes.mostrar({ titulo: p.titulo, corpo: p.corpo, chave: p.chave, conversaAberta: p.conversaAberta === true });
   });
   ipcMain.handle('config:ler', () => configuracoes.ler());
-  ipcMain.handle('config:gravar', (_evento, parcial: Partial<ConfiguracoesLocais>) => configuracoes.gravar(parcial));
+  ipcMain.handle('config:gravar', (_evento, parcial: Partial<ConfiguracoesLocais>) => {
+    const novo = configuracoes.gravar(parcial);
+    aoMudarConfig(novo);
+    return novo;
+  });
   ipcMain.handle('sessao:ler', () => sessao.ler());
   ipcMain.handle('sessao:gravar', (_evento, nova: SessaoLocal) => sessao.gravar(nova));
   ipcMain.handle('sessao:apagar', () => sessao.apagar());

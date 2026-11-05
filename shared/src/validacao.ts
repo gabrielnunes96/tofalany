@@ -140,5 +140,6 @@ export function mesclarAudio(base: PreferenciasAudio = AUDIO_PADRAO, bruto: unkn
   for (const chave of ['supressaoRuido', 'cancelamentoEco', 'ganhoAutomatico'] as const) if (typeof o[chave] === 'boolean') r[chave] = o[chave] as boolean;
   const s = o.sensibilidadeDb;
   if (typeof s === 'number' && Number.isFinite(s) && s >= -100 && s <= 0) r.sensibilidadeDb = Math.round(s);
+  if (o.modoMicrofone === 'deteccao' || o.modoMicrofone === 'ptt') r.modoMicrofone = o.modoMicrofone;
   return r;
 }

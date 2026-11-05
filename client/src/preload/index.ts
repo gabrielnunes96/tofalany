@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import type { ConviteLink } from '@tofalando/shared';
+import type { AcaoAtalho, ConviteLink } from '@tofalando/shared';
 import type { ApiTofalando } from './api';
 
 const api: ApiTofalando = {
@@ -30,6 +30,14 @@ const api: ApiTofalando = {
       ipcRenderer.on('notificacao:abrir', ouvinte);
       return () => ipcRenderer.removeListener('notificacao:abrir', ouvinte);
     },
+  },
+  atalhos: {
+    aoEvento: (fn) => {
+      const ouvinte = (_e: IpcRendererEvent, ev: { acao: AcaoAtalho; pressionado: boolean }) => fn(ev);
+      ipcRenderer.on('atalhos:evento', ouvinte);
+      return () => ipcRenderer.removeListener('atalhos:evento', ouvinte);
+    },
+    pausar: (sim) => ipcRenderer.invoke('atalhos:pausar', sim),
   },
   arquivos: {
     baixar: (url, nome) => ipcRenderer.invoke('arquivo:baixar', url, nome),

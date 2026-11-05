@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type PreferenciasAudio, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -30,7 +30,13 @@ interface Props {
 }
 
 /** Estado de voz enviado ao servidor (mute/deafen/câmera chegam nas T16 e T20). */
-const estadoVoz = (canalVozId: number | null, sid?: string) => ({ canalVozId, mudo: false, surdo: false, camera: false, sid });
+const estadoVoz = (canalVozId: number | null, sid?: string, c: { mudo: boolean; surdo: boolean } = { mudo: false, surdo: false }) => ({
+  canalVozId,
+  mudo: c.mudo || c.surdo,
+  surdo: c.surdo,
+  camera: false,
+  sid,
+});
 
 type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes';
 
@@ -104,6 +110,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   // RN-14: preferências de áudio deste computador (RF-17, RF-18).
   const [audio, setAudio] = useState<PreferenciasAudio>(AUDIO_PADRAO);
   const audioRef = useRef<PreferenciasAudio>(AUDIO_PADRAO);
+  const [atalhos, setAtalhos] = useState<Atalhos>(ATALHOS_PADRAO);
   useEffect(() => {
     let vivo = true;
     void ponte()
@@ -111,6 +118,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       .then((c) => {
         if (!vivo) return;
         const lido = c.audio ?? AUDIO_PADRAO;
+        setAtalhos(c.atalhos ?? ATALHOS_PADRAO);
         audioRef.current = lido;
         setAudio(lido);
         void salaVozRef.current?.aplicarAudio(lido);
@@ -121,6 +129,44 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     };
   }, []);
   const gravarAudio = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // RF-15/RF-16: mute e deafen (valem também fora da voz e são aplicados ao entrar) e atalhos globais.
+  const [controles, setControlesEstado] = useState({ mudo: false, surdo: false });
+  const controlesRef = useRef(controles);
+  const [transmitindo, setTransmitindo] = useState(false);
+  function definirControles(novo: { mudo: boolean; surdo: boolean }) {
+    controlesRef.current = novo;
+    setControlesEstado(novo);
+    salaVozRef.current?.controlar(novo);
+    const canal = minhaVozRef.current;
+    if (canal !== null) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid(), novo));
+  }
+  const alternarMudo = () => {
+    const c = controlesRef.current;
+    // Desmutar durante o deafen desliga os dois (como o microfone volta, o áudio também).
+    definirControles(c.surdo ? { mudo: false, surdo: false } : { ...c, mudo: !c.mudo });
+  };
+  const alternarSurdo = () => {
+    const c = controlesRef.current;
+    definirControles({ ...c, surdo: !c.surdo });
+  };
+  const aoAtalho = useEffectEvent(({ acao, pressionado }: { acao: AcaoAtalho; pressionado: boolean }) => {
+    if (acao === 'ptt') salaVozRef.current?.controlar({ ptt: pressionado });
+    else if (pressionado && acao === 'mudo') alternarMudo();
+    else if (pressionado && acao === 'surdo') alternarSurdo();
+  });
+  useEffect(() => ponte().atalhos.aoEvento((e) => aoAtalho(e)), []);
+  const pausarAtalhos = (sim: boolean) =>
+    void ponte()
+      .atalhos.pausar(sim)
+      .catch(() => undefined);
+  function mudarAtalhos(novos: Atalhos) {
+    setAtalhos(novos);
+    void ponte()
+      .config.gravar({ atalhos: novos })
+      .then((c) => setAtalhos(c.atalhos))
+      .catch(() => undefined);
+  }
+
   function mudarAudio(novo: PreferenciasAudio) {
     audioRef.current = novo;
     setAudio(novo);
@@ -159,6 +205,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         void conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
       },
       aoAviso: setAvisoVoz,
+      aoTransmitindo: setTransmitindo,
     });
     salaVozRef.current = sala;
     return () => {
@@ -195,7 +242,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         // Reconectou com a voz ligada: a presença volta para todos.
         const canal = minhaVozRef.current;
         if (canal === null) return;
-        void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid())).then((r) => {
+        void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid(), controlesRef.current)).then((r) => {
           // O canal sumiu durante a queda (ou o servidor recusou): sai da mídia também.
           if (r.ok || minhaVozRef.current !== canal) return;
           minhaVozRef.current = null;
@@ -370,8 +417,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         await sala.sair();
       }
       const { url, token: tokenVoz } = await api.tokenVoz(canalId);
+      sala.controlar({ ...controlesRef.current, ptt: false });
       await sala.entrar(url, tokenVoz, audioRef.current);
-      const r = await conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid()));
+      const enviados = controlesRef.current;
+      const r = await conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid(), enviados));
       if (!r || !r.ok) {
         // Servidor recusou (ex.: canal removido nesse meio-tempo): não fica na mídia sem aparecer.
         await sala.sair();
@@ -380,6 +429,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         return;
       }
       setMinhaVoz(canalId);
+      // Mute/deafen trocados enquanto esperava a resposta: manda o estado atual.
+      if (controlesRef.current !== enviados) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid(), controlesRef.current));
     } catch (e) {
       setMinhaVoz(null);
       if (!(e instanceof EntradaCancelada)) {
@@ -449,9 +500,18 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 )}
               </p>
               {minhaVoz !== null && !entrandoVoz && (
-                <button type="button" className="perigo" onClick={() => void sairVoz()}>
-                  Sair da voz
-                </button>
+                <>
+                  <span className={`transmitindo${transmitindo && !controles.mudo && !controles.surdo ? ' ativo' : ''}`} role="img" aria-label={transmitindo ? 'Transmitindo' : 'Microfone em silêncio'} title={transmitindo ? 'Transmitindo' : 'Em silêncio'} />
+                  <button type="button" className={`icone controle${controles.mudo || controles.surdo ? ' desligado' : ''}`} aria-pressed={controles.mudo || controles.surdo} aria-label="Mutar microfone" title="Mutar microfone (mute)" onClick={alternarMudo}>
+                    🎙️
+                  </button>
+                  <button type="button" className={`icone controle${controles.surdo ? ' desligado' : ''}`} aria-pressed={controles.surdo} aria-label="Desligar áudio" title="Desligar áudio (deafen)" onClick={alternarSurdo}>
+                    🎧
+                  </button>
+                  <button type="button" className="perigo" onClick={() => void sairVoz()}>
+                    Sair da voz
+                  </button>
+                </>
               )}
               {minhaVoz === null && !entrandoVoz && avisoVoz && (
                 <button type="button" className="secundario" aria-label="Fechar aviso da voz" onClick={() => setAvisoVoz(null)}>
@@ -544,7 +604,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoVoltar={voltar}
             />
           ) : vistaAtual === 'configuracoes' ? (
-            <TelaConfiguracoes audio={audio} aoMudarAudio={mudarAudio} microfoneDaChamada={() => salaVozRef.current?.microfone()} aoVoltar={voltar} />
+            <TelaConfiguracoes
+              audio={audio}
+              aoMudarAudio={mudarAudio}
+              microfoneDaChamada={() => salaVozRef.current?.microfone()}
+              atalhos={atalhos}
+              aoMudarAtalhos={mudarAtalhos}
+              aoCapturar={pausarAtalhos}
+              aoVoltar={voltar}
+            />
           ) : vistaAtual === 'sons' ? (
             <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
           ) : vistaAtual === 'convite' ? (

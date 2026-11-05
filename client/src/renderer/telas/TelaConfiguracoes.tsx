@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PreferenciasAudio } from '@tofalando/shared';
+import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -25,6 +25,11 @@ interface Props {
   aoMudarAudio: (audio: PreferenciasAudio) => Promise<void> | void;
   /** Microfone da chamada em andamento: o teste mede ele em vez de abrir outro (R-7). */
   microfoneDaChamada?: () => Microfone | undefined;
+  /** RF-15: atalhos globais (gravados por máquina). */
+  atalhos: Atalhos;
+  aoMudarAtalhos: (atalhos: Atalhos) => void;
+  /** Pausa os atalhos globais enquanto captura um novo (senão a combinação testada dispararia a ação). */
+  aoCapturar?: (sim: boolean) => void;
   aoVoltar: () => void;
   deps?: DependenciasConfiguracoes;
 }
@@ -39,7 +44,34 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, aoVoltar, deps = doNavegador }: Props) {
+  const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
+  const [erroAtalho, setErroAtalho] = useState<string | null>(null);
+
+  // Captura do atalho: a próxima combinação com uma tecla (não só modificadores); Esc cancela.
+  useEffect(() => {
+    if (!capturando) return;
+    aoCapturar?.(true);
+    const aoTeclar = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code === 'Escape') return setCapturando(null);
+      if (/^(Control|Shift|Alt|Meta|OS)(Left|Right)?$/.test(e.code)) return;
+      if (!(e.code in TECLAS_ATALHO)) return setErroAtalho('Essa tecla não pode ser usada como atalho.');
+      const novo = { codigo: e.code, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey };
+      const outra = conflitoAtalho(atalhos, capturando, novo);
+      if (outra) return setErroAtalho(`${textoAtalho(novo)} já é o atalho de ${NOME_ACAO[outra]}.`);
+      setErroAtalho(null);
+      setCapturando(null);
+      aoMudarAtalhos({ ...atalhos, [capturando]: novo });
+    };
+    window.addEventListener('keydown', aoTeclar, true);
+    return () => {
+      window.removeEventListener('keydown', aoTeclar, true);
+      aoCapturar?.(false);
+    };
+  }, [capturando, atalhos, aoMudarAtalhos, aoCapturar]);
+
   const [dispositivos, setDispositivos] = useState<MediaDeviceInfo[]>([]);
   const [testando, setTestando] = useState(false);
   const [nivel, setNivel] = useState(-100);
@@ -90,7 +122,7 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, aoV
         if (proprio) mic.parar();
         return;
       }
-      const medidor = deps.criarMedidor(mic.faixa);
+      const medidor = deps.criarMedidor(mic.faixaMedicao);
       // ~12 leituras por segundo bastam para o medidor (e não repinta a tela a 60 Hz).
       const relogio = setInterval(() => setNivel(Math.round(medidor.nivelDb())), 80);
       teste.current = { mic, medidor, relogio, proprio };
@@ -119,7 +151,7 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, aoV
     const novo = { ...audio, ...parcial };
     const aplicado = aoMudarAudio(novo);
     // O teste reabre o microfone com o que mudou (a sensibilidade só move a marca); na chamada, depois da troca.
-    if (teste.current && !('sensibilidadeDb' in parcial)) void Promise.resolve(aplicado).then(() => iniciarTeste(novo));
+    if (teste.current && !('sensibilidadeDb' in parcial) && !('modoMicrofone' in parcial)) void Promise.resolve(aplicado).then(() => iniciarTeste(novo));
   }
 
   const entradas = dispositivos.filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
@@ -173,6 +205,50 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, aoV
           </label>
         </fieldset>
       </div>
+
+      <fieldset className="opcoes">
+        <legend>Modo do microfone</legend>
+        <label>
+          <input type="radio" name="cfg-modo" checked={audio.modoMicrofone === 'deteccao'} onChange={() => mudar({ modoMicrofone: 'deteccao' })} /> Detecção de voz
+        </label>
+        <label>
+          <input type="radio" name="cfg-modo" checked={audio.modoMicrofone === 'ptt'} onChange={() => mudar({ modoMicrofone: 'ptt' })} /> Push-to-talk (segure o atalho
+          para falar)
+        </label>
+        {audio.modoMicrofone === 'ptt' && !atalhos.ptt && <p className="erro">Defina o atalho de push-to-talk abaixo; sem ele o microfone não abre.</p>}
+      </fieldset>
+
+      <h2>Atalhos</h2>
+      <p className="suave">Funcionam com o app em segundo plano.</p>
+      <ul className="lista-admin" aria-label="Atalhos">
+        {ACOES_ATALHO.map((acao) => (
+          <li key={acao} aria-label={NOME_ACAO[acao]}>
+            <span className="nome">{NOME_ACAO[acao]}</span>
+            <kbd data-testid={`atalho-${acao}`} aria-live="polite">{capturando === acao ? 'Pressione a combinação… (Esc cancela)' : textoAtalho(atalhos[acao])}</kbd>
+            <button
+              type="button"
+              className="secundario"
+              aria-label={capturando === acao ? `Cancelar a troca do atalho de ${NOME_ACAO[acao]}` : `Alterar atalho de ${NOME_ACAO[acao]}`}
+              onClick={() => {
+                setErroAtalho(null);
+                setCapturando(capturando === acao ? null : acao);
+              }}
+            >
+              {capturando === acao ? 'Cancelar' : 'Alterar'}
+            </button>
+            {atalhos[acao] && (
+              <button type="button" className="secundario" aria-label={`Remover atalho de ${NOME_ACAO[acao]}`} onClick={() => aoMudarAtalhos({ ...atalhos, [acao]: null })}>
+                Remover
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {erroAtalho && (
+        <p className="erro" role="alert">
+          {erroAtalho}
+        </p>
+      )}
 
       <h2>Teste de microfone</h2>
       <div className="teste-mic">
