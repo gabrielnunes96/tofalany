@@ -1,0 +1,28 @@
+<!-- T13 — Não lidas e notificações -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-12, CA-19 e a parte de contador/notificação do CA-19a (DM).</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (lido:marcar) e §4 (tabela leituras, migration 007).</p>
+
+<h3>Implementação (05/11/2026, commit 174e885)</h3>
+<ul>
+  <li><b>Servidor:</b> leituras por pessoa e conversa ("c:&lt;id&gt;"/"d:&lt;id&gt;"), só avançam e nunca passam da última mensagem existente; não lidas no <code>ola</code> (mensagens de outras pessoas depois da última lida, canais de texto e DMs da pessoa); <code>lido:marcar</code> sem resposta (vale também para DM só leitura) e <code>lido:atualizado</code> para os outros computadores da pessoa; remover canal apaga as leituras dele.</li>
+  <li><b>App:</b> contador por canal e DM na barra (99+; número escondido do leitor de tela, que lê "N não lidas"); conversa na tela com a janela em foco marca como lida (também ao voltar o foco, e só quando o histórico carregou); leitura vinda de outro computador tira só o que foi lido; mensagem apagada desconta; decisão "contar ou marcar" e texto da notificação numa função pura (<code>estado/notificar.ts</code>).</li>
+  <li><b>Notificação:</b> o processo principal mostra quando a conversa está fechada ou a janela sem foco; título "#canal — autor" ou o nome na DM; corpo com o texto ou "📎 nome do arquivo" / "📎 N anexos" (mais útil que o "📎 anexo" previsto); clique abre a conversa; a notificação fica referenciada até o clique (no Windows, sem isso o clique se perde). Pendência registrada na T24: <code>app.setAppUserModelId</code> no Windows.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/leituras.test.ts</code>, <code>client/src/main/notificacoes.test.ts</code>, <code>client/.../estado/notificar.test.ts</code>, <code>loja.test.ts</code>, <code>Dms.test.tsx</code> (contadores), <code>tempo-real.test.ts</code>. Suíte: 251 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (2 apps): dono escreve em #jogos, ana está em #geral</td><td>ok</td><td>"2 não lidas" em #jogos; duas notificações "#jogos — dono"</td></tr>
+  <tr><td>E2E: ana abre #jogos</td><td>ok</td><td>contador some</td></tr>
+  <tr><td>E2E: janela da ana sem foco, mensagem na conversa aberta</td><td>ok</td><td>notificação "#jogos — dono | cadê você?"</td></tr>
+  <tr><td>E2E: pedido de abrir vindo da notificação</td><td>ok</td><td>abre #geral</td></tr>
+  <tr><td>E2E: dono manda DM para a ana</td><td>ok</td><td>"1 não lida" na DM e notificação "dono | psiu"</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> ver a notificação real do sistema e clicar nela (Linux e Windows instalado).</p>
+<p><b>Observações:</b> a sessão caiu por falta de energia no meio da tarefa; o <code>base.css</code> ficou com bytes nulos e foi limpo (só ele foi atingido). Um teste de rolagem da auditoria (T27) falhou uma vez na revisão sob carga e passou nas repetições.</p>
+<p>Revisão: 8 achados (0 graves, 3 médios, 5 menores), todos corrigidos.</p>

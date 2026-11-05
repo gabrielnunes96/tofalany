@@ -261,9 +261,9 @@
         "CA-19"
       ],
       "validacao": "unidade do contador; E2E: contador em outro canal e notificação com app sem foco; usuário confirma a notificação",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "174e885"
     },
     {
       "id": "T14",
@@ -357,7 +357,7 @@
         "CA-50"
       ],
       "validacao": "integração: som de 8 s aceito, 15 s 422, sexto 409, membro 403",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
