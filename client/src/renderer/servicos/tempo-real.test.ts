@@ -6,6 +6,8 @@ function socketFalso() {
   const ouvintes = new Map<string, (...args: unknown[]) => void>();
   const s = {
     connected: false,
+    respostas: [] as unknown[],
+    timeout: () => ({ emit: (_e: string, _d: unknown, cb: (erro: Error | null, r: unknown) => void) => cb(null, s.respostas.shift()) }),
     on: (ev: string, fn: (...args: unknown[]) => void) => (ouvintes.set(ev, fn), s),
     connect: vi.fn(),
     disconnect: vi.fn(),
@@ -17,7 +19,7 @@ function socketFalso() {
 
 function montar() {
   const s = socketFalso();
-  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn() };
+  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn() };
   const fabrica = vi.fn(() => s as unknown as SocketTofalando);
   let avisarRede: (online: boolean) => void = () => undefined;
   const pararRede = vi.fn();
@@ -27,8 +29,9 @@ function montar() {
       return pararRede;
     },
   };
-  const desconectar = conectarTempoReal('http://s', 'tok', ouvintes, fabrica, rede);
-  return { s, ouvintes, fabrica, desconectar, avisarRede: (o: boolean) => avisarRede(o), pararRede };
+  const conexao = conectarTempoReal('http://s', 'tok', ouvintes, fabrica, rede);
+  const desconectar = conexao.desconectar;
+  return { s, ouvintes, fabrica, desconectar, conexao, avisarRede: (o: boolean) => avisarRede(o), pararRede };
 }
 
 describe('conectarTempoReal', () => {
@@ -82,6 +85,24 @@ describe('conectarTempoReal', () => {
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('reconectando');
     avisarRede(true);
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('conectado');
+  });
+
+  it('pedir: sem conexão responde na hora; conectado devolve a resposta do servidor', async () => {
+    const { s, conexao } = montar();
+    expect(await conexao.pedir('canal:criar', { tipo: 'texto', nome: 'a' })).toEqual({ ok: false, erro: expect.stringContaining('Sem conexão') });
+    s.connected = true;
+    s.respostas.push({ ok: true, valor: { id: 3 } });
+    expect(await conexao.pedir('canal:criar', { tipo: 'texto', nome: 'a' })).toEqual({ ok: true, valor: { id: 3 } });
+  });
+
+  it('eventos de canal chegam aos ouvintes', () => {
+    const { s, ouvintes } = montar();
+    s.disparar('canal:criado', { id: 1 });
+    s.disparar('canal:renomeado', { id: 1, nome: 'b' });
+    s.disparar('canal:removido', { id: 1 });
+    expect(ouvintes.aoCanalCriado).toHaveBeenCalledWith({ id: 1 });
+    expect(ouvintes.aoCanalRenomeado).toHaveBeenCalledWith({ id: 1, nome: 'b' });
+    expect(ouvintes.aoCanalRemovido).toHaveBeenCalledWith(1);
   });
 
   it('o ola chega ao ouvinte; desconectar remove os ouvintes', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarNomeCanal, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -88,5 +88,13 @@ describe('link do app (RF-1a)', () => {
     expect(lerLinkConvite('tofalany://convite?servidor=javascript:alert(1)&codigo=abcdef')).toBeUndefined();
     expect(lerLinkConvite('tofalany://convite?servidor=http://a&codigo=a b')).toBeUndefined();
     expect(lerLinkConvite('não é url')).toBeUndefined();
+  });
+});
+
+describe('validarNomeCanal', () => {
+  it('apara e limita', () => {
+    expect(validarNomeCanal('  bate   papo ')).toEqual({ ok: true, valor: 'bate papo' });
+    expect(validarNomeCanal('')).toMatchObject({ ok: false });
+    expect(validarNomeCanal('x'.repeat(33))).toMatchObject({ ok: false });
   });
 });

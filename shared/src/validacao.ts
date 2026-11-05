@@ -1,4 +1,4 @@
-import { NOME_EXIBICAO_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
+import { NOME_CANAL_MAX, NOME_EXIBICAO_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
 
@@ -98,4 +98,14 @@ export function lerLinkConvite(texto: string): ConviteLink | undefined {
 /** Monta o link que abre o app a partir do servidor e do código. */
 export function montarLinkApp(servidor: string, codigo: string): string {
   return `tofalany://convite?servidor=${encodeURIComponent(servidor)}&codigo=${encodeURIComponent(codigo)}`;
+}
+
+/** Nome de canal: 1 a 32 caracteres visíveis, espaços normalizados. */
+export function validarNomeCanal(texto: string): Resultado<string> {
+  const nome = texto.trim().replace(/\s+/g, ' ');
+  if (!nome) return { ok: false, erro: 'Informe o nome do canal.' };
+  if ([...nome].length > NOME_CANAL_MAX) return { ok: false, erro: `O nome do canal deve ter no máximo ${NOME_CANAL_MAX} caracteres.` };
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(nome)) return { ok: false, erro: 'O nome do canal tem caracteres inválidos.' };
+  return { ok: true, valor: nome };
 }

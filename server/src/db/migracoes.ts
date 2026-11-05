@@ -43,4 +43,18 @@ export const MIGRACOES: readonly string[] = [
   CREATE INDEX auditoria_tipo ON auditoria(tipo, id);
   CREATE INDEX auditoria_canal ON auditoria(canal_id, id);
   `,
+  // 003 — canais (T8), com um de texto e um de voz para começar.
+  `
+  CREATE TABLE canais (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL CHECK (tipo IN ('texto', 'voz')),
+    nome TEXT NOT NULL,
+    posicao INTEGER NOT NULL,
+    criado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    criado_em INTEGER NOT NULL
+  );
+  CREATE INDEX canais_tipo ON canais(tipo, posicao);
+  INSERT INTO canais (tipo, nome, posicao, criado_em) VALUES ('texto', 'geral', 1, CAST(strftime('%s','now') AS INTEGER) * 1000);
+  INSERT INTO canais (tipo, nome, posicao, criado_em) VALUES ('voz', 'Sala 1', 1, CAST(strftime('%s','now') AS INTEGER) * 1000);
+  `,
 ];

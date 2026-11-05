@@ -136,3 +136,47 @@ button.perigo:hover:not(:disabled) { background: #ff6b99; box-shadow: 0 0 14px r
 .convite-atual { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 8px; }
 .convite-atual dt { color: var(--texto-suave); }
 .convite-atual dd { margin: 0; font-family: ui-monospace, monospace; word-break: break-all; }
+
+/* Layout logado: canais | conteúdo | membros */
+.layout-principal { height: 100%; display: flex; flex-direction: column; }
+.layout-colunas { flex: 1; min-height: 0; display: grid; grid-template-columns: 250px minmax(0, 1fr) 220px; }
+.coluna-esquerda { display: flex; flex-direction: column; min-height: 0; background: rgba(20, 17, 31, 0.85); border-right: 1px solid var(--borda); }
+.coluna-direita { background: rgba(20, 17, 31, 0.6); border-left: 1px solid var(--borda); padding: 16px 12px; overflow: auto; }
+.layout-colunas > .conteudo { min-height: 0; overflow: auto; }
+.barra-lateral { flex: 1; overflow: auto; padding: 12px 10px; }
+.nome-servidor { font-size: 1.05rem; margin: 2px 6px 14px; padding-bottom: 10px; border-bottom: 1px solid var(--magenta); text-transform: uppercase; letter-spacing: 0.12em; }
+.grupo-canais { margin-bottom: 14px; }
+.grupo-topo { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
+.grupo-topo h2 { margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--texto-suave); }
+.grupo-canais ul { list-style: none; margin: 4px 0 0; padding: 0; }
+button.icone { margin: 0; padding: 0 8px; background: transparent; color: var(--destaque); font-size: 1.1rem; line-height: 1.4; }
+button.icone:hover:not(:disabled) { background: rgba(0, 240, 255, 0.12); box-shadow: none; }
+.canal { display: block; width: 100%; text-align: left; margin: 1px 0; padding: 6px 8px; border-radius: var(--raio); background: transparent; color: var(--texto-suave); font-weight: 500; letter-spacing: 0; }
+button.canal:hover:not(:disabled) { background: rgba(0, 240, 255, 0.08); color: var(--texto); box-shadow: none; }
+button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); box-shadow: inset 3px 0 0 var(--magenta); }
+.canal.voz { cursor: default; }
+.form-nome { display: flex; flex-direction: column; gap: 6px; margin: 6px; }
+.form-nome-botoes { display: flex; gap: 6px; }
+.form-nome-botoes button { margin: 0; padding: 6px 10px; }
+.painel-usuario { border-top: 1px solid var(--borda); padding: 10px; background: rgba(10, 10, 18, 0.6); }
+.painel-usuario-topo { display: flex; align-items: center; gap: 10px; }
+.painel-usuario .nome { margin: 0; font-weight: 700; }
+.painel-usuario .suave { margin: 0; font-size: 0.8rem; }
+.painel-usuario-botoes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.painel-usuario-botoes button { margin: 0; padding: 4px 8px; font-size: 0.8rem; }
+.canal-aberto { display: flex; flex-direction: column; height: 100%; }
+.canal-aberto.vazio { display: grid; place-items: center; }
+.canal-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--borda); }
+.canal-topo h2 { margin: 0; font-size: 1.2rem; }
+.canal-topo h2 span { color: var(--magenta); }
+.canal-acoes { display: flex; gap: 6px; }
+.canal-acoes button, .canal-topo .confirmar button { margin: 0; padding: 6px 10px; }
+.canal-topo .confirmar { align-items: center; gap: 8px; }
+.mensagens { flex: 1; padding: 16px 0; }
+.coluna-direita .lista-membros li { padding: 4px 2px; }
+.item-voz { display: flex; flex-wrap: wrap; align-items: center; }
+.item-voz .canal.voz { flex: 1; width: auto; }
+.item-acoes { display: inline-flex; opacity: 0.55; }
+.item-voz:hover .item-acoes, .item-voz:focus-within .item-acoes { opacity: 1; }
+.item-voz .confirmar { display: flex; gap: 4px; margin: 4px 0 6px 8px; }
+.item-voz .confirmar button { margin: 0; padding: 4px 8px; font-size: 0.8rem; }

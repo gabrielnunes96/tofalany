@@ -26,7 +26,7 @@ describe('TelaAuditoria', () => {
       async (f: FiltroAuditoria): Promise<PaginaAuditoria> =>
         f.antes ? { registros: [reg(1)], fim: true } : { registros: [reg(3), reg(2)], fim: false },
     );
-    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} canais={[{ id: 7, tipo: 'voz', nome: 'Sala 1', posicao: 1 }]} aoVoltar={vi.fn()} />);
     const lista = await screen.findByRole('list', { name: 'Registros da auditoria' });
     await waitFor(() => expect(lista.textContent).toContain('ana entrou com usuário e senha'));
     fireEvent.click(screen.getByRole('button', { name: 'Carregar mais antigos' }));
@@ -37,14 +37,16 @@ describe('TelaAuditoria', () => {
 
   it('filtros viram a consulta (pessoa, evento e período)', async () => {
     const auditoria = vi.fn(async (): Promise<PaginaAuditoria> => ({ registros: [], fim: true }));
-    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} canais={[{ id: 7, tipo: 'voz', nome: 'Sala 1', posicao: 1 }]} aoVoltar={vi.fn()} />);
     fireEvent.change(screen.getByLabelText('Pessoa'), { target: { value: '2' } });
     fireEvent.change(screen.getByLabelText('Evento'), { target: { value: 'offline' } });
+    fireEvent.change(screen.getByLabelText('Canal'), { target: { value: '7' } });
     fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-11-01' } });
     fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-11-05' } });
     await waitFor(() =>
       expect(auditoria).toHaveBeenLastCalledWith({
         pessoa: 2,
+        canal: 7,
         tipo: 'offline',
         de: new Date(2026, 10, 1).getTime(),
         ate: new Date(2026, 10, 5, 23, 59, 59, 999).getTime(),
@@ -71,7 +73,7 @@ describe('TelaAuditoria', () => {
       if (falhar) throw new Error('Sem conexão com o servidor.');
       return { registros: [reg(1)], fim: true };
     });
-    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} canais={[{ id: 7, tipo: 'voz', nome: 'Sala 1', posicao: 1 }]} aoVoltar={vi.fn()} />);
     await screen.findByText('Carregar mais antigos');
 
     avisar(true);
@@ -92,7 +94,7 @@ describe('TelaAuditoria', () => {
     const auditoria = vi.fn(async (): Promise<PaginaAuditoria> => {
       throw new Error('Só administradores podem fazer isso.');
     });
-    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} canais={[{ id: 7, tipo: 'voz', nome: 'Sala 1', posicao: 1 }]} aoVoltar={vi.fn()} />);
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Só administradores podem fazer isso.');
   });
 });

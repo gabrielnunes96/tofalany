@@ -96,6 +96,18 @@ export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida';
 /** Esquema do link que abre o app (RF-1a): tofalany://convite?servidor=<url>&codigo=<código>. */
 export const ESQUEMA_LINK = 'tofalany';
 
+export type TipoCanal = 'texto' | 'voz';
+
+export interface CanalDto {
+  id: number;
+  tipo: TipoCanal;
+  nome: string;
+  posicao: number;
+}
+
+/** Resposta (ack) dos eventos cliente → servidor. */
+export type Ack<T = undefined> = (resposta: { ok: true; valor: T } | { ok: false; erro: string }) => void;
+
 /** Retrato inicial enviado ao conectar o Socket.IO (cresce com canais, DMs, voz… nas próximas tarefas). */
 export interface OlaPayload {
   servidor: { nome: string };
@@ -103,6 +115,7 @@ export interface OlaPayload {
   convite: { link: string };
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
+  canais: CanalDto[];
 }
 
 /** Eventos servidor → cliente. */
@@ -115,12 +128,21 @@ export interface EventosServidor {
   'usuario:atualizado': (usuario: UsuarioDto) => void;
   /** Código de convite trocado: o link copiável muda para todos. */
   'convite:atualizado': (convite: { link: string }) => void;
+  'canal:criado': (canal: CanalDto) => void;
+  'canal:renomeado': (canal: CanalDto) => void;
+  'canal:removido': (payload: { id: number }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }
 
-/** Eventos cliente → servidor (preenchidos a partir da T8). */
-export type EventosCliente = Record<string, never>;
+/** Eventos cliente → servidor, sempre com resposta (ack). */
+export interface EventosCliente {
+  /** RN-7: qualquer membro cria e renomeia. */
+  'canal:criar': (dados: { tipo: TipoCanal; nome: string }, ack: Ack<CanalDto>) => void;
+  'canal:renomear': (dados: { id: number; nome: string }, ack: Ack<CanalDto>) => void;
+  /** RN-7, RN-8: só administrador remove; apaga o histórico do canal. */
+  'canal:remover': (dados: { id: number }, ack: Ack) => void;
+}
 
 /**
  * Batimento do Socket.IO: queda de rede sem fechamento da conexão (cabo, Wi-Fi) é percebida

@@ -17,6 +17,8 @@ import { buscarPorId, listarAtivos, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { CHAVE_CONVITE, lerConfiguracao } from '../dominio/configuracoes.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
+import { listarCanais } from '../dominio/canais.js';
+import { registrarEventosCanais } from './canais.js';
 
 interface DadosSocket {
   usuarioId: number;
@@ -25,7 +27,7 @@ interface DadosSocket {
   baseServidor: string;
 }
 
-type SocketTofalando = Socket<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
+export type SocketTofalando = Socket<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
 export type ServidorTempoReal = Server<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
 
 export interface TempoReal {
@@ -148,7 +150,9 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       convite: { link: montarLinkConvite(socket.data.baseServidor, lerConfiguracao(banco, CHAVE_CONVITE) ?? '') },
       eu: paraDto(eu),
       usuarios: listarAtivos(banco).map(paraDto),
+      canais: listarCanais(banco),
     };
+    registrarEventosCanais(io, socket, banco, (e) => app.log.error(e));
     socket.emit('ola', ola);
     presenca.entrou(eu.id);
     socket.on('disconnect', () => presenca.saiu(eu.id));

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ROTULOS_AUDITORIA, TIPOS_AUDITORIA, type FiltroAuditoria, type RegistroAuditoriaDto, type TipoAuditoria } from '@tofalando/shared';
+import { ROTULOS_AUDITORIA, TIPOS_AUDITORIA, type CanalDto, type FiltroAuditoria, type RegistroAuditoriaDto, type TipoAuditoria } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { descreverRegistro, formatarQuando, limiteDoDia } from './auditoria-texto';
 
@@ -13,19 +13,22 @@ export interface PessoaFiltro {
 interface Props {
   api: Pick<ClienteApi, 'auditoria'>;
   pessoas: PessoaFiltro[];
+  /** Canais atuais, para filtrar por canal (registros de canais removidos aparecem sem filtro). */
+  canais: CanalDto[];
   aoVoltar: () => void;
 }
 
 interface Filtros {
   pessoa: string;
+  canal: string;
   tipo: '' | TipoAuditoria;
   de: string;
   ate: string;
 }
 
 /** RF-35: auditoria do servidor, só para administrador (o servidor também recusa membro). */
-export function TelaAuditoria({ api, pessoas, aoVoltar }: Props) {
-  const [filtros, setFiltros] = useState<Filtros>({ pessoa: '', tipo: '', de: '', ate: '' });
+export function TelaAuditoria({ api, pessoas, canais, aoVoltar }: Props) {
+  const [filtros, setFiltros] = useState<Filtros>({ pessoa: '', canal: '', tipo: '', de: '', ate: '' });
   const [registros, setRegistros] = useState<RegistroAuditoriaDto[]>([]);
   const [fim, setFim] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -36,6 +39,7 @@ export function TelaAuditoria({ api, pessoas, aoVoltar }: Props) {
   const filtroApi = useCallback(
     (antes?: number): FiltroAuditoria => ({
       pessoa: filtros.pessoa ? Number(filtros.pessoa) : undefined,
+      canal: filtros.canal ? Number(filtros.canal) : undefined,
       tipo: filtros.tipo || undefined,
       de: limiteDoDia(filtros.de, false),
       ate: limiteDoDia(filtros.ate, true),
@@ -114,6 +118,18 @@ export function TelaAuditoria({ api, pessoas, aoVoltar }: Props) {
                 {p.removido ? `${p.nome} (conta removida)` : p.nome}
               </option>
             ))}
+          </select>
+        </label>
+        <label>
+          Canal
+          <select value={filtros.canal} onChange={(e) => mudar('canal', e.target.value)}>
+            <option value="">Todos</option>
+            {canais.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.tipo === 'texto' ? `# ${c.nome}` : `🔊 ${c.nome}`}
+              </option>
+            ))}
+            {filtros.canal && !canais.some((c) => String(c.id) === filtros.canal) && <option value={filtros.canal}>(canal removido)</option>}
           </select>
         </label>
         <label>

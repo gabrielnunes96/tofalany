@@ -167,14 +167,14 @@
         "CA-50"
       ],
       "validacao": "integração com 2 sockets: mudança em menos de 2 s; membro não remove; admin remove e histórico some",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
     {
       "id": "T9",
       "titulo": "Chat de texto com histórico",
-      "descricao": "Migration de mensagens; mensagem:enviar e mensagem:nova; GET /api/canais/:id/mensagens paginado por id. Tela do canal com rolagem infinita para cima.",
+      "descricao": "Migration de mensagens; mensagem:enviar e mensagem:nova; GET /api/canais/:id/mensagens paginado por id. Tela do canal com rolagem infinita para cima. Pendência da T8 (RN-8, CA-13): removerCanal passa a apagar as mensagens do canal (e, na T11, os arquivos de anexo), e o teste 'CA-13 / RN-7' de canais.test.ts confere que o histórico some.",
       "repo": ".",
       "stack": "front",
       "depende_de": [

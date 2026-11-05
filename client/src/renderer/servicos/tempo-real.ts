@@ -4,6 +4,7 @@ import {
   type EventosCliente,
   type EventosServidor,
   type MotivoRevogacao,
+  type CanalDto,
   type OlaPayload,
   type UsuarioDto,
 } from '@tofalando/shared';
@@ -17,6 +18,9 @@ export interface OuvintesTempoReal {
   aoUsuarioAtualizado(usuario: UsuarioDto): void;
   aoUsuarioRemovido(id: number): void;
   aoConviteAtualizado(link: string): void;
+  aoCanalCriado(canal: CanalDto): void;
+  aoCanalRenomeado(canal: CanalDto): void;
+  aoCanalRemovido(id: number): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -43,14 +47,30 @@ const redeDoNavegador: Rede = {
   },
 };
 
-/** Conexão em tempo real com reconexão automática (RF-31). Devolve a função que desconecta. */
+export type RespostaAcao<T> = { ok: true; valor: T } | { ok: false; erro: string };
+
+export interface ConexaoTempoReal {
+  desconectar(): void;
+  /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
+  pedir<K extends keyof EventosCliente>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
+}
+
+type AckValor<K extends keyof EventosCliente> = Parameters<Parameters<EventosCliente[K]>[1]>[0] extends infer R
+  ? R extends { ok: true; valor: infer V }
+    ? V
+    : never
+  : never;
+
+const SEM_CONEXAO = 'Sem conexão com o servidor. Tente de novo em instantes.';
+
+/** Conexão em tempo real com reconexão automática (RF-31). */
 export function conectarTempoReal(
   url: string,
   token: string,
   ouvintes: OuvintesTempoReal,
   fabrica: Fabrica = io,
   rede: Rede = redeDoNavegador,
-): () => void {
+): ConexaoTempoReal {
   let encerrada = false;
   const socket = fabrica(url, {
     auth: { token },
@@ -75,6 +95,9 @@ export function conectarTempoReal(
   socket.on('usuario:atualizado', (usuario) => ouvintes.aoUsuarioAtualizado(usuario));
   socket.on('usuario:removido', ({ id }) => ouvintes.aoUsuarioRemovido(id));
   socket.on('convite:atualizado', ({ link }) => ouvintes.aoConviteAtualizado(link));
+  socket.on('canal:criado', (canal) => ouvintes.aoCanalCriado(canal));
+  socket.on('canal:renomeado', (canal) => ouvintes.aoCanalRenomeado(canal));
+  socket.on('canal:removido', ({ id }) => ouvintes.aoCanalRemovido(id));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');
@@ -94,10 +117,20 @@ export function conectarTempoReal(
     else if (socket.connected) ouvintes.aoEstado('conectado');
   });
 
-  return () => {
-    encerrada = true;
-    pararRede();
-    socket.removeAllListeners();
-    socket.disconnect();
+  return {
+    desconectar() {
+      encerrada = true;
+      pararRede();
+      socket.removeAllListeners();
+      socket.disconnect();
+    },
+    pedir(evento, dados) {
+      if (!socket.connected) return Promise.resolve({ ok: false, erro: SEM_CONEXAO });
+      return new Promise((resolver) => {
+        (socket.timeout(10_000).emit as (e: string, d: unknown, cb: (erro: Error | null, r: never) => void) => void)(evento, dados, (erro, resposta) =>
+          resolver(erro ? { ok: false, erro: SEM_CONEXAO } : resposta),
+        );
+      });
+    },
   };
 }
