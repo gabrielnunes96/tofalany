@@ -69,4 +69,22 @@ export const MIGRACOES: readonly string[] = [
   );
   CREATE INDEX mensagens_canal ON mensagens(canal_id, id);
   `,
+  // 005 — anexos (T11). Anexo sem mensagem por mais de 1 h é órfão e é apagado.
+  `
+  CREATE TABLE anexos (
+    id TEXT PRIMARY KEY,
+    mensagem_id INTEGER REFERENCES mensagens(id) ON DELETE CASCADE,
+    autor_id INTEGER NOT NULL REFERENCES usuarios(id),
+    tipo TEXT NOT NULL CHECK (tipo IN ('imagem', 'documento')),
+    mime TEXT NOT NULL,
+    nome_original TEXT NOT NULL,
+    largura INTEGER,
+    altura INTEGER,
+    bytes INTEGER NOT NULL,
+    arquivo TEXT NOT NULL,
+    criado_em INTEGER NOT NULL
+  );
+  CREATE INDEX anexos_mensagem ON anexos(mensagem_id);
+  CREATE INDEX anexos_orfaos ON anexos(mensagem_id, criado_em);
+  `,
 ];

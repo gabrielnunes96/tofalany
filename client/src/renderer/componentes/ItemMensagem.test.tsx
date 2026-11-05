@@ -9,7 +9,7 @@ import { MensagensCanal, textoDigitando } from './MensagensCanal';
 afterEach(cleanup);
 
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#00f0ff', avatarUrl: null, cargo: 'membro' };
-const m: MensagemDto = { id: 7, canalId: 1, autorId: 1, texto: 'original', criadaEm: 1_700_000_000_000, editadaEm: null };
+const m: MensagemDto = { id: 7, canalId: 1, autorId: 1, texto: 'original', criadaEm: 1_700_000_000_000, editadaEm: null, anexos: [] };
 
 function lista(ui: React.ReactElement) {
   return render(<ol>{ui}</ol>);
@@ -80,7 +80,7 @@ describe('sinal de digitando', () => {
         canal={{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }}
         usuarios={[ana]}
         servidorUrl="http://s"
-        api={{ mensagensCanal: async () => ({ mensagens: [], fim: true }) }}
+        api={{ enviarAnexo: vi.fn(async () => { throw new Error('sem anexo no teste'); }), mensagensCanal: async () => ({ mensagens: [], fim: true }) }}
         aoEnviar={vi.fn()}
         euId={1}
         ehAdmin={false}
@@ -114,7 +114,7 @@ describe('aviso de digitando expira (CA-17)', () => {
         canal={{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }}
         usuarios={[ana, bia]}
         servidorUrl="http://s"
-        api={{ mensagensCanal: () => new Promise(() => undefined) }}
+        api={{ enviarAnexo: vi.fn(async () => { throw new Error('sem anexo no teste'); }), mensagensCanal: () => new Promise(() => undefined) }}
         aoEnviar={vi.fn()}
         euId={1}
         ehAdmin={false}

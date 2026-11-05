@@ -10,6 +10,8 @@ import { registrarRotasPerfil } from './routes/perfil.js';
 import { registrarRotasAdmin } from './routes/admin.js';
 import { registrarRotasConvite } from './routes/convite.js';
 import { registrarRotasMensagens } from './routes/mensagens.js';
+import { registrarRotasAnexos } from './routes/anexos.js';
+import { limparOrfaos } from './dominio/anexos.js';
 import type { ErroApi } from '@tofalando/shared';
 import type { Config } from './config.js';
 import { abrirBanco, EM_MEMORIA, type Banco } from './db/banco.js';
@@ -88,7 +90,19 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   const armazem = criarArmazem(pasta);
   app.decorate('armazem', armazem);
   if (temporaria) app.addHook('onClose', async () => rmSync(pasta, { recursive: true, force: true }));
-  const tempoReal = criarTempoReal(app, banco, config);
+  const tempoReal = criarTempoReal(app, banco, config, armazem);
+  // Anexos enviados e não usados em 1 h: apagados ao subir e a cada 30 min.
+  const ORFAO_MS = 60 * 60 * 1000;
+  limparOrfaos(banco, armazem, ORFAO_MS);
+  const limpezaOrfaos = setInterval(() => {
+    try {
+      limparOrfaos(banco, armazem, ORFAO_MS);
+    } catch (erro) {
+      app.log.error(erro);
+    }
+  }, 30 * 60 * 1000);
+  limpezaOrfaos.unref();
+  app.addHook('onClose', async () => clearInterval(limpezaOrfaos));
   app.decorate('tempoReal', tempoReal);
   registrarRotasServidor(app, banco, config);
   registrarRotasAuth(app, banco, config, tempoReal);
@@ -97,6 +111,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasPerfil(app, banco, armazem, tempoReal);
   registrarRotasAdmin(app, banco, config, tempoReal, armazem);
   registrarRotasMensagens(app, banco);
+  registrarRotasAnexos(app, banco, armazem);
   registrarRotasConvite(
     app,
     banco,

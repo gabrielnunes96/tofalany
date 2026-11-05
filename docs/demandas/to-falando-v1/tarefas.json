@@ -225,7 +225,7 @@
         "CA-16b"
       ],
       "validacao": "integração: PNG 2 MB, PDF 5 MB e ZIP 20 MB com hash igual; 30 MB 413; exe renomeado 415; E2E: imagem e cartão",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

@@ -211,3 +211,24 @@ button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); 
 .mensagem .confirmar { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 .mensagem .confirmar button { margin: 0; padding: 4px 8px; font-size: 0.8rem; }
 .digitando { min-height: 1.2em; margin: 4px 0 0; font-size: 0.8rem; color: var(--destaque); }
+
+/* Anexos */
+.anexos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.anexo-imagem { margin: 0; padding: 0; background: transparent; border: 1px solid var(--borda); border-radius: var(--raio); overflow: hidden; line-height: 0; }
+.anexo-imagem:hover:not(:disabled) { background: transparent; box-shadow: var(--brilho); }
+.anexo-imagem img { max-width: 360px; max-height: 280px; width: auto; height: auto; display: block; }
+.anexo-documento { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--borda); border-left: 3px solid var(--destaque); border-radius: var(--raio); background: var(--campo); max-width: 480px; }
+.anexo-documento button { margin: 0; padding: 4px 10px; }
+.anexo-icone { font-weight: 800; font-size: 0.75rem; color: var(--magenta); border: 1px solid var(--magenta); border-radius: 4px; padding: 6px 4px; }
+.anexo-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.anexo-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
+.anexo-documento .aviso-ok, .anexo-documento .erro { flex-basis: 100%; font-size: 0.8rem; margin: 0; overflow-wrap: anywhere; }
+.ampliada { position: fixed; inset: 0; z-index: 50; background: rgba(5, 4, 10, 0.92); display: grid; place-items: center; padding: 32px; }
+.ampliada img { max-width: 100%; max-height: calc(100vh - 100px); box-shadow: 0 0 40px rgba(0, 240, 255, 0.2); }
+.ampliada .fechar { position: absolute; top: 16px; right: 16px; }
+.pendentes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.pendente { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--campo); font-size: 0.85rem; }
+.pendente.erro { border-color: var(--erro); }
+.pendente.erro .suave { color: var(--erro); }
+.compositor .anexar { padding: 8px 12px; font-size: 1.1rem; }
+.chat.arrastando { outline: 2px dashed var(--destaque); outline-offset: -6px; border-radius: var(--raio); }

@@ -23,6 +23,10 @@ const api: ApiTofalando = {
   areaTransferencia: {
     copiar: (texto) => ipcRenderer.invoke('area:copiar', texto),
   },
+  arquivos: {
+    baixar: (url, nome) => ipcRenderer.invoke('arquivo:baixar', url, nome),
+    abrir: (caminho) => ipcRenderer.invoke('arquivo:abrir', caminho),
+  },
 };
 
 contextBridge.exposeInMainWorld('tofalando', api);

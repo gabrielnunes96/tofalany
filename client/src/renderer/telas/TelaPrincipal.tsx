@@ -120,8 +120,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       },
     );
   const renomearCanal = (id: number, nome: string) => pedir((c) => c.pedir('canal:renomear', { id, nome }), acoes.salvarCanal);
-  const enviarMensagem = (canalId: number, texto: string) =>
-    pedir((c) => c.pedir('mensagem:enviar', { destino: { canalId }, texto }), acoes.adicionarMensagem);
+  const enviarMensagem = (canalId: number, texto: string, anexos: string[]) =>
+    pedir((c) => c.pedir('mensagem:enviar', { destino: { canalId }, texto, anexos }), acoes.adicionarMensagem);
   const editarMensagem = (id: number, texto: string) => pedir((c) => c.pedir('mensagem:editar', { id, texto }), acoes.atualizarMensagem);
   const apagarMensagem = (id: number) => {
     const canalId = Object.entries(useLoja.getState().historicos).find(([, h]) => h.mensagens.some((m) => m.id === id))?.[0];

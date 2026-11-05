@@ -4,6 +4,7 @@ import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
 import { prepararLinks } from './deeplink';
+import { criarArquivos } from './arquivos';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -77,14 +78,19 @@ function criarJanela(): BrowserWindow {
 if (links.principal) {
   void app.whenReady().then(() => {
     const dados = app.getPath('userData');
+    const configuracoes = criarArmazemConfiguracoes(join(dados, 'configuracoes.json'));
     registrarIpc(
-      criarArmazemConfiguracoes(join(dados, 'configuracoes.json')),
+      configuracoes,
       criarArmazemSessao(join(dados, 'sessao.json'), {
         disponivel: () => safeStorage.isEncryptionAvailable(),
         cifrar: (texto) => safeStorage.encryptString(texto),
         decifrar: (bytes) => safeStorage.decryptString(bytes),
       }),
       links.pegarPendente,
+      criarArquivos(
+        () => janelaPrincipal,
+        () => configuracoes.ler().servidorUrl,
+      ),
     );
     criarJanela();
 

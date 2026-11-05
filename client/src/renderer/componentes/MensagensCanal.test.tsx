@@ -11,7 +11,7 @@ afterEach(cleanup);
 const extras = { euId: 1, ehAdmin: false, aoEditar: vi.fn(async () => null), aoApagar: vi.fn(async () => null), aoDigitar: vi.fn() };
 const canal = { id: 1, tipo: 'texto' as const, nome: 'geral', posicao: 1 };
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#00f0ff', avatarUrl: null, cargo: 'membro' };
-const msg = (id: number, autorId = 1): MensagemDto => ({ id, canalId: 1, autorId, texto: `texto ${id}`, criadaEm: 1_700_000_000_000 + id, editadaEm: null });
+const msg = (id: number, autorId = 1): MensagemDto => ({ id, canalId: 1, autorId, texto: `texto ${id}`, criadaEm: 1_700_000_000_000 + id, editadaEm: null, anexos: [] });
 
 describe('MensagensCanal', () => {
   it('carrega, mostra autor ou "conta removida" e pagina para trás pelo botão', async () => {
@@ -19,7 +19,7 @@ describe('MensagensCanal', () => {
       async (_c: number, antes?: number): Promise<PaginaMensagens> =>
         antes ? { mensagens: [msg(1)], fim: true } : { mensagens: [msg(2, 99), msg(3)], fim: false },
     );
-    render(<MensagensCanal canal={canal} usuarios={[ana]} servidorUrl="http://s" api={{ mensagensCanal }} aoEnviar={vi.fn()} {...extras} />);
+    render(<MensagensCanal canal={canal} usuarios={[ana]} servidorUrl="http://s" api={{ mensagensCanal, enviarAnexo: vi.fn() }} aoEnviar={vi.fn()} {...extras} />);
     const lista = await screen.findByRole('list', { name: 'Mensagens de #geral' });
     await waitFor(() => expect(lista.textContent).toContain('texto 3'));
     expect(lista.textContent).toContain('conta removida');
@@ -37,7 +37,7 @@ describe('MensagensCanal', () => {
         canal={canal}
         usuarios={[ana]}
         servidorUrl="http://s"
-        api={{ mensagensCanal: async () => ({ mensagens: [], fim: true }) }}
+        api={{ enviarAnexo: vi.fn(async () => { throw new Error('sem anexo no teste'); }), mensagensCanal: async () => ({ mensagens: [], fim: true }) }}
         aoEnviar={aoEnviar}
         {...extras}
       />,
@@ -49,7 +49,7 @@ describe('MensagensCanal', () => {
     fireEvent.keyDown(campo, { key: 'Enter', shiftKey: true });
     expect(aoEnviar).not.toHaveBeenCalled();
     fireEvent.keyDown(campo, { key: 'Enter' });
-    await waitFor(() => expect(aoEnviar).toHaveBeenCalledWith('oi\nlinha 2'));
+    await waitFor(() => expect(aoEnviar).toHaveBeenCalledWith('oi\nlinha 2', []));
     await waitFor(() => expect(campo.value).toBe(''));
     fireEvent.change(campo, { target: { value: 'falha' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
@@ -63,7 +63,7 @@ describe('MensagensCanal', () => {
       if (falhar) throw new Error('rede');
       return { mensagens: [msg(1)], fim: true };
     });
-    render(<MensagensCanal canal={canal} usuarios={[ana]} servidorUrl="http://s" api={{ mensagensCanal }} aoEnviar={vi.fn()} {...extras} />);
+    render(<MensagensCanal canal={canal} usuarios={[ana]} servidorUrl="http://s" api={{ mensagensCanal, enviarAnexo: vi.fn() }} aoEnviar={vi.fn()} {...extras} />);
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Não foi possível carregar as mensagens.');
     falhar = false;
     fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));

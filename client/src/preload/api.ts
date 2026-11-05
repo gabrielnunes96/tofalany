@@ -26,4 +26,10 @@ export interface ApiTofalando {
   areaTransferencia: {
     copiar(texto: string): Promise<void>;
   };
+  arquivos: {
+    /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */
+    baixar(url: string, nome: string): Promise<string | null>;
+    /** Abre com o programa do sistema um arquivo baixado por aqui. */
+    abrir(caminho: string): Promise<void>;
+  };
 }

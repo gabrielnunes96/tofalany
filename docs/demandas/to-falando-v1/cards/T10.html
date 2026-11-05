@@ -1,0 +1,27 @@
+<!-- T10 — Editar, apagar e digitando -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-10, RF-11, RN-9, RN-20d, RN-21; CA-17, CA-18, CA-50 (mensagem apagada por admin) e CA-51 (parte de canal).</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (mensagem:editar, mensagem:apagar, digitando) e seção Auditoria.</p>
+
+<h3>Implementação (05/11/2026, commits e29b5dd e 55f843b)</h3>
+<ul>
+  <li><b>Servidor:</b> <code>mensagem:editar</code> só pelo autor (mesmo texto não marca nem audita); <code>mensagem:apagar</code> pelo autor ou por administrador em canal (base da RN-18 para DMs na T12), exclusão definitiva; <code>mensagem:editada</code>/<code>mensagem:apagada</code> para todos; auditoria mensagem_editada, mensagem_apagada e mensagem_apagada_admin (com o autor como alvo), nunca o texto.</li>
+  <li><b>Digitando:</b> sinal sem resposta, ignorado se inválido, entregue só aos outros; o servidor aceita no máximo um por segundo por conexão, e enviar mensagem zera o limite (correção 55f843b: o sinal de quem já começa a próxima mensagem era descartado).</li>
+  <li><b>App:</b> "Editar" e "Apagar" ao passar o mouse ou focar (só para quem pode); edição no lugar (Enter salva, Esc/Cancelar descarta e limpa o erro); apagar com confirmação; "(editada)"; aviso "Ana está digitando…" (até três nomes, depois "Várias pessoas") que some 5 s após o último sinal; o app reenvia no máximo a cada 3 s; relógio do aviso só roda enquanto alguém digita; reconectar e remover conta limpam os avisos.</li>
+  <li><b>Pendência registrada na T12:</b> eventos de mensagem de DM só para os dois participantes.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/mensagens-edicao.test.ts</code> (CA-18, validações, CA-17, limite de sinais e liberação após enviar, CA-50/CA-51 sem texto), <code>client/.../ItemMensagem.test.tsx</code> (editar, cancelar, apagar, permissões, frases, sinal a cada 3 s, aviso expira em 5 s com relógio falso e o relógio para), <code>loja.test.ts</code>, <code>tempo-real.test.ts</code>. Suíte: 206 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (2 apps): ana edita a própria mensagem</td><td>ok</td><td>o dono vê "texto certo" com "(editada)"</td></tr>
+  <tr><td>E2E: ana na mensagem do dono</td><td>ok</td><td>sem "Editar" e sem "Apagar"</td></tr>
+  <tr><td>E2E: dono digita logo após enviar</td><td>ok</td><td>a ana vê "dono está digitando…", que some em menos de 6,5 s</td></tr>
+  <tr><td>E2E: dono (admin) apaga a mensagem da ana</td><td>ok</td><td>some para os dois</td></tr>
+  <tr><td>E2E: suíte completa</td><td>ok</td><td>14 testes passando</td></tr>
+</table>
+<p>Revisão: 6 achados (0 graves, 1 médio, 5 menores); 5 corrigidos, 1 registrado para a T12. Observação de processo: o primeiro commit saiu com um E2E falhando por um encadeamento de comandos errado; corrigido no commit seguinte.</p>

@@ -36,6 +36,7 @@ function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | 
     },
     convite: { pendente: async () => estado.pendente, aoChegar: () => () => undefined },
     areaTransferencia: { copiar: async () => undefined },
+    arquivos: { baixar: async () => null, abrir: async () => undefined },
   };
   window.tofalando = api;
   return { gravarConfig, estado };

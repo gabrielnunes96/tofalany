@@ -11,8 +11,8 @@ interface Props {
   aoRemover: (id: number) => Promise<string | null>;
   usuarios: UsuarioDto[];
   servidorUrl: string;
-  api: Pick<ClienteApi, 'mensagensCanal'>;
-  aoEnviar: (canalId: number, texto: string) => Promise<string | null>;
+  api: Pick<ClienteApi, 'mensagensCanal' | 'enviarAnexo'>;
+  aoEnviar: (canalId: number, texto: string, anexos: string[]) => Promise<string | null>;
   euId: number;
   aoEditarMensagem: (id: number, texto: string) => Promise<string | null>;
   aoApagarMensagem: (id: number) => Promise<string | null>;
@@ -112,7 +112,7 @@ export function CanalAberto({
         usuarios={usuarios}
         servidorUrl={servidorUrl}
         api={api}
-        aoEnviar={(texto) => aoEnviar(canal.id, texto)}
+        aoEnviar={(texto, anexos) => aoEnviar(canal.id, texto, anexos)}
         euId={euId}
         ehAdmin={ehAdmin}
         aoEditar={aoEditarMensagem}

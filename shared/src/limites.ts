@@ -30,5 +30,11 @@ export const PAGINA_MENSAGENS = 50;
 export const DIGITANDO_DURACAO_MS = 5000;
 export const DIGITANDO_INTERVALO_MS = 3000;
 
+/** RN-19: anexo até 25 MB; até 10 por mensagem; imagem decodificada até ~40 megapixels. */
+export const ANEXO_MAX_BYTES = 25 * 1024 * 1024;
+export const ANEXOS_POR_MENSAGEM = 10;
+export const ANEXO_IMAGEM_MAX_PIXELS = 40_000_000;
+export const EXTENSOES_ANEXO = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'zip'] as const;
+
 /** Cores sorteadas para o perfil de quem acabou de se cadastrar (o usuário troca no perfil, T5). */
 export const CORES_PERFIL = ['#00f0ff', '#ff2a6d', '#fcee0a', '#3dffb0', '#b14bff', '#ff8a00', '#4d7cff', '#ff4dd2'];

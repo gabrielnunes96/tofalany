@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { validarTextoMensagem, type MensagemDto, type UsuarioDto } from '@tofalando/shared';
 import { Avatar } from './Avatar';
+import { ListaAnexos } from './Anexos';
 
 interface Props {
   mensagem: MensagemDto;
@@ -100,8 +101,9 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
             </div>
           </div>
         ) : (
-          <p className="mensagem-texto">{m.texto}</p>
+          m.texto && <p className="mensagem-texto">{m.texto}</p>
         )}
+        <ListaAnexos anexos={m.anexos} servidorUrl={servidorUrl} />
         {modo === 'apagar' && (
           <div className="confirmar" role="group" aria-label="Confirmar exclusão da mensagem">
             <span>Apagar esta mensagem?</span>

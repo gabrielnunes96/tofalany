@@ -63,7 +63,7 @@ describe('canais na loja', () => {
 
 describe('histórico de mensagens na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
-  const msg = (id: number, canalId = 1) => ({ id, canalId, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null });
+  const msg = (id: number, canalId = 1) => ({ id, canalId, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
 
   it('primeira carga, páginas antigas na frente, novas no fim, sem duplicar', () => {
     const l = useLoja.getState();
@@ -97,7 +97,7 @@ describe('histórico de mensagens na loja', () => {
 
 describe('respostas atrasadas do histórico', () => {
   beforeEach(() => useLoja.getState().limpar());
-  const msg = (id: number) => ({ id, canalId: 1, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null });
+  const msg = (id: number) => ({ id, canalId: 1, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
 
   it('resposta de antes da reconexão é ignorada; a ordem fica certa', () => {
     const l = useLoja.getState();
@@ -122,7 +122,7 @@ describe('respostas atrasadas do histórico', () => {
 
 describe('edição, exclusão e digitando na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
-  const msg = (id: number, autorId = 1) => ({ id, canalId: 1, autorId, texto: `m${id}`, criadaEm: id, editadaEm: null });
+  const msg = (id: number, autorId = 1) => ({ id, canalId: 1, autorId, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
 
   it('atualiza e remove mensagens do canal carregado', () => {
     const l = useLoja.getState();

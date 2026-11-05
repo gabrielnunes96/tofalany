@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { DIGITANDO_INTERVALO_MS, validarTextoMensagem, type CanalDto, type UsuarioDto } from '@tofalando/shared';
+import {
+  ANEXO_MAX_BYTES,
+  ANEXOS_POR_MENSAGEM,
+  DIGITANDO_INTERVALO_MS,
+  EXTENSOES_ANEXO,
+  validarTextoMensagem,
+  type AnexoDto,
+  type CanalDto,
+  type UsuarioDto,
+} from '@tofalando/shared';
+import { tamanhoLegivel } from './Anexos';
 import { useLoja } from '../estado/loja';
 import type { ClienteApi } from '../servicos/api';
 import { ErroApiCliente } from '../servicos/api';
@@ -9,15 +19,34 @@ interface Props {
   canal: CanalDto;
   usuarios: UsuarioDto[];
   servidorUrl: string;
-  api: Pick<ClienteApi, 'mensagensCanal'>;
+  api: Pick<ClienteApi, 'mensagensCanal' | 'enviarAnexo'>;
   /** Envia pelo tempo real; devolve a mensagem de erro ou null. */
-  aoEnviar: (texto: string) => Promise<string | null>;
+  aoEnviar: (texto: string, anexos: string[]) => Promise<string | null>;
   euId: number;
   ehAdmin: boolean;
   aoEditar: (id: number, texto: string) => Promise<string | null>;
   aoApagar: (id: number) => Promise<string | null>;
   aoDigitar: () => void;
 }
+
+interface Pendente {
+  chave: number;
+  nome: string;
+  bytes: number;
+  estado: 'enviando' | 'pronto' | 'erro';
+  anexo?: AnexoDto;
+  erro?: string;
+}
+
+/** Confere no app o que o servidor também confere (RN-19): extensão e tamanho. */
+export function problemaDoArquivo(nome: string, bytes: number): string | null {
+  const ext = nome.toLowerCase().split('.').pop() ?? '';
+  if (!(EXTENSOES_ANEXO as readonly string[]).includes(ext)) return 'Formato não aceito. Envie JPEG, PNG, GIF, WebP, PDF ou ZIP.';
+  if (bytes > ANEXO_MAX_BYTES) return 'O arquivo deve ter no máximo 25 MB.';
+  return null;
+}
+
+let proximaChave = 1;
 
 /** "Ana está digitando…", "Ana e Bia estão digitando…", "Várias pessoas estão digitando…". */
 export function textoDigitando(nomes: string[]): string | null {
@@ -44,6 +73,35 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
   const [texto, setTexto] = useState('');
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [pendentes, setPendentes] = useState<Pendente[]>([]);
+  const [arrastando, setArrastando] = useState(false);
+  const seletor = useRef<HTMLInputElement>(null);
+  /** Anexos ocupando vaga (enviando ou prontos), contados na hora: duas escolhas seguidas não passam de 10. */
+  const ativos = useRef(0);
+
+  function anexar(arquivos: FileList | File[]) {
+    const lista = [...arquivos];
+    setErroEnvio(null);
+    const vagas = ANEXOS_POR_MENSAGEM - ativos.current;
+    if (lista.length > vagas) setErroEnvio(`Até ${ANEXOS_POR_MENSAGEM} anexos por mensagem.`);
+    for (const arquivo of lista.slice(0, Math.max(0, vagas))) {
+      const chave = proximaChave++;
+      const problema = problemaDoArquivo(arquivo.name, arquivo.size);
+      const base: Pendente = { chave, nome: arquivo.name, bytes: arquivo.size, estado: problema ? 'erro' : 'enviando', erro: problema ?? undefined };
+      setPendentes((p) => [...p, base]);
+      if (problema) continue;
+      ativos.current++;
+      api
+        .enviarAnexo(arquivo, arquivo.name)
+        .then((anexo) => setPendentes((p) => p.map((x) => (x.chave === chave ? { ...x, estado: 'pronto', anexo } : x))))
+        .catch((e: unknown) => {
+          ativos.current--;
+          setPendentes((p) =>
+            p.map((x) => (x.chave === chave ? { ...x, estado: 'erro', erro: e instanceof Error ? e.message : 'Não foi possível enviar.' } : x)),
+          );
+        });
+    }
+  }
 
   const carregar = useCallback(
     (antes?: number) => {
@@ -119,17 +177,24 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
     }
   }
 
+  const prontos = pendentes.filter((p) => p.estado === 'pronto').map((p) => p.anexo!.id);
+  const subindo = pendentes.some((p) => p.estado === 'enviando');
+  const podeEnviar = !enviando && !subindo && (texto.trim() !== '' || prontos.length > 0);
+
   async function enviar(evento?: FormEvent) {
     evento?.preventDefault();
+    if (!podeEnviar) return;
     const v = validarTextoMensagem(texto);
-    if (!v.ok) return;
+    if (!v.ok && prontos.length === 0) return;
     setEnviando(true);
     setErroEnvio(null);
-    const falha = await aoEnviar(v.valor);
+    const falha = await aoEnviar(v.ok ? v.valor : '', prontos);
     setEnviando(false);
     if (falha) setErroEnvio(falha);
     else {
       setTexto('');
+      setPendentes([]);
+      ativos.current = 0;
       ultimoSinal.current = 0;
       estavaNoFim.current = true;
     }
@@ -145,7 +210,23 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
   const porId = new Map(usuarios.map((u) => [u.id, u]));
 
   return (
-    <div className="chat">
+    <div
+      className={`chat${arrastando ? ' arrastando' : ''}`}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          setArrastando(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setArrastando(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setArrastando(false);
+        if (e.dataTransfer.files.length) anexar(e.dataTransfer.files);
+      }}
+    >
       <div
         className="mensagens"
         ref={lista}
@@ -188,7 +269,43 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
           ))}
         </ol>
       </div>
+      {pendentes.length > 0 && (
+        <ul className="pendentes" aria-label="Anexos a enviar">
+          {pendentes.map((p) => (
+            <li key={p.chave} className={`pendente ${p.estado}`}>
+              <span className="anexo-nome">{p.nome}</span>
+              <span className="suave">{p.estado === 'enviando' ? 'enviando…' : p.estado === 'erro' ? p.erro : tamanhoLegivel(p.bytes)}</span>
+              <button
+                type="button"
+                className="icone"
+                aria-label={`Tirar ${p.nome}`}
+                onClick={() => {
+                  if (p.estado !== 'erro') ativos.current--;
+                  setPendentes((lista) => lista.filter((x) => x.chave !== p.chave));
+                }}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <form className="compositor" onSubmit={enviar}>
+        <button type="button" className="secundario anexar" aria-label="Anexar arquivo" title="Anexar arquivo" onClick={() => seletor.current?.click()}>
+          +
+        </button>
+        <input
+          ref={seletor}
+          type="file"
+          multiple
+          hidden
+          aria-label="Arquivos para anexar"
+          accept={EXTENSOES_ANEXO.map((e) => `.${e}`).join(',')}
+          onChange={(e) => {
+            if (e.target.files?.length) anexar(e.target.files);
+            e.target.value = '';
+          }}
+        />
         <textarea
           aria-label={`Mensagem para #${canal.nome}`}
           placeholder={`Mensagem para #${canal.nome}`}
@@ -198,7 +315,7 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
           rows={1}
           maxLength={4000}
         />
-        <button type="submit" disabled={enviando || !texto.trim()}>
+        <button type="submit" disabled={!podeEnviar}>
           Enviar
         </button>
       </form>

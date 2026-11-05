@@ -105,13 +105,28 @@ export interface CanalDto {
   posicao: number;
 }
 
+export type TipoAnexo = 'imagem' | 'documento';
+
+export interface AnexoDto {
+  id: string;
+  /** Caminho no servidor (/files/<id>), relativo à URL do servidor. */
+  url: string;
+  tipo: TipoAnexo;
+  nome: string;
+  bytes: number;
+  largura: number | null;
+  altura: number | null;
+}
+
 export interface MensagemDto {
   id: number;
   canalId: number | null;
   autorId: number;
+  /** Pode ser vazio quando a mensagem só tem anexos. */
   texto: string;
   criadaEm: number;
   editadaEm: number | null;
+  anexos: AnexoDto[];
 }
 
 export interface PaginaMensagens {
@@ -164,7 +179,8 @@ export interface EventosCliente {
   /** RN-7, RN-8: só administrador remove; apaga o histórico do canal. */
   'canal:remover': (dados: { id: number }, ack: Ack) => void;
   /** RF-8: enviar mensagem num canal de texto (DMs na T12). */
-  'mensagem:enviar': (dados: { destino: { canalId: number }; texto: string }, ack: Ack<MensagemDto>) => void;
+  /** Anexos já enviados por POST /api/anexos (até 10). */
+  'mensagem:enviar': (dados: { destino: { canalId: number }; texto: string; anexos?: string[] }, ack: Ack<MensagemDto>) => void;
   /** RN-9: só o autor edita. */
   'mensagem:editar': (dados: { id: number; texto: string }, ack: Ack<MensagemDto>) => void;
   /** RN-9: o autor apaga; administrador apaga qualquer mensagem de canal. */

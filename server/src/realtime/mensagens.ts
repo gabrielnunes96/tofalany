@@ -1,8 +1,10 @@
-import { validarTextoMensagem } from '@tofalando/shared';
+import { ANEXOS_POR_MENSAGEM, validarTextoMensagem } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal } from '../dominio/canais.js';
-import { apagarMensagem, buscarMensagem, criarMensagemCanal, editarMensagem } from '../dominio/mensagens.js';
+import { apagarMensagem, buscarMensagem, editarMensagem, inserirMensagemCanal } from '../dominio/mensagens.js';
+import { arquivosDaMensagem, vincularAnexos } from '../dominio/anexos.js';
+import type { Armazem } from '../arquivos/armazem.js';
 import { buscarPorId } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { comAck } from './acoes.js';
@@ -31,8 +33,24 @@ function lerCanalTexto(banco: Banco, dados: unknown): number {
   return canalId;
 }
 
-/** RF-8, RF-10, RF-11: enviar, editar, apagar e "digitando" em canal de texto (DMs na T12). */
-export function registrarEventosMensagens(io: ServidorTempoReal, socket: SocketTofalando, banco: Banco, registrarErro: (e: unknown) => void) {
+/** Ids de anexo (opcional, até 10, sem repetir). */
+function lerAnexos(dados: unknown): string[] {
+  const lista = ehObjeto(dados) ? dados.anexos : undefined;
+  if (lista === undefined) return [];
+  if (!Array.isArray(lista) || lista.length > ANEXOS_POR_MENSAGEM || !lista.every((x) => typeof x === 'string' && /^[0-9a-f]{24}$/.test(x))) {
+    throw new ErroHttp(400, 'dados_invalidos', `Anexos inválidos (até ${ANEXOS_POR_MENSAGEM}).`);
+  }
+  return [...new Set(lista as string[])];
+}
+
+/** RF-8, RF-9, RF-10, RF-11: enviar (com anexos), editar, apagar e "digitando" em canal de texto (DMs na T12). */
+export function registrarEventosMensagens(
+  io: ServidorTempoReal,
+  socket: SocketTofalando,
+  banco: Banco,
+  armazem: Armazem,
+  registrarErro: (e: unknown) => void,
+) {
   const usuarioId = socket.data.usuarioId;
   /** Último sinal de "digitando" aceito deste socket (ver o tratador no fim). */
   let ultimoDigitando = 0;
@@ -41,7 +59,15 @@ export function registrarEventosMensagens(io: ServidorTempoReal, socket: SocketT
     'mensagem:enviar',
     comAck(registrarErro, (dados: unknown) => {
       const canalId = lerCanalTexto(banco, dados);
-      const mensagem = criarMensagemCanal(banco, canalId, usuarioId, lerTexto(dados));
+      const anexos = lerAnexos(dados);
+      // Só com anexos, o texto pode ficar vazio.
+      const bruto = ehObjeto(dados) && typeof dados.texto === 'string' ? dados.texto : '';
+      const texto = anexos.length > 0 && !bruto.trim() ? '' : lerTexto(dados);
+      const mensagem = banco.transaction(() => {
+        const id = inserirMensagemCanal(banco, canalId, usuarioId, texto);
+        vincularAnexos(banco, anexos, usuarioId, id);
+        return buscarMensagem(banco, id)!;
+      })();
       // Enviou: o próximo "digitando" (a pessoa já começa a próxima mensagem) não pode ser descartado.
       ultimoDigitando = 0;
       io.emit('mensagem:nova', mensagem);
@@ -76,6 +102,7 @@ export function registrarEventosMensagens(io: ServidorTempoReal, socket: SocketT
     'mensagem:apagar',
     comAck(registrarErro, (dados: unknown) => {
       const id = lerId(dados);
+      let arquivos: string[] = [];
       const canalId = banco.transaction(() => {
         const atual = buscarMensagem(banco, id);
         if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
@@ -83,6 +110,7 @@ export function registrarEventosMensagens(io: ServidorTempoReal, socket: SocketT
         // RN-9: administrador apaga mensagem alheia só em canal (nas DMs, nunca — RN-18, T12).
         const ehAdminEmCanal = atual.canalId !== null && buscarPorId(banco, usuarioId)?.cargo === 'admin';
         if (!ehAutor && !ehAdminEmCanal) throw new ErroHttp(403, 'sem_permissao', 'Você só pode apagar as suas mensagens.');
+        arquivos = arquivosDaMensagem(banco, id);
         apagarMensagem(banco, id);
         if (atual.canalId !== null) {
           const canal = buscarCanal(banco, atual.canalId) ?? null;
@@ -95,6 +123,7 @@ export function registrarEventosMensagens(io: ServidorTempoReal, socket: SocketT
         }
         return atual.canalId;
       })();
+      for (const a of arquivos) armazem.apagar(a);
       io.emit('mensagem:apagada', { id, canalId });
       return undefined;
     }),

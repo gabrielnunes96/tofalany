@@ -67,7 +67,7 @@ describe('BarraLateral', () => {
 const extras = {
   usuarios: [],
   servidorUrl: 'http://s',
-  api: { mensagensCanal: vi.fn(async () => ({ mensagens: [], fim: true })) },
+  api: { enviarAnexo: vi.fn(async () => { throw new Error('sem anexo no teste'); }), mensagensCanal: vi.fn(async () => ({ mensagens: [], fim: true })) },
   aoEnviar: vi.fn(async () => null),
   euId: 1,
   aoEditarMensagem: vi.fn(async () => null),
