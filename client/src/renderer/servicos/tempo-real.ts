@@ -15,6 +15,7 @@ export interface OuvintesTempoReal {
   aoOla(payload: OlaPayload): void;
   aoUsuarioCriado(usuario: UsuarioDto): void;
   aoUsuarioAtualizado(usuario: UsuarioDto): void;
+  aoUsuarioRemovido(id: number): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -71,6 +72,7 @@ export function conectarTempoReal(
   socket.on('ola', (payload) => ouvintes.aoOla(payload));
   socket.on('usuario:criado', (usuario) => ouvintes.aoUsuarioCriado(usuario));
   socket.on('usuario:atualizado', (usuario) => ouvintes.aoUsuarioAtualizado(usuario));
+  socket.on('usuario:removido', ({ id }) => ouvintes.aoUsuarioRemovido(id));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');

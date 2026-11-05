@@ -104,3 +104,15 @@ button.link:hover:not(:disabled) { background: transparent; color: var(--texto);
 .perfil-form { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
 .perfil-form input[type='color'] { width: 64px; height: 36px; padding: 2px; }
 .aviso-ok { color: #8fe3a5; margin: 4px 0 0; }
+
+.lista-admin { list-style: none; margin: 0; padding: 0; border: 1px solid var(--borda); border-radius: var(--raio); }
+.lista-admin li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--borda); }
+.lista-admin li:last-child { border-bottom: 0; }
+.lista-admin .nome { flex: 1; min-width: 160px; }
+.lista-admin button { margin: 0; padding: 6px 10px; }
+.confirmar { display: inline-flex; gap: 6px; }
+button.perigo { background: #d83c3e; }
+button.perigo:hover:not(:disabled) { background: #a12d2f; }
+.convite-atual { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 8px; }
+.convite-atual dt { color: var(--texto-suave); }
+.convite-atual dd { margin: 0; font-family: ui-monospace, monospace; word-break: break-all; }

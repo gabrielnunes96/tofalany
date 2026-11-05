@@ -27,6 +27,8 @@ export interface Config {
    * com banco em memória (testes), uma pasta temporária.
    */
   pastaArquivos: string | undefined;
+  /** Endereço público do servidor para montar o link de convite (sem ele, usa o endereço da requisição). */
+  urlPublica: string | undefined;
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -61,6 +63,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     intervaloSessaoMs: inteiro('INTERVALO_SESSAO_MS', ambiente.INTERVALO_SESSAO_MS, 30_000, 50),
     prazoAuditoriaDias: inteiro('AUDITORIA_DIAS', ambiente.AUDITORIA_DIAS, PRAZO_AUDITORIA_DIAS_PADRAO, 1),
     pastaArquivos: ambiente.ARQUIVOS || undefined,
+    urlPublica: ambiente.URL_PUBLICA?.trim().replace(/\/+$/, '') || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
   };
 }

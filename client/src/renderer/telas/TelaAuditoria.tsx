@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ROTULOS_AUDITORIA, TIPOS_AUDITORIA, type FiltroAuditoria, type RegistroAuditoriaDto, type TipoAuditoria, type UsuarioDto } from '@tofalando/shared';
+import { ROTULOS_AUDITORIA, TIPOS_AUDITORIA, type FiltroAuditoria, type RegistroAuditoriaDto, type TipoAuditoria } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { descreverRegistro, formatarQuando, limiteDoDia } from './auditoria-texto';
 
+/** Pessoa no filtro (inclui contas removidas que ainda têm registros no prazo). */
+export interface PessoaFiltro {
+  id: number;
+  nome: string;
+  removido?: boolean;
+}
+
 interface Props {
   api: Pick<ClienteApi, 'auditoria'>;
-  usuarios: UsuarioDto[];
+  pessoas: PessoaFiltro[];
   aoVoltar: () => void;
 }
 
@@ -17,7 +24,7 @@ interface Filtros {
 }
 
 /** RF-35: auditoria do servidor, só para administrador (o servidor também recusa membro). */
-export function TelaAuditoria({ api, usuarios, aoVoltar }: Props) {
+export function TelaAuditoria({ api, pessoas, aoVoltar }: Props) {
   const [filtros, setFiltros] = useState<Filtros>({ pessoa: '', tipo: '', de: '', ate: '' });
   const [registros, setRegistros] = useState<RegistroAuditoriaDto[]>([]);
   const [fim, setFim] = useState(false);
@@ -102,9 +109,9 @@ export function TelaAuditoria({ api, usuarios, aoVoltar }: Props) {
           Pessoa
           <select value={filtros.pessoa} onChange={(e) => mudar('pessoa', e.target.value)}>
             <option value="">Todas</option>
-            {usuarios.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nomeExibicao}
+            {pessoas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.removido ? `${p.nome} (conta removida)` : p.nome}
               </option>
             ))}
           </select>

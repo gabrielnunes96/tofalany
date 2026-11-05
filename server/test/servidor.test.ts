@@ -55,6 +55,7 @@ describe('lerConfig', () => {
       prazoAuditoriaDias: 30,
       carenciaOfflineMs: 30000,
       pastaArquivos: undefined,
+      urlPublica: undefined,
       porta: 3000,
       host: '0.0.0.0',
       nomeServidor: 'ToFalany',

@@ -107,9 +107,9 @@
         "CA-8"
       ],
       "validacao": "integração: 1000x800 vira 256x256, 9 MB e PDF recusados; outro socket recebe usuario:atualizado",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "19202ba"
     },
     {
       "id": "T6",
@@ -130,7 +130,7 @@
         "CA-50"
       ],
       "validacao": "integração: promover, último admin 409, membro 403, remoção desconecta e libera vaga, convite antigo recusado",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

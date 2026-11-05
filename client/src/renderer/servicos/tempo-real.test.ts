@@ -17,7 +17,7 @@ function socketFalso() {
 
 function montar() {
   const s = socketFalso();
-  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn() };
+  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn() };
   const fabrica = vi.fn(() => s as unknown as SocketTofalando);
   let avisarRede: (online: boolean) => void = () => undefined;
   const pararRede = vi.fn();
@@ -93,6 +93,8 @@ describe('conectarTempoReal', () => {
     expect(ouvintes.aoUsuarioCriado).toHaveBeenCalledWith({ id: 2 });
     s.disparar('usuario:atualizado', { id: 2, cor: '#000000' });
     expect(ouvintes.aoUsuarioAtualizado).toHaveBeenCalledWith({ id: 2, cor: '#000000' });
+    s.disparar('usuario:removido', { id: 2 });
+    expect(ouvintes.aoUsuarioRemovido).toHaveBeenCalledWith(2);
     desconectar();
     expect(s.removeAllListeners).toHaveBeenCalled();
     expect(pararRede).toHaveBeenCalled();

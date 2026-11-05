@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -64,5 +64,14 @@ describe('validarCor', () => {
     expect(validarCor('#FFAA00')).toEqual({ ok: true, valor: '#ffaa00' });
     expect(validarCor('red')).toMatchObject({ ok: false });
     expect(validarCor('#fff')).toMatchObject({ ok: false });
+  });
+});
+
+describe('validarCodigoConvite', () => {
+  it('6 a 64, só caracteres seguros para link', () => {
+    expect(validarCodigoConvite(' turma-2026 ')).toEqual({ ok: true, valor: 'turma-2026' });
+    expect(validarCodigoConvite('curto')).toMatchObject({ ok: false });
+    expect(validarCodigoConvite('com espaço')).toMatchObject({ ok: false });
+    expect(validarCodigoConvite('a/b?c=d')).toMatchObject({ ok: false });
   });
 });

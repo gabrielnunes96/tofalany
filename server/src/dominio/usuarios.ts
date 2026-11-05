@@ -30,6 +30,25 @@ export function listarAtivos(banco: Banco): LinhaUsuario[] {
   return banco.prepare('SELECT * FROM usuarios WHERE removido_em IS NULL ORDER BY nome_exibicao COLLATE NOCASE, id').all() as LinhaUsuario[];
 }
 
+/**
+ * Visão do administrador: contas ativas e as removidas que ainda têm registro na auditoria
+ * a partir de `desde` (para o filtro Pessoa; as antigas sem registro no prazo ficam de fora).
+ */
+export function listarParaAdmin(banco: Banco, desde: number): (LinhaUsuario & { removido_em: number | null })[] {
+  return banco
+    .prepare(
+      `SELECT * FROM usuarios u
+       WHERE u.removido_em IS NULL
+          OR EXISTS (SELECT 1 FROM auditoria a WHERE (a.ator_id = u.id OR a.alvo_usuario_id = u.id) AND a.quando >= ?)
+       ORDER BY u.removido_em IS NOT NULL, u.nome_exibicao COLLATE NOCASE, u.id`,
+    )
+    .all(desde) as (LinhaUsuario & { removido_em: number | null })[];
+}
+
+export function contarAdminsAtivos(banco: Banco): number {
+  return (banco.prepare("SELECT COUNT(*) AS n FROM usuarios WHERE cargo = 'admin' AND removido_em IS NULL").get() as { n: number }).n;
+}
+
 export function contarContasAtivas(banco: Banco): number {
   return (banco.prepare('SELECT COUNT(*) AS n FROM usuarios WHERE removido_em IS NULL').get() as { n: number }).n;
 }

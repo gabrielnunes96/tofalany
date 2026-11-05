@@ -13,6 +13,7 @@ interface Loja {
   adicionarUsuario(usuario: UsuarioDto): void;
   /** Mesmo efeito de adicionar (substitui pelo id) e também atualiza "eu" se for a própria pessoa. */
   atualizarUsuario(usuario: UsuarioDto): void;
+  removerUsuario(id: number): void;
   limpar(): void;
 }
 
@@ -39,5 +40,6 @@ export const useLoja = create<Loja>((set) => ({
       usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),
       eu: s.eu?.id === usuario.id ? usuario : s.eu,
     })),
+  removerUsuario: (id) => set((s) => ({ usuarios: s.usuarios.filter((u) => u.id !== id) })),
   limpar: () => set(inicial),
 }));

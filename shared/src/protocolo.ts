@@ -29,6 +29,16 @@ export interface UsuarioDto {
   cargo: Cargo;
 }
 
+/** Visão do administrador: inclui contas removidas (para a auditoria). */
+export interface UsuarioAdminDto extends UsuarioDto {
+  removido: boolean;
+}
+
+export interface ConviteDto {
+  codigo: string;
+  link: string;
+}
+
 export interface AtualizarPerfilRequest {
   nomeExibicao?: string;
   cor?: string;
@@ -61,6 +71,7 @@ export type CodigoErro =
   | 'nao_autenticado'
   | 'nao_encontrado'
   | 'sem_permissao'
+  | 'ultimo_admin'
   | 'arquivo_grande'
   | 'formato_invalido'
   | 'erro_interno';
@@ -95,8 +106,10 @@ export interface EventosServidor {
   'sessao:revogada': (payload: { motivo: MotivoRevogacao }) => void;
   /** Conta nova no servidor: aparece na lista de todos sem reconectar. */
   'usuario:criado': (usuario: UsuarioDto) => void;
-  /** Perfil mudou (nome, cor, avatar; depois cargo). */
+  /** Perfil mudou (nome, cor, avatar, cargo). */
   'usuario:atualizado': (usuario: UsuarioDto) => void;
+  /** Conta removida por um administrador: some da lista. */
+  'usuario:removido': (payload: { id: number }) => void;
 }
 
 /** Eventos cliente → servidor (preenchidos a partir da T8). */

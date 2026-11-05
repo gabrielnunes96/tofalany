@@ -15,9 +15,9 @@ const reg = (id: number, nome = 'ana'): RegistroAuditoriaDto => ({
   canal: null,
   detalhes: {},
 });
-const usuarios = [
-  { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#fff', avatarUrl: null, cargo: 'admin' as const },
-  { id: 2, usuario: 'bia', nomeExibicao: 'Bia', cor: '#fff', avatarUrl: null, cargo: 'membro' as const },
+const pessoas = [
+  { id: 1, nome: 'Ana' },
+  { id: 2, nome: 'Bia', removido: true },
 ];
 
 describe('TelaAuditoria', () => {
@@ -26,7 +26,7 @@ describe('TelaAuditoria', () => {
       async (f: FiltroAuditoria): Promise<PaginaAuditoria> =>
         f.antes ? { registros: [reg(1)], fim: true } : { registros: [reg(3), reg(2)], fim: false },
     );
-    render(<TelaAuditoria api={{ auditoria }} usuarios={usuarios} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
     const lista = await screen.findByRole('list', { name: 'Registros da auditoria' });
     await waitFor(() => expect(lista.textContent).toContain('ana entrou com usuário e senha'));
     fireEvent.click(screen.getByRole('button', { name: 'Carregar mais antigos' }));
@@ -37,7 +37,7 @@ describe('TelaAuditoria', () => {
 
   it('filtros viram a consulta (pessoa, evento e período)', async () => {
     const auditoria = vi.fn(async (): Promise<PaginaAuditoria> => ({ registros: [], fim: true }));
-    render(<TelaAuditoria api={{ auditoria }} usuarios={usuarios} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
     fireEvent.change(screen.getByLabelText('Pessoa'), { target: { value: '2' } });
     fireEvent.change(screen.getByLabelText('Evento'), { target: { value: 'offline' } });
     fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-11-01' } });
@@ -52,6 +52,7 @@ describe('TelaAuditoria', () => {
       }),
     );
     expect(await screen.findByText('Nenhum registro com esses filtros.')).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Bia (conta removida)' })).toBeTruthy();
   });
 
   it('rolagem até o fim carrega mais; depois de um erro, só o botão tenta de novo (sem laço)', async () => {
@@ -70,7 +71,7 @@ describe('TelaAuditoria', () => {
       if (falhar) throw new Error('Sem conexão com o servidor.');
       return { registros: [reg(1)], fim: true };
     });
-    render(<TelaAuditoria api={{ auditoria }} usuarios={usuarios} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
     await screen.findByText('Carregar mais antigos');
 
     avisar(true);
@@ -91,7 +92,7 @@ describe('TelaAuditoria', () => {
     const auditoria = vi.fn(async (): Promise<PaginaAuditoria> => {
       throw new Error('Só administradores podem fazer isso.');
     });
-    render(<TelaAuditoria api={{ auditoria }} usuarios={usuarios} aoVoltar={vi.fn()} />);
+    render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} aoVoltar={vi.fn()} />);
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Só administradores podem fazer isso.');
   });
 });

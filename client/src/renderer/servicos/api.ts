@@ -1,4 +1,4 @@
-import type { AtualizarPerfilRequest, CadastroRequest, ErroApi, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import type { AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, UsuarioDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -25,6 +25,11 @@ export interface ClienteApi {
   auditoria(filtro: FiltroAuditoria): Promise<PaginaAuditoria>;
   atualizarPerfil(dados: AtualizarPerfilRequest): Promise<UsuarioDto>;
   enviarAvatar(arquivo: Blob, nome: string): Promise<{ avatarUrl: string }>;
+  usuariosAdmin(): Promise<UsuarioAdminDto[]>;
+  mudarCargo(id: number, cargo: Cargo): Promise<UsuarioDto>;
+  removerConta(id: number): Promise<void>;
+  lerConvite(): Promise<ConviteDto>;
+  trocarConvite(codigo: string): Promise<ConviteDto>;
 }
 
 function consulta(filtro: object): string {
@@ -73,6 +78,11 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     eu: () => chamar('GET', '/api/eu'),
     auditoria: (filtro) => chamar('GET', `/api/admin/auditoria${consulta(filtro)}`),
     atualizarPerfil: (dados) => chamar('PATCH', '/api/eu', dados),
+    usuariosAdmin: () => chamar('GET', '/api/admin/usuarios'),
+    mudarCargo: (id, cargo) => chamar('PATCH', `/api/admin/usuarios/${id}/cargo`, { cargo }),
+    removerConta: (id) => chamar('DELETE', `/api/admin/usuarios/${id}`),
+    lerConvite: () => chamar('GET', '/api/admin/convite'),
+    trocarConvite: (codigo) => chamar('PUT', '/api/admin/convite', { codigo }),
     enviarAvatar: (arquivo, nome) => {
       const form = new FormData();
       form.append('arquivo', arquivo, nome);

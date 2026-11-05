@@ -58,6 +58,14 @@ export function validarNomeExibicao(texto: string): Resultado<string> {
   return { ok: true, valor: nome };
 }
 
+/** RN-1: código de convite trocado pelo administrador — 6 a 64 caracteres, letras sem acento, números, hífen e sublinhado. */
+export function validarCodigoConvite(texto: string): Resultado<string> {
+  const codigo = texto.trim();
+  if (codigo.length < 6 || codigo.length > 64) return { ok: false, erro: 'O código deve ter de 6 a 64 caracteres.' };
+  if (!/^[A-Za-z0-9_-]+$/.test(codigo)) return { ok: false, erro: 'Use só letras sem acento, números, hífen ou sublinhado no código.' };
+  return { ok: true, valor: codigo };
+}
+
 /** Cor do perfil no formato #rrggbb (minúsculas). */
 export function validarCor(texto: string): Resultado<string> {
   const cor = texto.trim().toLowerCase();

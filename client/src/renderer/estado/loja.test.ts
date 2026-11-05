@@ -19,6 +19,8 @@ describe('useLoja', () => {
     useLoja.getState().atualizarUsuario({ ...eu, nomeExibicao: 'Zuleica' });
     expect(useLoja.getState().eu?.nomeExibicao).toBe('Zuleica');
     expect(useLoja.getState().usuarios.at(-1)?.id).toBe(1);
+    useLoja.getState().removerUsuario(4);
+    expect(useLoja.getState().usuarios.some((u) => u.id === 4)).toBe(false);
     useLoja.getState().limpar();
     expect(useLoja.getState()).toMatchObject({ nomeServidor: null, eu: null, usuarios: [], conexao: 'conectando' });
   });
