@@ -33,7 +33,7 @@ function criarJanela(): BrowserWindow {
     minHeight: 560,
     show: false,
     title: 'ToFalany',
-    backgroundColor: '#1e1f24',
+    backgroundColor: '#0a0a12',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

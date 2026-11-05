@@ -54,15 +54,16 @@ function pagina(titulo: string, corpo: string): string {
 <title>${escapar(titulo)}</title>
 <style>
   :root { color-scheme: dark; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #1e1f24; color: #ececf1; font-family: system-ui, sans-serif; padding: 16px; box-sizing: border-box; }
-  main { width: min(480px, 100%); background: #2a2c33; border: 1px solid #3b3e47; border-radius: 12px; padding: 28px; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: radial-gradient(900px 500px at 100% 0%, rgba(255,42,109,.1), transparent 60%), #0a0a12; color: #ece8ff; font-family: system-ui, sans-serif; padding: 16px; box-sizing: border-box; }
+  main { width: min(480px, 100%); background: #14111f; border: 1px solid #3a2f5c; border-top: 2px solid #ff2a6d; border-radius: 10px; padding: 28px; }
   h1 { margin: 0 0 8px; font-size: 1.5rem; }
-  p, li { color: #a6a9b6; line-height: 1.5; }
-  a.botao { display: block; text-align: center; background: #5865f2; color: #fff; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
-  a.botao:focus-visible, a:focus-visible { outline: 2px solid #8ea1ff; outline-offset: 2px; }
+  h1 { text-shadow: 0 0 18px rgba(255,42,109,.35); }
+  p, li { color: #a8a1d1; line-height: 1.5; }
+  a.botao { display: block; text-align: center; background: #00f0ff; color: #07060d; box-shadow: 0 0 14px rgba(0,240,255,.35); text-decoration: none; padding: 12px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
+  a.botao:focus-visible, a:focus-visible { outline: 2px solid #ff2a6d; outline-offset: 2px; }
   ul { padding-left: 20px; }
-  a { color: #8ea1ff; }
-  code { background: #1e1f24; padding: 2px 6px; border-radius: 4px; color: #ececf1; word-break: break-all; }
+  a { color: #00f0ff; }
+  code { background: #0d0b17; padding: 2px 6px; border-radius: 4px; color: #fcee0a; word-break: break-all; }
 </style>
 </head>
 <body><main>${corpo}</main></body>

@@ -20,4 +20,4 @@ export const IMAGEM_MAX_PIXELS = 4096 * 4096;
 export const NOME_EXIBICAO_MAX = 32;
 
 /** Cores sorteadas para o perfil de quem acabou de se cadastrar (o usuário troca no perfil, T5). */
-export const CORES_PERFIL = ['#5865f2', '#57f287', '#fee75c', '#eb459e', '#ed4245', '#f0b232', '#3ba55d', '#00a8fc'];
+export const CORES_PERFIL = ['#00f0ff', '#ff2a6d', '#fcee0a', '#3dffb0', '#b14bff', '#ff8a00', '#4d7cff', '#ff4dd2'];

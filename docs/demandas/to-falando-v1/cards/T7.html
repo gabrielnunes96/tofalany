@@ -1,0 +1,27 @@
+<!-- T7 — Link de convite -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-1a, RN-1, CA-1a; risco R-6 (link no AppImage).</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (GET /convite/:codigo, GET /downloads/:arquivo) e §6.</p>
+
+<h3>Implementação (05/11/2026, commit ea65248)</h3>
+<ul>
+  <li><b>Página do convite:</b> /convite/&lt;código&gt; com downloads (só .exe, .AppImage, .deb da pasta DOWNLOADS), botão "Abrir no ToFalany" (tofalany://convite?servidor=…&amp;codigo=…) e servidor e código para digitar; código errado dá 404; limite de tentativas por IP (429), igual ao do cadastro; CSP restrita, HTML escapado, sem cache.</li>
+  <li><b>Link copiável:</b> qualquer membro recebe o link no <code>ola</code> e em <code>convite:atualizado</code> (montado com URL_PUBLICA, ou X-Forwarded-* atrás do proxy, ou o host); botão "Copiar link de convite" (clipboard do processo principal), aviso some em 4 s.</li>
+  <li><b>Abrir pelo link:</b> instância única por pasta de dados; a segunda instância repassa o link e sai sem abrir nada; link que chega antes do renderer fica guardado. Só o app empacotado se registra no sistema (o registro no .deb/.exe/AppImage é da T24).</li>
+  <li><b>Segurança do convite no app:</b> com sessão no mesmo servidor, só entra; senão abre o cadastro com o código sem trocar o servidor salvo (só vira padrão depois de entrar), com "Cancelar convite"; servidor fora do ar mostra "Sem conexão" e "Tentar de novo" mantém o convite.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/convite.test.ts</code> (página, downloads, escape, 404, força bruta, pasta com nome de instalador, link no ola com e sem URL_PUBLICA, convite:atualizado), <code>server/src/dominio/convite.test.ts</code>, <code>shared</code> (ler/montar link), <code>client/src/main/deeplink.test.ts</code>, <code>client/src/renderer/app/App.test.tsx</code> (sessão no mesmo servidor, não trocar servidor salvo, cancelar, gravar só depois de entrar, sem conexão), <code>TelaEntrar.test.tsx</code>. Suíte: 161 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: membro clica "Copiar link de convite"</td><td>ok</td><td>clipboard = &lt;servidor&gt;/convite/&lt;código&gt;</td></tr>
+  <tr><td>E2E: página do link via HTTP real</td><td>ok</td><td>download do AppImage e botão tofalany://</td></tr>
+  <tr><td>E2E: app aberto com o link</td><td>ok</td><td>"Criar conta" com servidor e código; cadastro só com nome e senha; aparece na lista do dono</td></tr>
+  <tr><td>E2E: link com o app já aberto</td><td>ok</td><td>segunda instância sai (código 0); a janela existente abre o cadastro preenchido</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> clicar no link num navegador real com o app instalado (.deb/.exe), depois da T24.</p>
+<p>Revisão: 10 achados (0 graves, 4 médios, 6 menores), todos corrigidos.</p>
