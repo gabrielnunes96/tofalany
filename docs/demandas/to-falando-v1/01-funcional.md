@@ -7,7 +7,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 
 ## 2. Contexto
 - Hoje o grupo usa plataformas de terceiros. A demanda pede um equivalente privado, simples e estável, para uso pessoal, não comercial.
-- Texto original em `00-demanda.md`. Complementos do usuário em 04/11/2026: soundboard, cargo de administrador, limite de 20 contas, push-to-talk com atalho editável, edição e exclusão de mensagens, notificações e sons de voz. Na versão 2: mensagens diretas e transmissão acima de 720p30 só para administrador. Na versão 3: anexos de documento (PDF e ZIP) além de imagem, até 25 MB. Na versão 4 (05/11/2026): auditoria para administradores. Na versão 5 (05/11/2026): status das pessoas (online, ausente, offline), silenciar uma pessoa na voz e desligar notificações (geral e por conversa).
+- Texto original em `00-demanda.md`. Complementos do usuário em 04/11/2026: soundboard, cargo de administrador, limite de 20 contas, push-to-talk com atalho editável, edição e exclusão de mensagens, notificações e sons de voz. Na versão 2: mensagens diretas e transmissão acima de 720p30 só para administrador. Na versão 3: anexos de documento (PDF e ZIP) além de imagem, até 25 MB. Na versão 4 (05/11/2026): auditoria para administradores. Na versão 5 (05/11/2026): status das pessoas (online, ausente, offline), silenciar uma pessoa na voz e desligar notificações (geral e por conversa); som e notificação quando alguém entra ou sai do servidor, que podem ser desligados.
 - Envolvidos: o usuário (dono e host do servidor) e os amigos convidados.
 
 ## 3. Atores
@@ -120,6 +120,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 | RF-38 | Botão "Silenciar" em cada pessoa no canal de voz (além do volume de RF-19): a pessoa silenciada não é ouvida, com ícone indicando o silêncio; clicar de novo volta ao volume anterior. | RN-26 |
 | RF-39 | Opção geral nas configurações: notificações ligadas ou desligadas. | RN-27 |
 | RF-40 | Silenciar notificações de um canal ou DM específico (e desfazer), com indicação na barra lateral. | RN-27 |
+| RF-41 | Quando alguém fica online ou offline no servidor (RN-25, com a carência de RN-24), o app toca um som curto e mostra uma notificação "fulano entrou/saiu". Nas Configurações, dá para desligar esse som, essa notificação e os sons de entrar e sair do canal de voz (RF-21), cada um separado. | RN-27 |
 
 ## 7. Requisitos não funcionais
 - **Memória**: app ocioso (logado, sem chamada) abaixo de 300 MB de RAM somando os processos.
@@ -206,6 +207,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 - **CA-57** (RF-37, RN-25) — Dado B conectado e sem mexer no computador por 10 minutos, então A vê B como ausente; quando B mexe no mouse, então A vê B online.
 - **CA-58** (RF-38, RN-26) — Dado A, B e C no canal de voz, quando A silencia B, então A não ouve B, C continua ouvindo B, e B não é avisado; ao reabrir o app, B continua silenciado para A.
 - **CA-59** (RF-39, RN-27) — Dado A com notificações desligadas, quando chega mensagem num canal fechado, então não aparece notificação, mas o contador de não lidas aumenta.
+- **CA-61** (RF-41) — Dado A com o app aberto, quando B abre o app, então A ouve o som de entrada e vê "B entrou"; quando B fecha, depois da carência, A ouve o som de saída. Com o som e a notificação de entrada/saída desligados, nada acontece, e o status de B muda do mesmo jeito.
 - **CA-60** (RF-40, RN-27) — Dado A com o canal X silenciado, quando chega mensagem em X e em Y, então só Y gera notificação; X mostra o contador e o ícone de silenciado.
 
 **Rede, instalação e não funcionais**

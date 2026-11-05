@@ -280,9 +280,9 @@
         "CA-49"
       ],
       "validacao": "E2E com 2 apps e áudio falso: B assina a faixa de A e o indicador acende; usuário testa em duas máquinas",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "bf35cd8"
     },
     {
       "id": "T15",
@@ -460,16 +460,18 @@
     },
     {
       "id": "T29",
-      "titulo": "Notificações: chave geral e silenciar conversa",
-      "descricao": "Preferências locais por servidor (ligadas, conversas silenciadas); decidirMensagemNova respeita; tela Configurações com a chave; silenciar/reativar canal ou DM com ícone na barra.",
+      "titulo": "Notificações e sons: chave geral, silenciar conversa, entrada e saída do servidor",
+      "descricao": "Preferências locais por servidor (ligadas, conversas silenciadas); decidirMensagemNova respeita; tela Configurações com a chave; silenciar/reativar canal ou DM com ícone na barra. Som e notificação de entrada/saída do servidor (presença da T28), cada um desligável; chave para os sons de entrar/sair da voz (T17).",
       "repo": ".",
       "stack": "front",
       "depende_de": [
-        "T13"
+        "T13",
+        "T28"
       ],
       "criterios": [
         "CA-59",
-        "CA-60"
+        "CA-60",
+        "CA-61"
       ],
       "validacao": "unidade da decisão; E2E: notificações desligadas só contam; canal silenciado sem notificação e com ícone",
       "estado": "a_fazer",

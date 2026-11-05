@@ -1,0 +1,28 @@
+<!-- T14 — Entrar em canal de voz (LiveKit) -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-13, CA-20 e a parte de voz do CA-49 (RN-20b).</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (token, webhook, voz:estado/voz:estados), §5 (LiveKit, livekit-client com webAudioMix) e §6 (segurança).</p>
+
+<h3>Implementação (05/11/2026, commit bf35cd8)</h3>
+<ul>
+  <li><b>Servidor:</b> <code>POST /api/livekit/token</code> (só canal de voz; identidade = id; cargo no metadado; 6 h; só microfone, câmera e tela; sem dados); <code>POST /api/livekit/webhook</code> com assinatura verificada, descarte de evento repetido ou com mais de 5 min, e comparação da sessão de mídia (sid) para não tirar quem reentrou; presença em memória (<code>realtime/voz.ts</code>), uma sala por pessoa; queda curta do tempo real não tira da voz (carência de RN-24); outro computador assume e o anterior recebe <code>voz:tirado</code> e é tirado da sala antiga pelo RoomService; conta removida, sessão revogada e canal removido tiram da presença e da mídia; auditoria voz_entrou/voz_saiu com canal e motivo. Configuração: <code>LIVEKIT_URL</code>, <code>LIVEKIT_API_KEY</code>, <code>LIVEKIT_API_SECRET</code> e opcional <code>LIVEKIT_URL_INTERNA</code>; sem elas a voz responde 503 e o resto funciona.</li>
+  <li><b>App:</b> clicar no canal de voz entra (trocando, se já estiver em outro); painel "Conexão de voz" com "Sair da voz"; lista de quem está em cada canal com indicador de fala (brilho no avatar, "falando" para o leitor de tela) e ícones de mute/deafen; sair durante a conexão cancela sem deixar sala órfã; servidor recusando o estado desfaz a entrada; reconexão reenvia o estado.</li>
+  <li><b>Docker:</b> imagem <code>livekit/livekit-server</code> v1.13.11 baixada com sua permissão; o E2E sobe o contêiner sozinho se não houver um no ar e o desliga no fim.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/voz.test.ts</code> (config, token, presença, troca de canal e de computador, carência, revogação, webhook com sid e reenvio), <code>server/test/voz-midia.test.ts</code> (remoção da mídia), <code>client/.../servicos/voz.test.ts</code>, <code>componentes.test.tsx</code>, E2E <code>e2e/voz.spec.ts</code>. Suíte: 279 testes e 19 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (2 apps, microfone falso, LiveKit no Docker): dono e ana entram em "Papo"</td><td>ok</td><td>os dois aparecem na lista; "Voz conectada"</td></tr>
+  <tr><td>E2E: ana recebe a faixa do dono</td><td>ok</td><td>elemento de áudio criado; "dono, falando" aceso</td></tr>
+  <tr><td>E2E: ana sai</td><td>ok</td><td>some da lista do dono e o áudio dela sai da página</td></tr>
+  <tr><td>E2E: dono troca para "Jogo"</td><td>ok</td><td>ana vê o dono em Jogo; Papo vazio</td></tr>
+  <tr><td>E2E: auditoria</td><td>ok</td><td>entrou/entrou/saiu/saiu (trocou)/entrou, com o canal</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> conversar de verdade em duas máquinas (ouvir e ver o indicador); entrar pelo mesmo usuário em dois computadores e conferir que o primeiro sai da voz.</p>
+<p><b>Pendências:</b> webhook do LiveKit apontando para o servidor fica no docker-compose (T25); no E2E ele é coberto só no teste de integração com evento assinado. Mute/deafen, dispositivos e volume nas T15–T17; CSP e reconexão da sala na T23.</p>
+<p>Revisão: 12 achados (2 graves, 4 médios, 6 menores), todos corrigidos.</p>
