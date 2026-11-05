@@ -13,10 +13,27 @@ interface Props {
   servidorUrl: string;
   api: Pick<ClienteApi, 'mensagensCanal'>;
   aoEnviar: (canalId: number, texto: string) => Promise<string | null>;
+  euId: number;
+  aoEditarMensagem: (id: number, texto: string) => Promise<string | null>;
+  aoApagarMensagem: (id: number) => Promise<string | null>;
+  aoDigitar: (canalId: number) => void;
 }
 
 /** Cabeçalho do canal de texto aberto (renomear, remover) e o chat dele. */
-export function CanalAberto({ canal, ehAdmin, aoRenomear, aoRemover, usuarios, servidorUrl, api, aoEnviar }: Props) {
+export function CanalAberto({
+  canal,
+  ehAdmin,
+  aoRenomear,
+  aoRemover,
+  usuarios,
+  servidorUrl,
+  api,
+  aoEnviar,
+  euId,
+  aoEditarMensagem,
+  aoApagarMensagem,
+  aoDigitar,
+}: Props) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -90,7 +107,18 @@ export function CanalAberto({ canal, ehAdmin, aoRenomear, aoRemover, usuarios, s
           {erro}
         </p>
       )}
-      <MensagensCanal canal={canal} usuarios={usuarios} servidorUrl={servidorUrl} api={api} aoEnviar={(texto) => aoEnviar(canal.id, texto)} />
+      <MensagensCanal
+        canal={canal}
+        usuarios={usuarios}
+        servidorUrl={servidorUrl}
+        api={api}
+        aoEnviar={(texto) => aoEnviar(canal.id, texto)}
+        euId={euId}
+        ehAdmin={ehAdmin}
+        aoEditar={aoEditarMensagem}
+        aoApagar={aoApagarMensagem}
+        aoDigitar={() => aoDigitar(canal.id)}
+      />
     </section>
   );
 }

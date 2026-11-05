@@ -119,3 +119,26 @@ describe('respostas atrasadas do histórico', () => {
   });
 });
 
+
+describe('edição, exclusão e digitando na loja', () => {
+  beforeEach(() => useLoja.getState().limpar());
+  const msg = (id: number, autorId = 1) => ({ id, canalId: 1, autorId, texto: `m${id}`, criadaEm: id, editadaEm: null });
+
+  it('atualiza e remove mensagens do canal carregado', () => {
+    const l = useLoja.getState();
+    l.receberPagina(1, { mensagens: [msg(1), msg(2)], fim: true }, l.iniciarCarga(1));
+    l.atualizarMensagem({ ...msg(1), texto: 'novo', editadaEm: 5 });
+    l.removerMensagem(2, 1);
+    l.removerMensagem(9, null);
+    expect(useLoja.getState().historicos[1]!.mensagens).toEqual([{ ...msg(1), texto: 'novo', editadaEm: 5 }]);
+  });
+
+  it('digitando registra até quando; a mensagem da pessoa limpa o aviso', () => {
+    const l = useLoja.getState();
+    l.registrarDigitando(1, 2, 1000);
+    l.registrarDigitando(1, 3, 2000);
+    expect(useLoja.getState().digitando[1]).toEqual({ 2: 1000, 3: 2000 });
+    l.adicionarMensagem(msg(5, 2));
+    expect(useLoja.getState().digitando[1]).toEqual({ 3: 2000 });
+  });
+});

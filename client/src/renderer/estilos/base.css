@@ -201,3 +201,13 @@ button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); 
 .compositor button { margin: 0; }
 .canal-aberto { min-height: 0; }
 .layout-colunas > .conteudo { display: flex; flex-direction: column; }
+.mensagem-acoes { margin-left: auto; display: inline-flex; gap: 2px; opacity: 0; }
+.mensagem:hover .mensagem-acoes, .mensagem:focus-within .mensagem-acoes { opacity: 1; }
+.mensagem-acoes button.icone { font-size: 0.75rem; padding: 2px 6px; color: var(--texto-suave); }
+.mensagem-acoes button.icone:hover:not(:disabled) { color: var(--destaque); }
+.editada { font-size: 0.72rem; color: var(--texto-suave); }
+.mensagem-edicao textarea { width: 100%; min-height: 60px; resize: vertical; background: var(--campo); color: var(--texto); border: 1px solid var(--destaque); border-radius: var(--raio); padding: 8px; font: inherit; }
+.mensagem-edicao .dica { margin: 2px 0 4px; font-size: 0.75rem; }
+.mensagem .confirmar { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.mensagem .confirmar button { margin: 0; padding: 4px 8px; font-size: 0.8rem; }
+.digitando { min-height: 1.2em; margin: 4px 0 0; font-size: 0.8rem; color: var(--destaque); }

@@ -26,5 +26,9 @@ export const NOME_CANAL_MAX = 32;
 export const MENSAGEM_MAX = 4000;
 export const PAGINA_MENSAGENS = 50;
 
+/** CA-17: o aviso "digitando" some 5 s depois do último sinal; o app reenvia o sinal a cada 3 s. */
+export const DIGITANDO_DURACAO_MS = 5000;
+export const DIGITANDO_INTERVALO_MS = 3000;
+
 /** Cores sorteadas para o perfil de quem acabou de se cadastrar (o usuário troca no perfil, T5). */
 export const CORES_PERFIL = ['#00f0ff', '#ff2a6d', '#fcee0a', '#3dffb0', '#b14bff', '#ff8a00', '#4d7cff', '#ff4dd2'];

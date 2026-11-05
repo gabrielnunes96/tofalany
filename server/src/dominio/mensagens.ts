@@ -24,6 +24,20 @@ export function criarMensagemCanal(banco: Banco, canalId: number, autorId: numbe
   return paraDto(banco.prepare('SELECT * FROM mensagens WHERE id = ?').get(Number(r.lastInsertRowid)) as LinhaMensagem);
 }
 
+export function buscarMensagem(banco: Banco, id: number): MensagemDto | undefined {
+  const m = banco.prepare('SELECT * FROM mensagens WHERE id = ?').get(id) as LinhaMensagem | undefined;
+  return m && paraDto(m);
+}
+
+export function editarMensagem(banco: Banco, id: number, texto: string, agora: number = Date.now()): MensagemDto {
+  banco.prepare('UPDATE mensagens SET texto = ?, editada_em = ? WHERE id = ?').run(texto, agora, id);
+  return buscarMensagem(banco, id)!;
+}
+
+export function apagarMensagem(banco: Banco, id: number): void {
+  banco.prepare('DELETE FROM mensagens WHERE id = ?').run(id);
+}
+
 /** Histórico paginado por id (RF-8): as `limite` mais recentes antes de `antes`, devolvidas em ordem cronológica. */
 export function listarMensagensCanal(banco: Banco, canalId: number, antes?: number, limite: number = PAGINA_MENSAGENS): PaginaMensagens {
   const n = Math.min(Math.max(limite, 1), 100);

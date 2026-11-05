@@ -148,6 +148,10 @@ export interface EventosServidor {
   'canal:renomeado': (canal: CanalDto) => void;
   'canal:removido': (payload: { id: number }) => void;
   'mensagem:nova': (mensagem: MensagemDto) => void;
+  'mensagem:editada': (mensagem: MensagemDto) => void;
+  'mensagem:apagada': (payload: { id: number; canalId: number | null }) => void;
+  /** Alguém está digitando no canal (não chega para quem digita). */
+  digitando: (payload: { canalId: number; usuarioId: number }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }
@@ -161,6 +165,12 @@ export interface EventosCliente {
   'canal:remover': (dados: { id: number }, ack: Ack) => void;
   /** RF-8: enviar mensagem num canal de texto (DMs na T12). */
   'mensagem:enviar': (dados: { destino: { canalId: number }; texto: string }, ack: Ack<MensagemDto>) => void;
+  /** RN-9: só o autor edita. */
+  'mensagem:editar': (dados: { id: number; texto: string }, ack: Ack<MensagemDto>) => void;
+  /** RN-9: o autor apaga; administrador apaga qualquer mensagem de canal. */
+  'mensagem:apagar': (dados: { id: number }, ack: Ack) => void;
+  /** Sinal de "digitando" (sem resposta). */
+  digitando: (dados: { destino: { canalId: number } }) => void;
 }
 
 /**

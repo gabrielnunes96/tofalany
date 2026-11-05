@@ -23,6 +23,9 @@ export interface OuvintesTempoReal {
   aoCanalRenomeado(canal: CanalDto): void;
   aoCanalRemovido(id: number): void;
   aoMensagemNova(mensagem: MensagemDto): void;
+  aoMensagemEditada(mensagem: MensagemDto): void;
+  aoMensagemApagada(id: number, canalId: number | null): void;
+  aoDigitando(canalId: number, usuarioId: number): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -53,11 +56,16 @@ export type RespostaAcao<T> = { ok: true; valor: T } | { ok: false; erro: string
 
 export interface ConexaoTempoReal {
   desconectar(): void;
+  /** Sinal de "digitando" (descartável: sem conexão, não faz nada). */
+  avisarDigitando(canalId: number): void;
   /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
-  pedir<K extends keyof EventosCliente>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
+  pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
 }
 
-type AckValor<K extends keyof EventosCliente> = Parameters<Parameters<EventosCliente[K]>[1]>[0] extends infer R
+/** Eventos que esperam resposta (ack); "digitando" é só um sinal. */
+type EventoComResposta = Exclude<keyof EventosCliente, 'digitando'>;
+
+type AckValor<K extends EventoComResposta> = Parameters<Parameters<EventosCliente[K]>[1]>[0] extends infer R
   ? R extends { ok: true; valor: infer V }
     ? V
     : never
@@ -101,6 +109,9 @@ export function conectarTempoReal(
   socket.on('canal:renomeado', (canal) => ouvintes.aoCanalRenomeado(canal));
   socket.on('canal:removido', ({ id }) => ouvintes.aoCanalRemovido(id));
   socket.on('mensagem:nova', (m) => ouvintes.aoMensagemNova(m));
+  socket.on('mensagem:editada', (m) => ouvintes.aoMensagemEditada(m));
+  socket.on('mensagem:apagada', ({ id, canalId }) => ouvintes.aoMensagemApagada(id, canalId));
+  socket.on('digitando', ({ canalId, usuarioId }) => ouvintes.aoDigitando(canalId, usuarioId));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');
@@ -126,6 +137,9 @@ export function conectarTempoReal(
       pararRede();
       socket.removeAllListeners();
       socket.disconnect();
+    },
+    avisarDigitando(canalId) {
+      if (socket.connected) socket.emit('digitando', { destino: { canalId } });
     },
     pedir(evento, dados) {
       if (!socket.connected) return Promise.resolve({ ok: false, erro: SEM_CONEXAO });

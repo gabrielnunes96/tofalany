@@ -110,3 +110,50 @@ test('CA-14 e CA-15: 500 mensagens paginadas ao rolar; histórico sobrevive a re
   await expect(lista.locator('.mensagem-texto').nth(1)).toHaveText('mensagem 1');
   await app.close();
 });
+
+test('CA-17 e CA-18: editar com "(editada)", digitando que some, admin apaga mensagem alheia', async () => {
+  const dono = await entrar('dono', true);
+  await servidor!.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const listaDono = dono.janela.getByRole('list', { name: 'Mensagens de #geral' });
+  const listaAna = ana.janela.getByRole('list', { name: 'Mensagens de #geral' });
+
+  await ana.janela.getByLabel('Mensagem para #geral').fill('texto errado');
+  await ana.janela.getByLabel('Mensagem para #geral').press('Enter');
+  await dono.janela.getByLabel('Mensagem para #geral').fill('mensagem do dono');
+  await dono.janela.getByLabel('Mensagem para #geral').press('Enter');
+  await expect(listaAna).toContainText('mensagem do dono');
+
+  // CA-18: a ana edita a própria; o dono vê o texto novo com "(editada)".
+  const minha = listaAna.getByRole('listitem', { name: 'Mensagem de ana' });
+  await minha.hover();
+  await minha.getByRole('button', { name: 'Editar' }).click();
+  await minha.getByLabel('Editar mensagem').fill('texto certo');
+  await minha.getByLabel('Editar mensagem').press('Enter');
+  const naVisaoDoDono = listaDono.getByRole('listitem', { name: 'Mensagem de ana' });
+  await expect(naVisaoDoDono).toContainText('texto certo');
+  await expect(naVisaoDoDono).toContainText('(editada)');
+
+  // A ana (membro) não tem "Apagar" nem "Editar" na mensagem do dono.
+  const doDono = listaAna.getByRole('listitem', { name: 'Mensagem de dono' });
+  await doDono.hover();
+  await expect(doDono.getByRole('button', { name: 'Apagar' })).toHaveCount(0);
+  await expect(doDono.getByRole('button', { name: 'Editar' })).toHaveCount(0);
+
+  // CA-17: o dono digita; a ana vê o aviso, que some até 5 s depois de ele parar.
+  await dono.janela.getByLabel('Mensagem para #geral').pressSequentially('digitando…');
+  await expect(ana.janela.getByText('dono está digitando…')).toBeVisible();
+  const parou = Date.now();
+  await expect(ana.janela.getByText('dono está digitando…')).toBeHidden({ timeout: 7000 });
+  expect(Date.now() - parou).toBeLessThan(6500);
+
+  // CA-18: o dono (admin) apaga a mensagem da ana; some para os dois.
+  await naVisaoDoDono.hover();
+  await naVisaoDoDono.getByRole('button', { name: 'Apagar' }).click();
+  await naVisaoDoDono.getByRole('button', { name: 'Confirmar' }).click();
+  await expect(listaAna).not.toContainText('texto certo');
+  await expect(listaDono).not.toContainText('texto certo');
+
+  await ana.app.close();
+  await dono.app.close();
+});

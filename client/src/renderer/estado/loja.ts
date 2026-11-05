@@ -14,6 +14,8 @@ interface Loja {
   canalAtivo: number | null;
   /** Histórico já carregado por canal (some ao reconectar, para recarregar sem buracos). */
   historicos: Record<number, Historico>;
+  /** Quem está digitando em cada canal: usuarioId → até quando (ms). */
+  digitando: Record<number, Record<number, number>>;
   definirConexao(estado: EstadoConexao): void;
   aplicarOla(payload: OlaPayload): void;
   adicionarUsuario(usuario: UsuarioDto): void;
@@ -29,6 +31,9 @@ interface Loja {
   receberPagina(canalId: number, pagina: PaginaMensagens, geracao: number): void;
   falharCarga(canalId: number, erro: string, geracao: number): void;
   adicionarMensagem(mensagem: MensagemDto): void;
+  atualizarMensagem(mensagem: MensagemDto): void;
+  removerMensagem(id: number, canalId: number | null): void;
+  registrarDigitando(canalId: number, usuarioId: number, ate: number): void;
   limpar(): void;
 }
 
@@ -62,6 +67,7 @@ const inicial = {
   canais: [] as CanalDto[],
   canalAtivo: null as number | null,
   historicos: {} as Record<number, Historico>,
+  digitando: {} as Record<number, Record<number, number>>,
 };
 
 const ordenarCanais = (canais: CanalDto[]) =>
@@ -88,6 +94,7 @@ export const useLoja = create<Loja>((set) => ({
         canalAtivo: canalValido(ordenados, s.canalAtivo),
         // Reconectou: o que chegou durante a queda não está aqui; o canal aberto recarrega.
         historicos: {},
+        digitando: {},
       };
     }),
   salvarCanal: (canal) =>
@@ -127,9 +134,27 @@ export const useLoja = create<Loja>((set) => ({
       if (m.canalId === null) return {};
       const atual = s.historicos[m.canalId];
       // Canal ainda não carregado: a mensagem vem junto quando ele for aberto.
-      if (!atual || atual.mensagens.some((x) => x.id === m.id)) return {};
-      return { historicos: { ...s.historicos, [m.canalId]: { ...atual, mensagens: [...atual.mensagens, m] } } };
+      // Quem mandou a mensagem parou de digitar.
+      const quem = { ...(s.digitando[m.canalId] ?? {}) };
+      delete quem[m.autorId];
+      const digitando = { ...s.digitando, [m.canalId]: quem };
+      if (!atual || atual.mensagens.some((x) => x.id === m.id)) return { digitando };
+      return { digitando, historicos: { ...s.historicos, [m.canalId]: { ...atual, mensagens: [...atual.mensagens, m] } } };
     }),
+  atualizarMensagem: (m) =>
+    set((s) => {
+      const atual = m.canalId === null ? undefined : s.historicos[m.canalId];
+      if (!atual) return {};
+      return { historicos: { ...s.historicos, [m.canalId!]: { ...atual, mensagens: atual.mensagens.map((x) => (x.id === m.id ? m : x)) } } };
+    }),
+  removerMensagem: (id, canalId) =>
+    set((s) => {
+      const atual = canalId === null ? undefined : s.historicos[canalId];
+      if (!atual) return {};
+      return { historicos: { ...s.historicos, [canalId!]: { ...atual, mensagens: atual.mensagens.filter((x) => x.id !== id) } } };
+    }),
+  registrarDigitando: (canalId, usuarioId, ate) =>
+    set((s) => ({ digitando: { ...s.digitando, [canalId]: { ...(s.digitando[canalId] ?? {}), [usuarioId]: ate } } })),
   abrirCanal: (id) => set((s) => ({ canalAtivo: canalValido(s.canais, id) })),
   definirLinkConvite: (linkConvite) => set({ linkConvite }),
   adicionarUsuario: (usuario) =>
@@ -141,6 +166,12 @@ export const useLoja = create<Loja>((set) => ({
       usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),
       eu: s.eu?.id === usuario.id ? usuario : s.eu,
     })),
-  removerUsuario: (id) => set((s) => ({ usuarios: s.usuarios.filter((u) => u.id !== id) })),
+  removerUsuario: (id) =>
+    set((s) => ({
+      usuarios: s.usuarios.filter((u) => u.id !== id),
+      digitando: Object.fromEntries(
+        Object.entries(s.digitando).map(([canal, quem]) => [canal, Object.fromEntries(Object.entries(quem).filter(([u]) => Number(u) !== id))]),
+      ),
+    })),
   limpar: () => set(inicial),
 }));

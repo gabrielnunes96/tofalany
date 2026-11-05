@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { validarTextoMensagem, type CanalDto, type UsuarioDto } from '@tofalando/shared';
+import { DIGITANDO_INTERVALO_MS, validarTextoMensagem, type CanalDto, type UsuarioDto } from '@tofalando/shared';
 import { useLoja } from '../estado/loja';
 import type { ClienteApi } from '../servicos/api';
 import { ErroApiCliente } from '../servicos/api';
-import { Avatar } from './Avatar';
+import { ItemMensagem } from './ItemMensagem';
 
 interface Props {
   canal: CanalDto;
@@ -12,15 +12,30 @@ interface Props {
   api: Pick<ClienteApi, 'mensagensCanal'>;
   /** Envia pelo tempo real; devolve a mensagem de erro ou null. */
   aoEnviar: (texto: string) => Promise<string | null>;
+  euId: number;
+  ehAdmin: boolean;
+  aoEditar: (id: number, texto: string) => Promise<string | null>;
+  aoApagar: (id: number) => Promise<string | null>;
+  aoDigitar: () => void;
 }
 
-const horario = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+/** "Ana está digitando…", "Ana e Bia estão digitando…", "Várias pessoas estão digitando…". */
+export function textoDigitando(nomes: string[]): string | null {
+  if (nomes.length === 0) return null;
+  if (nomes.length === 1) return `${nomes[0]} está digitando…`;
+  if (nomes.length <= 3) return `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)} estão digitando…`;
+  return 'Várias pessoas estão digitando…';
+}
+
 /** Perto do fim (px): mensagem nova rola a lista; mais acima, a pessoa está lendo o histórico. */
 const PERTO_DO_FIM = 120;
 
 /** RF-8: histórico com carga ao rolar para cima (CA-14) e envio de mensagens. */
-export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar }: Props) {
+export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, euId, ehAdmin, aoEditar, aoApagar, aoDigitar }: Props) {
   const historico = useLoja((s) => s.historicos[canal.id]);
+  const digitandoAte = useLoja((s) => s.digitando[canal.id]);
+  const [agora, setAgora] = useState(() => Date.now());
+  const ultimoSinal = useRef(0);
   const lista = useRef<HTMLDivElement>(null);
   const topo = useRef<HTMLDivElement>(null);
   /** Altura antes de pôr mensagens antigas no topo, para manter a posição de leitura. */
@@ -86,6 +101,24 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar }: 
     }
   }, [mensagens]);
 
+  // Relógio para o aviso de "digitando" expirar sozinho (CA-17).
+  const alguemDigitando = !!digitandoAte && Object.entries(digitandoAte).some(([id, ate]) => ate > agora && Number(id) !== euId);
+  // Só roda enquanto alguém está de fato digitando; para sozinho quando o aviso expira.
+  useEffect(() => {
+    if (!alguemDigitando) return;
+    const t = setInterval(() => setAgora(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [alguemDigitando]);
+
+  function mudarTexto(valor: string) {
+    setTexto(valor);
+    const t = Date.now();
+    if (valor.trim() && t - ultimoSinal.current > DIGITANDO_INTERVALO_MS) {
+      ultimoSinal.current = t;
+      aoDigitar();
+    }
+  }
+
   async function enviar(evento?: FormEvent) {
     evento?.preventDefault();
     const v = validarTextoMensagem(texto);
@@ -97,6 +130,7 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar }: 
     if (falha) setErroEnvio(falha);
     else {
       setTexto('');
+      ultimoSinal.current = 0;
       estavaNoFim.current = true;
     }
   }
@@ -140,25 +174,18 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar }: 
           </div>
         )}
         <ol className="lista-mensagens" aria-label={`Mensagens de #${canal.nome}`} aria-busy={historico?.carregando ?? true}>
-          {mensagens?.map((m) => {
-            const autor = porId.get(m.autorId);
-            return (
-              <li key={m.id} className="mensagem">
-                {autor ? (
-                  <Avatar usuario={autor} servidorUrl={servidorUrl} tamanho={36} />
-                ) : (
-                  <Avatar usuario={{ nomeExibicao: '?', cor: '#3a2f5c', avatarUrl: null }} servidorUrl={servidorUrl} tamanho={36} />
-                )}
-                <div className="mensagem-corpo">
-                  <div className="mensagem-topo">
-                    <span className={autor ? 'autor' : 'autor removido'}>{autor ? autor.nomeExibicao : 'conta removida'}</span>
-                    <time dateTime={new Date(m.criadaEm).toISOString()}>{horario.format(m.criadaEm)}</time>
-                  </div>
-                  <p className="mensagem-texto">{m.texto}</p>
-                </div>
-              </li>
-            );
-          })}
+          {mensagens?.map((m) => (
+            <ItemMensagem
+              key={m.id}
+              mensagem={m}
+              autor={porId.get(m.autorId)}
+              servidorUrl={servidorUrl}
+              podeEditar={m.autorId === euId}
+              podeApagar={m.autorId === euId || ehAdmin}
+              aoEditar={aoEditar}
+              aoApagar={aoApagar}
+            />
+          ))}
         </ol>
       </div>
       <form className="compositor" onSubmit={enviar}>
@@ -166,7 +193,7 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar }: 
           aria-label={`Mensagem para #${canal.nome}`}
           placeholder={`Mensagem para #${canal.nome}`}
           value={texto}
-          onChange={(e) => setTexto(e.target.value)}
+          onChange={(e) => mudarTexto(e.target.value)}
           onKeyDown={teclas}
           rows={1}
           maxLength={4000}
@@ -175,6 +202,15 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar }: 
           Enviar
         </button>
       </form>
+      <p className="digitando" aria-live="polite">
+        {alguemDigitando
+          ? textoDigitando(
+              Object.entries(digitandoAte!)
+                .filter(([id, ate]) => ate > agora && Number(id) !== euId)
+                .map(([id]) => porId.get(Number(id))?.nomeExibicao ?? 'Alguém'),
+            )
+          : ''}
+      </p>
       {erroEnvio && (
         <p className="erro" role="alert">
           {erroEnvio}

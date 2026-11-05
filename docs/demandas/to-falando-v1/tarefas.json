@@ -185,9 +185,9 @@
         "CA-15"
       ],
       "validacao": "integração: 500 mensagens paginadas até fim; persistem após reiniciar; E2E: enviar e ver no outro app",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "0261b34"
     },
     {
       "id": "T10",
@@ -206,7 +206,7 @@
         "CA-51"
       ],
       "validacao": "integração: edição marca editada, membro alheio recusado, admin apaga; digitando repassado",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
@@ -232,7 +232,7 @@
     {
       "id": "T12",
       "titulo": "Mensagens diretas",
-      "descricao": "Migration de dms; dm:abrir, destino dmId em mensagens/edição/anexos/digitando, GET /api/dms/:id/mensagens só para participantes (nem admin). Lista de DMs e abrir DM pela lista de membros.",
+      "descricao": "Migration de dms; dm:abrir, destino dmId em mensagens/edição/anexos/digitando, GET /api/dms/:id/mensagens só para participantes (nem admin). Lista de DMs e abrir DM pela lista de membros. Pendência da T10: mensagem:nova, mensagem:editada, mensagem:apagada e digitando de DM vão só para os dois participantes (hoje usam io.emit / broadcast para todos).",
       "repo": ".",
       "stack": "front",
       "depende_de": [

@@ -69,6 +69,10 @@ const extras = {
   servidorUrl: 'http://s',
   api: { mensagensCanal: vi.fn(async () => ({ mensagens: [], fim: true })) },
   aoEnviar: vi.fn(async () => null),
+  euId: 1,
+  aoEditarMensagem: vi.fn(async () => null),
+  aoApagarMensagem: vi.fn(async () => null),
+  aoDigitar: vi.fn(),
 };
 
 describe('CanalAberto', () => {

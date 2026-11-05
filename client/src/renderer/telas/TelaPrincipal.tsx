@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MotivoRevogacao, TipoCanal, UsuarioDto } from '@tofalando/shared';
+import { DIGITANDO_DURACAO_MS, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -50,6 +50,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       removerCanal: s.removerCanal,
       abrirCanal: s.abrirCanal,
       adicionarMensagem: s.adicionarMensagem,
+      atualizarMensagem: s.atualizarMensagem,
+      removerMensagem: s.removerMensagem,
+      registrarDigitando: s.registrarDigitando,
       limpar: s.limpar,
     })),
   );
@@ -77,6 +80,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoCanalRenomeado: acoes.salvarCanal,
       aoCanalRemovido: acoes.removerCanal,
       aoMensagemNova: acoes.adicionarMensagem,
+      aoMensagemEditada: acoes.atualizarMensagem,
+      aoMensagemApagada: acoes.removerMensagem,
+      aoDigitando: (canalId, usuarioId) => acoes.registrarDigitando(canalId, usuarioId, Date.now() + DIGITANDO_DURACAO_MS),
       aoRevogada: aoSessaoRevogada,
     });
     conexaoRef.current = conexao;
@@ -116,6 +122,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const renomearCanal = (id: number, nome: string) => pedir((c) => c.pedir('canal:renomear', { id, nome }), acoes.salvarCanal);
   const enviarMensagem = (canalId: number, texto: string) =>
     pedir((c) => c.pedir('mensagem:enviar', { destino: { canalId }, texto }), acoes.adicionarMensagem);
+  const editarMensagem = (id: number, texto: string) => pedir((c) => c.pedir('mensagem:editar', { id, texto }), acoes.atualizarMensagem);
+  const apagarMensagem = (id: number) => {
+    const canalId = Object.entries(useLoja.getState().historicos).find(([, h]) => h.mensagens.some((m) => m.id === id))?.[0];
+    return pedir(
+      (c) => c.pedir('mensagem:apagar', { id }),
+      () => acoes.removerMensagem(id, canalId ? Number(canalId) : null),
+    );
+  };
   const removerCanal = (id: number) => pedir((c) => c.pedir('canal:remover', { id }), () => acoes.removerCanal(id));
 
   function abrirAuditoria() {
@@ -239,6 +253,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               servidorUrl={servidorUrl}
               api={api}
               aoEnviar={enviarMensagem}
+              euId={usuario.id}
+              aoEditarMensagem={editarMensagem}
+              aoApagarMensagem={apagarMensagem}
+              aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando(canalId)}
             />
           )}
         </main>
