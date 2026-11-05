@@ -157,7 +157,7 @@ button.icone:hover:not(:disabled) { background: rgba(0, 240, 255, 0.12); box-sha
 .canal { display: block; width: 100%; text-align: left; margin: 1px 0; padding: 6px 8px; border-radius: var(--raio); background: transparent; color: var(--texto-suave); font-weight: 500; letter-spacing: 0; }
 button.canal:hover:not(:disabled) { background: rgba(0, 240, 255, 0.08); color: var(--texto); box-shadow: none; }
 button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); box-shadow: inset 3px 0 0 var(--magenta); }
-.canal.voz { cursor: default; }
+.canal.voz { cursor: pointer; }
 .form-nome { display: flex; flex-direction: column; gap: 6px; margin: 6px; }
 .form-nome-botoes { display: flex; gap: 6px; }
 .form-nome-botoes button { margin: 0; padding: 6px 10px; }
@@ -183,6 +183,16 @@ button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); 
 .item-voz:hover .item-acoes, .item-voz:focus-within .item-acoes { opacity: 1; }
 .item-voz .confirmar { display: flex; gap: 4px; margin: 4px 0 6px 8px; }
 .item-voz .confirmar button { margin: 0; padding: 4px 8px; font-size: 0.8rem; }
+.presentes-voz { list-style: none; width: 100%; margin: 0 0 4px 22px; padding: 0; }
+.presentes-voz li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; font-size: 0.85rem; color: var(--texto-suave); border-radius: var(--raio); }
+.presentes-voz li .nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.presentes-voz li .avatar { box-shadow: 0 0 0 2px transparent; transition: box-shadow 0.15s; }
+.presentes-voz li.falando { color: var(--texto); }
+.presentes-voz li.falando .avatar { box-shadow: 0 0 0 2px var(--destaque), 0 0 10px var(--destaque); }
+.painel-voz { border-top: 1px solid var(--borda); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
+.painel-voz .estado { flex: 1; font-size: 0.85rem; }
+.painel-voz .estado strong { color: var(--destaque); display: block; }
+.painel-voz button { margin: 0; padding: 6px 10px; }
 
 /* Chat */
 .chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }

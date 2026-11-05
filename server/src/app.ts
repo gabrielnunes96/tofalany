@@ -12,6 +12,7 @@ import { registrarRotasConvite } from './routes/convite.js';
 import { registrarRotasMensagens } from './routes/mensagens.js';
 import { registrarRotasAnexos } from './routes/anexos.js';
 import { registrarRotasSons } from './routes/sons.js';
+import { registrarRotasLivekit } from './routes/livekit.js';
 import { limparOrfaos } from './dominio/anexos.js';
 import type { ErroApi } from '@tofalando/shared';
 import type { Config } from './config.js';
@@ -114,6 +115,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasMensagens(app, banco);
   registrarRotasAnexos(app, banco, armazem);
   registrarRotasSons(app, banco, armazem, tempoReal);
+  await registrarRotasLivekit(app, banco, config, tempoReal.voz);
   registrarRotasConvite(
     app,
     banco,

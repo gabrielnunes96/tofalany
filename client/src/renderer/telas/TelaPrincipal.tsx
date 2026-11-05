@@ -3,7 +3,8 @@ import { DIGITANDO_DURACAO_MS, type Destino, type MensagemDto, type MotivoRevoga
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
-import { criarApi } from '../servicos/api';
+import { criarApi, ErroApiCliente } from '../servicos/api';
+import { criarSalaVoz, EntradaCancelada, type SalaVoz } from '../servicos/voz';
 import { ponte } from '../servicos/ponte';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
@@ -27,6 +28,9 @@ interface Props {
   aoSessaoRevogada: (motivo: MotivoRevogacao) => void;
 }
 
+/** Estado de voz enviado ao servidor (mute/deafen/câmera chegam nas T16 e T20). */
+const estadoVoz = (canalVozId: number | null, sid?: string) => ({ canalVozId, mudo: false, surdo: false, camera: false, sid });
+
 type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
@@ -37,8 +41,10 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada }: Props) {
-  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons } = useLoja(
+  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando } = useLoja(
     useShallow((s) => ({
+      voz: s.voz,
+      falando: s.falando,
       naoLidas: s.naoLidas,
       sons: s.sons,
       dms: s.dms,
@@ -69,6 +75,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aplicarLeitura: s.aplicarLeitura,
       descontarApagada: s.descontarApagada,
       definirSons: s.definirSons,
+      definirVoz: s.definirVoz,
+      definirFalando: s.definirFalando,
       salvarSom: s.salvarSom,
       tirarSom: s.tirarSom,
       abrirDm: s.abrirDm,
@@ -84,6 +92,37 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [pessoasAuditoria, setPessoasAuditoria] = useState<PessoaFiltro[]>([]);
   const conexaoRef = useRef<ConexaoTempoReal | null>(null);
   const chaveAbertaRef = useRef<Chave | null>(null);
+  // RF-13: sala de voz (uma por vez) e o canal em que estou.
+  const salaVozRef = useRef<SalaVoz | null>(null);
+  const minhaVozRef = useRef<number | null>(null);
+  const [minhaVoz, setMinhaVozEstado] = useState<number | null>(null);
+  const [avisoVoz, setAvisoVoz] = useState<string | null>(null);
+  const [entrandoVoz, setEntrandoVoz] = useState(false);
+  /** Canal para onde estou entrando (trava contra clique duplo e permite cancelar se o canal sumir). */
+  const entrandoRef = useRef<number | null>(null);
+  const setMinhaVoz = (id: number | null) => {
+    minhaVozRef.current = id;
+    setMinhaVozEstado(id);
+  };
+
+  useEffect(() => {
+    const sala = criarSalaVoz({
+      aoFalando: acoes.definirFalando,
+      aoCaiu: () => {
+        minhaVozRef.current = null;
+        setMinhaVozEstado(null);
+        setAvisoVoz('Você saiu da voz: a conexão de mídia caiu ou você entrou em outro computador.');
+        void conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
+      },
+      aoAviso: setAvisoVoz,
+    });
+    salaVozRef.current = sala;
+    return () => {
+      salaVozRef.current = null;
+      minhaVozRef.current = null;
+      void sala.destruir();
+    };
+  }, [acoes]);
 
   useEffect(() => {
     /** RF-12: conta como não lida ou marca como lida, e pede a notificação (o processo principal decide pelo foco). */
@@ -107,7 +146,20 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
 
     const conexao = conectarTempoReal(servidorUrl, token, {
       aoEstado: acoes.definirConexao,
-      aoOla: acoes.aplicarOla,
+      aoOla: (ola) => {
+        acoes.aplicarOla(ola);
+        // Reconectou com a voz ligada: a presença volta para todos.
+        const canal = minhaVozRef.current;
+        if (canal === null) return;
+        void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid())).then((r) => {
+          // O canal sumiu durante a queda (ou o servidor recusou): sai da mídia também.
+          if (r.ok || minhaVozRef.current !== canal) return;
+          minhaVozRef.current = null;
+          setMinhaVozEstado(null);
+          setAvisoVoz(r.erro);
+          void salaVozRef.current?.sair();
+        });
+      },
       aoUsuarioCriado: acoes.adicionarUsuario,
       aoUsuarioAtualizado: (u) => {
         acoes.atualizarUsuario(u);
@@ -121,7 +173,16 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       },
       aoCanalCriado: acoes.salvarCanal,
       aoCanalRenomeado: acoes.salvarCanal,
-      aoCanalRemovido: acoes.removerCanal,
+      aoCanalRemovido: (id) => {
+        acoes.removerCanal(id);
+        if (entrandoRef.current === id) void salaVozRef.current?.sair();
+        if (minhaVozRef.current === id) {
+          minhaVozRef.current = null;
+          setMinhaVozEstado(null);
+          setAvisoVoz('O canal de voz foi removido.');
+          void salaVozRef.current?.sair();
+        }
+      },
       aoMensagemNova: (m) => {
         acoes.adicionarMensagem(m);
         avisarMensagemNova(m);
@@ -135,6 +196,13 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoDmAtualizada: acoes.salvarDm,
       aoLidoAtualizado: acoes.aplicarLeitura,
       aoSonsAtualizados: acoes.definirSons,
+      aoVozEstados: acoes.definirVoz,
+      aoVozTirado: () => {
+        minhaVozRef.current = null;
+        setMinhaVozEstado(null);
+        setAvisoVoz('Você entrou na voz por outro computador; aqui a voz foi desligada.');
+        void salaVozRef.current?.sair();
+      },
       aoRevogada: aoSessaoRevogada,
     });
     conexaoRef.current = conexao;
@@ -244,6 +312,49 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
 
   const voltar = () => setVista('canal');
 
+  /** RF-13: entra no canal de voz (sai do anterior, se houver). */
+  async function entrarVoz(canalId: number) {
+    const sala = salaVozRef.current;
+    if (!sala || entrandoRef.current !== null) return;
+    entrandoRef.current = canalId;
+    setAvisoVoz(null);
+    setEntrandoVoz(true);
+    const tinhaVoz = minhaVozRef.current !== null;
+    try {
+      if (tinhaVoz) {
+        setMinhaVoz(null);
+        await sala.sair();
+      }
+      const { url, token: tokenVoz } = await api.tokenVoz(canalId);
+      await sala.entrar(url, tokenVoz);
+      const r = await conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid()));
+      if (!r || !r.ok) {
+        // Servidor recusou (ex.: canal removido nesse meio-tempo): não fica na mídia sem aparecer.
+        await sala.sair();
+        setAvisoVoz(r?.erro ?? 'Sem conexão com o servidor.');
+        if (tinhaVoz) await conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
+        return;
+      }
+      setMinhaVoz(canalId);
+    } catch (e) {
+      setMinhaVoz(null);
+      if (!(e instanceof EntradaCancelada)) {
+        setAvisoVoz(e instanceof ErroApiCliente ? e.message : 'Não foi possível conectar à voz. Confira se o servidor de mídia está no ar.');
+      }
+      // Saiu do canal anterior e não entrou no novo: a presença antiga não pode ficar.
+      if (tinhaVoz) await conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
+    } finally {
+      entrandoRef.current = null;
+      setEntrandoVoz(false);
+    }
+  }
+
+  async function sairVoz() {
+    setMinhaVoz(null);
+    await salaVozRef.current?.sair();
+    await conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
+  }
+
   return (
     <div className="layout-principal">
       {conexao !== 'conectado' && (
@@ -273,7 +384,43 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             ehAdmin={ehAdmin}
             aoRenomear={renomearCanal}
             aoRemover={removerCanal}
+            voz={voz}
+            falando={falando}
+            minhaVoz={minhaVoz}
+            servidorUrl={servidorUrl}
+            aoEntrarVoz={(id) => void entrarVoz(id)}
           />
+          {(minhaVoz !== null || entrandoVoz || avisoVoz) && (
+            <section className="painel-voz" aria-label="Conexão de voz">
+              <p className="estado" role="status">
+                {entrandoVoz ? (
+                  'Conectando à voz…'
+                ) : minhaVoz !== null ? (
+                  <>
+                    <strong>Voz conectada</strong>
+                    {canais.find((c) => c.id === minhaVoz)?.nome}
+                  </>
+                ) : (
+                  avisoVoz
+                )}
+              </p>
+              {minhaVoz !== null && !entrandoVoz && (
+                <button type="button" className="perigo" onClick={() => void sairVoz()}>
+                  Sair da voz
+                </button>
+              )}
+              {minhaVoz === null && !entrandoVoz && avisoVoz && (
+                <button type="button" className="secundario" aria-label="Fechar aviso da voz" onClick={() => setAvisoVoz(null)}>
+                  ×
+                </button>
+              )}
+            </section>
+          )}
+          {minhaVoz !== null && avisoVoz && (
+            <p className="aviso-ok" role="alert">
+              {avisoVoz}
+            </p>
+          )}
           <section className="painel-usuario" aria-label="Você">
             <div className="painel-usuario-topo">
               <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={36} />

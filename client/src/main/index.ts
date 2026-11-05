@@ -12,6 +12,12 @@ import { criarNotificacoes } from './notificacoes';
 const pastaDados = process.env.TOFALANDO_USER_DATA;
 if (pastaDados && !app.isPackaged) app.setPath('userData', pastaDados);
 
+// E2E de voz: microfone e câmera falsos do Chromium, sem pedir permissão (só fora do app empacotado).
+if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
+  app.commandLine.appendSwitch('use-fake-device-for-media-stream');
+  app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
+}
+
 let janelaPrincipal: BrowserWindow | undefined;
 
 const links = prepararLinks(

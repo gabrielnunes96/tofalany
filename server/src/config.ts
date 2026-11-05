@@ -31,6 +31,11 @@ export interface Config {
   urlPublica: string | undefined;
   /** Pasta com os instaladores oferecidos na página do convite (DOWNLOADS; padrão: "downloads" ao lado do banco). */
   pastaDownloads: string | undefined;
+  /**
+   * LiveKit (voz, vídeo e tela). `url` é o endereço que o app usa (ws:// ou wss://); sem url, chave e
+   * segredo, a voz fica indisponível (503 voz_indisponivel) e o resto do servidor funciona.
+   */
+  livekit: { url: string; urlInterna: string; chave: string; segredo: string } | undefined;
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -68,5 +73,19 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     urlPublica: ambiente.URL_PUBLICA?.trim().replace(/\/+$/, '') || undefined,
     pastaDownloads: ambiente.DOWNLOADS || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
+    livekit: lerLivekit(ambiente),
   };
+}
+
+function lerLivekit(ambiente: Ambiente): Config['livekit'] {
+  const url = ambiente.LIVEKIT_URL?.trim().replace(/\/+$/, '');
+  const chave = ambiente.LIVEKIT_API_KEY?.trim();
+  const segredo = ambiente.LIVEKIT_API_SECRET?.trim();
+  if (!url && !chave && !segredo) return undefined;
+  if (!url || !chave || !segredo) throw new Error('Para a voz, defina LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET juntos.');
+  if (!/^wss?:\/\//.test(url)) throw new Error(`LIVEKIT_URL deve começar com ws:// ou wss:// (recebido: ${url}).`);
+  // Endereço que o servidor usa para falar com o LiveKit (ex.: http://livekit:7880 no docker-compose).
+  const urlInterna = ambiente.LIVEKIT_URL_INTERNA?.trim().replace(/\/+$/, '') || url;
+  if (!/^(wss?|https?):\/\//.test(urlInterna)) throw new Error(`LIVEKIT_URL_INTERNA deve começar com http(s):// ou ws(s):// (recebido: ${urlInterna}).`);
+  return { url, urlInterna, chave, segredo };
 }

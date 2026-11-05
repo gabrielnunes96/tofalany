@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, SomDto, UsuarioDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -37,6 +37,8 @@ export interface ClienteApi {
   cadastrarSom(nome: string, arquivo: Blob, nomeArquivo: string): Promise<SomDto>;
   trocarSom(id: number, mudanca: { nome?: string; arquivo?: { dados: Blob; nome: string } }): Promise<SomDto>;
   removerSom(id: number): Promise<void>;
+  /** RF-13: token do LiveKit para o canal de voz. */
+  tokenVoz(canalVozId: number): Promise<TokenVozResponse>;
 }
 
 function consulta(filtro: object): string {
@@ -109,6 +111,7 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
       return chamar('PUT', `/api/admin/sons/${id}`, form);
     },
     removerSom: (id) => chamar('DELETE', `/api/admin/sons/${id}`),
+    tokenVoz: (canalVozId) => chamar('POST', '/api/livekit/token', { canalVozId }),
     mensagensDm: (dmId, antes) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes })}`),
     mensagensCanal: (canalId, antes) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes })}`),
     enviarAvatar: (arquivo, nome) => {

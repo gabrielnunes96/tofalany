@@ -24,6 +24,9 @@ import { listarSons } from '../dominio/sons.js';
 import { registrarEventosCanais } from './canais.js';
 import { registrarEventosMensagens } from './mensagens.js';
 import type { Armazem } from '../arquivos/armazem.js';
+import { RoomServiceClient } from 'livekit-server-sdk';
+import { salaLivekit } from '@tofalando/shared';
+import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
 
 interface DadosSocket {
   usuarioId: number;
@@ -43,6 +46,8 @@ export interface TempoReal {
   revogarUsuario(usuarioId: number, motivo: MotivoRevogacao): void;
   /** Reconfere no banco as sessões conectadas; pega revogações feitas por outro processo (comando da T3). */
   conferirSessoes(): void;
+  /** RF-13: presença nos canais de voz. */
+  voz: Voz;
 }
 
 export const salaUsuario = (id: number) => `usuario:${id}`;
@@ -116,6 +121,19 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       app.log.error(erro);
     }
   }, config.carenciaOfflineMs);
+  const lk = config.livekit;
+  const salas = lk ? new RoomServiceClient(lk.urlInterna, lk.chave, lk.segredo) : undefined;
+  const removerDaMidia: RemoverDaMidia | undefined = salas
+    ? async (usuarioId, canalVozId) => {
+        try {
+          await salas.removeParticipant(salaLivekit(canalVozId), String(usuarioId));
+        } catch (erro) {
+          // Já saiu da sala (404) é o caso comum; o resto vai ao log.
+          if (!/not.?found|does not exist/i.test(String((erro as Error)?.message))) throw erro;
+        }
+      }
+    : undefined;
+  const voz = criarVoz(io, banco, (e) => app.log.error(e), { carenciaMs: config.carenciaOfflineMs, removerDaMidia });
 
   io.use((socket, next) => {
     const token: unknown = socket.handshake.auth?.token;
@@ -159,8 +177,10 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       dms: listarDms(banco, eu.id),
       naoLidas: contarNaoLidas(banco, eu.id),
       sons: listarSons(banco),
+      voz: voz.estados(),
     };
-    registrarEventosCanais(io, socket, banco, armazem, (e) => app.log.error(e));
+    registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
+    voz.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));
     socket.emit('ola', ola);
     presenca.entrou(eu.id);
@@ -168,12 +188,14 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   }
 
   function derrubar(socket: SocketTofalando, motivo: MotivoRevogacao) {
+    voz.revogar(socket.data.usuarioId, socket.id);
     socket.emit('sessao:revogada', { motivo });
     socket.disconnect(true);
   }
 
   const tempoReal: TempoReal = {
     io,
+    voz,
     revogarToken(tokenHash, motivo) {
       for (const s of io.of('/').sockets.values()) if (s.data.tokenHash === tokenHash) derrubar(s, motivo);
     },
@@ -197,6 +219,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   // Fecha as conexões antes do servidor HTTP; o engine não tenta fechar o servidor do Fastify.
   app.addHook('preClose', async () => {
     clearInterval(relogio);
+    voz.fechar();
     presenca.iniciarFechamento();
     io.local.disconnectSockets(true);
     io.engine.close();

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { CanalDto, DmDto, TipoCanal, UsuarioDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, TipoCanal, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
+import { Avatar } from './Avatar';
 import { FormNome } from './FormNome';
 
 interface Props {
@@ -17,6 +18,12 @@ interface Props {
   aoAbrirDm: (id: number) => void;
   /** RF-12: não lidas por conversa ("c:<id>" / "d:<id>"). */
   naoLidas?: Partial<Record<string, number>>;
+  /** RF-13: quem está em cada canal de voz, quem fala e onde eu estou. */
+  voz?: VozEstadoDto[];
+  falando?: number[];
+  minhaVoz?: number | null;
+  servidorUrl?: string;
+  aoEntrarVoz?: (canalId: number) => void;
 }
 
 /** Bolinha com o número de não lidas (99+ acima disso). */
@@ -33,7 +40,39 @@ function Contador({ n }: { n: number | undefined }) {
 const TITULOS: Record<TipoCanal, string> = { texto: 'Canais de texto', voz: 'Canais de voz' };
 
 /** Canal de voz na barra: renomear (qualquer membro) e remover (só administrador, com confirmação). */
-function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover }: { canal: CanalDto } & Pick<Props, 'ehAdmin' | 'aoRenomear' | 'aoRemover'>) {
+interface PropsItemVoz extends Pick<Props, 'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl'> {
+  canal: CanalDto;
+  presentes: { usuario: UsuarioDto; estado: VozEstadoDto; falando: boolean }[];
+  aqui: boolean;
+}
+
+/** Quem está no canal de voz, com o indicador de fala (RF-13) e ícones de mute/deafen. */
+function PresentesVoz({ canal, presentes, servidorUrl }: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl'>) {
+  if (presentes.length === 0) return null;
+  return (
+    <ul className="presentes-voz" aria-label={`Na voz em ${canal.nome}`}>
+      {presentes.map(({ usuario, estado, falando }) => (
+        <li key={usuario.id} className={falando ? 'falando' : undefined} aria-label={`${usuario.nomeExibicao}${falando ? ', falando' : ''}`}>
+          <Avatar usuario={usuario} servidorUrl={servidorUrl ?? ''} tamanho={20} />
+          <span className="nome">{usuario.nomeExibicao}</span>
+          {estado.surdo ? (
+            <span role="img" title="Sem áudio" aria-label="sem áudio">
+              🔇
+            </span>
+          ) : (
+            estado.mudo && (
+              <span role="img" title="Microfone desligado" aria-label="microfone desligado">
+                🎙️✕
+              </span>
+            )
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes, aqui, servidorUrl }: PropsItemVoz) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -56,9 +95,18 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover }: { canal: CanalDto } 
 
   return (
     <div className="item-voz">
-      <span className="canal voz">
+      <button
+        type="button"
+        className={`canal voz${aqui ? ' ativo' : ''}`}
+        aria-current={aqui ? 'true' : undefined}
+        aria-label={aqui ? `${canal.nome}, você está aqui` : `Entrar no canal de voz ${canal.nome}`}
+        title={aqui ? 'Você está neste canal' : 'Entrar'}
+        onClick={() => {
+          if (!aqui) aoEntrarVoz?.(canal.id);
+        }}
+      >
         <span aria-hidden="true">🔊</span> {canal.nome}
-      </span>
+      </button>
       {modo === 'ver' ? (
         <span className="item-acoes">
           <button type="button" className="icone" aria-label={`Renomear canal de voz ${canal.nome}`} title="Renomear" onClick={() => setModo('renomear')}>
@@ -96,6 +144,7 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover }: { canal: CanalDto } 
           {erro}
         </p>
       )}
+      <PresentesVoz canal={canal} presentes={presentes} servidorUrl={servidorUrl} />
     </div>
   );
 }
@@ -115,8 +164,19 @@ export function BarraLateral({
   dmAtiva,
   aoAbrirDm,
   naoLidas = {},
+  voz = [],
+  falando = [],
+  minhaVoz = null,
+  servidorUrl,
+  aoEntrarVoz,
 }: Props) {
   const [criando, setCriando] = useState<TipoCanal | null>(null);
+  const presentesEm = (canalId: number) =>
+    voz.flatMap((estado) => {
+      if (estado.canalVozId !== canalId) return [];
+      const usuario = usuarios.find((u) => u.id === estado.usuarioId);
+      return usuario ? [{ usuario, estado, falando: falando.includes(usuario.id) }] : [];
+    });
 
   return (
     <nav className="barra-lateral" aria-label="Canais">
@@ -157,7 +217,16 @@ export function BarraLateral({
                       <Contador n={naoLidas[`c:${c.id}`]} />
                     </button>
                   ) : (
-                    <ItemVoz canal={c} ehAdmin={ehAdmin} aoRenomear={aoRenomear} aoRemover={aoRemover} />
+                    <ItemVoz
+                      canal={c}
+                      ehAdmin={ehAdmin}
+                      aoRenomear={aoRenomear}
+                      aoRemover={aoRemover}
+                      aoEntrarVoz={aoEntrarVoz}
+                      presentes={presentesEm(c.id)}
+                      aqui={minhaVoz === c.id}
+                      servidorUrl={servidorUrl}
+                    />
                   )}
                 </li>
               ))}

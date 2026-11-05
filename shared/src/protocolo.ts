@@ -63,6 +63,8 @@ export interface SessaoResponse {
 /** Códigos de erro da API; o corpo de erro é { erro, mensagem }. */
 export type CodigoErro =
   | 'dados_invalidos'
+  | 'voz_indisponivel'
+  | 'assinatura_invalida'
   | 'convite_invalido'
   | 'usuario_em_uso'
   | 'limite_contas'
@@ -159,6 +161,34 @@ export interface SomDto {
   duracaoMs: number;
 }
 
+/** Quem está em qual canal de voz (RF-13), com mute/deafen/câmera para os ícones. */
+export interface VozEstadoDto {
+  usuarioId: number;
+  canalVozId: number;
+  mudo: boolean;
+  surdo: boolean;
+  camera: boolean;
+}
+
+/** O que o app informa ao entrar, mudar de estado ou sair (canalVozId null) da voz. */
+export interface VozEstadoPedido {
+  canalVozId: number | null;
+  mudo: boolean;
+  surdo: boolean;
+  camera: boolean;
+  /** Sessão de mídia no LiveKit (participant.sid), para o servidor reconhecer a saída certa. */
+  sid?: string;
+}
+
+/** Sala do LiveKit de um canal de voz. */
+export const salaLivekit = (canalVozId: number) => `voz-${canalVozId}`;
+
+/** Resposta de POST /api/livekit/token. */
+export interface TokenVozResponse {
+  url: string;
+  token: string;
+}
+
 /** Resposta (ack) dos eventos cliente → servidor. */
 export type Ack<T = undefined> = (resposta: { ok: true; valor: T } | { ok: false; erro: string }) => void;
 
@@ -172,6 +202,8 @@ export interface OlaPayload {
   canais: CanalDto[];
   dms: DmDto[];
   sons: SomDto[];
+  /** RF-13: quem está em cada canal de voz. */
+  voz: VozEstadoDto[];
   /** RF-12: mensagens não lidas por conversa ("c:<id>" / "d:<id>"), só as que têm alguma. */
   naoLidas: Record<string, number>;
 }
@@ -200,6 +232,10 @@ export interface EventosServidor {
   'lido:atualizado': (payload: { chave: string; ultimaMensagemId: number }) => void;
   /** Conversa direta nova (ou com mensagem nova): chega só para os dois participantes. */
   'dm:atualizada': (dm: DmDto) => void;
+  /** RF-13: lista inteira de quem está na voz (até 20 pessoas), a cada mudança. */
+  'voz:estados': (estados: VozEstadoDto[]) => void;
+  /** A mesma pessoa entrou na voz por outro computador: este sai da sala. */
+  'voz:tirado': (payload: { motivo: 'outro_computador' }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }
@@ -224,6 +260,8 @@ export interface EventosCliente {
   'lido:marcar': (dados: { destino: Destino; ultimaMensagemId: number }) => void;
   /** RF-12a: abre (ou cria) a conversa direta com outra pessoa. */
   'dm:abrir': (dados: { usuarioId: number }, ack: Ack<DmDto>) => void;
+  /** RF-13: entrou, mudou (mute/deafen/câmera) ou saiu (canalVozId null) da voz. */
+  'voz:estado': (dados: VozEstadoPedido, ack: Ack) => void;
 }
 
 /**

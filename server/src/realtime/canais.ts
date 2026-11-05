@@ -8,6 +8,7 @@ import { comAck } from './acoes.js';
 import { arquivosDoCanal } from '../dominio/anexos.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
+import type { Voz } from './voz.js';
 
 const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -29,6 +30,7 @@ export function registrarEventosCanais(
   socket: SocketTofalando,
   banco: Banco,
   armazem: Armazem,
+  voz: Pick<Voz, 'canalRemovido'>,
   registrarErro: (e: unknown) => void,
 ) {
   const usuarioId = socket.data.usuarioId;
@@ -73,7 +75,7 @@ export function registrarEventosCanais(
     comAck(registrarErro, (dados: unknown) => {
       const id = lerId(dados);
       let arquivos: string[] = [];
-      banco.transaction(() => {
+      const removido = banco.transaction(() => {
         if (buscarPorId(banco, usuarioId)?.cargo !== 'admin') {
           throw new ErroHttp(403, 'sem_permissao', 'Só administradores removem canais.');
         }
@@ -83,9 +85,11 @@ export function registrarEventosCanais(
         // RN-8: mensagens e anexos saem em cascata; os arquivos são apagados depois do commit.
         arquivos = arquivosDoCanal(banco, id);
         removerCanal(banco, id);
+        return canal;
       })();
       for (const a of arquivos) armazem.apagar(a);
       io.emit('canal:removido', { id });
+      if (removido.tipo === 'voz') voz.canalRemovido(removido);
       return undefined;
     }),
   );

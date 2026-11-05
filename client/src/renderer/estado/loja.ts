@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, UsuarioDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -30,6 +30,11 @@ interface Loja {
   digitando: Partial<Record<Chave, Record<number, number>>>;
   /** Soundboard do servidor (RF-22). */
   sons: SomDto[];
+  /** RF-13: quem está em cada canal de voz e quem fala agora (na sala em que eu estou). */
+  voz: VozEstadoDto[];
+  falando: number[];
+  definirVoz(estados: VozEstadoDto[]): void;
+  definirFalando(ids: number[]): void;
   definirSons(sons: SomDto[]): void;
   /** Resposta de uma ação do admin: mescla por id sobre o estado atual (o evento pode ter chegado antes). */
   salvarSom(som: SomDto): void;
@@ -99,6 +104,8 @@ const inicial = {
   naoLidasIds: {} as Partial<Record<Chave, number[]>>,
   digitando: {} as Partial<Record<Chave, Record<number, number>>>,
   sons: [] as SomDto[],
+  voz: [] as VozEstadoDto[],
+  falando: [] as number[],
 };
 
 const ordenarCanais = (canais: CanalDto[]) =>
@@ -116,9 +123,11 @@ export const useLoja = create<Loja>((set) => ({
   ...inicial,
   definirConexao: (conexao) => set({ conexao }),
   definirSons: (sons) => set({ sons }),
+  definirVoz: (voz) => set({ voz }),
+  definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
   salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
   tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
-  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas, sons }) =>
+  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas, sons, voz }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -130,6 +139,7 @@ export const useLoja = create<Loja>((set) => ({
         canalAtivo: canalValido(ordenados, s.canalAtivo),
         dms: ordenarDms(dms),
         sons,
+        voz,
         dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
         // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
         historicos: {},
