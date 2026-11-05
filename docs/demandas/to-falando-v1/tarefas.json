@@ -35,9 +35,9 @@
         "CA-6"
       ],
       "validacao": "integração dos 4 erros de cadastro e da 1ª conta admin; E2E: reabrir entra sem senha",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "4c7f728"
     },
     {
       "id": "T3",
@@ -52,14 +52,14 @@
         "CA-7"
       ],
       "validacao": "integração: após o comando, senha nova entra e antiga é recusada",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
     {
       "id": "T4",
       "titulo": "Conexão em tempo real",
-      "descricao": "Socket.IO autenticado pelo token, evento ola com o retrato inicial, sessao:revogada, reconexão automática do socket no app com aviso de reconectando. Estado do app em zustand alimentado pelo socket.",
+      "descricao": "Socket.IO autenticado pelo token, evento ola com o retrato inicial, sessao:revogada, reconexão automática do socket no app com aviso de reconectando. Estado do app em zustand alimentado pelo socket. O socket reconfere a sessão periodicamente (ou ao receber aviso), para que sair, redefinir a senha pelo comando (T3, outro processo) ou remover a conta (T6) derrube quem está conectado.",
       "repo": ".",
       "stack": "front",
       "depende_de": [
