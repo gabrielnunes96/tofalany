@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarTextoMensagem, validarNomeCanal, validarNomeSom, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -114,5 +114,19 @@ describe('validarTextoMensagem', () => {
     expect(validarTextoMensagem('  oi\n  tudo bem?  ')).toEqual({ ok: true, valor: 'oi\n  tudo bem?' });
     expect(validarTextoMensagem(' \n ')).toMatchObject({ ok: false });
     expect(validarTextoMensagem('x'.repeat(4001))).toMatchObject({ ok: false });
+  });
+});
+
+describe('mesclarAudio', () => {
+  it('aceita só valores válidos e mantém o resto', () => {
+    const base = mesclarAudio(undefined, null);
+    expect(base).toMatchObject({ entradaId: null, supressaoRuido: true, sensibilidadeDb: -50 });
+    expect(mesclarAudio(base, { entradaId: 'abc', saidaId: null, cancelamentoEco: false, sensibilidadeDb: -30.4 })).toMatchObject({
+      entradaId: 'abc',
+      saidaId: null,
+      cancelamentoEco: false,
+      sensibilidadeDb: -30,
+    });
+    expect(mesclarAudio(base, { entradaId: '', ganhoAutomatico: 'sim', sensibilidadeDb: 10, outro: 1 })).toEqual(base);
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DIGITANDO_DURACAO_MS, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
+import { AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type PreferenciasAudio, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -11,6 +11,7 @@ import { TelaPerfil } from './TelaPerfil';
 import { TelaMembros } from './TelaMembros';
 import { TelaConvite } from './TelaConvite';
 import { TelaSons } from './TelaSons';
+import { TelaConfiguracoes } from './TelaConfiguracoes';
 import { Avatar } from '../componentes/Avatar';
 import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
@@ -31,7 +32,7 @@ interface Props {
 /** Estado de voz enviado ao servidor (mute/deafen/câmera chegam nas T16 e T20). */
 const estadoVoz = (canalVozId: number | null, sid?: string) => ({ canalVozId, mudo: false, surdo: false, camera: false, sid });
 
-type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons';
+type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
 const destinoDe = (chave: Chave): Destino => {
@@ -100,6 +101,49 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [entrandoVoz, setEntrandoVoz] = useState(false);
   /** Canal para onde estou entrando (trava contra clique duplo e permite cancelar se o canal sumir). */
   const entrandoRef = useRef<number | null>(null);
+  // RN-14: preferências de áudio deste computador (RF-17, RF-18).
+  const [audio, setAudio] = useState<PreferenciasAudio>(AUDIO_PADRAO);
+  const audioRef = useRef<PreferenciasAudio>(AUDIO_PADRAO);
+  useEffect(() => {
+    let vivo = true;
+    void ponte()
+      .config.ler()
+      .then((c) => {
+        if (!vivo) return;
+        const lido = c.audio ?? AUDIO_PADRAO;
+        audioRef.current = lido;
+        setAudio(lido);
+        void salaVozRef.current?.aplicarAudio(lido);
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  const gravarAudio = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  function mudarAudio(novo: PreferenciasAudio) {
+    audioRef.current = novo;
+    setAudio(novo);
+    // Arrastar o slider gera dezenas de mudanças: grava no disco só quando para.
+    clearTimeout(gravarAudio.current);
+    gravarAudio.current = setTimeout(() => {
+      void ponte()
+        .config.gravar({ audio: audioRef.current })
+        .catch(() => undefined);
+    }, 400);
+    return salaVozRef.current?.aplicarAudio(novo).catch(() => undefined);
+  }
+  // Ao sair da tela logada, grava o que ainda estava esperando.
+  useEffect(
+    () => () => {
+      if (gravarAudio.current === undefined) return;
+      clearTimeout(gravarAudio.current);
+      void ponte()
+        .config.gravar({ audio: audioRef.current })
+        .catch(() => undefined);
+    },
+    [],
+  );
   const setMinhaVoz = (id: number | null) => {
     minhaVozRef.current = id;
     setMinhaVozEstado(id);
@@ -326,7 +370,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         await sala.sair();
       }
       const { url, token: tokenVoz } = await api.tokenVoz(canalId);
-      await sala.entrar(url, tokenVoz);
+      await sala.entrar(url, tokenVoz, audioRef.current);
       const r = await conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid()));
       if (!r || !r.ok) {
         // Servidor recusou (ex.: canal removido nesse meio-tempo): não fica na mídia sem aparecer.
@@ -437,6 +481,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               <button type="button" className="secundario" onClick={() => setVista('perfil')}>
                 Meu perfil
               </button>
+              <button type="button" className="secundario" onClick={() => setVista('configuracoes')}>
+                Configurações
+              </button>
               {linkConvite && (
                 <button
                   type="button"
@@ -496,6 +543,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoRemover={acoes.removerUsuario}
               aoVoltar={voltar}
             />
+          ) : vistaAtual === 'configuracoes' ? (
+            <TelaConfiguracoes audio={audio} aoMudarAudio={mudarAudio} microfoneDaChamada={() => salaVozRef.current?.microfone()} aoVoltar={voltar} />
           ) : vistaAtual === 'sons' ? (
             <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
           ) : vistaAtual === 'convite' ? (

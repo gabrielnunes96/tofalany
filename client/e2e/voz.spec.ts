@@ -8,6 +8,9 @@ import type { FastifyInstance } from 'fastify';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
+/** Prints das telas principais, para conferir a olho (ficam em docs/demandas/.../prints). */
+const PRINTS = join(__dirname, '../../docs/demandas/to-falando-v1/prints');
+const print = (janela: Page, nome: string) => janela.screenshot({ path: join(PRINTS, `${nome}.png`) });
 
 let pasta: string;
 let servidor: FastifyInstance;
@@ -62,9 +65,13 @@ test.afterEach(async () => {
   rmSync(pasta, { recursive: true, force: true });
 });
 
-async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronApplication; janela: Page }> {
+async function abrirApp(nome: string): Promise<{ app: ElectronApplication; janela: Page }> {
   const app = await electron.launch({ args: [principal], env: { ...process.env, TOFALANDO_USER_DATA: join(pasta, nome), TOFALANDO_MIDIA_FALSA: '1' } });
-  const janela = await app.firstWindow();
+  return { app, janela: await app.firstWindow() };
+}
+
+async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronApplication; janela: Page }> {
+  const { app, janela } = await abrirApp(nome);
   await janela.getByLabel('Endereço do servidor').fill(url);
   await janela.getByRole('button', { name: 'Conectar' }).click();
   if (criar) {
@@ -99,6 +106,8 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
   // A ana recebe o áudio do dono (faixa assinada) e vê o indicador de fala dele (o microfone falso apita).
   await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1, { timeout: 15_000 });
   await expect(naVozDaAna.getByRole('listitem', { name: 'dono, falando' })).toBeVisible({ timeout: 15_000 });
+  await print(ana.janela, 'T14-voz-ana-ve-dono-falando');
+  await print(dono.janela, 'T14-voz-dono-conectado');
 
   await ana.janela.getByRole('button', { name: 'Sair da voz' }).click();
   await expect(dono.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem')).toHaveCount(1);
@@ -123,5 +132,71 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
   ]);
 
   await dono.app.close();
+  await ana.app.close();
+});
+
+test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na chamada e escolhas guardadas', async () => {
+  test.setTimeout(120_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const j = dono.janela;
+
+  // CA-28: o medidor se mexe com o microfone (falso, que apita) e a supressão forte carrega no app empacotado.
+  await j.getByRole('button', { name: 'Configurações' }).click();
+  await j.getByRole('button', { name: 'Testar microfone' }).click();
+  await expect(j.getByRole('status').filter({ hasText: 'Supressão de ruído' })).toContainText('forte (RNNoise)', { timeout: 10_000 });
+  const medidor = j.getByRole('meter', { name: 'Nível do microfone' });
+  await expect.poll(async () => Number(await medidor.getAttribute('aria-valuenow')), { timeout: 10_000 }).toBeGreaterThan(-90);
+  await print(j, 'T15-configuracoes-teste-microfone');
+  await j.getByRole('button', { name: 'Parar teste' }).click();
+
+  // Na chamada, troca o microfone (e desliga o eco): continua conectado e a ana continua ouvindo.
+  await j.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await j.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await j.getByRole('button', { name: 'Criar', exact: true }).click();
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+  await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1, { timeout: 15_000 });
+  // Em chamada, o teste mede o microfone da própria chamada e mostra qual dispositivo ela usa.
+  await j.getByRole('button', { name: 'Testar microfone' }).click();
+  const status = j.getByRole('status').filter({ hasText: 'Medindo o microfone da chamada' });
+  await expect(status).toBeVisible({ timeout: 10_000 });
+  const emUso = await status.getAttribute('data-dispositivo');
+  const entradas = await j.getByLabel('Microfone', { exact: true }).locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+  const escolhida = entradas.find((id) => id !== emUso);
+  expect(escolhida, `o Chromium falso deveria ter mais de um microfone (em uso: ${emUso}, lista: ${entradas.join(', ')})`).toBeTruthy();
+  await j.getByLabel('Microfone', { exact: true }).selectOption(escolhida!);
+  // A chamada passou a usar o microfone escolhido (troca a quente, sem sair da voz).
+  await expect(status).toHaveAttribute('data-dispositivo', escolhida!, { timeout: 10_000 });
+  await print(j, 'T15-troca-microfone-na-chamada');
+  const saidas = await j.getByLabel('Saída de áudio').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+  if (saidas.length > 0) await j.getByLabel('Saída de áudio').selectOption(saidas[0]!);
+  await j.getByLabel('Cancelamento de eco').uncheck();
+  await expect(j.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada');
+  // Volta ao padrão e desliga a supressão (o RNNoise abafa o apito do microfone falso, e o indicador de
+  // fala do LiveKit quase não acende com ele): a ana volta a ver o dono falando depois das trocas a quente.
+  // O que apita é o padrão do Chromium ("default"), que na lista é a opção "Padrão do sistema".
+  const voltar = entradas.includes(emUso!) ? emUso! : '';
+  await j.getByLabel('Microfone', { exact: true }).selectOption(voltar);
+  await expect(status).toHaveAttribute('data-dispositivo', emUso!, { timeout: 10_000 });
+  await j.getByLabel('Supressão de ruído').uncheck();
+  await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem', { name: 'dono, falando' })).toBeVisible({ timeout: 15_000 });
+  await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1);
+  await print(ana.janela, 'T15-ana-ouve-dono-depois-das-trocas');
+
+  // CA-30: reabrir o app mantém as escolhas.
+  await dono.app.close();
+  const reaberto = await abrirApp('dono');
+  await reaberto.janela.getByRole('button', { name: 'Configurações' }).click();
+  await expect(reaberto.janela.getByLabel('Microfone', { exact: true })).toHaveValue(voltar);
+  await expect(reaberto.janela.getByLabel('Cancelamento de eco')).not.toBeChecked();
+  await expect(reaberto.janela.getByLabel('Supressão de ruído')).not.toBeChecked();
+  await expect(reaberto.janela.getByLabel('Controle automático de ganho')).toBeChecked();
+  await print(reaberto.janela, 'T15-escolhas-guardadas-apos-reabrir');
+
+  await reaberto.app.close();
   await ana.app.close();
 });

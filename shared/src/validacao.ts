@@ -1,3 +1,4 @@
+import { AUDIO_PADRAO, type PreferenciasAudio } from './protocolo.js';
 import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, NOME_SOM_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
@@ -126,4 +127,18 @@ export function validarTextoMensagem(texto: string): Resultado<string> {
   if (!limpo) return { ok: false, erro: 'A mensagem está vazia.' };
   if ([...limpo].length > MENSAGEM_MAX) return { ok: false, erro: `A mensagem deve ter no máximo ${MENSAGEM_MAX} caracteres.` };
   return { ok: true, valor: limpo };
+}
+
+/** Aplica sobre `base` só os campos de áudio válidos de `bruto` (configuração local vinda do disco ou do renderer). */
+export function mesclarAudio(base: PreferenciasAudio = AUDIO_PADRAO, bruto: unknown): PreferenciasAudio {
+  const r: PreferenciasAudio = { ...base };
+  if (!bruto || typeof bruto !== 'object') return r;
+  const o = bruto as Record<string, unknown>;
+  const id = (v: unknown) => v === null || (typeof v === 'string' && v.length > 0 && v.length <= 256);
+  if ('entradaId' in o && id(o.entradaId)) r.entradaId = o.entradaId as string | null;
+  if ('saidaId' in o && id(o.saidaId)) r.saidaId = o.saidaId as string | null;
+  for (const chave of ['supressaoRuido', 'cancelamentoEco', 'ganhoAutomatico'] as const) if (typeof o[chave] === 'boolean') r[chave] = o[chave] as boolean;
+  const s = o.sensibilidadeDb;
+  if (typeof s === 'number' && Number.isFinite(s) && s >= -100 && s <= 0) r.sensibilidadeDb = Math.round(s);
+  return r;
 }

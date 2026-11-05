@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CONFIGURACOES_PADRAO, normalizarUrlServidor, type ConfiguracoesLocais } from '@tofalando/shared';
+import { CONFIGURACOES_PADRAO, mesclarAudio, normalizarUrlServidor, type ConfiguracoesLocais } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
   ler(): ConfiguracoesLocais;
@@ -23,6 +23,7 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
       if (url.ok) resultado.servidorUrl = url.valor;
     }
   }
+  if ('audio' in obj) resultado.audio = mesclarAudio(base.audio, obj.audio);
   return resultado;
 }
 

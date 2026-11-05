@@ -254,3 +254,15 @@ button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); 
 .contador { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--magenta); color: var(--texto-no-destaque); font-size: 0.72rem; font-weight: 800; line-height: 18px; text-align: center; }
 button.canal { display: flex; align-items: center; gap: 4px; }
 .so-leitor { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Configurações: teste de microfone (RF-20) */
+.opcoes { border: 1px solid var(--borda); border-radius: var(--raio); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.opcoes label { display: flex; align-items: center; gap: 8px; margin: 0; }
+.opcoes input[type='checkbox'] { width: auto; margin: 0; accent-color: var(--destaque); }
+.teste-mic { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+.teste-mic button { align-self: flex-start; margin: 0; }
+.teste-mic input[type='range'] { accent-color: var(--magenta); }
+.medidor { position: relative; height: 14px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 7px; overflow: hidden; }
+.medidor-nivel { height: 100%; background: var(--texto-suave); transition: width 60ms linear; }
+.medidor-nivel.acima { background: var(--destaque); box-shadow: 0 0 10px var(--destaque); }
+.medidor-marca { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--magenta); }

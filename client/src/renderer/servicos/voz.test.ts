@@ -1,36 +1,50 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { RoomEvent } from 'livekit-client';
+import { AUDIO_PADRAO } from '@tofalando/shared';
 import { criarSalaVoz, EntradaCancelada, type SalaLivekit } from './voz';
+import type { Microfone } from './pipeline-audio';
 
-function salaFalsa(opcoes: { microfone?: 'ok' | 'negado'; conectar?: 'ok' | 'falha' } = {}) {
+vi.mock('./pipeline-audio', () => ({ abrirMicrofone: vi.fn() }));
+
+function salaFalsa(opcoes: { conectar?: 'ok' | 'falha' } = {}) {
   const ouvintes = new Map<string, (...a: unknown[]) => void>();
+  const replaceTrack = vi.fn(async () => undefined);
   const sala = {
     on: vi.fn((e: string, fn: (...a: unknown[]) => void) => ouvintes.set(e, fn)),
     connect: vi.fn(async () => {
       if (opcoes.conectar === 'falha') throw new Error('sem rota');
     }),
     disconnect: vi.fn(async () => ouvintes.get(RoomEvent.Disconnected)?.()),
+    switchActiveDevice: vi.fn(async () => undefined),
     localParticipant: {
-      setMicrophoneEnabled: vi.fn(async () => {
-        if (opcoes.microfone === 'negado') throw new Error('NotAllowedError');
-      }),
+      sid: 'PA_1',
+      publishTrack: vi.fn(async () => ({ track: { replaceTrack } })),
     },
   };
   const emitir = (e: RoomEvent, ...args: unknown[]) => ouvintes.get(e)?.(...args);
-  return { sala: sala as unknown as SalaLivekit & typeof sala, emitir };
+  return { sala: sala as unknown as SalaLivekit & typeof sala, emitir, replaceTrack };
+}
+
+function microfone(nome = 'mic') {
+  return { faixa: { nome } as unknown as MediaStreamTrack, supressao: 'forte' as const, usouPadrao: false, dispositivoId: nome, parar: vi.fn() } satisfies Microfone;
 }
 
 const ouvintesVoz = () => ({ aoFalando: vi.fn(), aoCaiu: vi.fn(), aoAviso: vi.fn() });
 
 describe('sala de voz (RF-13)', () => {
-  it('conecta, publica o microfone, toca o áudio recebido e informa quem fala', async () => {
+  it('conecta, publica o microfone tratado, toca o áudio recebido e informa quem fala', async () => {
     const { sala, emitir } = salaFalsa();
     const o = ouvintesVoz();
-    const voz = criarSalaVoz(o, () => sala);
-    await voz.entrar('ws://lk', 'tok');
+    const mic = microfone();
+    const abrir = vi.fn(async () => mic);
+    const voz = criarSalaVoz(o, () => sala, abrir);
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
     expect(sala.connect).toHaveBeenCalledWith('ws://lk', 'tok');
-    expect(sala.localParticipant.setMicrophoneEnabled).toHaveBeenCalledWith(true);
+    expect(abrir).toHaveBeenCalledWith(AUDIO_PADRAO);
+    expect(sala.localParticipant.publishTrack).toHaveBeenCalledWith(mic.faixa, { source: 'microphone', name: 'microfone' });
+    expect(voz.microfone()).toBe(mic);
+    expect(voz.sid()).toBe('PA_1');
 
     const audio = document.createElement('audio');
     const faixa = { kind: 'audio', attach: () => audio, detach: vi.fn(() => [audio]) };
@@ -54,38 +68,91 @@ describe('sala de voz (RF-13)', () => {
 
     await voz.sair();
     expect(sala.disconnect).toHaveBeenCalled();
+    expect(mic.parar).toHaveBeenCalled();
     expect(o.aoCaiu).not.toHaveBeenCalled();
     expect(o.aoFalando).toHaveBeenLastCalledWith([]);
     await voz.destruir();
     expect(document.querySelector('[data-testid="audios-voz"]')).toBeNull();
   });
 
-  it('sair durante o connect desfaz a entrada sem aviso falso de microfone', async () => {
-    let liberar!: () => void;
-    const { sala } = salaFalsa();
-    sala.connect.mockImplementation(() => new Promise<void>((r) => (liberar = r)));
+  it('RF-17: troca microfone e saída sem sair da sala', async () => {
+    const { sala, replaceTrack } = salaFalsa();
     const o = ouvintesVoz();
-    const voz = criarSalaVoz(o, () => sala);
-    const entrando = voz.entrar('ws://lk', 'tok');
-    await voz.sair();
+    const primeiro = microfone('1');
+    const segundo = microfone('2');
+    const abrir = vi.fn().mockResolvedValueOnce(primeiro).mockResolvedValueOnce(segundo);
+    const voz = criarSalaVoz(o, () => sala, abrir);
+    await voz.entrar('ws://lk', 'tok', { ...AUDIO_PADRAO, saidaId: 'fone' });
+    expect(sala.switchActiveDevice).toHaveBeenCalledWith('audiooutput', 'fone');
+
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, saidaId: 'fone', sensibilidadeDb: -20 });
+    expect(abrir).toHaveBeenCalledTimes(1);
+
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, saidaId: null, entradaId: 'mic-2' });
+    expect(sala.switchActiveDevice).toHaveBeenLastCalledWith('audiooutput', 'default');
+    expect(replaceTrack).toHaveBeenCalledWith(segundo.faixa, true);
+    expect(primeiro.parar).toHaveBeenCalled();
+    expect(voz.microfone()).toBe(segundo);
+    expect(sala.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('duas trocas seguidas: fica a última; mudança durante a conexão não publica duas vezes', async () => {
+    const { sala, replaceTrack } = salaFalsa();
+    let liberar!: () => void;
+    sala.connect.mockImplementation(() => new Promise<void>((r) => (liberar = r)));
+    const mics = [microfone('A'), microfone('B'), microfone('C')];
+    let i = 0;
+    const abrir = vi.fn(async () => mics[i++]!);
+    const voz = criarSalaVoz(ouvintesVoz(), () => sala, abrir);
+    const entrando = voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    const durante = voz.aplicarAudio({ ...AUDIO_PADRAO, entradaId: 'A' });
     liberar();
-    await expect(entrando).rejects.toBeInstanceOf(EntradaCancelada);
-    expect(sala.disconnect).toHaveBeenCalled();
-    expect(sala.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
-    expect(o.aoAviso).not.toHaveBeenCalled();
-    expect(voz.sid()).toBeUndefined();
+    await Promise.all([entrando, durante]);
+    expect(sala.localParticipant.publishTrack).toHaveBeenCalledTimes(1);
+    expect(abrir).toHaveBeenCalledTimes(1);
+    expect(abrir).toHaveBeenLastCalledWith({ ...AUDIO_PADRAO, entradaId: 'A' });
+
+    await Promise.all([voz.aplicarAudio({ ...AUDIO_PADRAO, entradaId: 'B' }), voz.aplicarAudio({ ...AUDIO_PADRAO, entradaId: 'C' })]);
+    // A fila aplica direto a escolha mais nova (C): abre um microfone só.
+    expect(abrir).toHaveBeenCalledTimes(2);
+    expect(abrir).toHaveBeenLastCalledWith({ ...AUDIO_PADRAO, entradaId: 'C' });
+    expect(voz.microfone()).toBe(mics[1]);
+    expect(mics[0]!.parar).toHaveBeenCalled();
+    expect(replaceTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it('troca que falha ou sala que fecha durante a troca não deixa microfone aberto', async () => {
+    const { sala, replaceTrack } = salaFalsa();
+    const o = ouvintesVoz();
+    const mics = [microfone('1'), microfone('2'), microfone('3')];
+    let i = 0;
+    const voz = criarSalaVoz(o, () => sala, vi.fn(async () => mics[i++]!));
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    replaceTrack.mockRejectedValueOnce(new Error('falhou'));
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, entradaId: 'x' });
+    expect(mics[1]!.parar).toHaveBeenCalled();
+    expect(voz.microfone()).toBe(mics[0]);
+    expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível trocar o microfone; continua o anterior.');
+
+    replaceTrack.mockImplementationOnce(async () => {
+      await voz.sair();
+    });
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, entradaId: 'y' });
+    expect(mics[2]!.parar).toHaveBeenCalled();
+    expect(mics[0]!.parar).toHaveBeenCalled();
+    expect(voz.microfone()).toBeUndefined();
   });
 
   it('queda sem pedir para sair avisa; microfone negado entra só para ouvir', async () => {
-    const { sala, emitir } = salaFalsa({ microfone: 'negado' });
+    const { sala, emitir } = salaFalsa();
     const o = ouvintesVoz();
-    const voz = criarSalaVoz(o, () => sala);
-    await voz.entrar('ws://lk', 'tok');
+    const voz = criarSalaVoz(o, () => sala, vi.fn().mockRejectedValue(new Error('NotAllowedError')));
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
     expect(o.aoAviso).toHaveBeenCalledWith('Sem acesso ao microfone: você entrou só para ouvir.');
+    expect(sala.localParticipant.publishTrack).not.toHaveBeenCalled();
     emitir(RoomEvent.Disconnected);
     expect(o.aoCaiu).toHaveBeenCalledTimes(1);
-    // Pode entrar de novo depois de cair.
-    await voz.entrar('ws://lk', 'tok2');
+    await voz.entrar('ws://lk', 'tok2', AUDIO_PADRAO);
     expect(sala.connect).toHaveBeenCalledTimes(2);
   });
 
@@ -93,9 +160,26 @@ describe('sala de voz (RF-13)', () => {
     const falha = salaFalsa({ conectar: 'falha' });
     const ok = salaFalsa();
     const fabrica = vi.fn().mockReturnValueOnce(falha.sala).mockReturnValueOnce(ok.sala);
-    const voz = criarSalaVoz(ouvintesVoz(), fabrica);
-    await expect(voz.entrar('ws://lk', 'tok')).rejects.toThrow('sem rota');
-    await voz.entrar('ws://lk', 'tok');
+    const voz = criarSalaVoz(ouvintesVoz(), fabrica, vi.fn(async () => microfone()));
+    await expect(voz.entrar('ws://lk', 'tok', AUDIO_PADRAO)).rejects.toThrow('sem rota');
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
     expect(ok.sala.connect).toHaveBeenCalled();
+  });
+
+  it('sair durante o connect desfaz a entrada sem abrir o microfone', async () => {
+    let liberar!: () => void;
+    const { sala } = salaFalsa();
+    sala.connect.mockImplementation(() => new Promise<void>((r) => (liberar = r)));
+    const o = ouvintesVoz();
+    const abrir = vi.fn(async () => microfone());
+    const voz = criarSalaVoz(o, () => sala, abrir);
+    const entrando = voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    await voz.sair();
+    liberar();
+    await expect(entrando).rejects.toBeInstanceOf(EntradaCancelada);
+    expect(sala.disconnect).toHaveBeenCalled();
+    expect(abrir).not.toHaveBeenCalled();
+    expect(o.aoAviso).not.toHaveBeenCalled();
+    expect(voz.sid()).toBeUndefined();
   });
 });

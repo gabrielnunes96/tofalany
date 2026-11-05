@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ConviteLink, ServidorInfo, UsuarioDto } from '@tofalando/shared';
+import { AUDIO_PADRAO, type ConfiguracoesLocais, type ConviteLink, type ServidorInfo, type UsuarioDto } from '@tofalando/shared';
 import type { ApiTofalando, SessaoLocal } from '../../preload/api';
 
 // A tela principal abre o tempo real; aqui só importa saber que chegou nela.
@@ -23,12 +23,12 @@ const A = 'http://servidor-a:3000';
 const B = 'http://servidor-b:3000';
 
 function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | null; pendente: ConviteLink | null }) {
-  const gravarConfig = vi.fn(async (p: { servidorUrl?: string | null }) => {
+  const gravarConfig = vi.fn(async (p: { servidorUrl?: string | null }): Promise<ConfiguracoesLocais> => {
     if (p.servidorUrl !== undefined) estado.servidorUrl = p.servidorUrl;
-    return { servidorUrl: estado.servidorUrl };
+    return { servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO };
   });
   const api: ApiTofalando = {
-    config: { ler: async () => ({ servidorUrl: estado.servidorUrl }), gravar: gravarConfig },
+    config: { ler: async () => ({ servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO }), gravar: gravarConfig },
     sessao: {
       ler: async () => estado.sessao,
       gravar: async (s) => void (estado.sessao = s),

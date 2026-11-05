@@ -85,13 +85,38 @@ export interface ErroApi {
   mensagem: string;
 }
 
+/** RF-17, RF-18, RF-20: áudio guardado por máquina (RN-14). */
+export interface PreferenciasAudio {
+  /** deviceId do microfone; null = padrão do sistema. */
+  entradaId: string | null;
+  /** deviceId da saída; null = padrão do sistema. */
+  saidaId: string | null;
+  /** Supressão de ruído: RNNoise (forte); se não carregar, a do Chromium (básica). */
+  supressaoRuido: boolean;
+  cancelamentoEco: boolean;
+  ganhoAutomatico: boolean;
+  /** Sensibilidade da detecção de voz em dBFS (-100 a 0): abaixo disso não transmite (T16). */
+  sensibilidadeDb: number;
+}
+
+export const AUDIO_PADRAO: PreferenciasAudio = {
+  entradaId: null,
+  saidaId: null,
+  supressaoRuido: true,
+  cancelamentoEco: true,
+  ganhoAutomatico: true,
+  sensibilidadeDb: -50,
+};
+
 /** Configurações guardadas por máquina (RN-14). */
 export interface ConfiguracoesLocais {
   servidorUrl: string | null;
+  audio: PreferenciasAudio;
 }
 
 export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   servidorUrl: null,
+  audio: AUDIO_PADRAO,
 };
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */

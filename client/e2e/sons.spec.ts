@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
+const PRINTS = join(__dirname, '../../docs/demandas/to-falando-v1/prints');
 
 let pasta: string;
 let servidor: FastifyInstance;
@@ -86,6 +87,7 @@ test('CA-31: administrador cadastra, ouve, renomeia e remove sons; 15 s é recus
       }),
   );
   expect(Math.round(duracao)).toBe(8);
+  await j.screenshot({ path: join(PRINTS, 'T18-soundboard-admin.png') });
 
   await j.getByLabel('Nome do som').fill('Longo');
   await j.getByLabel('Arquivo de áudio').setInputFiles({ name: 'longo.wav', mimeType: 'audio/wav', buffer: wav(15) });

@@ -1,4 +1,6 @@
-import { Room, RoomEvent, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
+import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
+import type { PreferenciasAudio } from '@tofalando/shared';
+import { abrirMicrofone, type Microfone } from './pipeline-audio';
 
 /** O que a tela precisa saber da sala de voz. */
 export interface OuvintesVoz {
@@ -12,7 +14,11 @@ export interface OuvintesVoz {
 
 export interface SalaVoz {
   /** Conecta; rejeita se falhar ou se `sair()` for chamado antes de terminar. */
-  entrar(url: string, token: string): Promise<void>;
+  entrar(url: string, token: string, audio: PreferenciasAudio): Promise<void>;
+  /** RF-17/RF-18: troca microfone, saída ou tratamento sem sair da sala. */
+  aplicarAudio(audio: PreferenciasAudio): Promise<void>;
+  /** Microfone publicado agora (para o medidor e para a supressão efetiva). */
+  microfone(): Microfone | undefined;
   sair(): Promise<void>;
   /** Sessão de mídia atual (participant.sid), para o servidor reconhecer a saída certa. */
   sid(): string | undefined;
@@ -25,7 +31,11 @@ export interface SalaLivekit {
   on(evento: RoomEvent, fn: (...args: never[]) => void): unknown;
   connect(url: string, token: string): Promise<void>;
   disconnect(): Promise<void>;
-  localParticipant: { sid?: string; setMicrophoneEnabled(ligado: boolean): Promise<unknown> };
+  localParticipant: {
+    sid?: string;
+    publishTrack(faixa: MediaStreamTrack, opcoes: { source: Track.Source; name: string }): Promise<{ track?: { replaceTrack(f: MediaStreamTrack, doUsuario?: boolean): Promise<unknown> } }>;
+  };
+  switchActiveDevice(tipo: MediaDeviceKind, id: string): Promise<unknown>;
 }
 
 /** webAudioMix: volume por pessoa acima de 100% e escolha da saída (T15, T17). */
@@ -42,8 +52,39 @@ export class EntradaCancelada extends Error {
  * RF-13: entra na sala do LiveKit do canal de voz, publica o microfone e toca o áudio de quem está lá.
  * Os elementos de áudio ficam numa caixa escondida, fora do React.
  */
-export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit = novaSala): SalaVoz {
+export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit = novaSala, abrir: typeof abrirMicrofone = abrirMicrofone): SalaVoz {
   let sala: SalaLivekit | undefined;
+  /** Conectou (o microfone pode ser publicado). */
+  let conectada = false;
+  let mic: Microfone | undefined;
+  /** Preferências com que o microfone atual foi aberto e saída aplicada. */
+  let micPrefs: PreferenciasAudio | undefined;
+  let saidaAplicada: string | null = null;
+  let publicacao: Awaited<ReturnType<SalaLivekit['localParticipant']['publishTrack']>> | undefined;
+  /** Última escolha pedida; a fila aplica sempre a mais nova. */
+  let prefs: PreferenciasAudio | undefined;
+  /** Operações de microfone/saída uma de cada vez: duas trocas seguidas não se atropelam. */
+  let fila: Promise<void> = Promise.resolve();
+  const enfileirar = (fn: () => Promise<void>) => {
+    const p = fila.then(fn, fn);
+    fila = p.catch(() => undefined);
+    return p;
+  };
+  const pararMic = () => {
+    mic?.parar();
+    mic = undefined;
+    micPrefs = undefined;
+    publicacao = undefined;
+  };
+  const mesmoMic = (a: PreferenciasAudio, b: PreferenciasAudio) =>
+    a.entradaId === b.entradaId && a.supressaoRuido === b.supressaoRuido && a.cancelamentoEco === b.cancelamentoEco && a.ganhoAutomatico === b.ganhoAutomatico;
+  async function saida(atual: SalaLivekit, id: string | null) {
+    try {
+      await atual.switchActiveDevice('audiooutput', id ?? 'default');
+    } catch {
+      ouvintes.aoAviso('Não foi possível usar a saída de áudio escolhida.');
+    }
+  }
   let saindo = false;
   const caixa = document.createElement('div');
   caixa.hidden = true;
@@ -61,10 +102,50 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     caixa.replaceChildren();
   };
 
+  /** Leva microfone e saída para a escolha mais nova (sempre dentro da fila). */
+  async function sincronizar(atual: SalaLivekit) {
+    const desejado = prefs;
+    if (!desejado || sala !== atual || !conectada) return;
+    if (desejado.saidaId !== saidaAplicada) {
+      saidaAplicada = desejado.saidaId;
+      await saida(atual, desejado.saidaId);
+    }
+    if (micPrefs && mesmoMic(micPrefs, desejado)) return;
+    let novo: Microfone;
+    try {
+      novo = await abrir(desejado);
+    } catch {
+      if (sala === atual) ouvintes.aoAviso(publicacao ? 'Não foi possível abrir o microfone escolhido; continua o anterior.' : 'Sem acesso ao microfone: você entrou só para ouvir.');
+      return;
+    }
+    if (sala !== atual) return novo.parar();
+    try {
+      if (publicacao?.track) {
+        // Troca a quente: a mesma publicação passa a mandar a faixa nova (RF-17).
+        await publicacao.track.replaceTrack(novo.faixa, true);
+      } else {
+        publicacao = await atual.localParticipant.publishTrack(novo.faixa, { source: Track.Source.Microphone, name: 'microfone' });
+      }
+    } catch {
+      novo.parar();
+      if (sala === atual) ouvintes.aoAviso(publicacao ? 'Não foi possível trocar o microfone; continua o anterior.' : 'Não foi possível enviar o microfone: você entrou só para ouvir.');
+      return;
+    }
+    // Saiu da sala durante a troca: ninguém mais vai parar esta faixa.
+    if (sala !== atual) return novo.parar();
+    if (mic !== novo) mic?.parar();
+    mic = novo;
+    micPrefs = desejado;
+    if (novo.usouPadrao) ouvintes.aoAviso('O microfone escolhido não foi encontrado; usando o padrão do sistema.');
+  }
+
   const api: SalaVoz = {
-    async entrar(url, token) {
+    async entrar(url, token, audio) {
       if (sala) throw new Error('Já está numa sala de voz.');
+      prefs = audio;
       saindo = false;
+      conectada = false;
+      saidaAplicada = null;
       const atual = fabrica();
       sala = atual;
       if (!caixa.isConnected) document.body.appendChild(caixa);
@@ -89,7 +170,9 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       atual.on(RoomEvent.Disconnected, (() => {
         if (sala !== atual) return;
         sala = undefined;
+        conectada = false;
         limpar();
+        pararMic();
         ouvintes.aoFalando([]);
         if (!saindo) ouvintes.aoCaiu();
       }) as never);
@@ -104,18 +187,24 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         await atual.disconnect();
         throw new EntradaCancelada();
       }
-      try {
-        await atual.localParticipant.setMicrophoneEnabled(true);
-      } catch {
-        if (sala === atual) ouvintes.aoAviso('Sem acesso ao microfone: você entrou só para ouvir.');
-      }
+      conectada = true;
+      await enfileirar(() => sincronizar(atual));
     },
+    async aplicarAudio(audio) {
+      prefs = audio;
+      const atual = sala;
+      if (!atual) return;
+      await enfileirar(() => sincronizar(atual));
+    },
+    microfone: () => mic,
     async sair() {
       const atual = sala;
       if (!atual) return;
       saindo = true;
       sala = undefined;
+      conectada = false;
       limpar();
+      pararMic();
       ouvintes.aoFalando([]);
       await atual.disconnect();
     },
