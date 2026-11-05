@@ -10,13 +10,14 @@ import { registrarAuditoria } from '../dominio/auditoria.js';
 import { CHAVE_CONVITE, gravarConfiguracao, lerConfiguracao } from '../dominio/configuracoes.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 import type { Armazem } from '../arquivos/armazem.js';
+import { baseServidor } from './convite.js';
+import { montarLinkConvite } from '../dominio/convite.js';
 
 const paramId = { type: 'object', required: ['id'], properties: { id: { type: 'integer', minimum: 1 } } } as const;
 
-/** Link público do convite (T7 serve a página): URL_PUBLICA ou o endereço por onde o admin chamou. */
+/** Link público do convite (página da T7): URL_PUBLICA ou o endereço por onde a pessoa chamou. */
 export function linkConvite(config: Config, req: FastifyRequest, codigo: string): string {
-  const base = config.urlPublica ?? `${req.protocol}://${req.host}`;
-  return `${base}/convite/${encodeURIComponent(codigo)}`;
+  return montarLinkConvite(baseServidor(config, req), codigo);
 }
 
 /** RF-6, RF-6a: cargos, remoção de conta e código de convite (RN-1, RN-5, RN-6, RN-16). */
@@ -95,6 +96,10 @@ export function registrarRotasAdmin(app: FastifyInstance, banco: Banco, config: 
         gravarConfiguracao(banco, CHAVE_CONVITE, codigo.valor);
         registrarAuditoria(banco, { tipo: 'convite_trocado', atorId: req.usuarioId! });
       })();
+      // Cada um recebe o link montado com o endereço por onde está conectado.
+      for (const s of tempoReal.io.of('/').sockets.values()) {
+        s.emit('convite:atualizado', { link: montarLinkConvite(s.data.baseServidor, codigo.valor) });
+      }
       return { codigo: codigo.valor, link: linkConvite(config, req, codigo.valor) };
     },
   );

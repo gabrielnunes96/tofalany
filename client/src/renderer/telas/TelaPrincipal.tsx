@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal } from '../servicos/tempo-real';
 import { criarApi } from '../servicos/api';
+import { ponte } from '../servicos/ponte';
 import { TelaAuditoria } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
 import { TelaMembros } from './TelaMembros';
@@ -31,6 +32,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const adicionarUsuario = useLoja((s) => s.adicionarUsuario);
   const atualizarUsuario = useLoja((s) => s.atualizarUsuario);
   const removerUsuario = useLoja((s) => s.removerUsuario);
+  const definirLinkConvite = useLoja((s) => s.definirLinkConvite);
+  const linkConvite = useLoja((s) => s.linkConvite);
+  const [copiado, setCopiado] = useState<string | null>(null);
   const limpar = useLoja((s) => s.limpar);
 
   const [vista, setVista] = useState<'inicio' | 'auditoria' | 'perfil' | 'membros' | 'convite'>('inicio');
@@ -46,13 +50,17 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         if (u.id === useLoja.getState().eu?.id && u.cargo !== 'admin') setVista('inicio');
       },
       aoUsuarioRemovido: removerUsuario,
+      aoConviteAtualizado: (link) => {
+        definirLinkConvite(link);
+        setCopiado(null);
+      },
       aoRevogada: aoSessaoRevogada,
     });
     return () => {
       desconectar();
       limpar();
     };
-  }, [servidorUrl, token, definirConexao, aplicarOla, adicionarUsuario, atualizarUsuario, removerUsuario, limpar, aoSessaoRevogada]);
+  }, [servidorUrl, token, definirConexao, aplicarOla, adicionarUsuario, atualizarUsuario, removerUsuario, definirLinkConvite, limpar, aoSessaoRevogada]);
 
   const usuario = eu ?? usuarioInicial;
   const [pessoasAuditoria, setPessoasAuditoria] = useState<PessoaFiltro[]>([]);
@@ -126,6 +134,26 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           <button type="button" onClick={() => setVista('perfil')}>
             Meu perfil
           </button>
+          {linkConvite && (
+            <button
+              type="button"
+              className="secundario"
+              onClick={() =>
+                void ponte()
+                  .areaTransferencia.copiar(linkConvite)
+                  .then(() => setCopiado('Link de convite copiado.'))
+                  .catch(() => setCopiado('Não foi possível copiar o link.'))
+                  .finally(() => setTimeout(() => setCopiado(null), 4000))
+              }
+            >
+              Copiar link de convite
+            </button>
+          )}
+          {copiado && (
+            <p className="aviso-ok" role="status">
+              {copiado}
+            </p>
+          )}
           {ehAdmin && (
             <>
               <button type="button" onClick={() => setVista('membros')}>

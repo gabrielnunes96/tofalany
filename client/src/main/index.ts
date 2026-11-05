@@ -3,10 +3,27 @@ import { app, BrowserWindow, safeStorage, shell } from 'electron';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
+import { prepararLinks } from './deeplink';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
+// Vem antes da trava de instância única, que é por pasta de dados.
 const pastaDados = process.env.TOFALANDO_USER_DATA;
 if (pastaDados && !app.isPackaged) app.setPath('userData', pastaDados);
+
+let janelaPrincipal: BrowserWindow | undefined;
+
+const links = prepararLinks(
+  () => {
+    if (!janelaPrincipal) return;
+    if (janelaPrincipal.isMinimized()) janelaPrincipal.restore();
+    janelaPrincipal.focus();
+  },
+  (convite) => {
+    if (!janelaPrincipal || janelaPrincipal.isDestroyed()) return false;
+    janelaPrincipal.webContents.send('deeplink:convite', convite);
+    return true;
+  },
+);
 
 function criarJanela(): BrowserWindow {
   const janela = new BrowserWindow({
@@ -29,6 +46,12 @@ function criarJanela(): BrowserWindow {
   });
 
   janela.once('ready-to-show', () => janela.show());
+  janela.on('closed', () => {
+    if (janelaPrincipal === janela) janelaPrincipal = undefined;
+    links.rendererSaiu();
+  });
+  // Recarregar a página recria o renderer: até ele pedir de novo, os links ficam guardados.
+  janela.webContents.on('did-start-loading', () => links.rendererSaiu());
 
   // Links externos abrem no navegador do sistema, nunca dentro do app.
   janela.webContents.setWindowOpenHandler(({ url }) => {
@@ -46,26 +69,31 @@ function criarJanela(): BrowserWindow {
   if (urlDev) void janela.loadURL(urlDev);
   else void janela.loadFile(join(__dirname, '../renderer/index.html'));
 
+  janelaPrincipal = janela;
   return janela;
 }
 
-void app.whenReady().then(() => {
-  const dados = app.getPath('userData');
-  registrarIpc(
-    criarArmazemConfiguracoes(join(dados, 'configuracoes.json')),
-    criarArmazemSessao(join(dados, 'sessao.json'), {
-      disponivel: () => safeStorage.isEncryptionAvailable(),
-      cifrar: (texto) => safeStorage.encryptString(texto),
-      decifrar: (bytes) => safeStorage.decryptString(bytes),
-    }),
-  );
-  criarJanela();
+// Instância secundária só repassou o link e está saindo: não registra nada nem abre janela.
+if (links.principal) {
+  void app.whenReady().then(() => {
+    const dados = app.getPath('userData');
+    registrarIpc(
+      criarArmazemConfiguracoes(join(dados, 'configuracoes.json')),
+      criarArmazemSessao(join(dados, 'sessao.json'), {
+        disponivel: () => safeStorage.isEncryptionAvailable(),
+        cifrar: (texto) => safeStorage.encryptString(texto),
+        decifrar: (bytes) => safeStorage.decryptString(bytes),
+      }),
+      links.pegarPendente,
+    );
+    criarJanela();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) criarJanela();
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) criarJanela();
+    });
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}

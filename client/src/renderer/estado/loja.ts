@@ -6,6 +6,7 @@ import type { EstadoConexao } from '../servicos/tempo-real';
 interface Loja {
   conexao: EstadoConexao;
   nomeServidor: string | null;
+  linkConvite: string | null;
   eu: UsuarioDto | null;
   usuarios: UsuarioDto[];
   definirConexao(estado: EstadoConexao): void;
@@ -14,6 +15,7 @@ interface Loja {
   /** Mesmo efeito de adicionar (substitui pelo id) e também atualiza "eu" se for a própria pessoa. */
   atualizarUsuario(usuario: UsuarioDto): void;
   removerUsuario(id: number): void;
+  definirLinkConvite(link: string): void;
   limpar(): void;
 }
 
@@ -25,12 +27,13 @@ function compararComoServidor(a: UsuarioDto, b: UsuarioDto): number {
   return x < y ? -1 : x > y ? 1 : a.id - b.id;
 }
 
-const inicial = { conexao: 'conectando' as EstadoConexao, nomeServidor: null, eu: null, usuarios: [] };
+const inicial = { conexao: 'conectando' as EstadoConexao, nomeServidor: null, linkConvite: null, eu: null, usuarios: [] };
 
 export const useLoja = create<Loja>((set) => ({
   ...inicial,
   definirConexao: (conexao) => set({ conexao }),
-  aplicarOla: ({ servidor, eu, usuarios }) => set({ nomeServidor: servidor.nome, eu, usuarios }),
+  aplicarOla: ({ servidor, convite, eu, usuarios }) => set({ nomeServidor: servidor.nome, linkConvite: convite.link, eu, usuarios }),
+  definirLinkConvite: (linkConvite) => set({ linkConvite }),
   adicionarUsuario: (usuario) =>
     set((s) => ({
       usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),

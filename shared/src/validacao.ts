@@ -71,3 +71,31 @@ export function validarCor(texto: string): Resultado<string> {
   const cor = texto.trim().toLowerCase();
   return /^#[0-9a-f]{6}$/.test(cor) ? { ok: true, valor: cor } : { ok: false, erro: 'Cor inválida.' };
 }
+
+export interface ConviteLink {
+  servidor: string;
+  codigo: string;
+}
+
+/** Lê tofalany://convite?servidor=…&codigo=… (vindo do sistema operacional, então tudo é conferido). */
+export function lerLinkConvite(texto: string): ConviteLink | undefined {
+  let url: URL;
+  try {
+    url = new URL(texto);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== 'tofalany:') return undefined;
+  // "tofalany://convite?…" tem host "convite"; aceita também "tofalany:convite?…".
+  const destino = (url.host || url.pathname).replace(/^\/+|\/+$/g, '');
+  if (destino !== 'convite') return undefined;
+  const servidor = normalizarUrlServidor(url.searchParams.get('servidor') ?? '');
+  const codigo = validarCodigoConvite(url.searchParams.get('codigo') ?? '');
+  if (!servidor.ok || !codigo.ok) return undefined;
+  return { servidor: servidor.valor, codigo: codigo.valor };
+}
+
+/** Monta o link que abre o app a partir do servidor e do código. */
+export function montarLinkApp(servidor: string, codigo: string): string {
+  return `tofalany://convite?servidor=${encodeURIComponent(servidor)}&codigo=${encodeURIComponent(codigo)}`;
+}

@@ -73,7 +73,7 @@ test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', 
 
   // CA-11b: trocar o convite; o antigo deixa de valer.
   await dono.janela.getByRole('button', { name: 'Voltar' }).click();
-  await dono.janela.getByRole('button', { name: 'Convite' }).click();
+  await dono.janela.getByRole('button', { name: 'Convite', exact: true }).click();
   await expect(dono.janela.getByTestId('codigo-convite')).toHaveText(CONVITE);
   await dono.janela.getByLabel('Novo código').fill('turma-nova-2026');
   await dono.janela.getByRole('button', { name: 'Trocar código' }).click();

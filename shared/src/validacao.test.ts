@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -73,5 +73,20 @@ describe('validarCodigoConvite', () => {
     expect(validarCodigoConvite('curto')).toMatchObject({ ok: false });
     expect(validarCodigoConvite('com espaço')).toMatchObject({ ok: false });
     expect(validarCodigoConvite('a/b?c=d')).toMatchObject({ ok: false });
+  });
+});
+
+describe('link do app (RF-1a)', () => {
+  it('ida e volta', () => {
+    const link = montarLinkApp('https://fala.exemplo.com', 'turma-2026');
+    expect(link).toBe('tofalany://convite?servidor=https%3A%2F%2Ffala.exemplo.com&codigo=turma-2026');
+    expect(lerLinkConvite(link)).toEqual({ servidor: 'https://fala.exemplo.com', codigo: 'turma-2026' });
+  });
+  it('recusa outro esquema, outro destino, servidor ou código inválidos', () => {
+    expect(lerLinkConvite('https://x/convite?servidor=http://a&codigo=abcdef')).toBeUndefined();
+    expect(lerLinkConvite('tofalany://outra?servidor=http://a&codigo=abcdef')).toBeUndefined();
+    expect(lerLinkConvite('tofalany://convite?servidor=javascript:alert(1)&codigo=abcdef')).toBeUndefined();
+    expect(lerLinkConvite('tofalany://convite?servidor=http://a&codigo=a b')).toBeUndefined();
+    expect(lerLinkConvite('não é url')).toBeUndefined();
   });
 });

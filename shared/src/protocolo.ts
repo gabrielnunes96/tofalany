@@ -93,9 +93,14 @@ export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */
 export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida';
 
+/** Esquema do link que abre o app (RF-1a): tofalany://convite?servidor=<url>&codigo=<código>. */
+export const ESQUEMA_LINK = 'tofalany';
+
 /** Retrato inicial enviado ao conectar o Socket.IO (cresce com canais, DMs, voz… nas próximas tarefas). */
 export interface OlaPayload {
   servidor: { nome: string };
+  /** Link de convite vigente, que qualquer membro pode copiar (RF-1a). */
+  convite: { link: string };
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
 }
@@ -108,6 +113,8 @@ export interface EventosServidor {
   'usuario:criado': (usuario: UsuarioDto) => void;
   /** Perfil mudou (nome, cor, avatar, cargo). */
   'usuario:atualizado': (usuario: UsuarioDto) => void;
+  /** Código de convite trocado: o link copiável muda para todos. */
+  'convite:atualizado': (convite: { link: string }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }

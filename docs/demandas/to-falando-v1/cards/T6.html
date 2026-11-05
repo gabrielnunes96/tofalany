@@ -1,0 +1,27 @@
+<!-- T6 — Cargos e administração -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-6, RF-6a; RN-1, RN-5, RN-6, RN-16; CA-9, CA-10, CA-11, CA-11a, CA-11b e a parte da T6 do CA-50.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (rotas /api/admin/*), §6 (autorização no servidor) e seção Auditoria.</p>
+
+<h3>Implementação (05/11/2026, commit registrado em tarefas.json)</h3>
+<ul>
+  <li><b>Cargos:</b> PATCH /api/admin/usuarios/:id/cargo; 409 ultimo_admin se for o último administrador; usuario:atualizado para todos; auditoria cargo_alterado com o cargo novo.</li>
+  <li><b>Remover conta:</b> DELETE /api/admin/usuarios/:id; mantém a linha (autoria "conta removida" nas mensagens, visível a partir da T9), libera o login e a vaga, apaga o avatar, revoga sessões, derruba o app da pessoa (aviso "Sua conta foi removida deste servidor.") e avisa todos com usuario:removido; o administrador pode remover a si mesmo se houver outro; auditoria conta_removida.</li>
+  <li><b>Convite:</b> GET|PUT /api/admin/convite; código de 6 a 64 caracteres seguros para link; troca invalida o antigo; mesmo código não grava nada; link = URL_PUBLICA (ou endereço da requisição, com aviso no log) + /convite/&lt;código&gt;; auditoria convite_trocado (sem o código).</li>
+  <li><b>App:</b> telas Membros (tornar administrador/membro, remover com confirmação, resultado aplicado na hora) e Convite (código, link, troca); quem perde o cargo sai da tela de administração; filtro Pessoa da auditoria inclui contas removidas que ainda têm registros no prazo.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/admin.test.ts</code> (CA-9 com evento e acesso, CA-10, CA-11 nas 5 rotas, CA-11a com revogação, aviso, login, vaga e nome, avatar apagado, auto-remoção, 404 em conta removida, filtro de removidas no prazo, CA-11b com URL_PUBLICA e Host, código igual sem auditoria, CA-50), <code>shared</code> (validarCodigoConvite), <code>TelaMembros.test.tsx</code>, <code>TelaAuditoria.test.tsx</code>, <code>loja.test.ts</code>. Suíte: 144 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (2 apps): dono promove a ana</td><td>ok</td><td>a ana vê "Administrador" e os botões de administração sem reiniciar</td></tr>
+  <tr><td>E2E: rebaixar a ana</td><td>ok</td><td>botões somem no app dela</td></tr>
+  <tr><td>E2E: remover a ana com confirmação</td><td>ok</td><td>app dela vai ao login com aviso; login dela recusado; some da lista do dono</td></tr>
+  <tr><td>E2E: trocar convite</td><td>ok</td><td>link novo exibido; código antigo dá 403</td></tr>
+  <tr><td>E2E: auditoria filtrando "ana (conta removida)"</td><td>ok</td><td>"dono removeu a conta de ana", "dono alterou o cargo de ana (cargo: admin)"</td></tr>
+</table>
+<p>Revisão: 7 achados (0 graves, 2 médios, 5 menores), todos corrigidos.</p>

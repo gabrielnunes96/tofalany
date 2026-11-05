@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { MotivoRevogacao, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import type { ConviteLink, MotivoRevogacao, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import { testarServidor } from '../servicos/servidor';
 import { ponte } from '../servicos/ponte';
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { TelaServidor } from '../telas/TelaServidor';
@@ -10,8 +11,8 @@ import { avisoDeRevogacao } from './avisos';
 type Estado =
   | { fase: 'carregando' }
   | { fase: 'escolher-servidor'; voltar: Estado | null }
-  | { fase: 'sem-conexao'; url: string; mensagem: string }
-  | { fase: 'entrar'; url: string; aviso?: string }
+  | { fase: 'sem-conexao'; url: string; mensagem: string; convite?: ConviteLink }
+  | { fase: 'entrar'; url: string; aviso?: string; convite?: string; voltar?: Estado }
   | { fase: 'principal'; url: string; token: string; usuario: UsuarioDto };
 
 export function App() {
@@ -37,12 +38,39 @@ export function App() {
     }
   }, []);
 
+  /**
+   * RF-1a: link de convite. Se já há sessão neste servidor, só entra. Senão abre o cadastro com o
+   * código, sem gravar nada: o servidor só vira o padrão do app depois de entrar (um link qualquer
+   * de uma página não pode trocar o servidor de quem já usa outro). Fora do ar: "sem conexão",
+   * guardando o convite para "Tentar de novo".
+   */
+  const abrirConvite = useCallback(
+    async (convite: ConviteLink) => {
+      const { servidor, codigo } = convite;
+      const teste = await testarServidor(servidor);
+      if (!teste.ok) {
+        setEstado({ fase: 'sem-conexao', url: servidor, mensagem: teste.erro, convite });
+        return;
+      }
+      const sessao = await ponte().sessao.ler().catch(() => null);
+      if (sessao?.servidorUrl === servidor) {
+        await ponte().config.gravar({ servidorUrl: servidor });
+        await retomar(servidor);
+      } else setEstado((atual) => ({ fase: 'entrar', url: servidor, convite: codigo, voltar: atual }));
+    },
+    [retomar],
+  );
+
   useEffect(() => {
-    ponte()
-      .config.ler()
-      .then((c) => (c.servidorUrl ? retomar(c.servidorUrl) : setEstado({ fase: 'escolher-servidor', voltar: null })))
-      .catch(() => setEstado({ fase: 'escolher-servidor', voltar: null }));
-  }, [retomar]);
+    const parar = ponte().convite.aoChegar((c) => void abrirConvite(c));
+    void (async () => {
+      const pendente = await ponte().convite.pendente().catch(() => null);
+      if (pendente) return abrirConvite(pendente);
+      const c = await ponte().config.ler();
+      return c.servidorUrl ? retomar(c.servidorUrl) : setEstado({ fase: 'escolher-servidor', voltar: null });
+    })().catch(() => setEstado({ fase: 'escolher-servidor', voltar: null }));
+    return parar;
+  }, [retomar, abrirConvite]);
 
   /** Só grava depois que a nova URL passou no teste; a sessão guardada só vale para o servidor em que foi criada. */
   async function guardarServidor(url: string) {
@@ -52,6 +80,10 @@ export function App() {
   }
 
   async function entrou(url: string, sessao: SessaoResponse) {
+    // Entrou neste servidor: agora sim ele vira o padrão do app (também vale para quem veio por convite).
+    await ponte()
+      .config.gravar({ servidorUrl: url })
+      .catch((e: unknown) => console.error('Não foi possível guardar o servidor.', e));
     // A sessão já existe no servidor: se gravar localmente falhar, segue com ela só em memória
     // (vai pedir login ao reabrir) em vez de prender o usuário na tela de cadastro.
     await ponte()
@@ -94,7 +126,7 @@ export function App() {
             <p className="erro" role="alert">
               {estado.mensagem}
             </p>
-            <button type="button" onClick={() => void retomar(estado.url)}>
+            <button type="button" onClick={() => void (estado.convite ? abrirConvite(estado.convite) : retomar(estado.url))}>
               Tentar de novo
             </button>
             <button type="button" className="link" onClick={trocarServidor}>
@@ -105,7 +137,13 @@ export function App() {
       );
     case 'entrar':
       return (
-        <TelaEntrar servidorUrl={estado.url} aviso={estado.aviso} aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />
+        <TelaEntrar
+          key={`${estado.url}|${estado.convite ?? ''}`}
+          servidorUrl={estado.url}
+          aviso={estado.aviso}
+          conviteInicial={estado.convite}
+          aoCancelarConvite={estado.voltar && estado.voltar.fase !== 'carregando' ? () => setEstado(estado.voltar!) : undefined}
+          aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />
       );
     case 'principal':
       return (

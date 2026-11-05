@@ -15,10 +15,14 @@ import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
 import { buscarPorId, listarAtivos, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
+import { CHAVE_CONVITE, lerConfiguracao } from '../dominio/configuracoes.js';
+import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 
 interface DadosSocket {
   usuarioId: number;
   tokenHash: string;
+  /** Endereço do servidor como esta pessoa o vê (URL_PUBLICA ou o host do handshake). */
+  baseServidor: string;
 }
 
 type SocketTofalando = Socket<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
@@ -119,6 +123,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     if (usuarioId === undefined) return next(new Error(ERRO_HANDSHAKE_NAO_AUTENTICADO));
     socket.data.usuarioId = usuarioId;
     socket.data.tokenHash = hashToken(token as string);
+    socket.data.baseServidor = baseDoServidor(config, socket.handshake.headers, socket.handshake.secure);
     next();
   });
 
@@ -140,6 +145,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     void socket.join(salaUsuario(eu.id));
     const ola: OlaPayload = {
       servidor: { nome: config.nomeServidor },
+      convite: { link: montarLinkConvite(socket.data.baseServidor, lerConfiguracao(banco, CHAVE_CONVITE) ?? '') },
       eu: paraDto(eu),
       usuarios: listarAtivos(banco).map(paraDto),
     };

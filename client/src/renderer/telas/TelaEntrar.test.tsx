@@ -55,6 +55,17 @@ describe('TelaEntrar', () => {
     expect(screen.getByRole('button', { name: 'Criar conta' })).toHaveProperty('disabled', false);
   });
 
+  it('RF-1a: aberto por um link de convite já vem em "Tenho um convite" com o código', async () => {
+    const api = apiFalsa();
+    render(<TelaEntrar servidorUrl="http://s" conviteInicial="turma-2026" aoEntrar={vi.fn()} aoTrocarServidor={vi.fn()} api={api} />);
+    expect(screen.getByRole('heading', { name: 'Criar conta' })).toBeTruthy();
+    expect((screen.getByLabelText('Código de convite') as HTMLInputElement).value).toBe('turma-2026');
+    digitar('Nome de usuário', 'ana');
+    digitar('Senha', 'senha-forte-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }));
+    await waitFor(() => expect(api.cadastrar).toHaveBeenCalledWith({ convite: 'turma-2026', usuario: 'ana', senha: 'senha-forte-1' }));
+  });
+
   it('login: exige os dois campos e entra', async () => {
     const api = apiFalsa();
     const aoEntrar = vi.fn();

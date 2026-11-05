@@ -130,9 +130,9 @@
         "CA-50"
       ],
       "validacao": "integração: promover, último admin 409, membro 403, remoção desconecta e libera vaga, convite antigo recusado",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "27fd9fa"
     },
     {
       "id": "T7",
@@ -147,7 +147,7 @@
         "CA-1a"
       ],
       "validacao": "integração da página; E2E: abrir o app com tofalany://convite preenche o cadastro",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

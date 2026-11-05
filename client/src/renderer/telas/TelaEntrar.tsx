@@ -6,8 +6,12 @@ interface Props {
   servidorUrl: string;
   /** Aviso vindo de fora (ex.: sessão encerrada pelo servidor). */
   aviso?: string;
+  /** Código vindo do link de convite: abre já em "Tenho um convite" com o código preenchido (RF-1a). */
+  conviteInicial?: string;
   aoEntrar: (sessao: SessaoResponse) => void | Promise<void>;
   aoTrocarServidor: () => void;
+  /** Aberto por um convite com o app já em uso: volta para onde estava, sem mudar nada. */
+  aoCancelarConvite?: () => void;
   api?: Pick<ClienteApi, 'cadastrar' | 'entrar'>;
 }
 
@@ -15,9 +19,9 @@ type Modo = 'entrar' | 'cadastrar';
 type Campo = 'convite' | 'usuario' | 'senha';
 
 /** Login e cadastro com código de convite (RF-2, RF-3). */
-export function TelaEntrar({ servidorUrl, aviso, aoEntrar, aoTrocarServidor, api }: Props) {
-  const [modo, setModo] = useState<Modo>('entrar');
-  const [convite, setConvite] = useState('');
+export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTrocarServidor, aoCancelarConvite, api }: Props) {
+  const [modo, setModo] = useState<Modo>(conviteInicial ? 'cadastrar' : 'entrar');
+  const [convite, setConvite] = useState(conviteInicial ?? '');
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [errosCampo, setErrosCampo] = useState<Partial<Record<Campo, string>>>({});
@@ -112,6 +116,11 @@ export function TelaEntrar({ servidorUrl, aviso, aoEntrar, aoTrocarServidor, api
         <button type="submit" disabled={enviando}>
           {enviando ? 'Aguarde…' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
         </button>
+        {aoCancelarConvite && (
+          <button type="button" className="secundario" onClick={aoCancelarConvite} disabled={enviando}>
+            Cancelar convite
+          </button>
+        )}
         <button type="button" className="link" onClick={aoTrocarServidor} disabled={enviando}>
           Trocar servidor
         </button>

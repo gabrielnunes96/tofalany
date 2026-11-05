@@ -7,7 +7,10 @@ describe('useLoja', () => {
   beforeEach(() => useLoja.getState().limpar());
 
   it('aplica o retrato inicial e limpa ao sair', () => {
-    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, eu, usuarios: [eu] });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, convite: { link: 'http://s/convite/a' }, eu, usuarios: [eu] });
+    expect(useLoja.getState().linkConvite).toBe('http://s/convite/a');
+    useLoja.getState().definirLinkConvite('http://s/convite/b');
+    expect(useLoja.getState().linkConvite).toBe('http://s/convite/b');
     useLoja.getState().definirConexao('conectado');
     expect(useLoja.getState()).toMatchObject({ nomeServidor: 'Turma', eu, usuarios: [eu], conexao: 'conectado' });
     useLoja.getState().adicionarUsuario({ ...eu, id: 2, nomeExibicao: 'Bia' });

@@ -8,6 +8,7 @@ import { criarArmazem, type Armazem } from './arquivos/armazem.js';
 import { registrarRotasArquivos } from './routes/arquivos.js';
 import { registrarRotasPerfil } from './routes/perfil.js';
 import { registrarRotasAdmin } from './routes/admin.js';
+import { registrarRotasConvite } from './routes/convite.js';
 import type { ErroApi } from '@tofalando/shared';
 import type { Config } from './config.js';
 import { abrirBanco, EM_MEMORIA, type Banco } from './db/banco.js';
@@ -94,6 +95,12 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasArquivos(app, armazem);
   registrarRotasPerfil(app, banco, armazem, tempoReal);
   registrarRotasAdmin(app, banco, config, tempoReal, armazem);
+  registrarRotasConvite(
+    app,
+    banco,
+    config,
+    config.pastaDownloads ?? (config.caminhoBanco === EM_MEMORIA ? undefined : join(dirname(config.caminhoBanco), 'downloads')),
+  );
   if (!config.urlPublica) {
     app.log.warn('URL_PUBLICA não definida: o link de convite usa o endereço por onde o administrador acessou. Defina em produção.');
   }
