@@ -24,26 +24,28 @@ Validação por fase: ao fim de cada fase eu paro e você testa o que depende de
 | T2 | Cadastro, login e sessão | node | T1 | feito | — | 4c7f728 |
 | T3 | CLI de redefinição de senha | node | T2 | feito | — | 5b1211b |
 | T4 | Conexão em tempo real | front | T2 | feito | — | 8e930ac |
-| T27 | Auditoria: registro, retenção e tela do administrador | front | T4 | a_fazer | — | — |
-| T5 | Perfil: avatar, cor e nome de exibição | front | T4 | a_fazer | — | — |
-| T6 | Cargos e administração | front | T4, T27 | a_fazer | — | — |
-| T7 | Link de convite | front | T4 | a_fazer | — | — |
-| T8 | Canais de texto e de voz | front | T4, T27 | a_fazer | — | — |
-| T9 | Chat de texto com histórico | front | T8 | a_fazer | — | — |
-| T10 | Editar, apagar e digitando | front | T9, T27 | a_fazer | — | — |
-| T11 | Anexos: imagens e documentos | front | T9 | a_fazer | — | — |
-| T12 | Mensagens diretas | front | T10, T11 | a_fazer | — | — |
-| T13 | Não lidas e notificações | front | T12 | a_fazer | — | — |
+| T27 | Auditoria: registro, retenção e tela do administrador | front | T4 | feito | — | aeeb28d |
+| T5 | Perfil: avatar, cor e nome de exibição | front | T4 | feito | — | 19202ba |
+| T6 | Cargos e administração | front | T4, T27 | feito | — | 27fd9fa |
+| T7 | Link de convite | front | T4 | feito | — | ea65248 |
+| T8 | Canais de texto e de voz | front | T4, T27 | feito | — | 3087e5d |
+| T9 | Chat de texto com histórico | front | T8 | feito | — | 0261b34 |
+| T10 | Editar, apagar e digitando | front | T9, T27 | feito | — | e29b5dd |
+| T11 | Anexos: imagens e documentos | front | T9 | feito | — | 9221ab1 |
+| T12 | Mensagens diretas | front | T10, T11 | feito | — | e1564ab |
+| T13 | Não lidas e notificações | front | T12 | feito | — | 174e885 |
 | T14 | Entrar em canal de voz (LiveKit) | front | T8, T27 | a_fazer | — | — |
 | T15 | Áudio: dispositivos, tratamento e teste de microfone | front | T14 | a_fazer | — | — |
 | T16 | Detecção de voz, push-to-talk, mute, deafen e atalhos | front | T15 | a_fazer | — | — |
-| T17 | Volume por pessoa e sons de voz | front | T14 | a_fazer | — | — |
-| T18 | Soundboard: cadastro pelo administrador | front | T6, T27 | a_fazer | — | — |
+| T17 | Volume por pessoa, silenciar pessoa e sons de voz | front | T14 | a_fazer | — | — |
+| T18 | Soundboard: cadastro pelo administrador | front | T6, T27 | feito | — | 9efb6cc |
 | T19 | Soundboard: tocar no canal de voz | front | T18, T14 | a_fazer | — | — |
 | T20 | Webcam | front | T14 | a_fazer | — | — |
 | T21 | Transmissão de tela com trava por canal | front | T14, T27 | a_fazer | — | — |
 | T22 | Qualidade por cargo, codec e áudio do sistema | front | T21 | a_fazer | — | — |
-| T23 | Reconexão da sala, memória e privacidade de rede | front | T16, T17, T19, T20, T22 | a_fazer | — | — |
+| T28 | Status das pessoas: online, ausente e offline | front | T13 | a_fazer | — | — |
+| T29 | Notificações: chave geral e silenciar conversa | front | T13 | a_fazer | — | — |
+| T23 | Reconexão da sala, memória e privacidade de rede | front | T16, T17, T19, T20, T22, T28, T29 | a_fazer | — | — |
 | T24 | Instaladores Windows e Linux | front | T7, T23 | a_fazer | — | — |
 | T25 | Implantação com docker-compose | node | T14 | a_fazer | — | — |
 | T26 | README de uso e implantação | outra | T24, T25 | a_fazer | — | — |

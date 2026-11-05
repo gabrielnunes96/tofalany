@@ -326,8 +326,8 @@
     },
     {
       "id": "T17",
-      "titulo": "Volume por pessoa e sons de voz",
-      "descricao": "Volume 0-200% por participante (webAudioMix), sons de entrar, sair, mutar e desmutar.",
+      "titulo": "Volume por pessoa, silenciar pessoa e sons de voz",
+      "descricao": "Volume 0-200% por participante (webAudioMix), sons de entrar, sair, mutar e desmutar. Botão Silenciar por pessoa, lembrado entre sessões (RF-38).",
       "repo": ".",
       "stack": "front",
       "depende_de": [
@@ -335,7 +335,8 @@
       ],
       "criterios": [
         "CA-27",
-        "CA-29"
+        "CA-29",
+        "CA-58"
       ],
       "validacao": "E2E: volume aplicado só no app B, som de entrada disparado; usuário ouve",
       "estado": "a_fazer",
@@ -440,6 +441,42 @@
       "commit": null
     },
     {
+      "id": "T28",
+      "titulo": "Status das pessoas: online, ausente e offline",
+      "descricao": "Presença no servidor (conexões + ociosidade informada pelo app via powerMonitor), no ola e evento presenca:atualizada; indicador na lista de membros e nas DMs, separando online/ausente de offline.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T13"
+      ],
+      "criterios": [
+        "CA-56",
+        "CA-57"
+      ],
+      "validacao": "integração: online/offline com carência e ausente; E2E: B fecha o app e A vê offline; ausente simulado",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T29",
+      "titulo": "Notificações: chave geral e silenciar conversa",
+      "descricao": "Preferências locais por servidor (ligadas, conversas silenciadas); decidirMensagemNova respeita; tela Configurações com a chave; silenciar/reativar canal ou DM com ícone na barra.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T13"
+      ],
+      "criterios": [
+        "CA-59",
+        "CA-60"
+      ],
+      "validacao": "unidade da decisão; E2E: notificações desligadas só contam; canal silenciado sem notificação e com ícone",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
       "id": "T23",
       "titulo": "Reconexão da sala, memória e privacidade de rede",
       "descricao": "Reconexão automática da sala LiveKit com aviso, corretor ortográfico desligado, CSP só para o servidor, carregamento sob demanda de voz e RNNoise; E2E de RAM ociosa e de destinos de rede.",
@@ -450,7 +487,9 @@
         "T17",
         "T19",
         "T20",
-        "T22"
+        "T22",
+        "T28",
+        "T29"
       ],
       "criterios": [
         "CA-42",

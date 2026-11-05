@@ -7,7 +7,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 
 ## 2. Contexto
 - Hoje o grupo usa plataformas de terceiros. A demanda pede um equivalente privado, simples e estável, para uso pessoal, não comercial.
-- Texto original em `00-demanda.md`. Complementos do usuário em 04/11/2026: soundboard, cargo de administrador, limite de 20 contas, push-to-talk com atalho editável, edição e exclusão de mensagens, notificações e sons de voz. Na versão 2: mensagens diretas e transmissão acima de 720p30 só para administrador. Na versão 3: anexos de documento (PDF e ZIP) além de imagem, até 25 MB. Na versão 4 (05/11/2026): auditoria para administradores.
+- Texto original em `00-demanda.md`. Complementos do usuário em 04/11/2026: soundboard, cargo de administrador, limite de 20 contas, push-to-talk com atalho editável, edição e exclusão de mensagens, notificações e sons de voz. Na versão 2: mensagens diretas e transmissão acima de 720p30 só para administrador. Na versão 3: anexos de documento (PDF e ZIP) além de imagem, até 25 MB. Na versão 4 (05/11/2026): auditoria para administradores. Na versão 5 (05/11/2026): status das pessoas (online, ausente, offline), silenciar uma pessoa na voz e desligar notificações (geral e por conversa).
 - Envolvidos: o usuário (dono e host do servidor) e os amigos convidados.
 
 ## 3. Atores
@@ -70,6 +70,9 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 | RN-22 | Só administrador consulta a auditoria; o servidor recusa para membro. | Usuário, 05/11 (v4) |
 | RN-23 | Registros com mais de 30 dias são apagados automaticamente (prazo configurável pelo host, padrão 30). | Usuário, 05/11 (v4) |
 | RN-24 | Quedas curtas de conexão não poluem o registro: "offline" só é registrado se a pessoa não voltar em até 30 segundos. | Assumido |
+| RN-25 | Status de cada pessoa, calculado automaticamente: **online** com o app aberto e conectado; **ausente** depois de 10 minutos sem mexer no computador (teclado/mouse), voltando a online ao mexer; **offline** com o app fechado ou sem conexão além da carência de RN-24. Não há status manual. | Usuário, 05/11 (v5) |
+| RN-26 | Silenciar uma pessoa vale só no computador de quem silenciou, não avisa a pessoa silenciada e é lembrado entre sessões. | Usuário, 05/11 (v5) + assumido |
+| RN-27 | Desligar notificações (geral ou de um canal/DM) vale só no computador onde foi feito; o contador de não lidas continua contando. O som da notificação não é configurável. | Usuário, 05/11 (v5) + assumido |
 
 ## 6. Requisitos funcionais
 | ID | Requisito | Regras |
@@ -113,6 +116,10 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 | RF-34 | Registrar os eventos de auditoria no servidor no momento em que acontecem. | RN-20, RN-21, RN-24 |
 | RF-35 | Tela de auditoria (administrador): lista do mais recente para o mais antigo, com data/hora, pessoa, evento e detalhe (alvo, canal); filtros por pessoa, tipo de evento, canal e período; carrega mais ao rolar. | RN-22 |
 | RF-36 | Limpeza automática dos registros fora do prazo. | RN-23 |
+| RF-37 | Indicador de status (online, ausente, offline) ao lado de cada pessoa na lista de membros e nas DMs, atualizado em tempo real; a lista separa quem está online/ausente de quem está offline. | RN-25 |
+| RF-38 | Botão "Silenciar" em cada pessoa no canal de voz (além do volume de RF-19): a pessoa silenciada não é ouvida, com ícone indicando o silêncio; clicar de novo volta ao volume anterior. | RN-26 |
+| RF-39 | Opção geral nas configurações: notificações ligadas ou desligadas. | RN-27 |
+| RF-40 | Silenciar notificações de um canal ou DM específico (e desfazer), com indicação na barra lateral. | RN-27 |
 
 ## 7. Requisitos não funcionais
 - **Memória**: app ocioso (logado, sem chamada) abaixo de 300 MB de RAM somando os processos.
@@ -193,6 +200,13 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 - **CA-53** (RF-36, RN-23) — Dado registros com 31 dias e com 29 dias, quando a limpeza roda, então só os de 31 dias somem.
 - **CA-54** (RF-35) — Dado 300 registros de várias pessoas e tipos, quando o administrador filtra por pessoa, tipo e período, então só os correspondentes aparecem, e rolar carrega os mais antigos.
 - **CA-55** (RN-24) — Dado A conectado, quando a conexão de A cai por 10 segundos e volta, então nenhum offline/online é registrado; quando A fica 1 minuto fora, então o offline é registrado.
+
+**Status, silenciar e notificações (v5)**
+- **CA-56** (RF-37, RN-25) — Dado A e B conectados, quando B fecha o app, então A vê B como offline em até 1 minuto; quando B abre de novo, então A vê B online.
+- **CA-57** (RF-37, RN-25) — Dado B conectado e sem mexer no computador por 10 minutos, então A vê B como ausente; quando B mexe no mouse, então A vê B online.
+- **CA-58** (RF-38, RN-26) — Dado A, B e C no canal de voz, quando A silencia B, então A não ouve B, C continua ouvindo B, e B não é avisado; ao reabrir o app, B continua silenciado para A.
+- **CA-59** (RF-39, RN-27) — Dado A com notificações desligadas, quando chega mensagem num canal fechado, então não aparece notificação, mas o contador de não lidas aumenta.
+- **CA-60** (RF-40, RN-27) — Dado A com o canal X silenciado, quando chega mensagem em X e em Y, então só Y gera notificação; X mostra o contador e o ícone de silenciado.
 
 **Rede, instalação e não funcionais**
 - **CA-42** (RF-31) — Dado A numa chamada, quando a rede de A cai por 10 segundos e volta, então A volta ao chat e à chamada sem ação manual, com aviso de "reconectando" durante a queda.
