@@ -18,6 +18,7 @@ import { registrarAuditoria } from '../dominio/auditoria.js';
 import { CHAVE_CONVITE, lerConfiguracao } from '../dominio/configuracoes.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
+import { listarDms } from '../dominio/dms.js';
 import { registrarEventosCanais } from './canais.js';
 import { registrarEventosMensagens } from './mensagens.js';
 import type { Armazem } from '../arquivos/armazem.js';
@@ -42,7 +43,7 @@ export interface TempoReal {
   conferirSessoes(): void;
 }
 
-const salaUsuario = (id: number) => `usuario:${id}`;
+export const salaUsuario = (id: number) => `usuario:${id}`;
 
 /**
  * Online/offline para a auditoria (RN-24): online quando a primeira conexão do usuário chega;
@@ -153,6 +154,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       eu: paraDto(eu),
       usuarios: listarAtivos(banco).map(paraDto),
       canais: listarCanais(banco),
+      dms: listarDms(banco, eu.id),
     };
     registrarEventosCanais(io, socket, banco, armazem, (e) => app.log.error(e));
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));

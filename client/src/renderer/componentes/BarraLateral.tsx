@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CanalDto, TipoCanal } from '@tofalando/shared';
+import type { CanalDto, DmDto, TipoCanal, UsuarioDto } from '@tofalando/shared';
 import { FormNome } from './FormNome';
 
 interface Props {
@@ -11,6 +11,10 @@ interface Props {
   aoCriar: (tipo: TipoCanal, nome: string) => Promise<string | null>;
   aoRenomear: (id: number, nome: string) => Promise<string | null>;
   aoRemover: (id: number) => Promise<string | null>;
+  dms: DmDto[];
+  usuarios: UsuarioDto[];
+  dmAtiva: number | null;
+  aoAbrirDm: (id: number) => void;
 }
 
 const TITULOS: Record<TipoCanal, string> = { texto: 'Canais de texto', voz: 'Canais de voz' };
@@ -84,7 +88,7 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover }: { canal: CanalDto } 
 }
 
 /** RF-7: lista de canais de texto e de voz; qualquer membro cria e renomeia, só administrador remove (RN-7). */
-export function BarraLateral({ nomeServidor, canais, canalAtivo, ehAdmin, aoAbrir, aoCriar, aoRenomear, aoRemover }: Props) {
+export function BarraLateral({ nomeServidor, canais, canalAtivo, ehAdmin, aoAbrir, aoCriar, aoRenomear, aoRemover, dms, usuarios, dmAtiva, aoAbrirDm }: Props) {
   const [criando, setCriando] = useState<TipoCanal | null>(null);
 
   return (
@@ -132,6 +136,29 @@ export function BarraLateral({ nomeServidor, canais, canalAtivo, ehAdmin, aoAbri
           </ul>
         </section>
       ))}
+      <section className="grupo-canais" aria-labelledby="grupo-dms">
+        <div className="grupo-topo">
+          <h2 id="grupo-dms">Mensagens diretas</h2>
+        </div>
+        {dms.length === 0 && <p className="suave dica-dm">Use ✉ na lista de membros para conversar só com uma pessoa.</p>}
+        <ul aria-label="Mensagens diretas">
+          {dms.map((d) => {
+            const nome = usuarios.find((u) => u.id === d.outroId)?.nomeExibicao ?? 'conta removida';
+            return (
+              <li key={d.id}>
+                <button
+                  type="button"
+                  className={`canal${d.id === dmAtiva ? ' ativo' : ''}`}
+                  aria-current={d.id === dmAtiva ? 'page' : undefined}
+                  onClick={() => aoAbrirDm(d.id)}
+                >
+                  <span aria-hidden="true">@</span> {nome}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </nav>
   );
 }

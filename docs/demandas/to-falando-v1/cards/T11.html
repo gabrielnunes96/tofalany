@@ -1,0 +1,26 @@
+<!-- T11 — Anexos: imagens e documentos -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1 (funcional v3): RF-9, RN-19, RN-8; CA-16, CA-16a, CA-16b.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (POST /api/anexos, mensagem:enviar com anexos), §4 (tabela anexos, órfãos) e §6 (formato pelo conteúdo, imagem regravada, documento como download aberto pelo sistema).</p>
+
+<h3>Implementação (05/11/2026, commit 9221ab1)</h3>
+<ul>
+  <li><b>Servidor:</b> migration 005; POST /api/anexos (campo <code>arquivo</code>, até 25 MB → 413); formato pelo conteúdo: imagens JPEG/PNG/GIF/WebP regravadas sem metadados (GIF/WebP mantêm animação; até 40 MP, 500 quadros e 400 MP somados), PDF (<code>%PDF-</code>) e ZIP (<code>PK</code>) guardados como vieram; outros → 415; nome saneado e <b>sempre com a extensão do formato conferido</b> (um "x.bat" com cabeçalho de PDF vira "x.pdf").</li>
+  <li><b>Mensagens:</b> até 10 anexos; texto pode ser vazio só com anexos; anexo de outra pessoa ou já usado é recusado; o histórico traz os anexos; apagar mensagem ou remover canal apaga os arquivos do disco depois do commit; anexo não usado em 1 h é apagado (ao subir e a cada 30 min).</li>
+  <li><b>App:</b> botão "+" e arrastar e soltar; o envio começa ao escolher, com estado por item (enviando / pronto / erro) e limite de 10 contado na hora; imagem no chat que amplia (Esc fecha); PDF/ZIP como cartão com nome e tamanho; "Baixar" pelo processo principal (só /files/&lt;id&gt; do servidor configurado, "Salvar como"); "Abrir" pelo programa do sistema só para PDF, ZIP e imagens salvos pelo próprio app.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/anexos.test.ts</code> (CA-16, EXIF removido, GIF animado, CA-16a com hash, CA-16b, extensão do formato conferido, animação grande, nome saneado, mensagem com anexos, abuso, arquivos apagados, órfãos), <code>client/src/main/arquivos.test.ts</code>, <code>Anexos.test.tsx</code>, <code>Compositor.test.tsx</code>. Suíte: 226 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (2 apps): ana anexa PNG de 2 MB</td><td>ok</td><td>imagem 840×800 no chat do dono; amplia e fecha com Esc</td></tr>
+  <tr><td>E2E: PDF de 5 MB e ZIP de 20 MB</td><td>ok</td><td>cartões com "5 MB" e "20 MB"; PDF baixado pelo app com hash igual; "Abrir" disponível</td></tr>
+  <tr><td>E2E: 30 MB e .exe renomeado para .pdf</td><td>ok</td><td>"O arquivo deve ter no máximo 25 MB." e "Formato não aceito…"; nada gravado</td></tr>
+  <tr><td>E2E: suíte completa</td><td>ok</td><td>15 testes passando</td></tr>
+</table>
+<p><b>Observação:</b> numa rodada da suíte completa, o E2E do perfil (T5) falhou uma vez porque a janela do Electron não abriu em 30 s logo após o teste pesado de anexos; passou em 3 rodadas isoladas e na suíte seguinte. Acompanhar na T23 (memória/desempenho).</p>
+<p>Revisão: 6 achados (1 grave, 1 médio, 4 menores), todos corrigidos. O grave: a extensão do nome não acompanhava o formato conferido, o que permitiria salvar e abrir um script disfarçado de PDF.</p>

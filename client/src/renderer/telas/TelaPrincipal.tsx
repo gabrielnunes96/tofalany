@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DIGITANDO_DURACAO_MS, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
+import { DIGITANDO_DURACAO_MS, type Destino, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -12,6 +12,8 @@ import { TelaConvite } from './TelaConvite';
 import { Avatar } from '../componentes/Avatar';
 import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
+import { DmAberta } from '../componentes/DmAberta';
+import type { Chave, Historico } from '../estado/loja';
 
 interface Props {
   servidorUrl: string;
@@ -27,8 +29,10 @@ type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite';
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada }: Props) {
-  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite } = useLoja(
+  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva } = useLoja(
     useShallow((s) => ({
+      dms: s.dms,
+      dmAtiva: s.dmAtiva,
       conexao: s.conexao,
       eu: s.eu,
       usuarios: s.usuarios,
@@ -49,6 +53,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       salvarCanal: s.salvarCanal,
       removerCanal: s.removerCanal,
       abrirCanal: s.abrirCanal,
+      salvarDm: s.salvarDm,
+      abrirDm: s.abrirDm,
       adicionarMensagem: s.adicionarMensagem,
       atualizarMensagem: s.atualizarMensagem,
       removerMensagem: s.removerMensagem,
@@ -82,7 +88,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoMensagemNova: acoes.adicionarMensagem,
       aoMensagemEditada: acoes.atualizarMensagem,
       aoMensagemApagada: acoes.removerMensagem,
-      aoDigitando: (canalId, usuarioId) => acoes.registrarDigitando(canalId, usuarioId, Date.now() + DIGITANDO_DURACAO_MS),
+      aoDigitando: (chave, usuarioId) => acoes.registrarDigitando(chave, usuarioId, Date.now() + DIGITANDO_DURACAO_MS),
+      aoDmAtualizada: acoes.salvarDm,
       aoRevogada: aoSessaoRevogada,
     });
     conexaoRef.current = conexao;
@@ -120,14 +127,26 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       },
     );
   const renomearCanal = (id: number, nome: string) => pedir((c) => c.pedir('canal:renomear', { id, nome }), acoes.salvarCanal);
-  const enviarMensagem = (canalId: number, texto: string, anexos: string[]) =>
-    pedir((c) => c.pedir('mensagem:enviar', { destino: { canalId }, texto, anexos }), acoes.adicionarMensagem);
+  const enviarMensagem = (destino: Destino, texto: string, anexos: string[]) =>
+    pedir((c) => c.pedir('mensagem:enviar', { destino, texto, anexos }), acoes.adicionarMensagem);
+  /** RF-12a: abre a DM com alguém da lista de membros. */
+  const conversarCom = (usuarioId: number) =>
+    void pedir(
+      (c) => c.pedir('dm:abrir', { usuarioId }),
+      (dm) => {
+        acoes.salvarDm(dm);
+        acoes.abrirDm(dm.id);
+        setVista('canal');
+      },
+    );
   const editarMensagem = (id: number, texto: string) => pedir((c) => c.pedir('mensagem:editar', { id, texto }), acoes.atualizarMensagem);
   const apagarMensagem = (id: number) => {
-    const canalId = Object.entries(useLoja.getState().historicos).find(([, h]) => h.mensagens.some((m) => m.id === id))?.[0];
+    const chave = (Object.entries(useLoja.getState().historicos) as [Chave, Historico | undefined][]).find(([, h]) =>
+      h?.mensagens.some((m) => m.id === id),
+    )?.[0];
     return pedir(
       (c) => c.pedir('mensagem:apagar', { id }),
-      () => acoes.removerMensagem(id, canalId ? Number(canalId) : null),
+      () => acoes.removerMensagem(id, chave ?? null),
     );
   };
   const removerCanal = (id: number) => pedir((c) => c.pedir('canal:remover', { id }), () => acoes.removerCanal(id));
@@ -156,7 +175,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           <BarraLateral
             nomeServidor={nomeServidor ?? servidorUrl}
             canais={canais}
-            canalAtivo={vistaAtual === 'canal' ? canalAtivo : null}
+            canalAtivo={vistaAtual === 'canal' && dmAtiva === null ? canalAtivo : null}
+            dms={dms}
+            usuarios={usuarios}
+            dmAtiva={vistaAtual === 'canal' ? dmAtiva : null}
+            aoAbrirDm={(id) => {
+              acoes.abrirDm(id);
+              setVista('canal');
+            }}
             aoAbrir={(id) => {
               acoes.abrirCanal(id);
               setVista('canal');
@@ -242,6 +268,20 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             <TelaConvite api={api} aoVoltar={voltar} />
           ) : vistaAtual === 'perfil' ? (
             <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={acoes.atualizarUsuario} aoVoltar={voltar} />
+          ) : dmAtiva !== null && dms.some((d) => d.id === dmAtiva) ? (
+            <DmAberta
+              key={`dm-${dmAtiva}`}
+              dm={dms.find((d) => d.id === dmAtiva)!}
+              outro={usuarios.find((u) => u.id === dms.find((d) => d.id === dmAtiva)!.outroId)}
+              usuarios={usuarios}
+              servidorUrl={servidorUrl}
+              euId={usuario.id}
+              api={api}
+              aoEnviar={(dmId, texto, anexos) => enviarMensagem({ dmId }, texto, anexos)}
+              aoEditarMensagem={editarMensagem}
+              aoApagarMensagem={apagarMensagem}
+              aoDigitar={(dmId) => conexaoRef.current?.avisarDigitando({ dmId })}
+            />
           ) : (
             <CanalAberto
               key={canalAtivo ?? 'nenhum'}
@@ -252,11 +292,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               usuarios={usuarios}
               servidorUrl={servidorUrl}
               api={api}
-              aoEnviar={enviarMensagem}
+              aoEnviar={(canalId, texto, anexos) => enviarMensagem({ canalId }, texto, anexos)}
               euId={usuario.id}
               aoEditarMensagem={editarMensagem}
               aoApagarMensagem={apagarMensagem}
-              aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando(canalId)}
+              aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando({ canalId })}
             />
           )}
         </main>
@@ -269,6 +309,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 <Avatar usuario={u} servidorUrl={servidorUrl} tamanho={28} />
                 <span>{u.nomeExibicao}</span>
                 {u.cargo === 'admin' && <span className="selo">admin</span>}
+                {u.id !== usuario.id && (
+                  <button type="button" className="icone conversar" aria-label={`Conversar com ${u.nomeExibicao}`} title="Mensagem direta" onClick={() => conversarCom(u.id)}>
+                    ✉
+                  </button>
+                )}
               </li>
             ))}
           </ul>

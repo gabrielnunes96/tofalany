@@ -7,7 +7,7 @@ describe('useLoja', () => {
   beforeEach(() => useLoja.getState().limpar());
 
   it('aplica o retrato inicial e limpa ao sair', () => {
-    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, convite: { link: 'http://s/convite/a' }, eu, usuarios: [eu], canais: [] });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, convite: { link: 'http://s/convite/a' }, eu, usuarios: [eu], canais: [], dms: [] });
     expect(useLoja.getState().linkConvite).toBe('http://s/convite/a');
     useLoja.getState().definirLinkConvite('http://s/convite/b');
     expect(useLoja.getState().linkConvite).toBe('http://s/convite/b');
@@ -32,7 +32,7 @@ describe('useLoja', () => {
 describe('canais na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
   const ola = (canais: { id: number; tipo: 'texto' | 'voz'; nome: string; posicao: number }[]) =>
-    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais, dms: [] });
 
   it('ordena texto antes de voz, abre o primeiro de texto e troca ao remover o aberto', () => {
     ola([
@@ -63,82 +63,112 @@ describe('canais na loja', () => {
 
 describe('histórico de mensagens na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
-  const msg = (id: number, canalId = 1) => ({ id, canalId, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
+  const msg = (id: number, canalId = 1) => ({ id, canalId, dmId: null, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
 
   it('primeira carga, páginas antigas na frente, novas no fim, sem duplicar', () => {
     const l = useLoja.getState();
     l.adicionarMensagem(msg(99));
-    expect(useLoja.getState().historicos[1]).toBeUndefined();
-    let g = l.iniciarCarga(1);
-    expect(useLoja.getState().historicos[1]?.carregando).toBe(true);
-    l.receberPagina(1, { mensagens: [msg(5), msg(6)], fim: false }, g);
+    expect(useLoja.getState().historicos['c:1']).toBeUndefined();
+    let g = l.iniciarCarga('c:1');
+    expect(useLoja.getState().historicos['c:1']?.carregando).toBe(true);
+    l.receberPagina('c:1', { mensagens: [msg(5), msg(6)], fim: false }, g);
     l.adicionarMensagem(msg(7));
     l.adicionarMensagem(msg(7));
-    g = l.iniciarCarga(1);
-    l.receberPagina(1, { mensagens: [msg(3), msg(4)], fim: true }, g);
-    const h = useLoja.getState().historicos[1]!;
+    g = l.iniciarCarga('c:1');
+    l.receberPagina('c:1', { mensagens: [msg(3), msg(4)], fim: true }, g);
+    const h = useLoja.getState().historicos['c:1']!;
     expect(h.mensagens.map((m) => m.id)).toEqual([3, 4, 5, 6, 7]);
     expect(h).toMatchObject({ fim: true, carregando: false });
-    g = l.iniciarCarga(1);
-    l.falharCarga(1, 'Sem conexão', g);
-    expect(useLoja.getState().historicos[1]).toMatchObject({ erro: 'Sem conexão', mensagens: h.mensagens });
+    g = l.iniciarCarga('c:1');
+    l.falharCarga('c:1', 'Sem conexão', g);
+    expect(useLoja.getState().historicos['c:1']).toMatchObject({ erro: 'Sem conexão', mensagens: h.mensagens });
   });
 
   it('reconexão (ola) descarta os históricos; remover canal também', () => {
     const l = useLoja.getState();
-    l.receberPagina(1, { mensagens: [msg(1)], fim: true }, l.iniciarCarga(1));
-    l.receberPagina(2, { mensagens: [msg(2, 2)], fim: true }, l.iniciarCarga(2));
+    l.receberPagina('c:1', { mensagens: [msg(1)], fim: true }, l.iniciarCarga('c:1'));
+    l.receberPagina('c:2', { mensagens: [msg(2, 2)], fim: true }, l.iniciarCarga('c:2'));
     l.removerCanal(2);
-    expect(useLoja.getState().historicos[2]).toBeUndefined();
-    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [] });
+    expect(useLoja.getState().historicos['c:2']).toBeUndefined();
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [] });
     expect(useLoja.getState().historicos).toEqual({});
   });
 });
 
 describe('respostas atrasadas do histórico', () => {
   beforeEach(() => useLoja.getState().limpar());
-  const msg = (id: number) => ({ id, canalId: 1, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
+  const msg = (id: number) => ({ id, canalId: 1, dmId: null, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
 
   it('resposta de antes da reconexão é ignorada; a ordem fica certa', () => {
     const l = useLoja.getState();
-    const velha = l.iniciarCarga(1);
-    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [] });
-    const nova = l.iniciarCarga(1);
-    l.receberPagina(1, { mensagens: [msg(11), msg(12)], fim: false }, nova);
-    l.receberPagina(1, { mensagens: [msg(1), msg(2)], fim: false }, velha);
-    expect(useLoja.getState().historicos[1]!.mensagens.map((m) => m.id)).toEqual([11, 12]);
+    const velha = l.iniciarCarga('c:1');
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [] });
+    const nova = l.iniciarCarga('c:1');
+    l.receberPagina('c:1', { mensagens: [msg(11), msg(12)], fim: false }, nova);
+    l.receberPagina('c:1', { mensagens: [msg(1), msg(2)], fim: false }, velha);
+    expect(useLoja.getState().historicos['c:1']!.mensagens.map((m) => m.id)).toEqual([11, 12]);
   });
 
   it('resposta de canal removido não recria o histórico', () => {
     const l = useLoja.getState();
-    const g = l.iniciarCarga(1);
+    const g = l.iniciarCarga('c:1');
     l.removerCanal(1);
-    l.receberPagina(1, { mensagens: [msg(1)], fim: true }, g);
-    l.falharCarga(1, 'x', g);
-    expect(useLoja.getState().historicos[1]).toBeUndefined();
+    l.receberPagina('c:1', { mensagens: [msg(1)], fim: true }, g);
+    l.falharCarga('c:1', 'x', g);
+    expect(useLoja.getState().historicos['c:1']).toBeUndefined();
   });
 });
 
 
 describe('edição, exclusão e digitando na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
-  const msg = (id: number, autorId = 1) => ({ id, canalId: 1, autorId, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
+  const msg = (id: number, autorId = 1) => ({ id, canalId: 1, dmId: null, autorId, texto: `m${id}`, criadaEm: id, editadaEm: null, anexos: [] });
 
   it('atualiza e remove mensagens do canal carregado', () => {
     const l = useLoja.getState();
-    l.receberPagina(1, { mensagens: [msg(1), msg(2)], fim: true }, l.iniciarCarga(1));
+    l.receberPagina('c:1', { mensagens: [msg(1), msg(2)], fim: true }, l.iniciarCarga('c:1'));
     l.atualizarMensagem({ ...msg(1), texto: 'novo', editadaEm: 5 });
-    l.removerMensagem(2, 1);
+    l.removerMensagem(2, 'c:1');
     l.removerMensagem(9, null);
-    expect(useLoja.getState().historicos[1]!.mensagens).toEqual([{ ...msg(1), texto: 'novo', editadaEm: 5 }]);
+    expect(useLoja.getState().historicos['c:1']!.mensagens).toEqual([{ ...msg(1), texto: 'novo', editadaEm: 5 }]);
   });
 
   it('digitando registra até quando; a mensagem da pessoa limpa o aviso', () => {
     const l = useLoja.getState();
-    l.registrarDigitando(1, 2, 1000);
-    l.registrarDigitando(1, 3, 2000);
-    expect(useLoja.getState().digitando[1]).toEqual({ 2: 1000, 3: 2000 });
+    l.registrarDigitando('c:1', 2, 1000);
+    l.registrarDigitando('c:1', 3, 2000);
+    expect(useLoja.getState().digitando['c:1']).toEqual({ 2: 1000, 3: 2000 });
     l.adicionarMensagem(msg(5, 2));
-    expect(useLoja.getState().digitando[1]).toEqual({ 3: 2000 });
+    expect(useLoja.getState().digitando['c:1']).toEqual({ 3: 2000 });
+  });
+});
+
+describe('DMs na loja', () => {
+  beforeEach(() => useLoja.getState().limpar());
+  const ola = (dms: { id: number; outroId: number; ultimaEm: number }[]) =>
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }], dms });
+
+  it('ordena pela mais recente; abrir DM e voltar ao canal; reconectar mantém a DM aberta se ela existe', () => {
+    ola([{ id: 1, outroId: 2, ultimaEm: 10 }, { id: 2, outroId: 3, ultimaEm: 20 }]);
+    expect(useLoja.getState().dms.map((d) => d.id)).toEqual([2, 1]);
+    useLoja.getState().salvarDm({ id: 1, outroId: 2, ultimaEm: 30 });
+    expect(useLoja.getState().dms.map((d) => d.id)).toEqual([1, 2]);
+    useLoja.getState().abrirDm(1);
+    expect(useLoja.getState().dmAtiva).toBe(1);
+    useLoja.getState().abrirDm(99);
+    expect(useLoja.getState().dmAtiva).toBe(1);
+    ola([{ id: 1, outroId: 2, ultimaEm: 30 }]);
+    expect(useLoja.getState().dmAtiva).toBe(1);
+    useLoja.getState().abrirCanal(1);
+    expect(useLoja.getState().dmAtiva).toBeNull();
+  });
+
+  it('mensagem de DM vai para a chave da DM, não para o canal de mesmo número', () => {
+    const l = useLoja.getState();
+    l.receberPagina('d:1', { mensagens: [], fim: true }, l.iniciarCarga('d:1'));
+    l.receberPagina('c:1', { mensagens: [], fim: true }, l.iniciarCarga('c:1'));
+    l.adicionarMensagem({ id: 5, canalId: null, dmId: 1, autorId: 2, texto: 'oi', criadaEm: 1, editadaEm: null, anexos: [] });
+    expect(useLoja.getState().historicos['d:1']!.mensagens.map((m) => m.id)).toEqual([5]);
+    expect(useLoja.getState().historicos['c:1']!.mensagens).toEqual([]);
   });
 });

@@ -118,9 +118,21 @@ export interface AnexoDto {
   altura: number | null;
 }
 
+/** Onde a mensagem vive: um canal de texto ou uma conversa direta (DM). */
+export type Destino = { canalId: number } | { dmId: number };
+
+/** Conversa direta entre a pessoa logada e `outroId` (RN-18: só os dois veem). */
+export interface DmDto {
+  id: number;
+  outroId: number;
+  /** Momento da última mensagem (ou da criação), para ordenar a lista. */
+  ultimaEm: number;
+}
+
 export interface MensagemDto {
   id: number;
   canalId: number | null;
+  dmId: number | null;
   autorId: number;
   /** Pode ser vazio quando a mensagem só tem anexos. */
   texto: string;
@@ -147,6 +159,7 @@ export interface OlaPayload {
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
   canais: CanalDto[];
+  dms: DmDto[];
 }
 
 /** Eventos servidor → cliente. */
@@ -164,9 +177,11 @@ export interface EventosServidor {
   'canal:removido': (payload: { id: number }) => void;
   'mensagem:nova': (mensagem: MensagemDto) => void;
   'mensagem:editada': (mensagem: MensagemDto) => void;
-  'mensagem:apagada': (payload: { id: number; canalId: number | null }) => void;
-  /** Alguém está digitando no canal (não chega para quem digita). */
-  digitando: (payload: { canalId: number; usuarioId: number }) => void;
+  'mensagem:apagada': (payload: { id: number; canalId: number | null; dmId: number | null }) => void;
+  /** Alguém está digitando no canal ou na DM (não chega para quem digita; DM só para o outro participante). */
+  digitando: (payload: { canalId: number | null; dmId: number | null; usuarioId: number }) => void;
+  /** Conversa direta nova (ou com mensagem nova): chega só para os dois participantes. */
+  'dm:atualizada': (dm: DmDto) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }
@@ -180,13 +195,15 @@ export interface EventosCliente {
   'canal:remover': (dados: { id: number }, ack: Ack) => void;
   /** RF-8: enviar mensagem num canal de texto (DMs na T12). */
   /** Anexos já enviados por POST /api/anexos (até 10). */
-  'mensagem:enviar': (dados: { destino: { canalId: number }; texto: string; anexos?: string[] }, ack: Ack<MensagemDto>) => void;
+  'mensagem:enviar': (dados: { destino: Destino; texto: string; anexos?: string[] }, ack: Ack<MensagemDto>) => void;
   /** RN-9: só o autor edita. */
   'mensagem:editar': (dados: { id: number; texto: string }, ack: Ack<MensagemDto>) => void;
   /** RN-9: o autor apaga; administrador apaga qualquer mensagem de canal. */
   'mensagem:apagar': (dados: { id: number }, ack: Ack) => void;
   /** Sinal de "digitando" (sem resposta). */
-  digitando: (dados: { destino: { canalId: number } }) => void;
+  digitando: (dados: { destino: Destino }) => void;
+  /** RF-12a: abre (ou cria) a conversa direta com outra pessoa. */
+  'dm:abrir': (dados: { usuarioId: number }, ack: Ack<DmDto>) => void;
 }
 
 /**

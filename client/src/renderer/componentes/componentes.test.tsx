@@ -31,7 +31,17 @@ describe('FormNome', () => {
 });
 
 describe('BarraLateral', () => {
-  const props = { nomeServidor: 'T', canais, canalAtivo: 1, aoAbrir: vi.fn(), aoCriar: vi.fn(async () => null) };
+  const props = {
+    nomeServidor: 'T',
+    canais,
+    canalAtivo: 1,
+    aoAbrir: vi.fn(),
+    aoCriar: vi.fn(async () => null),
+    dms: [],
+    usuarios: [],
+    dmAtiva: null,
+    aoAbrirDm: vi.fn(),
+  };
 
   it('membro renomeia canal de voz e não vê "remover"', async () => {
     const aoRenomear = vi.fn(async () => null);

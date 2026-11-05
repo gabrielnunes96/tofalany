@@ -71,7 +71,7 @@ Toda rota `/api/admin/*` confere o cargo no servidor; `403 sem_permissao` para m
 | `mensagem:enviar` | `{ destino: { canalId } \| { dmId }, texto, anexos: string[] }` | DM só entre participantes |
 | `mensagem:editar` · `mensagem:apagar` | `{ id, texto }` · `{ id }` | autor; admin apaga em canal, nunca em DM (RN-9, RN-18) |
 | `digitando` | `{ destino }` | repassado aos outros; expira em 5 s no cliente |
-| `dm:abrir` | `{ usuarioId }` | `{ dmId }` (cria se não existir) |
+| `dm:abrir` | `{ usuarioId }` | `DmDto { id, outroId, ultimaEm }` (cria se não existir; avisa só quem abriu, a outra pessoa recebe `dm:atualizada` na primeira mensagem) |
 | `lido:marcar` | `{ destino, ultimaMensagemId }` | contador de não lidas |
 | `voz:estado` | `{ canalVozId \| null, mudo, surdo, camera }` | presença mostrada a todos |
 | `tela:pedir` | `{ canalVozId, qualidade }` | `ok` · `ocupado { porUsuarioId }` (RN-10) · `qualidade_nao_permitida` (RN-17) |

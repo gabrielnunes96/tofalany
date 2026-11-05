@@ -9,7 +9,7 @@ import { MensagensCanal, textoDigitando } from './MensagensCanal';
 afterEach(cleanup);
 
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#00f0ff', avatarUrl: null, cargo: 'membro' };
-const m: MensagemDto = { id: 7, canalId: 1, autorId: 1, texto: 'original', criadaEm: 1_700_000_000_000, editadaEm: null, anexos: [] };
+const m: MensagemDto = { id: 7, canalId: 1, dmId: null, autorId: 1, texto: 'original', criadaEm: 1_700_000_000_000, editadaEm: null, anexos: [] };
 
 function lista(ui: React.ReactElement) {
   return render(<ol>{ui}</ol>);
@@ -124,7 +124,7 @@ describe('aviso de digitando expira (CA-17)', () => {
       />,
     );
     const { act } = await import('@testing-library/react');
-    act(() => useLoja.getState().registrarDigitando(1, 2, Date.now() + 5000));
+    act(() => useLoja.getState().registrarDigitando('c:1', 2, Date.now() + 5000));
     expect(screen.getByText('Bia está digitando…')).toBeTruthy();
     act(() => vi.advanceTimersByTime(5500));
     expect(screen.queryByText('Bia está digitando…')).toBeNull();

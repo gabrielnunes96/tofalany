@@ -7,19 +7,32 @@ import {
   validarTextoMensagem,
   type AnexoDto,
   type CanalDto,
+  type PaginaMensagens,
   type UsuarioDto,
 } from '@tofalando/shared';
 import { tamanhoLegivel } from './Anexos';
-import { useLoja } from '../estado/loja';
+import { chaveCanal, useLoja, type Chave } from '../estado/loja';
 import type { ClienteApi } from '../servicos/api';
 import { ErroApiCliente } from '../servicos/api';
 import { ItemMensagem } from './ItemMensagem';
 
+/** O que a conversa mostra: canal de texto ("#geral") ou DM ("Bia"). */
+export interface DadosConversa {
+  chave: Chave;
+  /** "#geral" ou "Bia": usado em "Mensagens de …", "Mensagem para …". */
+  titulo: string;
+  /** Frase no começo do histórico. */
+  inicio: string;
+  /** Rótulo da lista de mensagens. */
+  rotuloLista: string;
+}
+
 interface Props {
-  canal: CanalDto;
+  conversa: DadosConversa;
+  carregarPagina: (antes?: number) => Promise<PaginaMensagens>;
   usuarios: UsuarioDto[];
   servidorUrl: string;
-  api: Pick<ClienteApi, 'mensagensCanal' | 'enviarAnexo'>;
+  api: Pick<ClienteApi, 'enviarAnexo'>;
   /** Envia pelo tempo real; devolve a mensagem de erro ou null. */
   aoEnviar: (texto: string, anexos: string[]) => Promise<string | null>;
   euId: number;
@@ -27,6 +40,8 @@ interface Props {
   aoEditar: (id: number, texto: string) => Promise<string | null>;
   aoApagar: (id: number) => Promise<string | null>;
   aoDigitar: () => void;
+  /** Conversa só para leitura (ex.: DM com conta removida): sem campo de escrever. */
+  somenteLeitura?: string;
 }
 
 interface Pendente {
@@ -59,10 +74,24 @@ export function textoDigitando(nomes: string[]): string | null {
 /** Perto do fim (px): mensagem nova rola a lista; mais acima, a pessoa está lendo o histórico. */
 const PERTO_DO_FIM = 120;
 
-/** RF-8: histórico com carga ao rolar para cima (CA-14) e envio de mensagens. */
-export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, euId, ehAdmin, aoEditar, aoApagar, aoDigitar }: Props) {
-  const historico = useLoja((s) => s.historicos[canal.id]);
-  const digitandoAte = useLoja((s) => s.digitando[canal.id]);
+/** RF-8, RF-12a: histórico com carga ao rolar para cima (CA-14) e envio de mensagens — canal ou DM. */
+export function Conversa({
+  conversa,
+  carregarPagina,
+  usuarios,
+  servidorUrl,
+  api,
+  aoEnviar,
+  euId,
+  ehAdmin,
+  aoEditar,
+  aoApagar,
+  aoDigitar,
+  somenteLeitura,
+}: Props) {
+  const chave = conversa.chave;
+  const historico = useLoja((s) => s.historicos[chave]);
+  const digitandoAte = useLoja((s) => s.digitando[chave]);
   const [agora, setAgora] = useState(() => Date.now());
   const ultimoSinal = useRef(0);
   const lista = useRef<HTMLDivElement>(null);
@@ -106,31 +135,30 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
   const carregar = useCallback(
     (antes?: number) => {
       const { iniciarCarga, receberPagina, falharCarga } = useLoja.getState();
-      const geracao = iniciarCarga(canal.id);
-      api
-        .mensagensCanal(canal.id, antes)
-        .then((pagina) => receberPagina(canal.id, pagina, geracao))
+      const geracao = iniciarCarga(chave);
+      carregarPagina(antes)
+        .then((pagina) => receberPagina(chave, pagina, geracao))
         .catch((e: unknown) => {
           alturaAntes.current = null;
-          falharCarga(canal.id, e instanceof ErroApiCliente ? e.message : 'Não foi possível carregar as mensagens.', geracao);
+          falharCarga(chave, e instanceof ErroApiCliente ? e.message : 'Não foi possível carregar as mensagens.', geracao);
         });
     },
-    [api, canal.id],
+    [carregarPagina, chave],
   );
 
-  // Primeira abertura do canal (ou depois de reconectar, quando o histórico foi descartado).
+  // Primeira abertura da conversa (ou depois de reconectar, quando o histórico foi descartado).
   useEffect(() => {
-    if (!useLoja.getState().historicos[canal.id]) carregar();
-  }, [canal.id, carregar, historico]);
+    if (!useLoja.getState().historicos[chave]) carregar();
+  }, [chave, carregar, historico]);
 
   const carregarAnteriores = useCallback(
     (automatico: boolean) => {
-      const h = useLoja.getState().historicos[canal.id];
+      const h = useLoja.getState().historicos[chave];
       if (!h || h.fim || h.carregando || (automatico && h.erro)) return;
       alturaAntes.current = lista.current?.scrollHeight ?? null;
       carregar(h.mensagens[0]?.id);
     },
-    [canal.id, carregar],
+    [chave, carregar],
   );
 
   // Chegar ao topo da lista carrega as anteriores (o botão continua para teclado e leitor de tela).
@@ -241,7 +269,7 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
             {historico.carregando ? 'Carregando…' : 'Carregar mensagens anteriores'}
           </button>
         )}
-        {historico?.fim && <p className="suave inicio-canal">Este é o começo de #{canal.nome}.</p>}
+        {historico?.fim && <p className="suave inicio-canal">{conversa.inicio}</p>}
         {historico?.erro && (
           <div className="erro-carga">
             <p className="erro" role="alert">
@@ -254,7 +282,7 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
             )}
           </div>
         )}
-        <ol className="lista-mensagens" aria-label={`Mensagens de #${canal.nome}`} aria-busy={historico?.carregando ?? true}>
+        <ol className="lista-mensagens" aria-label={conversa.rotuloLista} aria-busy={historico?.carregando ?? true}>
           {mensagens?.map((m) => (
             <ItemMensagem
               key={m.id}
@@ -269,6 +297,12 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
           ))}
         </ol>
       </div>
+      {somenteLeitura ? (
+        <p className="suave somente-leitura" role="note">
+          {somenteLeitura}
+        </p>
+      ) : (
+        <>
       {pendentes.length > 0 && (
         <ul className="pendentes" aria-label="Anexos a enviar">
           {pendentes.map((p) => (
@@ -307,8 +341,8 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
           }}
         />
         <textarea
-          aria-label={`Mensagem para #${canal.nome}`}
-          placeholder={`Mensagem para #${canal.nome}`}
+          aria-label={`Mensagem para ${conversa.titulo}`}
+          placeholder={`Mensagem para ${conversa.titulo}`}
           value={texto}
           onChange={(e) => mudarTexto(e.target.value)}
           onKeyDown={teclas}
@@ -319,6 +353,8 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
           Enviar
         </button>
       </form>
+        </>
+      )}
       <p className="digitando" aria-live="polite">
         {alguemDigitando
           ? textoDigitando(
@@ -334,5 +370,28 @@ export function MensagensCanal({ canal, usuarios, servidorUrl, api, aoEnviar, eu
         </p>
       )}
     </div>
+  );
+}
+
+type PropsCanal = Omit<Props, 'conversa' | 'carregarPagina' | 'api'> & {
+  canal: CanalDto;
+  api: Pick<ClienteApi, 'mensagensCanal' | 'enviarAnexo'>;
+};
+
+/** Conversa de um canal de texto. */
+export function MensagensCanal({ canal, api, ...resto }: PropsCanal) {
+  const carregarPagina = useCallback((antes?: number) => api.mensagensCanal(canal.id, antes), [api, canal.id]);
+  return (
+    <Conversa
+      {...resto}
+      api={api}
+      carregarPagina={carregarPagina}
+      conversa={{
+        chave: chaveCanal(canal.id),
+        titulo: `#${canal.nome}`,
+        inicio: `Este é o começo de #${canal.nome}.`,
+        rotuloLista: `Mensagens de #${canal.nome}`,
+      }}
+    />
   );
 }

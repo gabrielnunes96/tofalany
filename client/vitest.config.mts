@@ -5,5 +5,5 @@ export default defineConfig({
   resolve: {
     alias: { '@tofalando/shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)) },
   },
-  test: { name: 'client', include: ['src/**/*.test.{ts,tsx}'] },
+  test: { name: 'client', include: ['src/**/*.test.{ts,tsx}'], setupFiles: ['./vitest.setup.ts'] },
 });

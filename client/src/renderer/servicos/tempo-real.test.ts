@@ -19,7 +19,7 @@ function socketFalso() {
 
 function montar() {
   const s = socketFalso();
-  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn() };
+  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn(), aoDmAtualizada: vi.fn() };
   const fabrica = vi.fn(() => s as unknown as SocketTofalando);
   let avisarRede: (online: boolean) => void = () => undefined;
   const pararRede = vi.fn();
@@ -106,11 +106,15 @@ describe('conectarTempoReal', () => {
     s.disparar('mensagem:nova', { id: 9 });
     expect(ouvintes.aoMensagemNova).toHaveBeenCalledWith({ id: 9 });
     s.disparar('mensagem:editada', { id: 9, texto: 'b' });
-    s.disparar('mensagem:apagada', { id: 9, canalId: 1 });
-    s.disparar('digitando', { canalId: 1, usuarioId: 2 });
+    s.disparar('mensagem:apagada', { id: 9, canalId: 1, dmId: null });
+    s.disparar('digitando', { canalId: 1, dmId: null, usuarioId: 2 });
+    s.disparar('digitando', { canalId: null, dmId: 4, usuarioId: 3 });
+    s.disparar('dm:atualizada', { id: 4, outroId: 3, ultimaEm: 1 });
     expect(ouvintes.aoMensagemEditada).toHaveBeenCalledWith({ id: 9, texto: 'b' });
-    expect(ouvintes.aoMensagemApagada).toHaveBeenCalledWith(9, 1);
-    expect(ouvintes.aoDigitando).toHaveBeenCalledWith(1, 2);
+    expect(ouvintes.aoMensagemApagada).toHaveBeenCalledWith(9, 'c:1');
+    expect(ouvintes.aoDigitando).toHaveBeenCalledWith('c:1', 2);
+    expect(ouvintes.aoDigitando).toHaveBeenCalledWith('d:4', 3);
+    expect(ouvintes.aoDmAtualizada).toHaveBeenCalledWith({ id: 4, outroId: 3, ultimaEm: 1 });
   });
 
   it('o ola chega ao ouvinte; desconectar remove os ouvintes', () => {

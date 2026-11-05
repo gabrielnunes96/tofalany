@@ -87,4 +87,18 @@ export const MIGRACOES: readonly string[] = [
   CREATE INDEX anexos_mensagem ON anexos(mensagem_id);
   CREATE INDEX anexos_orfaos ON anexos(mensagem_id, criado_em);
   `,
+  // 006 — mensagens diretas (T12). RN-18: só os dois participantes leem; nada vai para a auditoria (RN-21).
+  `
+  CREATE TABLE dms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_a INTEGER NOT NULL REFERENCES usuarios(id),
+    usuario_b INTEGER NOT NULL REFERENCES usuarios(id),
+    criado_em INTEGER NOT NULL,
+    CHECK (usuario_a < usuario_b),
+    UNIQUE (usuario_a, usuario_b)
+  );
+  ALTER TABLE mensagens ADD COLUMN dm_id INTEGER REFERENCES dms(id) ON DELETE CASCADE;
+  CREATE INDEX mensagens_dm ON mensagens(dm_id, id);
+  `,
 ];
+

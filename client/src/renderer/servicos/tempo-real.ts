@@ -5,10 +5,13 @@ import {
   type EventosServidor,
   type MotivoRevogacao,
   type CanalDto,
+  type DmDto,
   type MensagemDto,
   type OlaPayload,
   type UsuarioDto,
+  type Destino,
 } from '@tofalando/shared';
+import { chaveDe, type Chave } from '../estado/chaves';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
 
@@ -24,8 +27,9 @@ export interface OuvintesTempoReal {
   aoCanalRemovido(id: number): void;
   aoMensagemNova(mensagem: MensagemDto): void;
   aoMensagemEditada(mensagem: MensagemDto): void;
-  aoMensagemApagada(id: number, canalId: number | null): void;
-  aoDigitando(canalId: number, usuarioId: number): void;
+  aoMensagemApagada(id: number, chave: Chave | null): void;
+  aoDigitando(chave: Chave, usuarioId: number): void;
+  aoDmAtualizada(dm: DmDto): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -57,7 +61,7 @@ export type RespostaAcao<T> = { ok: true; valor: T } | { ok: false; erro: string
 export interface ConexaoTempoReal {
   desconectar(): void;
   /** Sinal de "digitando" (descartável: sem conexão, não faz nada). */
-  avisarDigitando(canalId: number): void;
+  avisarDigitando(destino: Destino): void;
   /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
   pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
 }
@@ -110,8 +114,12 @@ export function conectarTempoReal(
   socket.on('canal:removido', ({ id }) => ouvintes.aoCanalRemovido(id));
   socket.on('mensagem:nova', (m) => ouvintes.aoMensagemNova(m));
   socket.on('mensagem:editada', (m) => ouvintes.aoMensagemEditada(m));
-  socket.on('mensagem:apagada', ({ id, canalId }) => ouvintes.aoMensagemApagada(id, canalId));
-  socket.on('digitando', ({ canalId, usuarioId }) => ouvintes.aoDigitando(canalId, usuarioId));
+  socket.on('mensagem:apagada', (p) => ouvintes.aoMensagemApagada(p.id, chaveDe(p)));
+  socket.on('digitando', (p) => {
+    const chave = chaveDe(p);
+    if (chave) ouvintes.aoDigitando(chave, p.usuarioId);
+  });
+  socket.on('dm:atualizada', (dm) => ouvintes.aoDmAtualizada(dm));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');
@@ -138,8 +146,8 @@ export function conectarTempoReal(
       socket.removeAllListeners();
       socket.disconnect();
     },
-    avisarDigitando(canalId) {
-      if (socket.connected) socket.emit('digitando', { destino: { canalId } });
+    avisarDigitando(destino) {
+      if (socket.connected) socket.emit('digitando', { destino });
     },
     pedir(evento, dados) {
       if (!socket.connected) return Promise.resolve({ ok: false, erro: SEM_CONEXAO });

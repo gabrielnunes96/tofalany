@@ -31,6 +31,7 @@ export interface ClienteApi {
   lerConvite(): Promise<ConviteDto>;
   trocarConvite(codigo: string): Promise<ConviteDto>;
   mensagensCanal(canalId: number, antes?: number): Promise<PaginaMensagens>;
+  mensagensDm(dmId: number, antes?: number): Promise<PaginaMensagens>;
   enviarAnexo(arquivo: Blob, nome: string): Promise<AnexoDto>;
 }
 
@@ -90,6 +91,7 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
       form.append('arquivo', arquivo, nome);
       return chamar('POST', '/api/anexos', form);
     },
+    mensagensDm: (dmId, antes) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes })}`),
     mensagensCanal: (canalId, antes) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes })}`),
     enviarAvatar: (arquivo, nome) => {
       const form = new FormData();

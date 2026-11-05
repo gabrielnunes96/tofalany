@@ -59,13 +59,13 @@ describe('editar e apagar (CA-18, RN-9)', () => {
     const { dono, ana, bia, canal } = await trio();
     const daAna = await enviar(ana.s, canal, 'apagar pelo admin');
     const daBia = await enviar(bia.s, canal, 'apagar pela autora');
-    const avisos: { id: number; canalId: number | null }[] = [];
+    const avisos: { id: number; canalId: number | null; dmId: number | null }[] = [];
     ana.s.on('mensagem:apagada', (p) => avisos.push(p));
     expect(await pedir(dono.s, 'mensagem:apagar', { id: daAna.id })).toEqual({ ok: true, valor: undefined });
     expect(await pedir(bia.s, 'mensagem:apagar', { id: daBia.id })).toEqual({ ok: true, valor: undefined });
     await expect.poll(() => avisos).toEqual([
-      { id: daAna.id, canalId: canal },
-      { id: daBia.id, canalId: canal },
+      { id: daAna.id, canalId: canal, dmId: null },
+      { id: daBia.id, canalId: canal, dmId: null },
     ]);
     expect((app!.banco.prepare('SELECT COUNT(*) AS n FROM mensagens').get() as { n: number }).n).toBe(0);
     expect(await pedir(dono.s, 'mensagem:apagar', { id: daAna.id })).toEqual({ ok: false, erro: 'Mensagem não encontrada.' });
@@ -88,7 +88,7 @@ describe('digitando (CA-17)', () => {
     ana.s.on('digitando', () => paraAna++);
     ana.s.emit('digitando', { destino: { canalId: 999 } });
     ana.s.emit('digitando', { destino: { canalId: canal } });
-    expect(await naBia).toEqual({ canalId: canal, usuarioId: ana.id });
+    expect(await naBia).toEqual({ canalId: canal, dmId: null, usuarioId: ana.id });
     await new Promise((r) => setTimeout(r, 100));
     expect(paraAna).toBe(0);
   });

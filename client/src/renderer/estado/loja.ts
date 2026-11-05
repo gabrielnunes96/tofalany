@@ -1,8 +1,12 @@
 import { create } from 'zustand';
-import type { CanalDto, MensagemDto, OlaPayload, PaginaMensagens, UsuarioDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, UsuarioDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
-/** Estado da sessão alimentado pelo tempo real (cresce com canais, mensagens, voz…). */
+import { chaveCanal, chaveDe, type Chave } from './chaves';
+
+export { chaveCanal, chaveDe, chaveDm, type Chave } from './chaves';
+
+/** Estado da sessão alimentado pelo tempo real (cresce com voz…). */
 interface Loja {
   conexao: EstadoConexao;
   nomeServidor: string | null;
@@ -10,12 +14,16 @@ interface Loja {
   eu: UsuarioDto | null;
   usuarios: UsuarioDto[];
   canais: CanalDto[];
-  /** Canal de texto aberto no centro. */
+  /** Canal de texto escolhido (fica guardado mesmo com uma DM aberta). */
   canalAtivo: number | null;
-  /** Histórico já carregado por canal (some ao reconectar, para recarregar sem buracos). */
-  historicos: Record<number, Historico>;
-  /** Quem está digitando em cada canal: usuarioId → até quando (ms). */
-  digitando: Record<number, Record<number, number>>;
+  /** DMs da pessoa, da mais recente para a mais antiga. */
+  dms: DmDto[];
+  /** DM aberta no centro (null = mostra o canal ativo). */
+  dmAtiva: number | null;
+  /** Histórico já carregado por conversa (some ao reconectar, para recarregar sem buracos). */
+  historicos: Partial<Record<Chave, Historico>>;
+  /** Quem está digitando em cada conversa: usuarioId → até quando (ms). */
+  digitando: Partial<Record<Chave, Record<number, number>>>;
   definirConexao(estado: EstadoConexao): void;
   aplicarOla(payload: OlaPayload): void;
   adicionarUsuario(usuario: UsuarioDto): void;
@@ -26,14 +34,16 @@ interface Loja {
   salvarCanal(canal: CanalDto): void;
   removerCanal(id: number): void;
   abrirCanal(id: number): void;
+  salvarDm(dm: DmDto): void;
+  abrirDm(id: number): void;
   /** Marca o início de uma carga e devolve a geração dela; respostas de cargas antigas são ignoradas. */
-  iniciarCarga(canalId: number): number;
-  receberPagina(canalId: number, pagina: PaginaMensagens, geracao: number): void;
-  falharCarga(canalId: number, erro: string, geracao: number): void;
+  iniciarCarga(chave: Chave): number;
+  receberPagina(chave: Chave, pagina: PaginaMensagens, geracao: number): void;
+  falharCarga(chave: Chave, erro: string, geracao: number): void;
   adicionarMensagem(mensagem: MensagemDto): void;
   atualizarMensagem(mensagem: MensagemDto): void;
-  removerMensagem(id: number, canalId: number | null): void;
-  registrarDigitando(canalId: number, usuarioId: number, ate: number): void;
+  removerMensagem(id: number, chave: Chave | null): void;
+  registrarDigitando(chave: Chave, usuarioId: number, ate: number): void;
   limpar(): void;
 }
 
@@ -66,12 +76,16 @@ const inicial = {
   usuarios: [] as UsuarioDto[],
   canais: [] as CanalDto[],
   canalAtivo: null as number | null,
-  historicos: {} as Record<number, Historico>,
-  digitando: {} as Record<number, Record<number, number>>,
+  dms: [] as DmDto[],
+  dmAtiva: null as number | null,
+  historicos: {} as Partial<Record<Chave, Historico>>,
+  digitando: {} as Partial<Record<Chave, Record<number, number>>>,
 };
 
 const ordenarCanais = (canais: CanalDto[]) =>
   [...canais].sort((a, b) => (a.tipo === b.tipo ? a.posicao - b.posicao || a.id - b.id : a.tipo === 'texto' ? -1 : 1));
+
+const ordenarDms = (dms: DmDto[]) => [...dms].sort((a, b) => b.ultimaEm - a.ultimaEm || b.id - a.id);
 
 /** Mantém o canal aberto se ele ainda existe; senão abre o primeiro de texto. */
 function canalValido(canais: CanalDto[], atual: number | null): number | null {
@@ -82,7 +96,7 @@ function canalValido(canais: CanalDto[], atual: number | null): number | null {
 export const useLoja = create<Loja>((set) => ({
   ...inicial,
   definirConexao: (conexao) => set({ conexao }),
-  aplicarOla: ({ servidor, convite, eu, usuarios, canais }) =>
+  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -92,7 +106,9 @@ export const useLoja = create<Loja>((set) => ({
         usuarios,
         canais: ordenados,
         canalAtivo: canalValido(ordenados, s.canalAtivo),
-        // Reconectou: o que chegou durante a queda não está aqui; o canal aberto recarrega.
+        dms: ordenarDms(dms),
+        dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
+        // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
         historicos: {},
         digitando: {},
       };
@@ -106,56 +122,60 @@ export const useLoja = create<Loja>((set) => ({
     set((s) => {
       const canais = s.canais.filter((c) => c.id !== id);
       const historicos = { ...s.historicos };
-      delete historicos[id];
+      delete historicos[chaveCanal(id)];
       return { canais, canalAtivo: canalValido(canais, s.canalAtivo), historicos };
     }),
-  iniciarCarga: (canalId) => {
+  salvarDm: (dm) => set((s) => ({ dms: ordenarDms([...s.dms.filter((d) => d.id !== dm.id), dm]) })),
+  abrirDm: (id) => set((s) => ({ dmAtiva: s.dms.some((d) => d.id === id) ? id : s.dmAtiva })),
+  iniciarCarga: (chave) => {
     const geracao = proximaGeracao++;
-    set((s) => ({ historicos: { ...s.historicos, [canalId]: { ...(s.historicos[canalId] ?? historicoVazio), geracao, carregando: true, erro: null } } }));
+    set((s) => ({ historicos: { ...s.historicos, [chave]: { ...(s.historicos[chave] ?? historicoVazio), geracao, carregando: true, erro: null } } }));
     return geracao;
   },
-  receberPagina: (canalId, pagina, geracao) =>
+  receberPagina: (chave, pagina, geracao) =>
     set((s) => {
-      const atual = s.historicos[canalId];
-      // Canal removido, reconexão (ola limpou tudo) ou carga mais nova em andamento: resposta velha, ignora.
+      const atual = s.historicos[chave];
+      // Conversa removida, reconexão (ola limpou tudo) ou carga mais nova em andamento: resposta velha, ignora.
       if (!atual || atual.geracao !== geracao) return {};
       const porId = new Map([...atual.mensagens, ...pagina.mensagens].map((m) => [m.id, m]));
       const mensagens = [...porId.values()].sort((a, b) => a.id - b.id);
-      return { historicos: { ...s.historicos, [canalId]: { ...atual, mensagens, fim: pagina.fim, carregando: false, erro: null } } };
+      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens, fim: pagina.fim, carregando: false, erro: null } } };
     }),
-  falharCarga: (canalId, erro, geracao) =>
+  falharCarga: (chave, erro, geracao) =>
     set((s) => {
-      const atual = s.historicos[canalId];
+      const atual = s.historicos[chave];
       if (!atual || atual.geracao !== geracao) return {};
-      return { historicos: { ...s.historicos, [canalId]: { ...atual, carregando: false, erro } } };
+      return { historicos: { ...s.historicos, [chave]: { ...atual, carregando: false, erro } } };
     }),
   adicionarMensagem: (m) =>
     set((s) => {
-      if (m.canalId === null) return {};
-      const atual = s.historicos[m.canalId];
-      // Canal ainda não carregado: a mensagem vem junto quando ele for aberto.
+      const chave = chaveDe(m);
+      if (!chave) return {};
+      const atual = s.historicos[chave];
       // Quem mandou a mensagem parou de digitar.
-      const quem = { ...(s.digitando[m.canalId] ?? {}) };
+      const quem = { ...(s.digitando[chave] ?? {}) };
       delete quem[m.autorId];
-      const digitando = { ...s.digitando, [m.canalId]: quem };
+      const digitando = { ...s.digitando, [chave]: quem };
+      // Conversa ainda não carregada: a mensagem vem junto quando ela for aberta.
       if (!atual || atual.mensagens.some((x) => x.id === m.id)) return { digitando };
-      return { digitando, historicos: { ...s.historicos, [m.canalId]: { ...atual, mensagens: [...atual.mensagens, m] } } };
+      return { digitando, historicos: { ...s.historicos, [chave]: { ...atual, mensagens: [...atual.mensagens, m] } } };
     }),
   atualizarMensagem: (m) =>
     set((s) => {
-      const atual = m.canalId === null ? undefined : s.historicos[m.canalId];
-      if (!atual) return {};
-      return { historicos: { ...s.historicos, [m.canalId!]: { ...atual, mensagens: atual.mensagens.map((x) => (x.id === m.id ? m : x)) } } };
+      const chave = chaveDe(m);
+      const atual = chave ? s.historicos[chave] : undefined;
+      if (!chave || !atual) return {};
+      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens: atual.mensagens.map((x) => (x.id === m.id ? m : x)) } } };
     }),
-  removerMensagem: (id, canalId) =>
+  removerMensagem: (id, chave) =>
     set((s) => {
-      const atual = canalId === null ? undefined : s.historicos[canalId];
-      if (!atual) return {};
-      return { historicos: { ...s.historicos, [canalId!]: { ...atual, mensagens: atual.mensagens.filter((x) => x.id !== id) } } };
+      const atual = chave ? s.historicos[chave] : undefined;
+      if (!chave || !atual) return {};
+      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens: atual.mensagens.filter((x) => x.id !== id) } } };
     }),
-  registrarDigitando: (canalId, usuarioId, ate) =>
-    set((s) => ({ digitando: { ...s.digitando, [canalId]: { ...(s.digitando[canalId] ?? {}), [usuarioId]: ate } } })),
-  abrirCanal: (id) => set((s) => ({ canalAtivo: canalValido(s.canais, id) })),
+  registrarDigitando: (chave, usuarioId, ate) =>
+    set((s) => ({ digitando: { ...s.digitando, [chave]: { ...(s.digitando[chave] ?? {}), [usuarioId]: ate } } })),
+  abrirCanal: (id) => set((s) => ({ canalAtivo: canalValido(s.canais, id), dmAtiva: null })),
   definirLinkConvite: (linkConvite) => set({ linkConvite }),
   adicionarUsuario: (usuario) =>
     set((s) => ({
@@ -170,7 +190,7 @@ export const useLoja = create<Loja>((set) => ({
     set((s) => ({
       usuarios: s.usuarios.filter((u) => u.id !== id),
       digitando: Object.fromEntries(
-        Object.entries(s.digitando).map(([canal, quem]) => [canal, Object.fromEntries(Object.entries(quem).filter(([u]) => Number(u) !== id))]),
+        Object.entries(s.digitando).map(([chave, quem]) => [chave, Object.fromEntries(Object.entries(quem ?? {}).filter(([u]) => Number(u) !== id))]),
       ),
     })),
   limpar: () => set(inicial),

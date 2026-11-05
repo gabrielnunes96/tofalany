@@ -11,7 +11,7 @@ afterEach(cleanup);
 const extras = { euId: 1, ehAdmin: false, aoEditar: vi.fn(async () => null), aoApagar: vi.fn(async () => null), aoDigitar: vi.fn() };
 const canal = { id: 1, tipo: 'texto' as const, nome: 'geral', posicao: 1 };
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#00f0ff', avatarUrl: null, cargo: 'membro' };
-const msg = (id: number, autorId = 1): MensagemDto => ({ id, canalId: 1, autorId, texto: `texto ${id}`, criadaEm: 1_700_000_000_000 + id, editadaEm: null, anexos: [] });
+const msg = (id: number, autorId = 1): MensagemDto => ({ id, canalId: 1, dmId: null, autorId, texto: `texto ${id}`, criadaEm: 1_700_000_000_000 + id, editadaEm: null, anexos: [] });
 
 describe('MensagensCanal', () => {
   it('carrega, mostra autor ou "conta removida" e pagina para trás pelo botão', async () => {

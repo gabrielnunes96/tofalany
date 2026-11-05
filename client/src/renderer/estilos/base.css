@@ -232,3 +232,9 @@ button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); 
 .pendente.erro .suave { color: var(--erro); }
 .compositor .anexar { padding: 8px 12px; font-size: 1.1rem; }
 .chat.arrastando { outline: 2px dashed var(--destaque); outline-offset: -6px; border-radius: var(--raio); }
+
+.lista-membros .conversar { margin-left: auto; padding: 0 6px; font-size: 0.9rem; color: var(--texto-suave); }
+.lista-membros li:hover .conversar, .lista-membros .conversar:focus-visible { color: var(--destaque); }
+.somente-leitura { padding: 10px; border-top: 1px solid var(--borda); text-align: center; margin: 0; }
+.dica-dm { font-size: 0.78rem; margin: 4px 6px; }
+.titulo-dm { display: flex; align-items: center; gap: 8px; }
