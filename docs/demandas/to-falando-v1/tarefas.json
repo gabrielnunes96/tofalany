@@ -1,0 +1,485 @@
+{
+  "demanda": "to-falando-v1",
+  "titulo": "Tô Falando v1",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Esqueleto do monorepo e primeira execução",
+      "descricao": "Workspaces npm (shared, server, client), TypeScript, ESLint, Vitest e electron-vite. Servidor Fastify com GET /api/servidor e /api/saude. App abre a tela de primeira execução que pede a URL, testa em /api/servidor e guarda nas configurações locais (main/configuracoes.ts).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-1"
+      ],
+      "validacao": "npm run build && npm test verdes; E2E: URL inválida mostra erro, válida avança",
+      "estado": "andamento",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Cadastro, login e sessão",
+      "descricao": "Migration 001 (usuarios, sessoes, configuracoes), POST /api/auth/cadastro|login|sair com scrypt, limite de 20 contas, nome único sem caixa, primeira conta admin, código de convite inicial do ambiente. App: telas de cadastro e login, token cifrado com safeStorage, entra direto ao reabrir.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-6"
+      ],
+      "validacao": "integração dos 4 erros de cadastro e da 1ª conta admin; E2E: reabrir entra sem senha",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "CLI de redefinição de senha",
+      "descricao": "server/src/cli/redefinir-senha.ts: troca a senha de uma conta e revoga as sessões dela; script npm e uso pelo docker compose exec.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-7"
+      ],
+      "validacao": "integração: após o comando, senha nova entra e antiga é recusada",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "Conexão em tempo real",
+      "descricao": "Socket.IO autenticado pelo token, evento ola com o retrato inicial, sessao:revogada, reconexão automática do socket no app com aviso de reconectando. Estado do app em zustand alimentado pelo socket.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-42"
+      ],
+      "validacao": "integração: socket sem token recusado; E2E: derrubar e subir o servidor reconecta com aviso (parte do texto)",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T5",
+      "titulo": "Perfil: avatar, cor e nome de exibição",
+      "descricao": "PUT /api/eu/avatar (sharp 256x256, 8 MB, PNG/JPEG/GIF/WebP), PATCH /api/eu, GET /files/:id, evento usuario:atualizado. Tela de perfil com seletor de cor.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-8"
+      ],
+      "validacao": "integração: 1000x800 vira 256x256, 9 MB e PDF recusados; outro socket recebe usuario:atualizado",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T6",
+      "titulo": "Cargos e administração",
+      "descricao": "PATCH /api/admin/usuarios/:id/cargo, DELETE /api/admin/usuarios/:id (revoga sessões, libera vaga, autor vira conta removida), GET|PUT /api/admin/convite. Guarda de admin em todas as rotas /api/admin. Tela de membros e de configurações do servidor.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-9",
+        "CA-10",
+        "CA-11",
+        "CA-11a",
+        "CA-11b"
+      ],
+      "validacao": "integração: promover, último admin 409, membro 403, remoção desconecta e libera vaga, convite antigo recusado",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T7",
+      "titulo": "Link de convite",
+      "descricao": "GET /convite/:codigo (página com downloads de /downloads, botão tofalando:// e instrução manual). App: copiar link, registrar o protocolo e abrir o cadastro com servidor e código preenchidos (main/deeplink.ts).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-1a"
+      ],
+      "validacao": "integração da página; E2E: abrir o app com tofalando://convite preenche o cadastro",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T8",
+      "titulo": "Canais de texto e de voz",
+      "descricao": "Migration de canais; canal:criar|renomear (qualquer membro) e canal:remover (só admin, com confirmação, apaga mensagens e anexos). Barra lateral com canais de texto e de voz.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-12",
+        "CA-13"
+      ],
+      "validacao": "integração com 2 sockets: mudança em menos de 2 s; membro não remove; admin remove e histórico some",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T9",
+      "titulo": "Chat de texto com histórico",
+      "descricao": "Migration de mensagens; mensagem:enviar e mensagem:nova; GET /api/canais/:id/mensagens paginado por id. Tela do canal com rolagem infinita para cima.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T8"
+      ],
+      "criterios": [
+        "CA-14",
+        "CA-15"
+      ],
+      "validacao": "integração: 500 mensagens paginadas até fim; persistem após reiniciar; E2E: enviar e ver no outro app",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T10",
+      "titulo": "Editar, apagar e digitando",
+      "descricao": "mensagem:editar e mensagem:apagar (autor; admin apaga em canal), marca editada, evento digitando com expiração de 5 s no app.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T9"
+      ],
+      "criterios": [
+        "CA-17",
+        "CA-18"
+      ],
+      "validacao": "integração: edição marca editada, membro alheio recusado, admin apaga; digitando repassado",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T11",
+      "titulo": "Anexos: imagens e documentos",
+      "descricao": "POST /api/anexos (25 MB; JPEG/PNG/GIF/WebP via sharp sem EXIF; PDF/ZIP pela assinatura; nome saneado; Content-Disposition attachment), vínculo na mensagem, limpeza de órfãos. App: botão e arrastar-soltar, imagem ampliável, cartão de documento que salva com diálogo e abre com shell.openPath.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T9"
+      ],
+      "criterios": [
+        "CA-16",
+        "CA-16a",
+        "CA-16b"
+      ],
+      "validacao": "integração: PNG 2 MB, PDF 5 MB e ZIP 20 MB com hash igual; 30 MB 413; exe renomeado 415; E2E: imagem e cartão",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T12",
+      "titulo": "Mensagens diretas",
+      "descricao": "Migration de dms; dm:abrir, destino dmId em mensagens/edição/anexos/digitando, GET /api/dms/:id/mensagens só para participantes (nem admin). Lista de DMs e abrir DM pela lista de membros.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T10",
+        "T11"
+      ],
+      "criterios": [
+        "CA-19a",
+        "CA-19b"
+      ],
+      "validacao": "integração: só B recebe; C e admin recusados ao ler/apagar; E2E: DM com texto e imagem",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T13",
+      "titulo": "Não lidas e notificações",
+      "descricao": "Migration de leituras; lido:marcar; contador por canal e DM no ola e em tempo real; notificação do sistema (main) quando a mensagem chega fora do canal aberto ou com o app sem foco.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T12"
+      ],
+      "criterios": [
+        "CA-19"
+      ],
+      "validacao": "unidade do contador; E2E: contador em outro canal e notificação com app sem foco; usuário confirma a notificação",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T14",
+      "titulo": "Entrar em canal de voz (LiveKit)",
+      "descricao": "LiveKit local em docker para desenvolvimento, POST /api/livekit/token, webhook verificado, presença voz:estado/voz:estados. App: entrar e sair do canal de voz com livekit-client, lista de participantes por canal e indicador de quem fala.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T8"
+      ],
+      "criterios": [
+        "CA-20"
+      ],
+      "validacao": "E2E com 2 apps e áudio falso: B assina a faixa de A e o indicador acende; usuário testa em duas máquinas",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T15",
+      "titulo": "Áudio: dispositivos, tratamento e teste de microfone",
+      "descricao": "Pipeline de áudio (pipeline-audio.ts) com RNNoise WASM e alternativa nativa, eco e ganho independentes, troca de entrada e saída a quente (AudioContext.setSinkId), tela de configurações com medidor de nível, tudo salvo localmente.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "CA-25",
+        "CA-26",
+        "CA-28",
+        "CA-30"
+      ],
+      "validacao": "unidade do pipeline e das configurações; E2E: troca de dispositivo na sala e medidor; usuário testa ruído real",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T16",
+      "titulo": "Detecção de voz, push-to-talk, mute, deafen e atalhos",
+      "descricao": "Portão de voz em AudioWorklet com sensibilidade e marca no medidor; modo PTT; atalhos globais editáveis com uiohook-napi (PTT, mute, deafen) com recusa de conflito; mute e deafen (zera saída e muta microfone).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T15"
+      ],
+      "criterios": [
+        "CA-21",
+        "CA-22",
+        "CA-23",
+        "CA-24"
+      ],
+      "validacao": "unidade do portão e dos conflitos; E2E: atalho abre o portão, deafen zera; usuário testa PTT com app em segundo plano",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T17",
+      "titulo": "Volume por pessoa e sons de voz",
+      "descricao": "Volume 0-200% por participante (webAudioMix), sons de entrar, sair, mutar e desmutar.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "CA-27",
+        "CA-29"
+      ],
+      "validacao": "E2E: volume aplicado só no app B, som de entrada disparado; usuário ouve",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T18",
+      "titulo": "Soundboard: cadastro pelo administrador",
+      "descricao": "Migration de sons; GET /api/sons, POST|PUT|DELETE /api/admin/sons (MP3/OGG/WAV, até 10 s via music-metadata, máximo 5), sons:atualizados. Tela de administração do soundboard.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T6"
+      ],
+      "criterios": [
+        "CA-31"
+      ],
+      "validacao": "integração: som de 8 s aceito, 15 s 422, sexto 409, membro 403",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T19",
+      "titulo": "Soundboard: tocar no canal de voz",
+      "descricao": "som:tocar com presença em voz e intervalo de 3 s no servidor, som:tocado só para a sala; app baixa os sons em cache, botão do soundboard, toca localmente com volume próprio e respeita deafen, mostra quem tocou.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T18",
+        "T14"
+      ],
+      "criterios": [
+        "CA-32",
+        "CA-33",
+        "CA-34",
+        "CA-35"
+      ],
+      "validacao": "integração das regras; E2E: botões desabilitados fora da voz, volume 0 não toca; usuário ouve em outra máquina",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T20",
+      "titulo": "Webcam",
+      "descricao": "Ligar e desligar a câmera no canal de voz (simulcast), grade de vídeos dos participantes.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "CA-36"
+      ],
+      "validacao": "E2E com câmera falsa: B vê o vídeo de A e ele some ao desligar; usuário testa webcam real",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T21",
+      "titulo": "Transmissão de tela com trava por canal",
+      "descricao": "Seletor próprio com miniaturas (desktopCapturer.getSources + setDisplayMediaRequestHandler), tela:pedir/tela:parar com trava por canal, aviso de quem já transmite, visualização grande com tela cheia.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "CA-37",
+        "CA-38",
+        "CA-41"
+      ],
+      "validacao": "integração da trava; E2E com 2 apps: segundo recebe aviso e consegue após o primeiro parar",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T22",
+      "titulo": "Qualidade por cargo, codec e áudio do sistema",
+      "descricao": "Presets de qualidade.ts por cargo (membro só 720p30; admin até 1440p60, padrão próprio), H.264 com opção VP9, simulcast desligado, webhook track_published silencia faixa fora da regra, áudio do sistema por loopback no Windows e opção desabilitada no Linux.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T21"
+      ],
+      "criterios": [
+        "CA-39",
+        "CA-39a",
+        "CA-40"
+      ],
+      "validacao": "integração: membro pedindo 1440p60 recusado e faixa grande silenciada; usuário mede 1440p60 e áudio do sistema no Windows",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T23",
+      "titulo": "Reconexão da sala, memória e privacidade de rede",
+      "descricao": "Reconexão automática da sala LiveKit com aviso, corretor ortográfico desligado, CSP só para o servidor, carregamento sob demanda de voz e RNNoise; E2E de RAM ociosa e de destinos de rede.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T16",
+        "T17",
+        "T19",
+        "T20",
+        "T22"
+      ],
+      "criterios": [
+        "CA-42",
+        "CA-45",
+        "CA-46"
+      ],
+      "validacao": "E2E: queda e volta do LiveKit reconecta; RAM ociosa < 300 MB; só o servidor configurado nas requisições",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T24",
+      "titulo": "Instaladores Windows e Linux",
+      "descricao": "electron-builder: npm run dist:win (NSIS via wine) e npm run dist:linux (.AppImage e .deb), ícone, registro do protocolo tofalando://, uiohook-napi e sharp corretos por plataforma.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T7",
+        "T23"
+      ],
+      "criterios": [
+        "CA-43"
+      ],
+      "validacao": ".AppImage e .deb gerados e o .deb instala e abre aqui; .exe gerado; usuário instala no Windows",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T25",
+      "titulo": "Implantação com docker-compose",
+      "descricao": "server/Dockerfile multi-arch, deploy/docker-compose.yml com perfis tailscale e vps, Caddyfile (/rtc e /twirp para o LiveKit), livekit.yaml (UDP 7882, TCP 7881, webhook), .env.example, healthcheck.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "CA-44"
+      ],
+      "validacao": "docker compose up local (amd64) e app conecta; buildx gera arm64; usuário sobe na VPS",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T26",
+      "titulo": "README de uso e implantação",
+      "descricao": "README com desenvolvimento local, setup via Tailscale, setup em VPS com HTTPS (domínio próprio ou DNS grátis), redefinir senha, limitações (Wayland, áudio do sistema no Linux, SmartScreen) e tabela de banda por qualidade e espectadores.",
+      "repo": ".",
+      "stack": "outra",
+      "depende_de": [
+        "T24",
+        "T25"
+      ],
+      "criterios": [
+        "CA-47"
+      ],
+      "validacao": "usuário segue o README do zero em cada cenário",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}

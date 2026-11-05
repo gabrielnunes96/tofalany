@@ -1,0 +1,55 @@
+{
+  "$schema": "/dados/b2-dev-flow/plugins/fluxo/schema/projeto.schema.json",
+  "nome": "to-falando",
+  "descricao": "Tô Falando: app desktop privado (estilo Discord) de texto, voz, vídeo e transmissão de tela para até 4 pessoas. Monorepo client (Electron) + server (Node) + deploy (docker-compose/LiveKit).",
+  "stacks": [
+    "front",
+    "node"
+  ],
+  "idioma": "pt-BR",
+  "docs": "docs/demandas",
+  "convencoes": [
+    "CLAUDE.md",
+    ".claude/rules/*.md"
+  ],
+  "rastreador": {
+    "tipo": "local"
+  },
+  "comandos": {
+    "restaurar": "npm install",
+    "build": "npm run build",
+    "teste": "npm test",
+    "lint": "npm run lint",
+    "e2e": "npm run test:e2e"
+  },
+  "validacao": {
+    "tipo": "comando",
+    "comando": "npm run build && npm test && npm run lint && npm run test:e2e"
+  },
+  "git": {
+    "branch_base": "main",
+    "commit_por_task": true,
+    "push": "humano",
+    "formato_commit": "{mensagem} ({id})",
+    "coautor": "Claude Opus 5.5 <noreply@anthropic.com>",
+    "nao_versionar": [
+      ".claude/local/",
+      "node_modules/",
+      "dist/",
+      "release/",
+      "server/.env",
+      "server/data/"
+    ]
+  },
+  "protecao": {
+    "segredos": {
+      "arquivos": [
+        "server/.env",
+        "deploy/.env"
+      ]
+    }
+  },
+  "pare_e_pergunte": [
+    "Teste que exige mais de uma pessoa real (voz, vídeo, transmissão entre máquinas): pedir ao usuário para validar e registrar o resultado no card."
+  ]
+}
