@@ -52,9 +52,9 @@
         "CA-7"
       ],
       "validacao": "integração: após o comando, senha nova entra e antiga é recusada",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "5b1211b"
     },
     {
       "id": "T4",

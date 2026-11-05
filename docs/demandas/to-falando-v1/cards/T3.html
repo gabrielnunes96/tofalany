@@ -1,0 +1,28 @@
+<!-- T3 — CLI de redefinição de senha -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-4 (o host redefine a senha por comando no servidor) e CA-7.</p>
+<h3>Padrão</h3>
+<p>Técnica §6: redefinir a senha revoga as sessões. Scripts do servidor em <code>server/src/cli</code>.</p>
+
+<h3>Implementação (04/11/2026, commit 5b1211b)</h3>
+<ul>
+  <li><b>Comando:</b> <code>npm run redefinir-senha -w server -- &lt;usuario&gt;</code> (no Docker: <code>docker compose exec server npm run redefinir-senha -- &lt;usuario&gt;</code>).</li>
+  <li><b>Entrada:</b> senha e confirmação pedidas sem eco no terminal, ou as duas primeiras linhas da entrada padrão; nunca por argumento.</li>
+  <li><b>Efeito:</b> grava o novo hash scrypt e apaga as sessões da conta na mesma transação.</li>
+  <li><b>Saída:</b> 0 ok, 1 uso/senha inválida, 2 usuário não encontrado (inclusive removido no meio), 3 erro interno, 130 cancelado (Ctrl+C, Ctrl+D ou entrada incompleta).</li>
+  <li><b>Pendência registrada na T4:</b> conexões em tempo real abertas precisam cair quando a sessão é revogada por outro processo.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/redefinir-senha.test.ts</code>: CA-7 com o comando em outro processo (senha nova entra, antiga 401, token antigo 401); uso errado, inexistente, senha curta, confirmação diferente, cancelamento, conta removida. Suíte: 72 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 04/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run com entrada redirecionada</td><td>0</td><td>"Senha de ana redefinida…"</td></tr>
+  <tr><td>npm run, entrada sem confirmação</td><td>130</td><td>"Cancelado. A senha não foi alterada."</td></tr>
+  <tr><td>terminal, Ctrl+C / Ctrl+D na pergunta</td><td>130</td><td>cancelado, senha mantida</td></tr>
+  <tr><td>terminal, senha digitada</td><td>0</td><td>senha não aparece na tela; hash confere</td></tr>
+  <tr><td>usuário inexistente</td><td>2</td><td>"Usuário "bia" não encontrado."</td></tr>
+</table>
+<p>Revisão: 6 achados (0 graves, 1 médio, 5 menores); 5 corrigidos, 1 registrado para a T4.</p>
