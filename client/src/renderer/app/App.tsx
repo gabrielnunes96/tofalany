@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import type { MotivoRevogacao, SessaoResponse, UsuarioDto } from '@tofalando/shared';
 import { ponte } from '../servicos/ponte';
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { TelaServidor } from '../telas/TelaServidor';
 import { TelaEntrar } from '../telas/TelaEntrar';
 import { TelaPrincipal } from '../telas/TelaPrincipal';
+import { avisoDeRevogacao } from './avisos';
 
 type Estado =
   | { fase: 'carregando' }
   | { fase: 'escolher-servidor'; voltar: Estado | null }
   | { fase: 'sem-conexao'; url: string; mensagem: string }
-  | { fase: 'entrar'; url: string }
+  | { fase: 'entrar'; url: string; aviso?: string }
   | { fase: 'principal'; url: string; token: string; usuario: UsuarioDto };
 
 export function App() {
@@ -67,6 +68,15 @@ export function App() {
     setEstado({ fase: 'entrar', url });
   }
 
+  const sessaoRevogada = useCallback((motivo: MotivoRevogacao) => {
+    void ponte()
+      .sessao.apagar()
+      .catch(() => undefined);
+    setEstado((atual) =>
+      atual.fase === 'principal' ? { fase: 'entrar', url: atual.url, aviso: avisoDeRevogacao(motivo) } : atual,
+    );
+  }, []);
+
   const trocarServidor = () => setEstado((atual) => ({ fase: 'escolher-servidor', voltar: atual }));
 
   switch (estado.fase) {
@@ -94,14 +104,18 @@ export function App() {
         </main>
       );
     case 'entrar':
-      return <TelaEntrar servidorUrl={estado.url} aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />;
+      return (
+        <TelaEntrar servidorUrl={estado.url} aviso={estado.aviso} aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />
+      );
     case 'principal':
       return (
         <TelaPrincipal
-          usuario={estado.usuario}
           servidorUrl={estado.url}
+          token={estado.token}
+          usuarioInicial={estado.usuario}
           aoSair={() => void sair(estado.url, estado.token)}
           aoTrocarServidor={trocarServidor}
+          aoSessaoRevogada={sessaoRevogada}
         />
       );
   }

@@ -25,6 +25,10 @@ export function paraDto(u: LinhaUsuario): UsuarioDto {
   };
 }
 
+export function listarAtivos(banco: Banco): LinhaUsuario[] {
+  return banco.prepare('SELECT * FROM usuarios WHERE removido_em IS NULL ORDER BY nome_exibicao COLLATE NOCASE, id').all() as LinhaUsuario[];
+}
+
 export function contarContasAtivas(banco: Banco): number {
   return (banco.prepare('SELECT COUNT(*) AS n FROM usuarios WHERE removido_em IS NULL').get() as { n: number }).n;
 }

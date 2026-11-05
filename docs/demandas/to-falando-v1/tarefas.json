@@ -69,7 +69,7 @@
         "CA-42"
       ],
       "validacao": "integração: socket sem token recusado; E2E: derrubar e subir o servidor reconecta com aviso (parte do texto)",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

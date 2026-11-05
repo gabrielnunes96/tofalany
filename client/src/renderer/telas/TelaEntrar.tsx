@@ -4,6 +4,8 @@ import { criarApi, ErroApiCliente, type ClienteApi } from '../servicos/api';
 
 interface Props {
   servidorUrl: string;
+  /** Aviso vindo de fora (ex.: sessão encerrada pelo servidor). */
+  aviso?: string;
   aoEntrar: (sessao: SessaoResponse) => void | Promise<void>;
   aoTrocarServidor: () => void;
   api?: ClienteApi;
@@ -13,7 +15,7 @@ type Modo = 'entrar' | 'cadastrar';
 type Campo = 'convite' | 'usuario' | 'senha';
 
 /** Login e cadastro com código de convite (RF-2, RF-3). */
-export function TelaEntrar({ servidorUrl, aoEntrar, aoTrocarServidor, api }: Props) {
+export function TelaEntrar({ servidorUrl, aviso, aoEntrar, aoTrocarServidor, api }: Props) {
   const [modo, setModo] = useState<Modo>('entrar');
   const [convite, setConvite] = useState('');
   const [usuario, setUsuario] = useState('');
@@ -86,6 +88,11 @@ export function TelaEntrar({ servidorUrl, aoEntrar, aoTrocarServidor, api }: Pro
       <form className="cartao" onSubmit={enviar} noValidate>
         <h1>{modo === 'entrar' ? 'Entrar' : 'Criar conta'}</h1>
         <p className="suave">Servidor: {servidorUrl}</p>
+        {aviso && (
+          <p className="aviso" role="status">
+            {aviso}
+          </p>
+        )}
         <div className="abas" role="group" aria-label="Entrar ou criar conta">
           <button type="button" aria-pressed={modo === 'entrar'} onClick={() => trocarModo('entrar')}>
             Já tenho conta

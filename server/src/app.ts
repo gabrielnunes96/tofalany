@@ -7,10 +7,12 @@ import { ErroHttp } from './erros.js';
 import { garantirCodigoConvite } from './dominio/configuracoes.js';
 import { registrarRotasServidor } from './routes/servidor.js';
 import { registrarRotasAuth } from './routes/auth.js';
+import { criarTempoReal, type TempoReal } from './realtime/tempo-real.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
     banco: Banco;
+    tempoReal: TempoReal;
   }
 }
 
@@ -50,7 +52,9 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
 
   // O app Electron chama de file:// (origem "null") ou do dev server; a autenticação é por token, não por cookie.
   await app.register(cors, { origin: true });
+  const tempoReal = criarTempoReal(app, banco, config);
+  app.decorate('tempoReal', tempoReal);
   registrarRotasServidor(app, banco, config);
-  registrarRotasAuth(app, banco, config);
+  registrarRotasAuth(app, banco, config, tempoReal);
   return app;
 }

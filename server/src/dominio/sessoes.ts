@@ -25,6 +25,15 @@ export function usuarioDaSessao(banco: Banco, token: string, agora: number = Dat
   return linha.id;
 }
 
+/** A sessão (pelo hash) ainda existe e é de um usuário ativo. */
+export function sessaoValida(banco: Banco, tokenHash: string): boolean {
+  return (
+    banco
+      .prepare('SELECT 1 FROM sessoes s JOIN usuarios u ON u.id = s.usuario_id AND u.removido_em IS NULL WHERE s.token_hash = ?')
+      .get(tokenHash) !== undefined
+  );
+}
+
 export function revogarSessao(banco: Banco, token: string): void {
   banco.prepare('DELETE FROM sessoes WHERE token_hash = ?').run(hashToken(token));
 }

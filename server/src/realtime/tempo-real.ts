@@ -1,0 +1,122 @@
+import type { FastifyInstance } from 'fastify';
+import { Server, type Socket } from 'socket.io';
+import {
+  ERRO_HANDSHAKE_NAO_AUTENTICADO,
+  PING_INTERVALO_MS,
+  PING_TOLERANCIA_MS,
+  type EventosCliente,
+  type EventosServidor,
+  type MotivoRevogacao,
+  type OlaPayload,
+} from '@tofalando/shared';
+import type { Banco } from '../db/banco.js';
+import type { Config } from '../config.js';
+import { hashToken } from '../auth/tokens.js';
+import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
+import { buscarPorId, listarAtivos, paraDto } from '../dominio/usuarios.js';
+
+interface DadosSocket {
+  usuarioId: number;
+  tokenHash: string;
+}
+
+type SocketTofalando = Socket<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
+export type ServidorTempoReal = Server<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
+
+export interface TempoReal {
+  io: ServidorTempoReal;
+  /** Derruba as conexões de uma sessão (ex.: saiu por este servidor). */
+  revogarToken(tokenHash: string, motivo: MotivoRevogacao): void;
+  /** Derruba todas as conexões de um usuário (ex.: conta removida, T6). */
+  revogarUsuario(usuarioId: number, motivo: MotivoRevogacao): void;
+  /** Reconfere no banco as sessões conectadas; pega revogações feitas por outro processo (comando da T3). */
+  conferirSessoes(): void;
+}
+
+const salaUsuario = (id: number) => `usuario:${id}`;
+
+export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Config): TempoReal {
+  const io: ServidorTempoReal = new Server(app.server, {
+    // Autenticação é pelo token no handshake, não por cookie.
+    cors: { origin: true },
+    serveClient: false,
+    pingInterval: PING_INTERVALO_MS,
+    pingTimeout: PING_TOLERANCIA_MS,
+  });
+
+  io.use((socket, next) => {
+    const token: unknown = socket.handshake.auth?.token;
+    let usuarioId: number | undefined;
+    try {
+      usuarioId = typeof token === 'string' && token ? usuarioDaSessao(banco, token) : undefined;
+    } catch (erro) {
+      // Falha do banco (ex.: travado): erro transitório, o cliente tenta de novo.
+      app.log.error(erro);
+      return next(new Error('erro_interno'));
+    }
+    if (usuarioId === undefined) return next(new Error(ERRO_HANDSHAKE_NAO_AUTENTICADO));
+    socket.data.usuarioId = usuarioId;
+    socket.data.tokenHash = hashToken(token as string);
+    next();
+  });
+
+  io.on('connection', (socket: SocketTofalando) => {
+    try {
+      aoConectar(socket);
+    } catch (erro) {
+      app.log.error(erro);
+      socket.disconnect(true);
+    }
+  });
+
+  function aoConectar(socket: SocketTofalando) {
+    const eu = buscarPorId(banco, socket.data.usuarioId);
+    if (!eu) {
+      derrubar(socket, 'sessao_invalida');
+      return;
+    }
+    void socket.join(salaUsuario(eu.id));
+    const ola: OlaPayload = {
+      servidor: { nome: config.nomeServidor },
+      eu: paraDto(eu),
+      usuarios: listarAtivos(banco).map(paraDto),
+    };
+    socket.emit('ola', ola);
+  }
+
+  function derrubar(socket: SocketTofalando, motivo: MotivoRevogacao) {
+    socket.emit('sessao:revogada', { motivo });
+    socket.disconnect(true);
+  }
+
+  const tempoReal: TempoReal = {
+    io,
+    revogarToken(tokenHash, motivo) {
+      for (const s of io.of('/').sockets.values()) if (s.data.tokenHash === tokenHash) derrubar(s, motivo);
+    },
+    revogarUsuario(usuarioId, motivo) {
+      for (const s of io.of('/').sockets.values()) if (s.data.usuarioId === usuarioId) derrubar(s, motivo);
+    },
+    conferirSessoes() {
+      for (const s of io.of('/').sockets.values()) if (!sessaoValida(banco, s.data.tokenHash)) derrubar(s, 'sessao_invalida');
+    },
+  };
+
+  const relogio = setInterval(() => {
+    try {
+      tempoReal.conferirSessoes();
+    } catch (erro) {
+      app.log.error(erro);
+    }
+  }, config.intervaloSessaoMs);
+  relogio.unref();
+
+  // Fecha as conexões antes do servidor HTTP; o engine não tenta fechar o servidor do Fastify.
+  app.addHook('preClose', async () => {
+    clearInterval(relogio);
+    io.local.disconnectSockets(true);
+    io.engine.close();
+  });
+
+  return tempoReal;
+}

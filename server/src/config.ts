@@ -16,6 +16,8 @@ export interface Config {
   tentativasPorMinuto: number;
   /** Atrás do Caddy (VPS): usa o IP real do cabeçalho X-Forwarded-For. */
   atrasDeProxy: boolean;
+  /** De quanto em quanto tempo as conexões em tempo real reconferem a sessão no banco. */
+  intervaloSessaoMs: number;
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -47,5 +49,6 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     codigoConvite: ambiente.CODIGO_CONVITE?.trim() || undefined,
     tentativasPorMinuto: inteiro('TENTATIVAS_POR_MINUTO', ambiente.TENTATIVAS_POR_MINUTO, 10, 1),
     atrasDeProxy: ambiente.ATRAS_DE_PROXY === 'true',
+    intervaloSessaoMs: inteiro('INTERVALO_SESSAO_MS', ambiente.INTERVALO_SESSAO_MS, 30_000, 50),
   };
 }

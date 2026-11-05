@@ -51,6 +51,7 @@ describe('lerConfig', () => {
 
   it('usa os padrões', () => {
     expect(lerConfig({})).toMatchObject({
+      intervaloSessaoMs: 30000,
       porta: 3000,
       host: '0.0.0.0',
       nomeServidor: 'Tô Falando',

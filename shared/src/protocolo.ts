@@ -70,3 +70,32 @@ export interface ConfiguracoesLocais {
 export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   servidorUrl: null,
 };
+
+/** Por que o servidor encerrou a conexão em tempo real de uma sessão. */
+export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida';
+
+/** Retrato inicial enviado ao conectar o Socket.IO (cresce com canais, DMs, voz… nas próximas tarefas). */
+export interface OlaPayload {
+  servidor: { nome: string };
+  eu: UsuarioDto;
+  usuarios: UsuarioDto[];
+}
+
+/** Eventos servidor → cliente. */
+export interface EventosServidor {
+  ola: (payload: OlaPayload) => void;
+  'sessao:revogada': (payload: { motivo: MotivoRevogacao }) => void;
+}
+
+/** Eventos cliente → servidor (preenchidos a partir da T8). */
+export type EventosCliente = Record<string, never>;
+
+/**
+ * Batimento do Socket.IO: queda de rede sem fechamento da conexão (cabo, Wi-Fi) é percebida
+ * em até PING_INTERVALO + PING_TOLERANCIA (< 10 s, CA-42).
+ */
+export const PING_INTERVALO_MS = 5000;
+export const PING_TOLERANCIA_MS = 4000;
+
+/** Mensagem do erro de handshake quando o token não vale. */
+export const ERRO_HANDSHAKE_NAO_AUTENTICADO = 'nao_autenticado';

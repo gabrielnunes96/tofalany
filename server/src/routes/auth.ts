@@ -8,6 +8,8 @@ import { criarLimitador, type Limitador } from '../auth/limitador.js';
 import { exigirSessao } from '../auth/sessao-http.js';
 import { buscarPorId, buscarPorLogin, cadastrarUsuario, conferirConvite, paraDto } from '../dominio/usuarios.js';
 import { criarSessao, revogarSessao } from '../dominio/sessoes.js';
+import { hashToken } from '../auth/tokens.js';
+import type { TempoReal } from '../realtime/tempo-real.js';
 
 const texto = { type: 'string', maxLength: 512 } as const;
 const corpoCadastro = {
@@ -24,7 +26,7 @@ const corpoLogin = {
 /** Hash fixo para gastar o mesmo tempo quando o login não existe (não revela quais usuários existem). */
 let hashFicticio: Promise<string> | undefined;
 
-export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: Config): void {
+export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: Config, tempoReal: TempoReal): void {
   const limiteCadastro = criarLimitador(config.tentativasPorMinuto, 60_000);
   const limiteLogin = criarLimitador(config.tentativasPorMinuto, 60_000);
   const limitar = (limitador: Limitador, req: FastifyRequest) => {
@@ -58,6 +60,7 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
 
   app.post('/api/auth/sair', { preHandler: exigirSessao(banco) }, async (req, reply) => {
     revogarSessao(banco, req.tokenSessao!);
+    tempoReal.revogarToken(hashToken(req.tokenSessao!), 'saiu');
     reply.code(204);
   });
 
