@@ -300,9 +300,9 @@
         "CA-30"
       ],
       "validacao": "unidade do pipeline e das configurações; E2E: troca de dispositivo na sala e medidor; usuário testa ruído real",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "346131a"
     },
     {
       "id": "T16",

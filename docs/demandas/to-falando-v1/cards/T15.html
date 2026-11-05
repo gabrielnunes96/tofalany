@@ -1,0 +1,28 @@
+<!-- T15 — Áudio: dispositivos, tratamento e teste de microfone -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-17, RF-18, RF-20, RN-14; CA-25, CA-26, CA-28, CA-30.</p>
+<h3>Padrão</h3>
+<p>Técnica §5 (livekit-client com webAudioMix, saída pelo AudioContext) e R-7 (RNNoise só quando usado).</p>
+
+<h3>Implementação (05/11/2026, commit 346131a)</h3>
+<ul>
+  <li><b>Preferências</b> (<code>config.audio</code>, por máquina): microfone, saída, supressão de ruído, cancelamento de eco, controle automático de ganho e sensibilidade da detecção de voz; validadas no processo principal (<code>mesclarAudio</code>).</li>
+  <li><b>Pipeline</b> (<code>servicos/pipeline-audio.ts</code>): supressão ligada usa o RNNoise (WASM, 48 kHz); se não carregar, usa a do Chromium e a tela avisa "básica"; microfone escolhido que sumiu cai no padrão com aviso; desconectar o microfone encerra também a faixa tratada.</li>
+  <li><b>Na chamada</b>: trocar microfone, saída ou tratamento vale na hora, sem sair da voz (fila de operações: duas trocas seguidas aplicam a mais nova; troca que falha mantém o microfone anterior; sair durante a troca não deixa microfone aberto).</li>
+  <li><b>Tela Configurações</b>: selects de dispositivo (o salvo e desconectado aparece como tal), três tratamentos independentes, teste de microfone com medidor (<code>role=meter</code>, ~12 leituras/s) e marca da sensibilidade; em chamada, o teste mede o microfone da própria chamada (não abre outro). Gravação no disco espera o slider parar.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>pipeline-audio.test.ts</code>, <code>voz.test.ts</code> (inclui corridas), <code>TelaConfiguracoes.test.tsx</code> (inclui sair da tela durante a abertura), <code>configuracoes.test.ts</code>, <code>validacao.test.ts</code>; E2E <code>e2e/voz.spec.ts</code> (CA-25/28/30). Suíte: 295 testes e 20 E2E passando; lint e build verdes. Prints em <code>prints/</code>.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: testar microfone no app empacotado</td><td>ok</td><td>"forte (RNNoise)" e medidor acima de -90 dB (print T15-configuracoes-teste-microfone)</td></tr>
+  <tr><td>E2E: trocar microfone dentro da chamada</td><td>ok</td><td>a chamada passa a usar o dispositivo escolhido, sem sair (print T15-troca-microfone-na-chamada)</td></tr>
+  <tr><td>E2E: voltar ao padrão e desligar a supressão</td><td>ok</td><td>ana vê "dono, falando" (print T15-ana-ouve-dono-depois-das-trocas)</td></tr>
+  <tr><td>E2E: reabrir o app</td><td>ok</td><td>microfone, eco e supressão como escolhidos (print T15-escolhas-guardadas-apos-reabrir)</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> CA-26 com ruído real (ventilador perto do microfone, supressão ligada e desligada) e troca de fone/caixa de som de verdade durante uma chamada.</p>
+<p><b>Observação:</b> o microfone falso do Chromium é um apito; o RNNoise abafa esse tom, e o indicador de fala do LiveKit quase não acende com ele. Por isso a verificação do indicador depois das trocas é feita com a supressão desligada. Com voz humana não é esperado esse efeito, mas vale conferir na validação manual.</p>
+<p>Revisão: 11 achados (1 grave, 5 médios, 5 menores), todos corrigidos.</p>
