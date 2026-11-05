@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarTextoMensagem, validarNomeCanal, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarTextoMensagem, validarNomeCanal, validarNomeSom, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -88,6 +88,16 @@ describe('link do app (RF-1a)', () => {
     expect(lerLinkConvite('tofalany://convite?servidor=javascript:alert(1)&codigo=abcdef')).toBeUndefined();
     expect(lerLinkConvite('tofalany://convite?servidor=http://a&codigo=a b')).toBeUndefined();
     expect(lerLinkConvite('não é url')).toBeUndefined();
+  });
+});
+
+describe('validarNomeSom', () => {
+  it('colapsa espaços e recusa vazio, longo e caracteres de controle', () => {
+    expect(validarNomeSom('  Grilo   2 ')).toEqual({ ok: true, valor: 'Grilo 2' });
+    expect(validarNomeSom('   ').ok).toBe(false);
+    expect(validarNomeSom('a'.repeat(32)).ok).toBe(true);
+    expect(validarNomeSom('a'.repeat(33)).ok).toBe(false);
+    expect(validarNomeSom('a\u0007b').ok).toBe(false);
   });
 });
 

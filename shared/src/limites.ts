@@ -36,5 +36,11 @@ export const ANEXOS_POR_MENSAGEM = 10;
 export const ANEXO_IMAGEM_MAX_PIXELS = 40_000_000;
 export const EXTENSOES_ANEXO = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'zip'] as const;
 
+/** RN-11: soundboard com até 5 sons de até 10 s (arquivo até 2 MB). */
+export const SONS_MAX = 5;
+export const SOM_DURACAO_MAX_MS = 10_000;
+export const SOM_MAX_BYTES = 2 * 1024 * 1024;
+export const NOME_SOM_MAX = 32;
+
 /** Cores sorteadas para o perfil de quem acabou de se cadastrar (o usuário troca no perfil, T5). */
 export const CORES_PERFIL = ['#00f0ff', '#ff2a6d', '#fcee0a', '#3dffb0', '#b14bff', '#ff8a00', '#4d7cff', '#ff4dd2'];

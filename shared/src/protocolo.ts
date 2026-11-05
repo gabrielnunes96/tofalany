@@ -72,6 +72,8 @@ export type CodigoErro =
   | 'nao_encontrado'
   | 'sem_permissao'
   | 'ultimo_admin'
+  | 'limite_sons'
+  | 'som_longo'
   | 'arquivo_grande'
   | 'formato_invalido'
   | 'erro_interno';
@@ -148,6 +150,15 @@ export interface PaginaMensagens {
   fim: boolean;
 }
 
+/** Som do soundboard (RF-22). */
+export interface SomDto {
+  id: number;
+  nome: string;
+  /** Caminho no servidor (/files/<id>), relativo à URL do servidor. */
+  url: string;
+  duracaoMs: number;
+}
+
 /** Resposta (ack) dos eventos cliente → servidor. */
 export type Ack<T = undefined> = (resposta: { ok: true; valor: T } | { ok: false; erro: string }) => void;
 
@@ -160,6 +171,7 @@ export interface OlaPayload {
   usuarios: UsuarioDto[];
   canais: CanalDto[];
   dms: DmDto[];
+  sons: SomDto[];
   /** RF-12: mensagens não lidas por conversa ("c:<id>" / "d:<id>"), só as que têm alguma. */
   naoLidas: Record<string, number>;
 }
@@ -182,6 +194,8 @@ export interface EventosServidor {
   'mensagem:apagada': (payload: { id: number; canalId: number | null; dmId: number | null }) => void;
   /** Alguém está digitando no canal ou na DM (não chega para quem digita; DM só para o outro participante). */
   digitando: (payload: { canalId: number | null; dmId: number | null; usuarioId: number }) => void;
+  /** Soundboard mudou (cadastro, troca, remoção): lista inteira, na ordem. */
+  'sons:atualizados': (sons: SomDto[]) => void;
   /** A própria pessoa leu uma conversa (em qualquer computador): o contador zera em todos. */
   'lido:atualizado': (payload: { chave: string; ultimaMensagemId: number }) => void;
   /** Conversa direta nova (ou com mensagem nova): chega só para os dois participantes. */

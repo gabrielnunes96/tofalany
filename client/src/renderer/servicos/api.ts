@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, SomDto, UsuarioDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -33,6 +33,10 @@ export interface ClienteApi {
   mensagensCanal(canalId: number, antes?: number): Promise<PaginaMensagens>;
   mensagensDm(dmId: number, antes?: number): Promise<PaginaMensagens>;
   enviarAnexo(arquivo: Blob, nome: string): Promise<AnexoDto>;
+  sons(): Promise<SomDto[]>;
+  cadastrarSom(nome: string, arquivo: Blob, nomeArquivo: string): Promise<SomDto>;
+  trocarSom(id: number, mudanca: { nome?: string; arquivo?: { dados: Blob; nome: string } }): Promise<SomDto>;
+  removerSom(id: number): Promise<void>;
 }
 
 function consulta(filtro: object): string {
@@ -91,6 +95,20 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
       form.append('arquivo', arquivo, nome);
       return chamar('POST', '/api/anexos', form);
     },
+    sons: () => chamar('GET', '/api/sons'),
+    cadastrarSom: (nome, arquivo, nomeArquivo) => {
+      const form = new FormData();
+      form.append('nome', nome);
+      form.append('arquivo', arquivo, nomeArquivo);
+      return chamar('POST', '/api/admin/sons', form);
+    },
+    trocarSom: (id, mudanca) => {
+      const form = new FormData();
+      if (mudanca.nome !== undefined) form.append('nome', mudanca.nome);
+      if (mudanca.arquivo) form.append('arquivo', mudanca.arquivo.dados, mudanca.arquivo.nome);
+      return chamar('PUT', `/api/admin/sons/${id}`, form);
+    },
+    removerSom: (id) => chamar('DELETE', `/api/admin/sons/${id}`),
     mensagensDm: (dmId, antes) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes })}`),
     mensagensCanal: (canalId, antes) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes })}`),
     enviarAvatar: (arquivo, nome) => {

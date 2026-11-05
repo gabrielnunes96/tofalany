@@ -46,6 +46,23 @@ describe('criarApi', () => {
     expect(init?.headers).toEqual({ authorization: 'Bearer t' });
   });
 
+  it('sons: cadastro e troca em multipart só com os campos enviados', async () => {
+    const buscar = vi.fn((_url: string, _init?: RequestInit) => resposta({ id: 3 }));
+    const api = criarApi('http://s', 't', buscar);
+    await api.cadastrarSom('Grilo', new Blob(['x']), 'g.wav');
+    let [url, init] = buscar.mock.calls[0]!;
+    expect([url, init?.method]).toEqual(['http://s/api/admin/sons', 'POST']);
+    let form = init?.body as FormData;
+    expect(form.get('nome')).toBe('Grilo');
+    expect((form.get('arquivo') as File).name).toBe('g.wav');
+    await api.trocarSom(3, { nome: 'Novo' });
+    [url, init] = buscar.mock.calls[1]!;
+    expect([url, init?.method]).toEqual(['http://s/api/admin/sons/3', 'PUT']);
+    form = init?.body as FormData;
+    expect(form.get('nome')).toBe('Novo');
+    expect(form.has('arquivo')).toBe(false);
+  });
+
   it('aceita 204 sem corpo', async () => {
     await expect(criarApi('http://s', 't', () => resposta(undefined, 204)).sair()).resolves.toBeUndefined();
   });

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, UsuarioDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, UsuarioDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -28,6 +28,12 @@ interface Loja {
   naoLidasIds: Partial<Record<Chave, number[]>>;
   /** Quem está digitando em cada conversa: usuarioId → até quando (ms). */
   digitando: Partial<Record<Chave, Record<number, number>>>;
+  /** Soundboard do servidor (RF-22). */
+  sons: SomDto[];
+  definirSons(sons: SomDto[]): void;
+  /** Resposta de uma ação do admin: mescla por id sobre o estado atual (o evento pode ter chegado antes). */
+  salvarSom(som: SomDto): void;
+  tirarSom(id: number): void;
   definirConexao(estado: EstadoConexao): void;
   aplicarOla(payload: OlaPayload): void;
   adicionarUsuario(usuario: UsuarioDto): void;
@@ -92,6 +98,7 @@ const inicial = {
   naoLidas: {} as Partial<Record<Chave, number>>,
   naoLidasIds: {} as Partial<Record<Chave, number[]>>,
   digitando: {} as Partial<Record<Chave, Record<number, number>>>,
+  sons: [] as SomDto[],
 };
 
 const ordenarCanais = (canais: CanalDto[]) =>
@@ -108,7 +115,10 @@ function canalValido(canais: CanalDto[], atual: number | null): number | null {
 export const useLoja = create<Loja>((set) => ({
   ...inicial,
   definirConexao: (conexao) => set({ conexao }),
-  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas }) =>
+  definirSons: (sons) => set({ sons }),
+  salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
+  tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
+  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas, sons }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -119,6 +129,7 @@ export const useLoja = create<Loja>((set) => ({
         canais: ordenados,
         canalAtivo: canalValido(ordenados, s.canalAtivo),
         dms: ordenarDms(dms),
+        sons,
         dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
         // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
         historicos: {},

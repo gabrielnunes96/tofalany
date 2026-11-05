@@ -11,6 +11,7 @@ import { registrarRotasAdmin } from './routes/admin.js';
 import { registrarRotasConvite } from './routes/convite.js';
 import { registrarRotasMensagens } from './routes/mensagens.js';
 import { registrarRotasAnexos } from './routes/anexos.js';
+import { registrarRotasSons } from './routes/sons.js';
 import { limparOrfaos } from './dominio/anexos.js';
 import type { ErroApi } from '@tofalando/shared';
 import type { Config } from './config.js';
@@ -112,6 +113,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasAdmin(app, banco, config, tempoReal, armazem);
   registrarRotasMensagens(app, banco);
   registrarRotasAnexos(app, banco, armazem);
+  registrarRotasSons(app, banco, armazem, tempoReal);
   registrarRotasConvite(
     app,
     banco,

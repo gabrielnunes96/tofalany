@@ -20,6 +20,7 @@ import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
 import { listarDms } from '../dominio/dms.js';
 import { contarNaoLidas } from '../dominio/leituras.js';
+import { listarSons } from '../dominio/sons.js';
 import { registrarEventosCanais } from './canais.js';
 import { registrarEventosMensagens } from './mensagens.js';
 import type { Armazem } from '../arquivos/armazem.js';
@@ -157,6 +158,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       canais: listarCanais(banco),
       dms: listarDms(banco, eu.id),
       naoLidas: contarNaoLidas(banco, eu.id),
+      sons: listarSons(banco),
     };
     registrarEventosCanais(io, socket, banco, armazem, (e) => app.log.error(e));
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));

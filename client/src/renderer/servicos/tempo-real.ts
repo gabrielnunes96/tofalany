@@ -8,6 +8,7 @@ import {
   type DmDto,
   type MensagemDto,
   type OlaPayload,
+  type SomDto,
   type UsuarioDto,
   type Destino,
 } from '@tofalando/shared';
@@ -31,6 +32,7 @@ export interface OuvintesTempoReal {
   aoDigitando(chave: Chave, usuarioId: number): void;
   aoDmAtualizada(dm: DmDto): void;
   aoLidoAtualizado(chave: Chave, ultimaMensagemId: number): void;
+  aoSonsAtualizados(sons: SomDto[]): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -126,6 +128,7 @@ export function conectarTempoReal(
   socket.on('lido:atualizado', ({ chave, ultimaMensagemId }) => {
     if (/^[cd]:\d+$/.test(chave)) ouvintes.aoLidoAtualizado(chave as Chave, ultimaMensagemId);
   });
+  socket.on('sons:atualizados', (sons) => ouvintes.aoSonsAtualizados(sons));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');

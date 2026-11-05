@@ -1,4 +1,4 @@
-import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
+import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, NOME_SOM_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
 
@@ -64,6 +64,16 @@ export function validarCodigoConvite(texto: string): Resultado<string> {
   if (codigo.length < 6 || codigo.length > 64) return { ok: false, erro: 'O código deve ter de 6 a 64 caracteres.' };
   if (!/^[A-Za-z0-9_-]+$/.test(codigo)) return { ok: false, erro: 'Use só letras sem acento, números, hífen ou sublinhado no código.' };
   return { ok: true, valor: codigo };
+}
+
+/** Nome de som do soundboard: 1 a NOME_SOM_MAX caracteres visíveis. */
+export function validarNomeSom(texto: string): Resultado<string> {
+  const nome = texto.trim().replace(/\s+/g, ' ');
+  if (!nome) return { ok: false, erro: 'Informe o nome do som.' };
+  if ([...nome].length > NOME_SOM_MAX) return { ok: false, erro: `O nome do som deve ter no máximo ${NOME_SOM_MAX} caracteres.` };
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(nome)) return { ok: false, erro: 'O nome do som tem caracteres inválidos.' };
+  return { ok: true, valor: nome };
 }
 
 /** Cor do perfil no formato #rrggbb (minúsculas). */

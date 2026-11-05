@@ -9,6 +9,7 @@ import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
 import { TelaMembros } from './TelaMembros';
 import { TelaConvite } from './TelaConvite';
+import { TelaSons } from './TelaSons';
 import { Avatar } from '../componentes/Avatar';
 import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
@@ -26,7 +27,7 @@ interface Props {
   aoSessaoRevogada: (motivo: MotivoRevogacao) => void;
 }
 
-type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite';
+type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
 const destinoDe = (chave: Chave): Destino => {
@@ -36,9 +37,10 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada }: Props) {
-  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas } = useLoja(
+  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons } = useLoja(
     useShallow((s) => ({
       naoLidas: s.naoLidas,
+      sons: s.sons,
       dms: s.dms,
       dmAtiva: s.dmAtiva,
       conexao: s.conexao,
@@ -66,6 +68,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       zerarNaoLidas: s.zerarNaoLidas,
       aplicarLeitura: s.aplicarLeitura,
       descontarApagada: s.descontarApagada,
+      definirSons: s.definirSons,
+      salvarSom: s.salvarSom,
+      tirarSom: s.tirarSom,
       abrirDm: s.abrirDm,
       adicionarMensagem: s.adicionarMensagem,
       atualizarMensagem: s.atualizarMensagem,
@@ -129,6 +134,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoDigitando: (chave, usuarioId) => acoes.registrarDigitando(chave, usuarioId, Date.now() + DIGITANDO_DURACAO_MS),
       aoDmAtualizada: acoes.salvarDm,
       aoLidoAtualizado: acoes.aplicarLeitura,
+      aoSonsAtualizados: acoes.definirSons,
       aoRevogada: aoSessaoRevogada,
     });
     conexaoRef.current = conexao;
@@ -142,7 +148,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const usuario = eu ?? usuarioInicial;
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
   const ehAdmin = usuario.cargo === 'admin';
-  const vistaAtual: Vista = !ehAdmin && (vista === 'auditoria' || vista === 'membros' || vista === 'convite') ? 'canal' : vista;
+  const vistaAtual: Vista = !ehAdmin && (vista === 'auditoria' || vista === 'membros' || vista === 'convite' || vista === 'sons') ? 'canal' : vista;
 
   /** Conversa na tela agora (null em perfil/administração). */
   const chaveAberta: Chave | null =
@@ -307,6 +313,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   <button type="button" className="secundario" onClick={() => setVista('convite')}>
                     Convite
                   </button>
+                  <button type="button" className="secundario" onClick={() => setVista('sons')}>
+                    Soundboard
+                  </button>
                   <button type="button" className="secundario" onClick={abrirAuditoria}>
                     Auditoria
                   </button>
@@ -340,6 +349,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoRemover={acoes.removerUsuario}
               aoVoltar={voltar}
             />
+          ) : vistaAtual === 'sons' ? (
+            <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
           ) : vistaAtual === 'convite' ? (
             <TelaConvite api={api} aoVoltar={voltar} />
           ) : vistaAtual === 'perfil' ? (

@@ -109,5 +109,16 @@ export const MIGRACOES: readonly string[] = [
     PRIMARY KEY (usuario_id, chave)
   );
   `,
+  // 008 — soundboard (T18): até 5 sons do servidor todo (RN-11).
+  `
+  CREATE TABLE sons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    arquivo TEXT NOT NULL,
+    duracao_ms INTEGER NOT NULL,
+    criado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    criado_em INTEGER NOT NULL
+  );
+  `,
 ];
 
