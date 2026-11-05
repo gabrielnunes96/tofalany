@@ -320,9 +320,9 @@
         "CA-24"
       ],
       "validacao": "unidade do portão e dos conflitos; E2E: atalho abre o portão, deafen zera; usuário testa PTT com app em segundo plano",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "56b77fe"
     },
     {
       "id": "T17",
