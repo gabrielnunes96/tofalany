@@ -1,0 +1,25 @@
+<!-- T18 — Soundboard: cadastro pelo administrador -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-22, RN-11, CA-31 e CA-50 (parte dos sons).</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (sons:atualizados, ola) e §4 (tabela sons, migration 008); rotas de anexos/avatar e tela de Membros como referência.</p>
+
+<h3>Implementação (05/11/2026, commit 9efb6cc)</h3>
+<ul>
+  <li><b>Servidor:</b> formato pelo conteúdo (RIFF/WAVE, OggS, ID3 ou quadro MP3) e duração pelo music-metadata; até 10 s (422), 2 MB (413) e 5 sons (409, pré-checado antes de ler o upload e confirmado na transação); nome com até 32 caracteres; arquivo com nome aleatório e extensão do formato real; troca apaga o arquivo antigo e falhas apagam o novo; auditoria som_cadastrado/som_trocado/som_removido; evento sons:atualizados para todos; sons no ola.</li>
+  <li><b>App:</b> botão "Soundboard" só para administrador; lista com prévia (player), renomear, trocar áudio e remover com confirmação; cadastro some com 5 sons; respostas mescladas por id na loja (não sobrescrevem mudança de outro admin); foco devolvido ao fechar a renomeação e ao remover.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/sons.test.ts</code> (WAV 8 s/15 s, MP3 e OGG reais, sexto som, 403, 415, 413, troca, 404 sem deixar arquivo, auditoria), <code>validacao.test.ts</code>, <code>TelaSons.test.tsx</code>, <code>loja.test.ts</code>, <code>api.test.ts</code>, E2E <code>e2e/sons.spec.ts</code>. Suíte: 263 testes e 18 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: admin cadastra WAV de 8 s</td><td>ok</td><td>aparece "8,0 s"; prévia carrega com 8 s</td></tr>
+  <tr><td>E2E: WAV de 15 s</td><td>ok</td><td>"no máximo 10 segundos"</td></tr>
+  <tr><td>E2E: renomear e remover</td><td>ok</td><td>lista pública atualizada; lista vazia ao remover</td></tr>
+  <tr><td>E2E: membro</td><td>ok</td><td>sem botão Soundboard</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> cadastrar um MP3 real seu e ouvir a prévia. Tocar no canal de voz é da T19.</p>
+<p>Revisão: 9 achados (0 graves, 3 médios, 6 menores), todos corrigidos. O fechamento da T13 foi para um commit à parte (81d57bc).</p>

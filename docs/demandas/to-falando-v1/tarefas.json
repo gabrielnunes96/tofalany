@@ -357,9 +357,9 @@
         "CA-50"
       ],
       "validacao": "integração: som de 8 s aceito, 15 s 422, sexto 409, membro 403",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "9efb6cc"
     },
     {
       "id": "T19",
