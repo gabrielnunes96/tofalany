@@ -1,4 +1,4 @@
-import { SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
+import { NOME_EXIBICAO_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
 
@@ -46,4 +46,20 @@ export function validarSenha(senha: string): Resultado<string> {
   if (senha.length < SENHA_MIN) return { ok: false, erro: `A senha deve ter pelo menos ${SENHA_MIN} caracteres.` };
   if (senha.length > SENHA_MAX) return { ok: false, erro: `A senha deve ter no máximo ${SENHA_MAX} caracteres.` };
   return { ok: true, valor: senha };
+}
+
+/** Nome de exibição: 1 a 32 caracteres visíveis, sem quebras de linha nem caracteres de controle. */
+export function validarNomeExibicao(texto: string): Resultado<string> {
+  const nome = texto.trim().replace(/\s+/g, ' ');
+  if (!nome) return { ok: false, erro: 'Informe o nome de exibição.' };
+  if ([...nome].length > NOME_EXIBICAO_MAX) return { ok: false, erro: `O nome de exibição deve ter no máximo ${NOME_EXIBICAO_MAX} caracteres.` };
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(nome)) return { ok: false, erro: 'O nome de exibição tem caracteres inválidos.' };
+  return { ok: true, valor: nome };
+}
+
+/** Cor do perfil no formato #rrggbb (minúsculas). */
+export function validarCor(texto: string): Resultado<string> {
+  const cor = texto.trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(cor) ? { ok: true, valor: cor } : { ok: false, erro: 'Cor inválida.' };
 }

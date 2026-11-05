@@ -11,11 +11,11 @@ afterEach(async () => {
 });
 
 describe('GET /api/servidor', () => {
-  it('identifica o servidor Tô Falando com nome, versão, contas e limite', async () => {
+  it('identifica o servidor ToFalany com nome, versão, contas e limite', async () => {
     app = await appTeste({ NOME_SERVIDOR: 'Turma' });
     const antes = await app.inject({ method: 'GET', url: '/api/servidor' });
     expect(antes.statusCode).toBe(200);
-    expect(antes.json()).toEqual({ app: 'tofalando', nome: 'Turma', versao: '0.1.0', contas: 0, limiteContas: 20 });
+    expect(antes.json()).toEqual({ app: 'tofalany', nome: 'Turma', versao: '0.1.0', contas: 0, limiteContas: 20 });
     await cadastrar(app, 'ana');
     expect((await app.inject({ method: 'GET', url: '/api/servidor' })).json()).toMatchObject({ contas: 1 });
   });
@@ -54,9 +54,10 @@ describe('lerConfig', () => {
       intervaloSessaoMs: 30000,
       prazoAuditoriaDias: 30,
       carenciaOfflineMs: 30000,
+      pastaArquivos: undefined,
       porta: 3000,
       host: '0.0.0.0',
-      nomeServidor: 'Tô Falando',
+      nomeServidor: 'ToFalany',
       limiteContas: 20,
       caminhoBanco: 'data/tofalando.db',
       codigoConvite: undefined,

@@ -1,4 +1,4 @@
-# Tô Falando v1 — Plano de desenvolvimento
+# ToFalany v1 — Plano de desenvolvimento
 
 > Demanda: `to-falando-v1` · Base: técnica com auditoria (funcional v4) · 05/11/2026 · Situação: **aprovado em 05/11/2026**
 > Fonte da verdade das tarefas: `tarefas.json` (este arquivo traz a tabela gerada por `plano.py tabela` e a narrativa).

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Tô Falando**: app desktop privado (estilo Discord) para até 4 amigos — texto, voz, vídeo e transmissão de tela. Uso pessoal, não comercial; prioridade é simplicidade, estabilidade e hospedagem barata. Processo no plugin `fluxo`; comandos e proteções em `.claude/projeto.json`.
+**ToFalany**: app desktop privado (estilo Discord) para até 4 amigos — texto, voz, vídeo e transmissão de tela. Uso pessoal, não comercial; prioridade é simplicidade, estabilidade e hospedagem barata. Processo no plugin `fluxo`; comandos e proteções em `.claude/projeto.json`.
 
 ## Arquitetura (planejada)
 | Pasta | Papel |

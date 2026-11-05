@@ -15,7 +15,7 @@ function criarJanela(): BrowserWindow {
     minWidth: 860,
     minHeight: 560,
     show: false,
-    title: 'Tô Falando',
+    title: 'ToFalany',
     backgroundColor: '#1e1f24',
     autoHideMenuBar: true,
     webPreferences: {

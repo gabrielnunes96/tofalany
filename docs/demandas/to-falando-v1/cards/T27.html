@@ -1,0 +1,29 @@
+<!-- T27 — Auditoria: registro, retenção e tela do administrador -->
+<h3>Origem</h3>
+<p>Pedido do usuário em 05/11/2026 (funcional v4): RN-20 a RN-24, RF-34 a RF-36; critérios CA-48, CA-52, CA-53, CA-54, CA-55. CA-49, CA-50 e CA-51 são gravados pelas tarefas das ações (T6, T8, T10, T14, T18, T21).</p>
+<h3>Padrão</h3>
+<p>Técnica: seção "Auditoria", tabela <code>auditoria</code> (migration 002), rota <code>GET /api/admin/auditoria</code>.</p>
+
+<h3>Implementação (05/11/2026, commit aeeb28d)</h3>
+<ul>
+  <li><b>Registro:</b> <code>registrarAuditoria</code> guarda tipo, quem, alvo, canal e os nomes do momento; nunca texto de mensagem nem DM. Eventos desta tarefa: conta_criada (na transação do cadastro), login (junto com a sessão), saiu, online/offline, senha_redefinida (comando do host, com ator "host").</li>
+  <li><b>Online/offline:</b> online na primeira conexão; offline só se a última cair e não voltar em 30 s (CARENCIA_OFFLINE_MS). Ao desligar, "servidor desligado"; após parada brusca, "servidor reiniciado" ao subir.</li>
+  <li><b>Retenção:</b> limpeza ao subir e a cada 6 h; AUDITORIA_DIAS (padrão 30).</li>
+  <li><b>Consulta:</b> <code>GET /api/admin/auditoria</code> com pessoa (ator ou alvo), tipo, canal, período, paginação por <code>antes</code>; 403 sem_permissao para membro; filtro inválido 400.</li>
+  <li><b>App:</b> botão "Auditoria" só para administrador; tela com filtros Pessoa, Evento, De, Até; frases legíveis; carrega mais ao rolar e pelo botão; após erro, só o botão tenta de novo.</li>
+  <li><b>Acréscimo:</b> evento <code>usuario:criado</code> — conta nova aparece para todos sem reconectar (achado pelo E2E).</li>
+  <li><b>Para depois:</b> filtro por canal na tela (T8); contas removidas no filtro Pessoa (T6).</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/auditoria.test.ts</code> (CA-48, CA-52, CA-53 inclusive ao subir, CA-54 com alvo e período, nomes do momento, desligamento/reinício), <code>server/src/realtime/presenca.test.ts</code> (CA-55 com relógio falso e carência padrão), <code>server/test/redefinir-senha.test.ts</code> (senha_redefinida), <code>client/src/renderer/telas/TelaAuditoria.test.tsx</code> (paginação, filtros, erro, rolagem sem laço), <code>auditoria-texto.test.ts</code>, <code>loja.test.ts</code>. Suíte: 112 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: membro entra pelo app</td><td>ok</td><td>não vê o botão "Auditoria"</td></tr>
+  <tr><td>E2E: administrador abre a auditoria</td><td>ok</td><td>"dono criou a conta", "dono ficou online"</td></tr>
+  <tr><td>E2E: filtro Pessoa = ana</td><td>ok</td><td>criou a conta, entrou com usuário e senha, online, offline; nada do dono</td></tr>
+  <tr><td>E2E: suíte completa</td><td>ok</td><td>6 testes passando</td></tr>
+</table>
+<p>Revisão: 9 achados (0 graves, 3 médios, 6 menores); 7 corrigidos, 2 registrados para T6 e T8.</p>

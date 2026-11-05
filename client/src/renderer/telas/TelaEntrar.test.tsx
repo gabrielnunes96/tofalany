@@ -8,12 +8,10 @@ import { ErroApiCliente, type ClienteApi } from '../servicos/api';
 afterEach(cleanup);
 
 const sessao: SessaoResponse = { token: 't', usuario: { id: 1, usuario: 'ana', nomeExibicao: 'ana', cor: '#fff', avatarUrl: null, cargo: 'admin' } };
-const apiFalsa = (extra: Partial<ClienteApi> = {}): ClienteApi => ({
+type ApiEntrar = Pick<ClienteApi, 'cadastrar' | 'entrar'>;
+const apiFalsa = (extra: Partial<ApiEntrar> = {}): ApiEntrar => ({
   cadastrar: vi.fn(() => Promise.resolve(sessao)),
   entrar: vi.fn(() => Promise.resolve(sessao)),
-  sair: vi.fn(() => Promise.resolve()),
-  eu: vi.fn(() => Promise.resolve(sessao.usuario)),
-  auditoria: vi.fn(() => Promise.resolve({ registros: [], fim: true })),
   ...extra,
 });
 const digitar = (rotulo: string, valor: string) => fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });

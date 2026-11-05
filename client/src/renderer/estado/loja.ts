@@ -11,6 +11,8 @@ interface Loja {
   definirConexao(estado: EstadoConexao): void;
   aplicarOla(payload: OlaPayload): void;
   adicionarUsuario(usuario: UsuarioDto): void;
+  /** Mesmo efeito de adicionar (substitui pelo id) e também atualiza "eu" se for a própria pessoa. */
+  atualizarUsuario(usuario: UsuarioDto): void;
   limpar(): void;
 }
 
@@ -31,6 +33,11 @@ export const useLoja = create<Loja>((set) => ({
   adicionarUsuario: (usuario) =>
     set((s) => ({
       usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),
+    })),
+  atualizarUsuario: (usuario) =>
+    set((s) => ({
+      usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),
+      eu: s.eu?.id === usuario.id ? usuario : s.eu,
     })),
   limpar: () => set(inicial),
 }));

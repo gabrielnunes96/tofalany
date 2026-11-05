@@ -1,6 +1,7 @@
 # Demanda original (texto do usuário, sem edição)
 
 > Recebida em 04/11/2026. Nome do produto: "Tô Falando". Pasta: /dados/to-falanu.
+> Em 05/11/2026 o usuário renomeou o app para **"ToFalany"**.
 
 Viabilidade
 

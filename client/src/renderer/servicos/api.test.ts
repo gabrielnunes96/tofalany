@@ -36,6 +36,16 @@ describe('criarApi', () => {
     expect(buscar.mock.calls[0]![0]).toBe('http://s/api/admin/auditoria?pessoa=2&tipo=login&antes=10');
   });
 
+  it('envia o avatar como multipart, sem content-type manual', async () => {
+    const buscar = vi.fn((_url: string, _init?: RequestInit) => resposta({ avatarUrl: '/files/x.webp' }));
+    await criarApi('http://s', 't', buscar).enviarAvatar(new Blob(['x'], { type: 'image/png' }), 'a.png');
+    const [url, init] = buscar.mock.calls[0]!;
+    expect(url).toBe('http://s/api/eu/avatar');
+    expect(init?.method).toBe('PUT');
+    expect(init?.body).toBeInstanceOf(FormData);
+    expect(init?.headers).toEqual({ authorization: 'Bearer t' });
+  });
+
   it('aceita 204 sem corpo', async () => {
     await expect(criarApi('http://s', 't', () => resposta(undefined, 204)).sair()).resolves.toBeUndefined();
   });

@@ -1,8 +1,15 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
+import { criarArmazem, type Armazem } from './arquivos/armazem.js';
+import { registrarRotasArquivos } from './routes/arquivos.js';
+import { registrarRotasPerfil } from './routes/perfil.js';
 import type { ErroApi } from '@tofalando/shared';
 import type { Config } from './config.js';
-import { abrirBanco, type Banco } from './db/banco.js';
+import { abrirBanco, EM_MEMORIA, type Banco } from './db/banco.js';
 import { ErroHttp } from './erros.js';
 import { garantirCodigoConvite } from './dominio/configuracoes.js';
 import { registrarRotasServidor } from './routes/servidor.js';
@@ -17,6 +24,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     banco: Banco;
     tempoReal: TempoReal;
+    armazem: Armazem;
   }
 }
 
@@ -69,11 +77,20 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   });
 
   // O app Electron chama de file:// (origem "null") ou do dev server; a autenticação é por token, não por cookie.
-  await app.register(cors, { origin: true });
+  await app.register(cors, { origin: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] });
+  // Limite geral alto; cada rota define o seu (avatar 8 MB, anexo 25 MB).
+  await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 5 } });
+  const temporaria = !config.pastaArquivos && config.caminhoBanco === EM_MEMORIA;
+  const pasta = config.pastaArquivos ?? (temporaria ? mkdtempSync(join(tmpdir(), 'tofalando-arquivos-')) : join(dirname(config.caminhoBanco), 'arquivos'));
+  const armazem = criarArmazem(pasta);
+  app.decorate('armazem', armazem);
+  if (temporaria) app.addHook('onClose', async () => rmSync(pasta, { recursive: true, force: true }));
   const tempoReal = criarTempoReal(app, banco, config);
   app.decorate('tempoReal', tempoReal);
   registrarRotasServidor(app, banco, config);
   registrarRotasAuth(app, banco, config, tempoReal);
   registrarRotasAuditoria(app, banco);
+  registrarRotasArquivos(app, armazem);
+  registrarRotasPerfil(app, banco, armazem, tempoReal);
   return app;
 }

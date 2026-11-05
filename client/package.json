@@ -2,7 +2,7 @@
   "name": "@tofalando/client",
   "version": "0.1.0",
   "private": true,
-  "description": "Tô Falando: app desktop",
+  "description": "ToFalany: app desktop",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -26,5 +26,6 @@
     "socket.io-client": "^4.8.4",
     "vite": "^8.3.5",
     "zustand": "^5.0.16"
-  }
+  },
+  "productName": "ToFalany"
 }

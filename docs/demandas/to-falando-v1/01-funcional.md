@@ -1,4 +1,4 @@
-# Tô Falando v1 — Especificação funcional
+# ToFalany v1 — Especificação funcional
 
 > Demanda: `to-falando-v1` · Versão 4 · 05/11/2026 · Situação: **aprovada em 05/11/2026**
 
@@ -75,7 +75,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 | ID | Requisito | Regras |
 | --- | --- | --- |
 | RF-1 | Na primeira execução sem convite, o app pede a URL do servidor, testa a conexão e a guarda. A URL pode ser trocada depois nas configurações. | RN-14 |
-| RF-1a | Link de convite: qualquer membro copia no app um link de convite (ex.: `https://servidor/convite/<código>`). Ao abrir o link, a pessoa vê uma página do servidor com o download do instalador (Windows/Linux) e o botão "Abrir no Tô Falando". O app abre com a URL do servidor e o código já preenchidos, e a pessoa só escolhe nome de usuário e senha. | RN-1 |
+| RF-1a | Link de convite: qualquer membro copia no app um link de convite (ex.: `https://servidor/convite/<código>`). Ao abrir o link, a pessoa vê uma página do servidor com o download do instalador (Windows/Linux) e o botão "Abrir no ToFalany". O app abre com a URL do servidor e o código já preenchidos, e a pessoa só escolhe nome de usuário e senha. | RN-1 |
 | RF-2 | Cadastro com código de convite (preenchido pelo link ou digitado), nome de usuário e senha (mínimo 8 caracteres). Depois disso, entra com login e senha. | RN-1, RN-2, RN-3, RN-4 |
 | RF-3 | Login com nome de usuário e senha. A sessão continua ativa ao reabrir o app até o usuário sair. | — |
 | RF-4 | O host redefine a senha de uma conta por comando no servidor. | — |
@@ -125,7 +125,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 ## 8. Critérios de aceite
 **Conta e perfil**
 - **CA-1** (RF-1) — Dado o app instalado sem configuração, quando ele abre, então pede a URL do servidor; com uma URL inacessível, mostra erro e não avança.
-- **CA-1a** (RF-1a) — Dado um membro que copiou o link de convite no app, quando outra pessoa abre o link no navegador, então vê a página com o download; com o app instalado, "Abrir no Tô Falando" abre a tela de cadastro com servidor e código preenchidos, e o cadastro conclui só com nome e senha.
+- **CA-1a** (RF-1a) — Dado um membro que copiou o link de convite no app, quando outra pessoa abre o link no navegador, então vê a página com o download; com o app instalado, "Abrir no ToFalany" abre a tela de cadastro com servidor e código preenchidos, e o cadastro conclui só com nome e senha.
 - **CA-2** (RF-2) — Dado um código de convite errado, quando o visitante tenta se cadastrar, então recebe "código de convite inválido" e nenhuma conta é criada.
 - **CA-3** (RF-2, RN-2) — Dado um servidor com 20 contas, quando um visitante tenta se cadastrar com o código certo, então recebe "limite de contas atingido".
 - **CA-4** (RF-2, RN-3) — Dado que já existe "Gabriel", quando alguém tenta cadastrar "gabriel", então é recusado por nome em uso.

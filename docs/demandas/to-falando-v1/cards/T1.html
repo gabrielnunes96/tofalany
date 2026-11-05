@@ -8,7 +8,7 @@
 <ul>
   <li><b>Rota/contrato:</b> <code>GET /api/servidor</code> → <code>{ app: "tofalando", nome, versao, limiteContas }</code> (o campo <code>contas</code> entra na T2); <code>GET /api/saude</code> → <code>{ ok }</code>. CORS liberado (autenticação será por token).</li>
   <li><b>Servidor:</b> Fastify 5, configuração por variáveis de ambiente (PORTA 1–65535, HOST, NOME_SERVIDOR, LIMITE_CONTAS padrão 20, LOG).</li>
-  <li><b>App:</b> Electron 45 + React 19 (electron-vite). Tela "Endereço do servidor": normaliza (sem esquema assume http://), testa em <code>/api/servidor</code> com tempo limite de 5 s e só guarda se for um servidor Tô Falando. "Trocar servidor" com "Cancelar"; o endereço anterior só é substituído quando o novo passa no teste.</li>
+  <li><b>App:</b> Electron 45 + React 19 (electron-vite). Tela "Endereço do servidor": normaliza (sem esquema assume http://), testa em <code>/api/servidor</code> com tempo limite de 5 s e só guarda se for um servidor ToFalany. "Trocar servidor" com "Cancelar"; o endereço anterior só é substituído quando o novo passa no teste.</li>
   <li><b>Segurança do Electron:</b> corretor ortográfico desligado, links externos no navegador do sistema, navegação da janela bloqueada, pasta de dados de teste só fora do app empacotado.</li>
   <li><b>Fora desta tarefa:</b> CSP (T23); tela após conectar é provisória até o login (T2).</li>
 </ul>

@@ -41,7 +41,7 @@ export function TelaServidor({ aoConectar, aoCancelar, testar = testarServidor }
   return (
     <main className="tela-centro">
       <form className="cartao" onSubmit={enviar} noValidate>
-        <h1>Tô Falando</h1>
+        <h1>ToFalany</h1>
         <p className="suave">Informe o endereço do servidor do seu grupo.</p>
         <label htmlFor="servidor-url">Endereço do servidor</label>
         <input

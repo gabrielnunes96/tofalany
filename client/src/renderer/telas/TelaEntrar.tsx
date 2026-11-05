@@ -8,7 +8,7 @@ interface Props {
   aviso?: string;
   aoEntrar: (sessao: SessaoResponse) => void | Promise<void>;
   aoTrocarServidor: () => void;
-  api?: ClienteApi;
+  api?: Pick<ClienteApi, 'cadastrar' | 'entrar'>;
 }
 
 type Modo = 'entrar' | 'cadastrar';

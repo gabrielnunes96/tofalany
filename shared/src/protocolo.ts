@@ -1,8 +1,8 @@
 /** Tempo máximo do teste de conexão com o servidor (RF-1). */
 export const TEMPO_TESTE_SERVIDOR_MS = 5000;
 
-/** Identificador devolvido por GET /api/servidor para o app reconhecer um servidor Tô Falando. */
-export const APP_ID = 'tofalando';
+/** Identificador devolvido por GET /api/servidor para o app reconhecer um servidor ToFalany. */
+export const APP_ID = 'tofalany';
 
 /** Resposta de GET /api/servidor (público). */
 export interface ServidorInfo {
@@ -27,6 +27,11 @@ export interface UsuarioDto {
   cor: string;
   avatarUrl: string | null;
   cargo: Cargo;
+}
+
+export interface AtualizarPerfilRequest {
+  nomeExibicao?: string;
+  cor?: string;
 }
 
 export interface CadastroRequest {
@@ -56,6 +61,8 @@ export type CodigoErro =
   | 'nao_autenticado'
   | 'nao_encontrado'
   | 'sem_permissao'
+  | 'arquivo_grande'
+  | 'formato_invalido'
   | 'erro_interno';
 
 export interface ErroApi {
@@ -88,6 +95,8 @@ export interface EventosServidor {
   'sessao:revogada': (payload: { motivo: MotivoRevogacao }) => void;
   /** Conta nova no servidor: aparece na lista de todos sem reconectar. */
   'usuario:criado': (usuario: UsuarioDto) => void;
+  /** Perfil mudou (nome, cor, avatar; depois cargo). */
+  'usuario:atualizado': (usuario: UsuarioDto) => void;
 }
 
 /** Eventos cliente → servidor (preenchidos a partir da T8). */

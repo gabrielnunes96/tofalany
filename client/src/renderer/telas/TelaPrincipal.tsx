@@ -5,6 +5,8 @@ import { useLoja } from '../estado/loja';
 import { conectarTempoReal } from '../servicos/tempo-real';
 import { criarApi } from '../servicos/api';
 import { TelaAuditoria } from './TelaAuditoria';
+import { TelaPerfil } from './TelaPerfil';
+import { Avatar } from '../componentes/Avatar';
 
 interface Props {
   servidorUrl: string;
@@ -24,6 +26,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const definirConexao = useLoja((s) => s.definirConexao);
   const aplicarOla = useLoja((s) => s.aplicarOla);
   const adicionarUsuario = useLoja((s) => s.adicionarUsuario);
+  const atualizarUsuario = useLoja((s) => s.atualizarUsuario);
   const limpar = useLoja((s) => s.limpar);
 
   useEffect(() => {
@@ -31,16 +34,17 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoEstado: definirConexao,
       aoOla: aplicarOla,
       aoUsuarioCriado: adicionarUsuario,
+      aoUsuarioAtualizado: atualizarUsuario,
       aoRevogada: aoSessaoRevogada,
     });
     return () => {
       desconectar();
       limpar();
     };
-  }, [servidorUrl, token, definirConexao, aplicarOla, adicionarUsuario, limpar, aoSessaoRevogada]);
+  }, [servidorUrl, token, definirConexao, aplicarOla, adicionarUsuario, atualizarUsuario, limpar, aoSessaoRevogada]);
 
   const usuario = eu ?? usuarioInicial;
-  const [vista, setVista] = useState<'inicio' | 'auditoria'>('inicio');
+  const [vista, setVista] = useState<'inicio' | 'auditoria' | 'perfil'>('inicio');
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
   const ehAdmin = usuario.cargo === 'admin';
 
@@ -55,6 +59,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         <main className="conteudo">
           <TelaAuditoria api={api} usuarios={usuarios} aoVoltar={() => setVista('inicio')} />
         </main>
+      ) : vista === 'perfil' ? (
+        <main className="conteudo">
+          <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={atualizarUsuario} aoVoltar={() => setVista('inicio')} />
+        </main>
       ) : (
       <main className="tela-centro">
         <section className="cartao">
@@ -68,14 +76,17 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               <ul className="lista-membros" aria-label="Membros">
                 {usuarios.map((u) => (
                   <li key={u.id}>
-                    <span className="bolinha" style={{ background: u.cor }} aria-hidden="true" />
-                    {u.nomeExibicao}
+                    <Avatar usuario={u} servidorUrl={servidorUrl} tamanho={24} />
+                    <span>{u.nomeExibicao}</span>
                     {u.cargo === 'admin' && <span className="selo">admin</span>}
                   </li>
                 ))}
               </ul>
             </>
           )}
+          <button type="button" onClick={() => setVista('perfil')}>
+            Meu perfil
+          </button>
           {ehAdmin && (
             <button type="button" onClick={() => setVista('auditoria')}>
               Auditoria

@@ -1,7 +1,7 @@
 {
   "name": "to-falando",
   "private": true,
-  "description": "Tô Falando: app privado de texto, voz, vídeo e transmissão de tela para um grupo de amigos.",
+  "description": "ToFalany: app privado de texto, voz, vídeo e transmissão de tela para um grupo de amigos.",
   "workspaces": [
     "shared",
     "server",

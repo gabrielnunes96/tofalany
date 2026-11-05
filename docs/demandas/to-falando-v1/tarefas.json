@@ -1,6 +1,6 @@
 {
   "demanda": "to-falando-v1",
-  "titulo": "Tô Falando v1",
+  "titulo": "ToFalany v1",
   "item_raiz": null,
   "tarefas": [
     {
@@ -90,9 +90,9 @@
         "CA-55"
       ],
       "validacao": "integração dos eventos de entrada/saída, carência de offline, limpeza, filtros e 403; E2E: admin vê a auditoria, membro não vê a opção",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "aeeb28d"
     },
     {
       "id": "T5",
@@ -107,7 +107,7 @@
         "CA-8"
       ],
       "validacao": "integração: 1000x800 vira 256x256, 9 MB e PDF recusados; outro socket recebe usuario:atualizado",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
@@ -137,7 +137,7 @@
     {
       "id": "T7",
       "titulo": "Link de convite",
-      "descricao": "GET /convite/:codigo (página com downloads de /downloads, botão tofalando:// e instrução manual). App: copiar link, registrar o protocolo e abrir o cadastro com servidor e código preenchidos (main/deeplink.ts).",
+      "descricao": "GET /convite/:codigo (página com downloads de /downloads, botão tofalany:// e instrução manual). App: copiar link, registrar o protocolo e abrir o cadastro com servidor e código preenchidos (main/deeplink.ts).",
       "repo": ".",
       "stack": "front",
       "depende_de": [
@@ -146,7 +146,7 @@
       "criterios": [
         "CA-1a"
       ],
-      "validacao": "integração da página; E2E: abrir o app com tofalando://convite preenche o cadastro",
+      "validacao": "integração da página; E2E: abrir o app com tofalany://convite preenche o cadastro",
       "estado": "a_fazer",
       "wi": null,
       "commit": null
@@ -465,7 +465,7 @@
     {
       "id": "T24",
       "titulo": "Instaladores Windows e Linux",
-      "descricao": "electron-builder: npm run dist:win (NSIS via wine) e npm run dist:linux (.AppImage e .deb), ícone, registro do protocolo tofalando://, uiohook-napi e sharp corretos por plataforma.",
+      "descricao": "electron-builder: npm run dist:win (NSIS via wine) e npm run dist:linux (.AppImage e .deb), ícone, registro do protocolo tofalany://, uiohook-napi e sharp corretos por plataforma.",
       "repo": ".",
       "stack": "front",
       "depende_de": [

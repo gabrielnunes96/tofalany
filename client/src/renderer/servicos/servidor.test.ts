@@ -5,10 +5,10 @@ const json = (corpo: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(corpo), { status, headers: { 'content-type': 'application/json' } }));
 
 describe('testarServidor', () => {
-  it('aceita um servidor Tô Falando', async () => {
-    const buscar = vi.fn(() => json({ app: 'tofalando', nome: 'Turma', versao: '0.1.0', contas: 2, limiteContas: 20 }));
+  it('aceita um servidor ToFalany', async () => {
+    const buscar = vi.fn(() => json({ app: 'tofalany', nome: 'Turma', versao: '0.1.0', contas: 2, limiteContas: 20 }));
     const r = await testarServidor('http://s:3000', buscar);
-    expect(r).toEqual({ ok: true, valor: { app: 'tofalando', nome: 'Turma', versao: '0.1.0', contas: 2, limiteContas: 20 } });
+    expect(r).toEqual({ ok: true, valor: { app: 'tofalany', nome: 'Turma', versao: '0.1.0', contas: 2, limiteContas: 20 } });
     expect(buscar).toHaveBeenCalledWith('http://s:3000/api/servidor', expect.anything());
   });
 
@@ -23,7 +23,7 @@ describe('testarServidor', () => {
   });
 
   it('recusa resposta com campos de tipo errado', async () => {
-    const r = await testarServidor('http://s', () => json({ app: 'tofalando', nome: 'T', versao: 1, limiteContas: '20' }));
+    const r = await testarServidor('http://s', () => json({ app: 'tofalany', nome: 'T', versao: 1, limiteContas: '20' }));
     expect(r).toMatchObject({ ok: false });
   });
 

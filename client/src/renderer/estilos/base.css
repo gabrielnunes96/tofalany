@@ -97,3 +97,10 @@ button.link:hover:not(:disabled) { background: transparent; color: var(--texto);
 .lista-auditoria li:last-child { border-bottom: 0; }
 .lista-auditoria time { color: var(--texto-suave); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .lista-auditoria .sentinela { padding: 0; border: 0; height: 1px; }
+
+.avatar { border-radius: 50%; object-fit: cover; flex: none; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+.perfil-foto { display: flex; align-items: center; gap: 16px; }
+.perfil-foto button { margin: 0; }
+.perfil-form { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+.perfil-form input[type='color'] { width: 64px; height: 36px; padding: 2px; }
+.aviso-ok { color: #8fe3a5; margin: 4px 0 0; }

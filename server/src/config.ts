@@ -22,6 +22,11 @@ export interface Config {
   prazoAuditoriaDias: number;
   /** RN-24: carência antes de registrar "offline". */
   carenciaOfflineMs: number;
+  /**
+   * Pasta dos arquivos enviados (avatares, anexos, sons). Sem ARQUIVOS: "arquivos" ao lado do banco;
+   * com banco em memória (testes), uma pasta temporária.
+   */
+  pastaArquivos: string | undefined;
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -45,7 +50,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
   return {
     porta: inteiro('PORTA', ambiente.PORTA, 3000, 1, 65535),
     host: ambiente.HOST || '0.0.0.0',
-    nomeServidor: ambiente.NOME_SERVIDOR || 'Tô Falando',
+    nomeServidor: ambiente.NOME_SERVIDOR || 'ToFalany',
     limiteContas: inteiro('LIMITE_CONTAS', ambiente.LIMITE_CONTAS, LIMITE_CONTAS_PADRAO, 1),
     versao: lerVersao(),
     log: ambiente.LOG !== 'false',
@@ -55,6 +60,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     atrasDeProxy: ambiente.ATRAS_DE_PROXY === 'true',
     intervaloSessaoMs: inteiro('INTERVALO_SESSAO_MS', ambiente.INTERVALO_SESSAO_MS, 30_000, 50),
     prazoAuditoriaDias: inteiro('AUDITORIA_DIAS', ambiente.AUDITORIA_DIAS, PRAZO_AUDITORIA_DIAS_PADRAO, 1),
+    pastaArquivos: ambiente.ARQUIVOS || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
   };
 }

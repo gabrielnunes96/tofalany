@@ -1,4 +1,4 @@
-import type { CadastroRequest, ErroApi, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import type { AtualizarPerfilRequest, CadastroRequest, ErroApi, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, UsuarioDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -23,6 +23,8 @@ export interface ClienteApi {
   sair(): Promise<void>;
   eu(): Promise<UsuarioDto>;
   auditoria(filtro: FiltroAuditoria): Promise<PaginaAuditoria>;
+  atualizarPerfil(dados: AtualizarPerfilRequest): Promise<UsuarioDto>;
+  enviarAvatar(arquivo: Blob, nome: string): Promise<{ avatarUrl: string }>;
 }
 
 function consulta(filtro: object): string {
@@ -35,15 +37,16 @@ function consulta(filtro: object): string {
 export function criarApi(servidorUrl: string, token: string | null = null, buscar: Buscar = fetch): ClienteApi {
   async function chamar<T>(metodo: string, caminho: string, corpo?: unknown): Promise<T> {
     const cabecalhos: Record<string, string> = {};
-    if (corpo !== undefined) cabecalhos['content-type'] = 'application/json';
+    const formulario = corpo instanceof FormData;
+    if (corpo !== undefined && !formulario) cabecalhos['content-type'] = 'application/json';
     if (token) cabecalhos.authorization = `Bearer ${token}`;
     let resposta: Response;
     try {
       resposta = await buscar(`${servidorUrl}${caminho}`, {
         method: metodo,
         headers: cabecalhos,
-        body: corpo === undefined ? undefined : JSON.stringify(corpo),
-        signal: AbortSignal.timeout(15_000),
+        body: corpo === undefined ? undefined : formulario ? corpo : JSON.stringify(corpo),
+        signal: AbortSignal.timeout(formulario ? 120_000 : 15_000),
       });
     } catch {
       throw new ErroApiCliente(0, 'sem_conexao', 'Sem conexão com o servidor.');
@@ -69,5 +72,11 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     sair: () => chamar('POST', '/api/auth/sair'),
     eu: () => chamar('GET', '/api/eu'),
     auditoria: (filtro) => chamar('GET', `/api/admin/auditoria${consulta(filtro)}`),
+    atualizarPerfil: (dados) => chamar('PATCH', '/api/eu', dados),
+    enviarAvatar: (arquivo, nome) => {
+      const form = new FormData();
+      form.append('arquivo', arquivo, nome);
+      return chamar('PUT', '/api/eu/avatar', form);
+    },
   };
 }

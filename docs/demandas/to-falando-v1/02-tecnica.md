@@ -1,4 +1,4 @@
-# Tô Falando v1 — Especificação técnica
+# ToFalany v1 — Especificação técnica
 
 > Demanda: `to-falando-v1` · Base: funcional v4 · 05/11/2026 · Situação: **aprovada em 05/11/2026**
 
@@ -37,7 +37,7 @@ Todos novos. Autenticação por `Authorization: Bearer <token>` no HTTP e `auth.
 **HTTP (Fastify)**
 | Contrato | Request | Response / erros |
 | --- | --- | --- |
-| `GET /api/servidor` | — (público) | `{ app: "tofalando", nome, versao, contas, limiteContas }` — teste de conexão do RF-1; `app` identifica um servidor Tô Falando (o app recusa outro serviço); `contas` entra na T2 |
+| `GET /api/servidor` | — (público) | `{ app: "tofalando", nome, versao, contas, limiteContas }` — teste de conexão do RF-1; `app` identifica um servidor ToFalany (o app recusa outro serviço); `contas` entra na T2 |
 | `POST /api/auth/cadastro` | `{ convite, usuario, senha }` | `201 { token, usuario }` · `400 dados_invalidos` · `403 convite_invalido` · `409 usuario_em_uso` · `409 limite_contas` |
 | `POST /api/auth/login` | `{ usuario, senha }` | `{ token, usuario }` · `401 credenciais_invalidas` |
 | `POST /api/auth/sair` | — | `204` (revoga a sessão) |
@@ -56,7 +56,7 @@ Todos novos. Autenticação por `Authorization: Bearer <token>` no HTTP e `auth.
 | `POST /api/admin/sons` · `PUT /api/admin/sons/:id` | multipart `nome`, `arquivo` (MP3/OGG/WAV) | `SomDto` · `409 limite_sons` · `422 som_longo` |
 | `DELETE /api/admin/sons/:id` | — | `204` |
 | `GET /files/:id` | — | arquivo (id aleatório de 128 bits; avatar, anexo, som) |
-| `GET /convite/:codigo` | — | página HTML: downloads, botão `tofalando://convite?servidor=<url>&codigo=<c>`, instrução manual |
+| `GET /convite/:codigo` | — | página HTML: downloads, botão `tofalany://convite?servidor=<url>&codigo=<c>`, instrução manual |
 | `GET /downloads/:arquivo` | — | instaladores colocados pelo host na pasta `downloads/` |
 | `GET /api/admin/auditoria?pessoa=<id>&tipo=<tipo>&canal=<id>&de=<ms>&ate=<ms>&antes=<id>&limite=100` | — | `{ registros: RegistroAuditoriaDto[], fim }` (mais recente primeiro; `403 sem_permissao` para membro) |
 | `GET /api/saude` | — | `{ ok, sqlite, livekit }` |
@@ -83,7 +83,7 @@ Servidor → cliente: `ola` (retrato completo ao conectar: eu, usuários, canais
 **Electron (main ↔ renderer, via preload, sem `nodeIntegration`)**: `captura:fontes` → miniaturas de `desktopCapturer.getSources`; `captura:escolher { fonteId, audioSistema }` → usado por `setDisplayMediaRequestHandler`; `atalhos:definir|eventos`; `config:ler|gravar`; `sessao:ler|gravar` (token cifrado com `safeStorage`); `deeplink:convite` (evento); `notificar`.
 
 ## 4. Dados
-SQLite em `server/data/tofalando.db` (volume Docker), WAL ligado. Arquivos em `server/data/arquivos/{avatares,anexos,sons}/`.
+SQLite em `server/data/tofalando.db` (volume Docker), WAL ligado. Arquivos numa pasta só, `arquivos/` ao lado do banco (ou `ARQUIVOS`), com nome aleatório de 128 bits e extensão do tipo conferido.
 
 | Tabela | Colunas principais | Observação |
 | --- | --- | --- |
@@ -133,7 +133,7 @@ Ferramentas: **Vitest** (unidade, nos três pacotes); **integração do servidor
 | CA | Unidade | Integração / E2E | Validação manual (usuário) |
 | --- | --- | --- | --- |
 | CA-1 | validação de URL | E2E: primeira execução, URL inválida mostra erro | — |
-| CA-1a | montagem do link e parse do deeplink | integração `GET /convite/:c`; E2E abre app com `tofalando://` | clicar no link em Windows e no .deb |
+| CA-1a | montagem do link e parse do deeplink | integração `GET /convite/:c`; E2E abre app com `tofalany://` | clicar no link em Windows e no .deb |
 | CA-2, CA-3, CA-4, CA-5 | `validacao.ts` | integração `POST /api/auth/cadastro` (convite errado, 20 contas, nome repetido sem caixa, 1ª conta admin) | — |
 | CA-6 | — | E2E: reabrir app entra direto | — |
 | CA-7 | — | integração: CLI `redefinir-senha` + login | — |
@@ -191,7 +191,7 @@ Ferramentas: **Vitest** (unidade, nos três pacotes); **integração do servidor
 | R-3 | Codec da transmissão | VP9; H.264; automático | H.264 por padrão (codificação por hardware comum no Windows, menos CPU em 1440p60), VP9 como opção nas configurações. Sem simulcast na tela. No Linux o Chromium quase sempre codifica por software: 1440p60 pode pesar na CPU. |
 | R-4 | Soundboard: como chega o som | misturar no microfone; faixa extra no LiveKit; cada app toca localmente | Cada app toca localmente ao receber `som:tocado` (arquivos baixados e guardados em cache ao conectar). Latência baixa, respeita volume local e deafen, sem mexer no áudio do microfone. O servidor valida presença e intervalo. |
 | R-5 | Captura de tela no Linux Wayland usa o seletor do sistema (PipeWire), não miniaturas próprias | — | X11: seletor próprio. Wayland: habilitar `WebRTCPipeWireCapturer` e aceitar o seletor do sistema; README documenta. Áudio do sistema no Linux: indisponível (RF-29). |
-| R-6 | Link `tofalando://` no AppImage não se registra sozinho | só .deb/.exe; registrar ao abrir | .exe e .deb registram na instalação; o AppImage registra o próprio `.desktop` na primeira execução. A página do convite sempre mostra servidor e código para digitar à mão. |
+| R-6 | Link `tofalany://` no AppImage não se registra sozinho | só .deb/.exe; registrar ao abrir | .exe e .deb registram na instalação; o AppImage registra o próprio `.desktop` na primeira execução. A página do convite sempre mostra servidor e código para digitar à mão. |
 | R-7 | RAM < 300 MB | — | Sem biblioteca visual, React leve, corretor desligado, nada carregado antes de usar (voz/RNNoise só ao entrar no canal). Medido no E2E (CA-45). Se estourar, primeiro corte: lazy load de telas. |
 | R-8 | Instalador Windows sem assinatura de código | assinar (certificado pago); sem assinatura | Sem assinatura (sem custo, RNF). O Windows mostra aviso do SmartScreen na primeira instalação; README explica. |
 | R-9 | `.exe` gerado no Linux | wine local; CI no Windows | wine 9 já está instalado: `dist:win` roda aqui. |

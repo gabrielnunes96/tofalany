@@ -5,7 +5,7 @@ import { iguaisSeguro } from '../auth/tokens.js';
 import { CHAVE_CONVITE, lerConfiguracao } from './configuracoes.js';
 import { registrarAuditoria } from './auditoria.js';
 
-interface LinhaUsuario {
+export interface LinhaUsuario {
   id: number;
   usuario: string;
   senha_hash: string;

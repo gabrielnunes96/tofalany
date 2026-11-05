@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizarUrlServidor, normalizarUsuario, validarSenha, validarUsuario } from './validacao.js';
+import { normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -44,5 +44,25 @@ describe('validarSenha', () => {
     expect(validarSenha('1234567')).toMatchObject({ ok: false });
     expect(validarSenha('12345678')).toEqual({ ok: true, valor: '12345678' });
     expect(validarSenha('x'.repeat(129))).toMatchObject({ ok: false });
+  });
+});
+
+describe('validarNomeExibicao', () => {
+  it('apara, junta espaços e aceita acentos e emoji', () => {
+    expect(validarNomeExibicao('  João   da  Silva ')).toEqual({ ok: true, valor: 'João da Silva' });
+    expect(validarNomeExibicao('Bia 🎧')).toEqual({ ok: true, valor: 'Bia 🎧' });
+  });
+  it('recusa vazio, longo e controle', () => {
+    expect(validarNomeExibicao('   ')).toMatchObject({ ok: false });
+    expect(validarNomeExibicao('x'.repeat(33))).toMatchObject({ ok: false });
+    expect(validarNomeExibicao('a\u0007b')).toMatchObject({ ok: false });
+  });
+});
+
+describe('validarCor', () => {
+  it('aceita #rrggbb e normaliza', () => {
+    expect(validarCor('#FFAA00')).toEqual({ ok: true, valor: '#ffaa00' });
+    expect(validarCor('red')).toMatchObject({ ok: false });
+    expect(validarCor('#fff')).toMatchObject({ ok: false });
   });
 });

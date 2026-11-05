@@ -9,5 +9,15 @@ export const SENHA_MAX = 128;
 export const USUARIO_MIN = 3;
 export const USUARIO_MAX = 32;
 
+/** RN-15: avatar até 8 MB, gravado em 256×256. */
+export const AVATAR_MAX_BYTES = 8 * 1024 * 1024;
+export const AVATAR_LADO = 256;
+export const FORMATOS_AVATAR = ['png', 'jpeg', 'gif', 'webp'] as const;
+/** Teto de resolução ao decodificar imagens (evita "bomba de descompressão"). */
+export const IMAGEM_MAX_PIXELS = 4096 * 4096;
+
+/** Nome de exibição (pode repetir, RN-3). */
+export const NOME_EXIBICAO_MAX = 32;
+
 /** Cores sorteadas para o perfil de quem acabou de se cadastrar (o usuário troca no perfil, T5). */
 export const CORES_PERFIL = ['#5865f2', '#57f287', '#fee75c', '#eb459e', '#ed4245', '#f0b232', '#3ba55d', '#00a8fc'];
