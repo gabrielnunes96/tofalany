@@ -1,0 +1,35 @@
+{
+  "name": "to-falando",
+  "private": true,
+  "description": "Tô Falando: app privado de texto, voz, vídeo e transmissão de tela para um grupo de amigos.",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
+    "test": "vitest run",
+    "test:e2e": "npm run build -w shared && npm run build -w server && npm run test:e2e -w client",
+    "lint": "eslint .",
+    "dev:server": "npm run build -w shared && npm run dev -w server",
+    "dev:client": "npm run build -w shared && npm run dev -w client"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  },
+  "type": "module"
+}

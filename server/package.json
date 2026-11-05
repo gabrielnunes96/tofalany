@@ -1,0 +1,20 @@
+{
+  "name": "@tofalando/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.4.0",
+    "fastify": "^5.12.8",
+    "@tofalando/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

@@ -1,0 +1,39 @@
+import { readFileSync } from 'node:fs';
+import { LIMITE_CONTAS_PADRAO } from '@tofalando/shared';
+
+export interface Config {
+  porta: number;
+  host: string;
+  nomeServidor: string;
+  limiteContas: number;
+  versao: string;
+  log: boolean;
+}
+
+type Ambiente = Record<string, string | undefined>;
+
+function inteiro(nome: string, valor: string | undefined, padrao: number, minimo: number, maximo = Number.MAX_SAFE_INTEGER): number {
+  if (valor === undefined || valor === '') return padrao;
+  const n = Number(valor);
+  if (!Number.isInteger(n) || n < minimo || n > maximo) {
+    throw new Error(`${nome} deve ser um inteiro entre ${minimo} e ${maximo} (recebido: ${valor}).`);
+  }
+  return n;
+}
+
+function lerVersao(): string {
+  const pacote = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+  return pacote.version;
+}
+
+/** Lê a configuração das variáveis de ambiente (arquivo de ambiente do docker-compose). */
+export function lerConfig(ambiente: Ambiente = process.env): Config {
+  return {
+    porta: inteiro('PORTA', ambiente.PORTA, 3000, 1, 65535),
+    host: ambiente.HOST || '0.0.0.0',
+    nomeServidor: ambiente.NOME_SERVIDOR || 'Tô Falando',
+    limiteContas: inteiro('LIMITE_CONTAS', ambiente.LIMITE_CONTAS, LIMITE_CONTAS_PADRAO, 1),
+    versao: lerVersao(),
+    log: ambiente.LOG !== 'false',
+  };
+}

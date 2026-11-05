@@ -1,0 +1,55 @@
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { CONFIGURACOES_PADRAO, normalizarUrlServidor, type ConfiguracoesLocais } from '@tofalando/shared';
+
+export interface ArmazemConfiguracoes {
+  ler(): ConfiguracoesLocais;
+  gravar(parcial: Partial<ConfiguracoesLocais>): ConfiguracoesLocais;
+}
+
+/**
+ * Aplica sobre `base` só os valores válidos de `bruto`; chave desconhecida ou valor inválido
+ * mantém o que já estava. A URL é validada aqui, no processo confiável (vira origem da CSP na T23).
+ */
+function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais {
+  const resultado: ConfiguracoesLocais = { ...base };
+  if (!bruto || typeof bruto !== 'object') return resultado;
+  const obj = bruto as Record<string, unknown>;
+  if ('servidorUrl' in obj) {
+    const valor = obj.servidorUrl;
+    if (valor === null) resultado.servidorUrl = null;
+    else if (typeof valor === 'string') {
+      const url = normalizarUrlServidor(valor);
+      if (url.ok) resultado.servidorUrl = url.valor;
+    }
+  }
+  return resultado;
+}
+
+/** Configurações locais (RN-14) num JSON em userData, gravado de forma atômica. */
+export function criarArmazemConfiguracoes(arquivo: string): ArmazemConfiguracoes {
+  let atual: ConfiguracoesLocais | undefined;
+
+  function ler(): ConfiguracoesLocais {
+    if (!atual) {
+      try {
+        atual = mesclar(CONFIGURACOES_PADRAO, JSON.parse(readFileSync(arquivo, 'utf8')));
+      } catch {
+        atual = { ...CONFIGURACOES_PADRAO };
+      }
+    }
+    return { ...atual };
+  }
+
+  function gravar(parcial: Partial<ConfiguracoesLocais>): ConfiguracoesLocais {
+    const novo = mesclar(ler(), parcial);
+    mkdirSync(dirname(arquivo), { recursive: true });
+    const tmp = `${arquivo}.tmp`;
+    writeFileSync(tmp, JSON.stringify(novo, null, 2), 'utf8');
+    renameSync(tmp, arquivo);
+    atual = novo;
+    return { ...novo };
+  }
+
+  return { ler, gravar };
+}
