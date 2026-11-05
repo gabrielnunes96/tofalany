@@ -1,4 +1,4 @@
-import type { AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import type { AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, UsuarioDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -30,6 +30,7 @@ export interface ClienteApi {
   removerConta(id: number): Promise<void>;
   lerConvite(): Promise<ConviteDto>;
   trocarConvite(codigo: string): Promise<ConviteDto>;
+  mensagensCanal(canalId: number, antes?: number): Promise<PaginaMensagens>;
 }
 
 function consulta(filtro: object): string {
@@ -83,6 +84,7 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     removerConta: (id) => chamar('DELETE', `/api/admin/usuarios/${id}`),
     lerConvite: () => chamar('GET', '/api/admin/convite'),
     trocarConvite: (codigo) => chamar('PUT', '/api/admin/convite', { codigo }),
+    mensagensCanal: (canalId, antes) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes })}`),
     enviarAvatar: (arquivo, nome) => {
       const form = new FormData();
       form.append('arquivo', arquivo, nome);

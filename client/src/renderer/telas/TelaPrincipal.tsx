@@ -49,6 +49,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       salvarCanal: s.salvarCanal,
       removerCanal: s.removerCanal,
       abrirCanal: s.abrirCanal,
+      adicionarMensagem: s.adicionarMensagem,
       limpar: s.limpar,
     })),
   );
@@ -75,6 +76,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoCanalCriado: acoes.salvarCanal,
       aoCanalRenomeado: acoes.salvarCanal,
       aoCanalRemovido: acoes.removerCanal,
+      aoMensagemNova: acoes.adicionarMensagem,
       aoRevogada: aoSessaoRevogada,
     });
     conexaoRef.current = conexao;
@@ -112,6 +114,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       },
     );
   const renomearCanal = (id: number, nome: string) => pedir((c) => c.pedir('canal:renomear', { id, nome }), acoes.salvarCanal);
+  const enviarMensagem = (canalId: number, texto: string) =>
+    pedir((c) => c.pedir('mensagem:enviar', { destino: { canalId }, texto }), acoes.adicionarMensagem);
   const removerCanal = (id: number) => pedir((c) => c.pedir('canal:remover', { id }), () => acoes.removerCanal(id));
 
   function abrirAuditoria() {
@@ -231,6 +235,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               ehAdmin={ehAdmin}
               aoRenomear={renomearCanal}
               aoRemover={removerCanal}
+              usuarios={usuarios}
+              servidorUrl={servidorUrl}
+              api={api}
+              aoEnviar={enviarMensagem}
             />
           )}
         </main>

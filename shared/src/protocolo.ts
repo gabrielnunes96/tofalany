@@ -105,6 +105,22 @@ export interface CanalDto {
   posicao: number;
 }
 
+export interface MensagemDto {
+  id: number;
+  canalId: number | null;
+  autorId: number;
+  texto: string;
+  criadaEm: number;
+  editadaEm: number | null;
+}
+
+export interface PaginaMensagens {
+  /** Da mais antiga para a mais nova. */
+  mensagens: MensagemDto[];
+  /** true quando não há mensagens mais antigas. */
+  fim: boolean;
+}
+
 /** Resposta (ack) dos eventos cliente → servidor. */
 export type Ack<T = undefined> = (resposta: { ok: true; valor: T } | { ok: false; erro: string }) => void;
 
@@ -131,6 +147,7 @@ export interface EventosServidor {
   'canal:criado': (canal: CanalDto) => void;
   'canal:renomeado': (canal: CanalDto) => void;
   'canal:removido': (payload: { id: number }) => void;
+  'mensagem:nova': (mensagem: MensagemDto) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }
@@ -142,6 +159,8 @@ export interface EventosCliente {
   'canal:renomear': (dados: { id: number; nome: string }, ack: Ack<CanalDto>) => void;
   /** RN-7, RN-8: só administrador remove; apaga o histórico do canal. */
   'canal:remover': (dados: { id: number }, ack: Ack) => void;
+  /** RF-8: enviar mensagem num canal de texto (DMs na T12). */
+  'mensagem:enviar': (dados: { destino: { canalId: number }; texto: string }, ack: Ack<MensagemDto>) => void;
 }
 
 /**

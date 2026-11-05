@@ -19,6 +19,7 @@ import { CHAVE_CONVITE, lerConfiguracao } from '../dominio/configuracoes.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
 import { registrarEventosCanais } from './canais.js';
+import { registrarEventosMensagens } from './mensagens.js';
 
 interface DadosSocket {
   usuarioId: number;
@@ -153,6 +154,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       canais: listarCanais(banco),
     };
     registrarEventosCanais(io, socket, banco, (e) => app.log.error(e));
+    registrarEventosMensagens(io, socket, banco, (e) => app.log.error(e));
     socket.emit('ola', ola);
     presenca.entrou(eu.id);
     socket.on('disconnect', () => presenca.saiu(eu.id));

@@ -5,6 +5,7 @@ import {
   type EventosServidor,
   type MotivoRevogacao,
   type CanalDto,
+  type MensagemDto,
   type OlaPayload,
   type UsuarioDto,
 } from '@tofalando/shared';
@@ -21,6 +22,7 @@ export interface OuvintesTempoReal {
   aoCanalCriado(canal: CanalDto): void;
   aoCanalRenomeado(canal: CanalDto): void;
   aoCanalRemovido(id: number): void;
+  aoMensagemNova(mensagem: MensagemDto): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -98,6 +100,7 @@ export function conectarTempoReal(
   socket.on('canal:criado', (canal) => ouvintes.aoCanalCriado(canal));
   socket.on('canal:renomeado', (canal) => ouvintes.aoCanalRenomeado(canal));
   socket.on('canal:removido', ({ id }) => ouvintes.aoCanalRemovido(id));
+  socket.on('mensagem:nova', (m) => ouvintes.aoMensagemNova(m));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');

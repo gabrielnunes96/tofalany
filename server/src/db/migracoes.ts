@@ -57,4 +57,16 @@ export const MIGRACOES: readonly string[] = [
   INSERT INTO canais (tipo, nome, posicao, criado_em) VALUES ('texto', 'geral', 1, CAST(strftime('%s','now') AS INTEGER) * 1000);
   INSERT INTO canais (tipo, nome, posicao, criado_em) VALUES ('voz', 'Sala 1', 1, CAST(strftime('%s','now') AS INTEGER) * 1000);
   `,
+  // 004 — mensagens de canal (T9). Remover o canal apaga o histórico (RN-8).
+  `
+  CREATE TABLE mensagens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    canal_id INTEGER REFERENCES canais(id) ON DELETE CASCADE,
+    autor_id INTEGER NOT NULL REFERENCES usuarios(id),
+    texto TEXT NOT NULL,
+    criada_em INTEGER NOT NULL,
+    editada_em INTEGER
+  );
+  CREATE INDEX mensagens_canal ON mensagens(canal_id, id);
+  `,
 ];

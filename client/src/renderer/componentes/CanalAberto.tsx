@@ -1,16 +1,22 @@
 import { useState } from 'react';
-import type { CanalDto } from '@tofalando/shared';
+import type { CanalDto, UsuarioDto } from '@tofalando/shared';
+import type { ClienteApi } from '../servicos/api';
 import { FormNome } from './FormNome';
+import { MensagensCanal } from './MensagensCanal';
 
 interface Props {
   canal: CanalDto | undefined;
   ehAdmin: boolean;
   aoRenomear: (id: number, nome: string) => Promise<string | null>;
   aoRemover: (id: number) => Promise<string | null>;
+  usuarios: UsuarioDto[];
+  servidorUrl: string;
+  api: Pick<ClienteApi, 'mensagensCanal'>;
+  aoEnviar: (canalId: number, texto: string) => Promise<string | null>;
 }
 
-/** Cabeçalho e conteúdo do canal de texto aberto (as mensagens entram na T9). */
-export function CanalAberto({ canal, ehAdmin, aoRenomear, aoRemover }: Props) {
+/** Cabeçalho do canal de texto aberto (renomear, remover) e o chat dele. */
+export function CanalAberto({ canal, ehAdmin, aoRenomear, aoRemover, usuarios, servidorUrl, api, aoEnviar }: Props) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -84,9 +90,7 @@ export function CanalAberto({ canal, ehAdmin, aoRenomear, aoRemover }: Props) {
           {erro}
         </p>
       )}
-      <div className="mensagens" aria-label={`Mensagens de #${canal.nome}`}>
-        <p className="suave">Nenhuma mensagem ainda em #{canal.nome}.</p>
-      </div>
+      <MensagensCanal canal={canal} usuarios={usuarios} servidorUrl={servidorUrl} api={api} aoEnviar={(texto) => aoEnviar(canal.id, texto)} />
     </section>
   );
 }

@@ -64,13 +64,20 @@ describe('BarraLateral', () => {
   });
 });
 
+const extras = {
+  usuarios: [],
+  servidorUrl: 'http://s',
+  api: { mensagensCanal: vi.fn(async () => ({ mensagens: [], fim: true })) },
+  aoEnviar: vi.fn(async () => null),
+};
+
 describe('CanalAberto', () => {
   it('membro não vê remover; admin confirma e o botão fica desativado durante o pedido', async () => {
-    const { rerender } = render(<CanalAberto canal={canais[0]} ehAdmin={false} aoRenomear={vi.fn()} aoRemover={vi.fn()} />);
+    const { rerender } = render(<CanalAberto canal={canais[0]} ehAdmin={false} aoRenomear={vi.fn()} aoRemover={vi.fn()} {...extras} />);
     expect(screen.queryByRole('button', { name: 'Remover canal' })).toBeNull();
     let terminar: (v: string | null) => void = () => undefined;
     const aoRemover = vi.fn(() => new Promise<string | null>((r) => (terminar = r)));
-    rerender(<CanalAberto canal={canais[0]} ehAdmin aoRenomear={vi.fn()} aoRemover={aoRemover} />);
+    rerender(<CanalAberto canal={canais[0]} ehAdmin aoRenomear={vi.fn()} aoRemover={aoRemover} {...extras} />);
     fireEvent.click(screen.getByRole('button', { name: 'Remover canal' }));
     const confirmar = screen.getByRole('button', { name: 'Confirmar remoção' });
     fireEvent.click(confirmar);
@@ -82,7 +89,7 @@ describe('CanalAberto', () => {
   });
 
   it('sem canal de texto, orienta a criar um', () => {
-    render(<CanalAberto canal={undefined} ehAdmin={false} aoRenomear={vi.fn()} aoRemover={vi.fn()} />);
+    render(<CanalAberto canal={undefined} ehAdmin={false} aoRenomear={vi.fn()} aoRemover={vi.fn()} {...extras} />);
     expect(screen.getByText('Nenhum canal de texto. Crie um na barra ao lado.')).toBeTruthy();
   });
 });

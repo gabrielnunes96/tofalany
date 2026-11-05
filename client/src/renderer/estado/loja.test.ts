@@ -60,3 +60,62 @@ describe('canais na loja', () => {
     expect(useLoja.getState().canalAtivo).toBe(2);
   });
 });
+
+describe('histórico de mensagens na loja', () => {
+  beforeEach(() => useLoja.getState().limpar());
+  const msg = (id: number, canalId = 1) => ({ id, canalId, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null });
+
+  it('primeira carga, páginas antigas na frente, novas no fim, sem duplicar', () => {
+    const l = useLoja.getState();
+    l.adicionarMensagem(msg(99));
+    expect(useLoja.getState().historicos[1]).toBeUndefined();
+    let g = l.iniciarCarga(1);
+    expect(useLoja.getState().historicos[1]?.carregando).toBe(true);
+    l.receberPagina(1, { mensagens: [msg(5), msg(6)], fim: false }, g);
+    l.adicionarMensagem(msg(7));
+    l.adicionarMensagem(msg(7));
+    g = l.iniciarCarga(1);
+    l.receberPagina(1, { mensagens: [msg(3), msg(4)], fim: true }, g);
+    const h = useLoja.getState().historicos[1]!;
+    expect(h.mensagens.map((m) => m.id)).toEqual([3, 4, 5, 6, 7]);
+    expect(h).toMatchObject({ fim: true, carregando: false });
+    g = l.iniciarCarga(1);
+    l.falharCarga(1, 'Sem conexão', g);
+    expect(useLoja.getState().historicos[1]).toMatchObject({ erro: 'Sem conexão', mensagens: h.mensagens });
+  });
+
+  it('reconexão (ola) descarta os históricos; remover canal também', () => {
+    const l = useLoja.getState();
+    l.receberPagina(1, { mensagens: [msg(1)], fim: true }, l.iniciarCarga(1));
+    l.receberPagina(2, { mensagens: [msg(2, 2)], fim: true }, l.iniciarCarga(2));
+    l.removerCanal(2);
+    expect(useLoja.getState().historicos[2]).toBeUndefined();
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [] });
+    expect(useLoja.getState().historicos).toEqual({});
+  });
+});
+
+describe('respostas atrasadas do histórico', () => {
+  beforeEach(() => useLoja.getState().limpar());
+  const msg = (id: number) => ({ id, canalId: 1, autorId: 1, texto: `m${id}`, criadaEm: id, editadaEm: null });
+
+  it('resposta de antes da reconexão é ignorada; a ordem fica certa', () => {
+    const l = useLoja.getState();
+    const velha = l.iniciarCarga(1);
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [] });
+    const nova = l.iniciarCarga(1);
+    l.receberPagina(1, { mensagens: [msg(11), msg(12)], fim: false }, nova);
+    l.receberPagina(1, { mensagens: [msg(1), msg(2)], fim: false }, velha);
+    expect(useLoja.getState().historicos[1]!.mensagens.map((m) => m.id)).toEqual([11, 12]);
+  });
+
+  it('resposta de canal removido não recria o histórico', () => {
+    const l = useLoja.getState();
+    const g = l.iniciarCarga(1);
+    l.removerCanal(1);
+    l.receberPagina(1, { mensagens: [msg(1)], fim: true }, g);
+    l.falharCarga(1, 'x', g);
+    expect(useLoja.getState().historicos[1]).toBeUndefined();
+  });
+});
+

@@ -35,7 +35,7 @@ export function renomearCanal(banco: Banco, id: number, nome: string): CanalDto 
   return buscarCanal(banco, id);
 }
 
-/** Remove o canal. As mensagens e anexos do canal saem junto (RN-8) quando existirem (T9/T11). */
+/** Remove o canal; as mensagens saem junto pelo ON DELETE CASCADE (RN-8). Os arquivos de anexo entram na T11. */
 export function removerCanal(banco: Banco, id: number): void {
   banco.prepare('DELETE FROM canais WHERE id = ?').run(id);
 }

@@ -1,4 +1,4 @@
-import { NOME_CANAL_MAX, NOME_EXIBICAO_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
+import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
 
@@ -108,4 +108,12 @@ export function validarNomeCanal(texto: string): Resultado<string> {
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(nome)) return { ok: false, erro: 'O nome do canal tem caracteres inválidos.' };
   return { ok: true, valor: nome };
+}
+
+/** Texto de mensagem: sem espaços nas pontas, não vazio, até 4000 caracteres. */
+export function validarTextoMensagem(texto: string): Resultado<string> {
+  const limpo = texto.replace(/^\s+|\s+$/g, '');
+  if (!limpo) return { ok: false, erro: 'A mensagem está vazia.' };
+  if ([...limpo].length > MENSAGEM_MAX) return { ok: false, erro: `A mensagem deve ter no máximo ${MENSAGEM_MAX} caracteres.` };
+  return { ok: true, valor: limpo };
 }

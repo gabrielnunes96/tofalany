@@ -22,5 +22,9 @@ export const NOME_EXIBICAO_MAX = 32;
 /** Nome de canal: 1 a 32 caracteres. */
 export const NOME_CANAL_MAX = 32;
 
+/** Mensagem de texto: até 4000 caracteres. Página do histórico: 50. */
+export const MENSAGEM_MAX = 4000;
+export const PAGINA_MENSAGENS = 50;
+
 /** Cores sorteadas para o perfil de quem acabou de se cadastrar (o usuário troca no perfil, T5). */
 export const CORES_PERFIL = ['#00f0ff', '#ff2a6d', '#fcee0a', '#3dffb0', '#b14bff', '#ff8a00', '#4d7cff', '#ff4dd2'];

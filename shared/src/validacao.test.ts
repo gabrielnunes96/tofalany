@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarNomeCanal, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarTextoMensagem, validarNomeCanal, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -96,5 +96,13 @@ describe('validarNomeCanal', () => {
     expect(validarNomeCanal('  bate   papo ')).toEqual({ ok: true, valor: 'bate papo' });
     expect(validarNomeCanal('')).toMatchObject({ ok: false });
     expect(validarNomeCanal('x'.repeat(33))).toMatchObject({ ok: false });
+  });
+});
+
+describe('validarTextoMensagem', () => {
+  it('apara as pontas, mantém quebras internas e limita', () => {
+    expect(validarTextoMensagem('  oi\n  tudo bem?  ')).toEqual({ ok: true, valor: 'oi\n  tudo bem?' });
+    expect(validarTextoMensagem(' \n ')).toMatchObject({ ok: false });
+    expect(validarTextoMensagem('x'.repeat(4001))).toMatchObject({ ok: false });
   });
 });

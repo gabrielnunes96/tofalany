@@ -167,9 +167,9 @@
         "CA-50"
       ],
       "validacao": "integração com 2 sockets: mudança em menos de 2 s; membro não remove; admin remove e histórico some",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "3087e5d"
     },
     {
       "id": "T9",
@@ -185,7 +185,7 @@
         "CA-15"
       ],
       "validacao": "integração: 500 mensagens paginadas até fim; persistem após reiniciar; E2E: enviar e ver no outro app",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

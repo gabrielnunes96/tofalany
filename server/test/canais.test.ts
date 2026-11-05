@@ -57,10 +57,15 @@ describe('canais (RF-7)', () => {
   it('CA-13 / RN-7: membro não remove; admin remove e todos são avisados', async () => {
     const { dono, ana } = await preparar();
     const id = dono.ola.canais[0]!.id;
+    await new Promise((r) => dono.s.emit('mensagem:enviar', { destino: { canalId: id }, texto: 'vai sumir' }, r as never));
+    const contarMensagens = () => (app!.banco.prepare('SELECT COUNT(*) AS n FROM mensagens WHERE canal_id = ?').get(id) as { n: number }).n;
+    expect(contarMensagens()).toBe(1);
     expect(await pedir(ana.s, 'canal:remover', { id })).toEqual({ ok: false, erro: 'Só administradores removem canais.' });
     const removidoNaAna = new Promise<{ id: number }>((r) => ana.s.once('canal:removido', r));
     expect(await pedir(dono.s, 'canal:remover', { id })).toEqual({ ok: true, valor: undefined });
     expect(await removidoNaAna).toEqual({ id });
+    // RN-8: o histórico do canal sai junto.
+    expect(contarMensagens()).toBe(0);
     expect(await pedir(dono.s, 'canal:remover', { id })).toMatchObject({ ok: false, erro: 'Canal não encontrado.' });
   });
 
