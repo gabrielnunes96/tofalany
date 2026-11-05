@@ -50,6 +50,16 @@ describe('Socket.IO autenticado (T4)', () => {
     expect(ola.usuarios.map((u) => u.usuario)).toEqual(['ana', 'bia']);
   });
 
+  it('conta nova é avisada a quem está conectado', async () => {
+    const url = await subir();
+    const { token } = (await cadastrar(app!, 'ana')).json();
+    const c = abrir(url, token);
+    await proximo(c, 'ola');
+    const criado = new Promise((r) => c.once('usuario:criado', r));
+    await cadastrar(app!, 'bia');
+    expect(await criado).toMatchObject({ usuario: 'bia', cargo: 'membro' });
+  });
+
   it('sair pela API derruba na hora as conexões daquela sessão, não as de outra', async () => {
     const url = await subir();
     const { token } = (await cadastrar(app!, 'ana')).json();

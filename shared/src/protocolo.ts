@@ -55,6 +55,7 @@ export type CodigoErro =
   | 'muitas_tentativas'
   | 'nao_autenticado'
   | 'nao_encontrado'
+  | 'sem_permissao'
   | 'erro_interno';
 
 export interface ErroApi {
@@ -85,6 +86,8 @@ export interface OlaPayload {
 export interface EventosServidor {
   ola: (payload: OlaPayload) => void;
   'sessao:revogada': (payload: { motivo: MotivoRevogacao }) => void;
+  /** Conta nova no servidor: aparece na lista de todos sem reconectar. */
+  'usuario:criado': (usuario: UsuarioDto) => void;
 }
 
 /** Eventos cliente → servidor (preenchidos a partir da T8). */

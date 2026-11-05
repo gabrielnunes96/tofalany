@@ -30,6 +30,12 @@ describe('criarApi', () => {
     expect((erro as ErroApiCliente).semConexao).toBe(true);
   });
 
+  it('monta a consulta da auditoria só com os filtros preenchidos', async () => {
+    const buscar = vi.fn((_url: string, _init?: RequestInit) => resposta({ registros: [], fim: true }));
+    await criarApi('http://s', 't', buscar).auditoria({ pessoa: 2, tipo: 'login', de: undefined, antes: 10 });
+    expect(buscar.mock.calls[0]![0]).toBe('http://s/api/admin/auditoria?pessoa=2&tipo=login&antes=10');
+  });
+
   it('aceita 204 sem corpo', async () => {
     await expect(criarApi('http://s', 't', () => resposta(undefined, 204)).sair()).resolves.toBeUndefined();
   });

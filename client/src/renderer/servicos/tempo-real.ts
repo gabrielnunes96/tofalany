@@ -5,6 +5,7 @@ import {
   type EventosServidor,
   type MotivoRevogacao,
   type OlaPayload,
+  type UsuarioDto,
 } from '@tofalando/shared';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
@@ -12,6 +13,7 @@ export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
 export interface OuvintesTempoReal {
   aoEstado(estado: EstadoConexao): void;
   aoOla(payload: OlaPayload): void;
+  aoUsuarioCriado(usuario: UsuarioDto): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -66,6 +68,7 @@ export function conectarTempoReal(
   ouvintes.aoEstado('conectando');
   socket.on('connect', () => ouvintes.aoEstado('conectado'));
   socket.on('ola', (payload) => ouvintes.aoOla(payload));
+  socket.on('usuario:criado', (usuario) => ouvintes.aoUsuarioCriado(usuario));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');

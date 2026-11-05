@@ -13,6 +13,7 @@ const apiFalsa = (extra: Partial<ClienteApi> = {}): ClienteApi => ({
   entrar: vi.fn(() => Promise.resolve(sessao)),
   sair: vi.fn(() => Promise.resolve()),
   eu: vi.fn(() => Promise.resolve(sessao.usuario)),
+  auditoria: vi.fn(() => Promise.resolve({ registros: [], fim: true })),
   ...extra,
 });
 const digitar = (rotulo: string, valor: string) => fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });

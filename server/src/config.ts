@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { LIMITE_CONTAS_PADRAO } from '@tofalando/shared';
+import { CARENCIA_OFFLINE_MS_PADRAO, LIMITE_CONTAS_PADRAO, PRAZO_AUDITORIA_DIAS_PADRAO } from '@tofalando/shared';
 
 export interface Config {
   porta: number;
@@ -18,6 +18,10 @@ export interface Config {
   atrasDeProxy: boolean;
   /** De quanto em quanto tempo as conexões em tempo real reconferem a sessão no banco. */
   intervaloSessaoMs: number;
+  /** RN-23: dias que a auditoria guarda. */
+  prazoAuditoriaDias: number;
+  /** RN-24: carência antes de registrar "offline". */
+  carenciaOfflineMs: number;
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -50,5 +54,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     tentativasPorMinuto: inteiro('TENTATIVAS_POR_MINUTO', ambiente.TENTATIVAS_POR_MINUTO, 10, 1),
     atrasDeProxy: ambiente.ATRAS_DE_PROXY === 'true',
     intervaloSessaoMs: inteiro('INTERVALO_SESSAO_MS', ambiente.INTERVALO_SESSAO_MS, 30_000, 50),
+    prazoAuditoriaDias: inteiro('AUDITORIA_DIAS', ambiente.AUDITORIA_DIAS, PRAZO_AUDITORIA_DIAS_PADRAO, 1),
+    carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
   };
 }

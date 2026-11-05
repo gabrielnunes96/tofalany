@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { MotivoRevogacao, UsuarioDto } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal } from '../servicos/tempo-real';
+import { criarApi } from '../servicos/api';
+import { TelaAuditoria } from './TelaAuditoria';
 
 interface Props {
   servidorUrl: string;
@@ -21,21 +23,26 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   );
   const definirConexao = useLoja((s) => s.definirConexao);
   const aplicarOla = useLoja((s) => s.aplicarOla);
+  const adicionarUsuario = useLoja((s) => s.adicionarUsuario);
   const limpar = useLoja((s) => s.limpar);
 
   useEffect(() => {
     const desconectar = conectarTempoReal(servidorUrl, token, {
       aoEstado: definirConexao,
       aoOla: aplicarOla,
+      aoUsuarioCriado: adicionarUsuario,
       aoRevogada: aoSessaoRevogada,
     });
     return () => {
       desconectar();
       limpar();
     };
-  }, [servidorUrl, token, definirConexao, aplicarOla, limpar, aoSessaoRevogada]);
+  }, [servidorUrl, token, definirConexao, aplicarOla, adicionarUsuario, limpar, aoSessaoRevogada]);
 
   const usuario = eu ?? usuarioInicial;
+  const [vista, setVista] = useState<'inicio' | 'auditoria'>('inicio');
+  const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
+  const ehAdmin = usuario.cargo === 'admin';
 
   return (
     <div className="layout-principal">
@@ -44,6 +51,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           {conexao === 'conectando' ? 'Conectando…' : 'Sem conexão com o servidor. Reconectando…'}
         </div>
       )}
+      {vista === 'auditoria' && ehAdmin ? (
+        <main className="conteudo">
+          <TelaAuditoria api={api} usuarios={usuarios} aoVoltar={() => setVista('inicio')} />
+        </main>
+      ) : (
       <main className="tela-centro">
         <section className="cartao">
           <h1 data-testid="usuario-logado">Olá, {usuario.nomeExibicao}</h1>
@@ -64,6 +76,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               </ul>
             </>
           )}
+          {ehAdmin && (
+            <button type="button" onClick={() => setVista('auditoria')}>
+              Auditoria
+            </button>
+          )}
           <button type="button" className="secundario" onClick={aoSair}>
             Sair
           </button>
@@ -72,6 +89,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           </button>
         </section>
       </main>
+      )}
     </div>
   );
 }

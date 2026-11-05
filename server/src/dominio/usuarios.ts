@@ -3,6 +3,7 @@ import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { iguaisSeguro } from '../auth/tokens.js';
 import { CHAVE_CONVITE, lerConfiguracao } from './configuracoes.js';
+import { registrarAuditoria } from './auditoria.js';
 
 interface LinhaUsuario {
   id: number;
@@ -78,6 +79,8 @@ export function cadastrarUsuario(banco: Banco, novo: NovoUsuario, agora: number 
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(novo.usuario, normalizarUsuario(novo.usuario), novo.senhaHash, novo.usuario, cor, cargo, agora);
-    return buscarPorId(banco, Number(resultado.lastInsertRowid))!;
+    const id = Number(resultado.lastInsertRowid);
+    registrarAuditoria(banco, { tipo: 'conta_criada', atorId: id }, agora);
+    return buscarPorId(banco, id)!;
   })();
 }

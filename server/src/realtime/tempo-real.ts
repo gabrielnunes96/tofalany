@@ -14,6 +14,7 @@ import type { Config } from '../config.js';
 import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
 import { buscarPorId, listarAtivos, paraDto } from '../dominio/usuarios.js';
+import { registrarAuditoria } from '../dominio/auditoria.js';
 
 interface DadosSocket {
   usuarioId: number;
@@ -35,6 +36,59 @@ export interface TempoReal {
 
 const salaUsuario = (id: number) => `usuario:${id}`;
 
+/**
+ * Online/offline para a auditoria (RN-24): online quando a primeira conexão do usuário chega;
+ * offline só se a última cair e ninguém voltar dentro da carência.
+ */
+export function criarPresenca(registrar: (tipo: 'online' | 'offline', usuarioId: number, motivo?: string) => void, carenciaMs: number) {
+  const conexoes = new Map<number, number>();
+  const pendentes = new Map<number, NodeJS.Timeout>();
+  let fechando = false;
+  return {
+    entrou(usuarioId: number) {
+      const n = (conexoes.get(usuarioId) ?? 0) + 1;
+      conexoes.set(usuarioId, n);
+      if (n > 1) return;
+      const pendente = pendentes.get(usuarioId);
+      if (pendente) {
+        clearTimeout(pendente);
+        pendentes.delete(usuarioId);
+      } else registrar('online', usuarioId);
+    },
+    saiu(usuarioId: number) {
+      const n = (conexoes.get(usuarioId) ?? 1) - 1;
+      if (n > 0) {
+        conexoes.set(usuarioId, n);
+        return;
+      }
+      conexoes.delete(usuarioId);
+      if (fechando) {
+        registrar('offline', usuarioId, 'servidor_parou');
+        return;
+      }
+      const t = setTimeout(() => {
+        pendentes.delete(usuarioId);
+        registrar('offline', usuarioId);
+      }, carenciaMs);
+      t.unref();
+      pendentes.set(usuarioId, t);
+    },
+    /** Antes de derrubar as conexões no desligamento: quem cair agora é "servidor_parou". */
+    iniciarFechamento() {
+      fechando = true;
+    },
+    /** Ao fechar: quem já estava na carência antes do desligamento é registrado como offline agora. */
+    fechar() {
+      fechando = true;
+      for (const [usuarioId, t] of pendentes) {
+        clearTimeout(t);
+        registrar('offline', usuarioId);
+      }
+      pendentes.clear();
+    },
+  };
+}
+
 export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Config): TempoReal {
   const io: ServidorTempoReal = new Server(app.server, {
     // Autenticação é pelo token no handshake, não por cookie.
@@ -43,6 +97,14 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     pingInterval: PING_INTERVALO_MS,
     pingTimeout: PING_TOLERANCIA_MS,
   });
+
+  const presenca = criarPresenca((tipo, usuarioId, motivo) => {
+    try {
+      registrarAuditoria(banco, { tipo, atorId: usuarioId, detalhes: motivo ? { motivo } : undefined });
+    } catch (erro) {
+      app.log.error(erro);
+    }
+  }, config.carenciaOfflineMs);
 
   io.use((socket, next) => {
     const token: unknown = socket.handshake.auth?.token;
@@ -82,6 +144,8 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       usuarios: listarAtivos(banco).map(paraDto),
     };
     socket.emit('ola', ola);
+    presenca.entrou(eu.id);
+    socket.on('disconnect', () => presenca.saiu(eu.id));
   }
 
   function derrubar(socket: SocketTofalando, motivo: MotivoRevogacao) {
@@ -114,8 +178,10 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   // Fecha as conexões antes do servidor HTTP; o engine não tenta fechar o servidor do Fastify.
   app.addHook('preClose', async () => {
     clearInterval(relogio);
+    presenca.iniciarFechamento();
     io.local.disconnectSockets(true);
     io.engine.close();
+    presenca.fechar();
   });
 
   return tempoReal;

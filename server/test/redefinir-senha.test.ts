@@ -68,6 +68,12 @@ describe('redefinir-senha (RF-4)', () => {
     expect((await login(app, 'senha-nova-123')).statusCode).toBe(200);
     expect((await login(app, 'senha-antiga-1')).statusCode).toBe(401);
     expect((await app.inject({ method: 'GET', url: '/api/eu', headers: { authorization: `Bearer ${token}` } })).statusCode).toBe(401);
+    // CA-50 (parte do host): a redefinição fica na auditoria, feita pelo host, com a conta como alvo.
+    const registro = (app.banco.prepare("SELECT ator_id, alvo_usuario_id FROM auditoria WHERE tipo = 'senha_redefinida'").get()) as {
+      ator_id: number | null;
+      alvo_usuario_id: number;
+    };
+    expect(registro).toEqual({ ator_id: null, alvo_usuario_id: 1 });
   });
 
   it('recusa uso errado, usuário inexistente, senha curta e confirmação diferente', async () => {

@@ -84,3 +84,16 @@ button.link:hover:not(:disabled) { background: transparent; color: var(--texto);
 .bolinha { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .selo { font-size: 0.7rem; background: var(--borda); border-radius: 4px; padding: 1px 6px; color: var(--texto-suave); }
 .aviso { background: #3a3218; color: #ffe39a; border-radius: var(--raio); padding: 8px 10px; margin: 0 0 8px; }
+
+.conteudo { flex: 1; padding: 24px; overflow: auto; }
+.painel { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.painel-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.painel-topo button { margin: 0; }
+.filtros { display: flex; flex-wrap: wrap; gap: 12px; }
+.filtros label { display: flex; flex-direction: column; gap: 4px; }
+.filtros select, .filtros input { background: var(--fundo); color: var(--texto); border: 1px solid var(--borda); border-radius: var(--raio); padding: 8px; font: inherit; }
+.lista-auditoria { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--borda); border-radius: var(--raio); }
+.lista-auditoria li { display: flex; gap: 16px; padding: 8px 12px; border-bottom: 1px solid var(--borda); }
+.lista-auditoria li:last-child { border-bottom: 0; }
+.lista-auditoria time { color: var(--texto-suave); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lista-auditoria .sentinela { padding: 0; border: 0; height: 1px; }

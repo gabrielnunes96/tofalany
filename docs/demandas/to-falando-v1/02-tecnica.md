@@ -1,6 +1,6 @@
 # Tô Falando v1 — Especificação técnica
 
-> Demanda: `to-falando-v1` · Base: funcional v3 · 04/11/2026 · Situação: **aprovada em 04/11/2026**
+> Demanda: `to-falando-v1` · Base: funcional v4 · 05/11/2026 · Situação: **aprovada em 05/11/2026**
 
 ## 1. Visão da solução
 Monorepo npm (workspaces) com três pacotes de código e uma pasta de implantação. O app Electron fala com o servidor Node por HTTP (autenticação, envios de arquivo, histórico, administração) e por Socket.IO (tudo que é tempo real: mensagens, canais, digitando, presença em voz, trava de transmissão, soundboard). Voz, vídeo e tela vão direto do app para o LiveKit (SFU), com token emitido pelo servidor Node, que também recebe os webhooks do LiveKit para conferir presença e aplicar as regras de transmissão.
@@ -58,6 +58,7 @@ Todos novos. Autenticação por `Authorization: Bearer <token>` no HTTP e `auth.
 | `GET /files/:id` | — | arquivo (id aleatório de 128 bits; avatar, anexo, som) |
 | `GET /convite/:codigo` | — | página HTML: downloads, botão `tofalando://convite?servidor=<url>&codigo=<c>`, instrução manual |
 | `GET /downloads/:arquivo` | — | instaladores colocados pelo host na pasta `downloads/` |
+| `GET /api/admin/auditoria?pessoa=<id>&tipo=<tipo>&canal=<id>&de=<ms>&ate=<ms>&antes=<id>&limite=100` | — | `{ registros: RegistroAuditoriaDto[], fim }` (mais recente primeiro; `403 sem_permissao` para membro) |
 | `GET /api/saude` | — | `{ ok, sqlite, livekit }` |
 
 Toda rota `/api/admin/*` confere o cargo no servidor; `403 sem_permissao` para membro.
@@ -94,9 +95,18 @@ SQLite em `server/data/tofalando.db` (volume Docker), WAL ligado. Arquivos em `s
 | `mensagens` | `id` INTEGER autoincremento, `canal_id` ou `dm_id`, `autor_id`, `texto`, `criada_em`, `editada_em` | índice `(canal_id, id)` e `(dm_id, id)`; paginação por `id < antes` |
 | `anexos` | `id` (aleatório), `mensagem_id`, `autor_id`, `tipo`, `mime`, `nome_original`, `largura`, `altura`, `bytes`, `caminho` | órfão >1 h sem mensagem é apagado |
 | `leituras` | `usuario_id`, `destino`, `ultima_mensagem_id` | |
+| `auditoria` | `id` INTEGER autoincremento, `quando`, `tipo`, `ator_id` (nulo = host, via comando), `alvo_usuario_id`, `canal_id`, `detalhes` (JSON curto: nomes no momento do evento, cargo novo, qualidade…) | índices `(quando)`, `(ator_id, id)`, `(tipo, id)`, `(canal_id, id)`; nunca guarda texto de mensagem nem nada de DM; migration 002 |
 | `sons` | `id`, `nome`, `arquivo`, `duracao_ms`, `criado_por`, `criado_em` | no máximo 5 (verificado na transação) |
 
 Migrations: arquivos SQL numerados aplicados na subida pelo `PRAGMA user_version`; antes de migrar, cópia do banco para `data/backup/tofalando-<versao>-<data>.db`. Rollback = parar o servidor e restaurar a cópia. Volume esperado: dezenas de milhares de mensagens — sem retenção automática.
+
+### Auditoria (RN-20 a RN-24)
+- Módulo `server/src/dominio/auditoria.ts`: `registrarAuditoria(banco, { tipo, atorId, alvoUsuarioId?, canal?: { id, nome }, detalhes? })` (o nome do canal vai junto para ficar guardado), chamado no mesmo ponto (e na mesma transação, quando houver) da ação registrada. Tipos em `shared/src/auditoria.ts` (`conta_criada`, `login`, `saiu`, `online`, `offline`, `voz_entrou`, `voz_saiu`, `tela_iniciou`, `tela_parou`, `cargo_alterado`, `conta_removida`, `convite_trocado`, `som_cadastrado`, `som_trocado`, `som_removido`, `canal_criado`, `canal_renomeado`, `canal_removido`, `mensagem_apagada_admin`, `mensagem_editada`, `mensagem_apagada`, `senha_redefinida`).
+- `detalhes` guarda os nomes do momento (ex.: nome do canal), para o registro continuar legível depois de renomear/remover.
+- Online/offline: `online` quando o primeiro socket do usuário conecta; `offline` só se o último cair e ninguém voltar em 30 s (temporizador por usuário, cancelado na reconexão). Ao subir o servidor, quem estava online no registro sem `offline` recebe um `offline` com `detalhes.motivo = "servidor_reiniciado"`.
+- Voz e tela: registrados pelo servidor a partir de `voz:estado`/`tela:pedir`/`tela:parar` e conferidos pelos webhooks do LiveKit (T14, T21).
+- Limpeza: ao subir e a cada 6 h, `DELETE FROM auditoria WHERE quando < agora - AUDITORIA_DIAS` (padrão 30).
+- Tela `client/src/renderer/telas/TelaAuditoria.tsx`, só para admin, filtros e rolagem com `antes=<id>`.
 
 ## 5. Integrações externas
 - **LiveKit Server** (imagem `livekit/livekit-server`, arm64/amd64). Config: `rtc.udp_port: 7882` (uma porta UDP só, firewall simples), `rtc.tcp_port: 7881` (fallback), `webhook` apontando para `http://server:3000/api/livekit/webhook`, chaves em variáveis de ambiente. Tailscale: `rtc.node_ip` = IP do tailnet do host. Token com `canPublishSources` (microfone, câmera, tela, áudio da tela) e `roomJoin` só na sala pedida, validade 6 h.
@@ -163,6 +173,14 @@ Ferramentas: **Vitest** (unidade, nos três pacotes); **integração do servidor
 | CA-44 | — | `docker compose up` local (amd64) | arm64 na VPS |
 | CA-45 | — | E2E: soma de `app.getAppMetrics()` após 5 min ocioso < 300 MB | — |
 | CA-46 | — | E2E: registro de requisições do `session.webRequest` só com o servidor configurado | — |
+| CA-48 | — | integração: cadastro, login, saída, online/offline gravados | E2E: admin vê os eventos na tela |
+| CA-49 | — | integração (T14/T21): voz e tela gravados com canal | — |
+| CA-50 | — | integração: cada ação de admin (T6, T8, T10, T18) e o comando de senha (T3) gravam com ator e alvo | — |
+| CA-51 | — | integração: edição/exclusão em canal gravadas sem texto; em DM, nada | — |
+| CA-52 | — | integração: membro → 403; E2E: membro não vê a opção | — |
+| CA-53 | limpeza com relógio injetado | integração: 31 dias some, 29 fica | — |
+| CA-54 | montagem do filtro | integração: filtros combinados e paginação por `antes` | — |
+| CA-55 | temporizador de offline (relógio falso) | integração: queda de 10 s não grava; 1 min grava | — |
 | CA-47 | — | — | seguir o README do zero |
 
 ## 9. Riscos e decisões
@@ -178,6 +196,7 @@ Ferramentas: **Vitest** (unidade, nos três pacotes); **integração do servidor
 | R-8 | Instalador Windows sem assinatura de código | assinar (certificado pago); sem assinatura | Sem assinatura (sem custo, RNF). O Windows mostra aviso do SmartScreen na primeira instalação; README explica. |
 | R-9 | `.exe` gerado no Linux | wine local; CI no Windows | wine 9 já está instalado: `dist:win` roda aqui. |
 | R-10 | Rede da transmissão para até 19 espectadores | — | É limite de banda do servidor (≈ 10 Mbps × espectadores em 1440p60). README traz a tabela; por isso só admin vai acima de 720p30. |
+| R-11 | Volume da auditoria (online/offline a cada queda) | gravar tudo; carência para offline | Carência de 30 s para offline (RN-24) e retenção de 30 dias; com 20 contas o volume fica em milhares de linhas por mês. |
 | U-1 | **Docker não está instalado nesta máquina.** Ele é necessário para validar o `docker-compose` (CA-44) e é o jeito mais simples de rodar o LiveKit em desenvolvimento. | (a) instalar Docker Engine; (b) baixar só o binário oficial do LiveKit (GitHub) para desenvolvimento e você valida o compose na VPS | (a) Instalar Docker Engine pelo apt (`docker.io`, `docker-compose-v2`, `docker-buildx`): decidido pelo usuário em 04/11; instalação feita por ele. |
 | U-2 | Domínio para HTTPS na VPS | domínio próprio; DNS grátis (DuckDNS, sslip.io) | Não bloqueia: README cobre os dois. |
 

@@ -69,6 +69,27 @@
         "CA-42"
       ],
       "validacao": "integração: socket sem token recusado; E2E: derrubar e subir o servidor reconecta com aviso (parte do texto)",
+      "estado": "feito",
+      "wi": null,
+      "commit": "8e930ac"
+    },
+    {
+      "id": "T27",
+      "titulo": "Auditoria: registro, retenção e tela do administrador",
+      "descricao": "Migration 002 (auditoria), dominio/auditoria.ts e tipos em shared/src/auditoria.ts; eventos de entrada e saída (conta_criada, login, saiu, online/offline com carência de 30 s e fechamento ao reiniciar) e senha_redefinida no comando da T3; limpeza ao subir e a cada 6 h (AUDITORIA_DIAS, padrão 30); GET /api/admin/auditoria com filtros e paginação, 403 para membro; TelaAuditoria só para admin. As demais tarefas gravam os próprios eventos com registrarAuditoria.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-48",
+        "CA-52",
+        "CA-53",
+        "CA-54",
+        "CA-55"
+      ],
+      "validacao": "integração dos eventos de entrada/saída, carência de offline, limpeza, filtros e 403; E2E: admin vê a auditoria, membro não vê a opção",
       "estado": "andamento",
       "wi": null,
       "commit": null
@@ -93,18 +114,20 @@
     {
       "id": "T6",
       "titulo": "Cargos e administração",
-      "descricao": "PATCH /api/admin/usuarios/:id/cargo, DELETE /api/admin/usuarios/:id (revoga sessões, libera vaga, autor vira conta removida), GET|PUT /api/admin/convite. Guarda de admin em todas as rotas /api/admin. Tela de membros e de configurações do servidor.",
+      "descricao": "PATCH /api/admin/usuarios/:id/cargo, DELETE /api/admin/usuarios/:id (revoga sessões, libera vaga, autor vira conta removida), GET|PUT /api/admin/convite. Guarda de admin em todas as rotas /api/admin. Tela de membros e de configurações do servidor. Grava na auditoria cargo_alterado, conta_removida e convite_trocado. O filtro Pessoa da TelaAuditoria passa a incluir contas removidas que ainda têm registros no prazo.",
       "repo": ".",
       "stack": "front",
       "depende_de": [
-        "T4"
+        "T4",
+        "T27"
       ],
       "criterios": [
         "CA-9",
         "CA-10",
         "CA-11",
         "CA-11a",
-        "CA-11b"
+        "CA-11b",
+        "CA-50"
       ],
       "validacao": "integração: promover, último admin 409, membro 403, remoção desconecta e libera vaga, convite antigo recusado",
       "estado": "a_fazer",
@@ -131,15 +154,17 @@
     {
       "id": "T8",
       "titulo": "Canais de texto e de voz",
-      "descricao": "Migration de canais; canal:criar|renomear (qualquer membro) e canal:remover (só admin, com confirmação, apaga mensagens e anexos). Barra lateral com canais de texto e de voz.",
+      "descricao": "Migration de canais; canal:criar|renomear (qualquer membro) e canal:remover (só admin, com confirmação, apaga mensagens e anexos). Barra lateral com canais de texto e de voz. Grava na auditoria canal_criado, canal_renomeado e canal_removido. Acrescenta o filtro por canal na TelaAuditoria (a API já aceita canal).",
       "repo": ".",
       "stack": "front",
       "depende_de": [
-        "T4"
+        "T4",
+        "T27"
       ],
       "criterios": [
         "CA-12",
-        "CA-13"
+        "CA-13",
+        "CA-50"
       ],
       "validacao": "integração com 2 sockets: mudança em menos de 2 s; membro não remove; admin remove e histórico some",
       "estado": "a_fazer",
@@ -167,15 +192,18 @@
     {
       "id": "T10",
       "titulo": "Editar, apagar e digitando",
-      "descricao": "mensagem:editar e mensagem:apagar (autor; admin apaga em canal), marca editada, evento digitando com expiração de 5 s no app.",
+      "descricao": "mensagem:editar e mensagem:apagar (autor; admin apaga em canal), marca editada, evento digitando com expiração de 5 s no app. Grava na auditoria mensagem_editada e mensagem_apagada (só em canal, sem texto) e mensagem_apagada_admin.",
       "repo": ".",
       "stack": "front",
       "depende_de": [
-        "T9"
+        "T9",
+        "T27"
       ],
       "criterios": [
         "CA-17",
-        "CA-18"
+        "CA-18",
+        "CA-50",
+        "CA-51"
       ],
       "validacao": "integração: edição marca editada, membro alheio recusado, admin apaga; digitando repassado",
       "estado": "a_fazer",
@@ -240,14 +268,16 @@
     {
       "id": "T14",
       "titulo": "Entrar em canal de voz (LiveKit)",
-      "descricao": "LiveKit local em docker para desenvolvimento, POST /api/livekit/token, webhook verificado, presença voz:estado/voz:estados. App: entrar e sair do canal de voz com livekit-client, lista de participantes por canal e indicador de quem fala.",
+      "descricao": "LiveKit local em docker para desenvolvimento, POST /api/livekit/token, webhook verificado, presença voz:estado/voz:estados. App: entrar e sair do canal de voz com livekit-client, lista de participantes por canal e indicador de quem fala. Grava na auditoria voz_entrou e voz_saiu (conferidos pelo webhook).",
       "repo": ".",
       "stack": "front",
       "depende_de": [
-        "T8"
+        "T8",
+        "T27"
       ],
       "criterios": [
-        "CA-20"
+        "CA-20",
+        "CA-49"
       ],
       "validacao": "E2E com 2 apps e áudio falso: B assina a faixa de A e o indicador acende; usuário testa em duas máquinas",
       "estado": "a_fazer",
@@ -315,14 +345,16 @@
     {
       "id": "T18",
       "titulo": "Soundboard: cadastro pelo administrador",
-      "descricao": "Migration de sons; GET /api/sons, POST|PUT|DELETE /api/admin/sons (MP3/OGG/WAV, até 10 s via music-metadata, máximo 5), sons:atualizados. Tela de administração do soundboard.",
+      "descricao": "Migration de sons; GET /api/sons, POST|PUT|DELETE /api/admin/sons (MP3/OGG/WAV, até 10 s via music-metadata, máximo 5), sons:atualizados. Tela de administração do soundboard. Grava na auditoria som_cadastrado, som_trocado e som_removido.",
       "repo": ".",
       "stack": "front",
       "depende_de": [
-        "T6"
+        "T6",
+        "T27"
       ],
       "criterios": [
-        "CA-31"
+        "CA-31",
+        "CA-50"
       ],
       "validacao": "integração: som de 8 s aceito, 15 s 422, sexto 409, membro 403",
       "estado": "a_fazer",
@@ -370,16 +402,18 @@
     {
       "id": "T21",
       "titulo": "Transmissão de tela com trava por canal",
-      "descricao": "Seletor próprio com miniaturas (desktopCapturer.getSources + setDisplayMediaRequestHandler), tela:pedir/tela:parar com trava por canal, aviso de quem já transmite, visualização grande com tela cheia.",
+      "descricao": "Seletor próprio com miniaturas (desktopCapturer.getSources + setDisplayMediaRequestHandler), tela:pedir/tela:parar com trava por canal, aviso de quem já transmite, visualização grande com tela cheia. Grava na auditoria tela_iniciou e tela_parou.",
       "repo": ".",
       "stack": "front",
       "depende_de": [
-        "T14"
+        "T14",
+        "T27"
       ],
       "criterios": [
         "CA-37",
         "CA-38",
-        "CA-41"
+        "CA-41",
+        "CA-49"
       ],
       "validacao": "integração da trava; E2E com 2 apps: segundo recebe aviso e consegue após o primeiro parar",
       "estado": "a_fazer",

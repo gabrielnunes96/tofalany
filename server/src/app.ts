@@ -8,6 +8,10 @@ import { garantirCodigoConvite } from './dominio/configuracoes.js';
 import { registrarRotasServidor } from './routes/servidor.js';
 import { registrarRotasAuth } from './routes/auth.js';
 import { criarTempoReal, type TempoReal } from './realtime/tempo-real.js';
+import { registrarRotasAuditoria } from './routes/auditoria.js';
+import { fecharOnlinesPendentes, limparAuditoria } from './dominio/auditoria.js';
+
+const LIMPEZA_AUDITORIA_MS = 6 * 60 * 60 * 1000;
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -20,6 +24,9 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   const banco = abrirBanco(config.caminhoBanco);
   try {
     garantirCodigoConvite(banco, config.codigoConvite);
+    // Quem ficou online quando o servidor parou de repente; e o que passou do prazo (RN-23).
+    fecharOnlinesPendentes(banco);
+    limparAuditoria(banco, config.prazoAuditoriaDias);
   } catch (erro) {
     banco.close();
     throw erro;
@@ -27,7 +34,18 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
 
   const app = Fastify({ logger: config.log ? { redact: ['req.headers.authorization'] } : false, trustProxy: config.atrasDeProxy });
   app.decorate('banco', banco);
-  app.addHook('onClose', async () => banco.close());
+  const limpeza = setInterval(() => {
+    try {
+      limparAuditoria(banco, config.prazoAuditoriaDias);
+    } catch (erro) {
+      app.log.error(erro);
+    }
+  }, LIMPEZA_AUDITORIA_MS);
+  limpeza.unref();
+  app.addHook('onClose', async () => {
+    clearInterval(limpeza);
+    banco.close();
+  });
 
   app.setErrorHandler((erro: FastifyError, req, reply) => {
     if (erro instanceof ErroHttp) return reply.code(erro.status).send(erro.corpo());
@@ -56,5 +74,6 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   app.decorate('tempoReal', tempoReal);
   registrarRotasServidor(app, banco, config);
   registrarRotasAuth(app, banco, config, tempoReal);
+  registrarRotasAuditoria(app, banco);
   return app;
 }

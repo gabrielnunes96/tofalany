@@ -15,6 +15,7 @@ import { abrirBanco, type Banco } from '../db/banco.js';
 import { gerarHashSenha } from '../auth/senha.js';
 import { buscarPorLogin } from '../dominio/usuarios.js';
 import { revogarSessoesDoUsuario } from '../dominio/sessoes.js';
+import { registrarAuditoria } from '../dominio/auditoria.js';
 
 export const SAIDA = { ok: 0, uso: 1, naoEncontrado: 2, erroInterno: 3, cancelado: 130 } as const;
 
@@ -35,6 +36,7 @@ export async function redefinirSenha(banco: Banco, usuario: string, senha: strin
     if (!linha) return undefined;
     banco.prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ?').run(hash, linha.id);
     revogarSessoesDoUsuario(banco, linha.id);
+    registrarAuditoria(banco, { tipo: 'senha_redefinida', atorId: null, alvoUsuarioId: linha.id });
     return linha.id;
   })();
 }

@@ -10,6 +10,12 @@ describe('useLoja', () => {
     useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, eu, usuarios: [eu] });
     useLoja.getState().definirConexao('conectado');
     expect(useLoja.getState()).toMatchObject({ nomeServidor: 'Turma', eu, usuarios: [eu], conexao: 'conectado' });
+    useLoja.getState().adicionarUsuario({ ...eu, id: 2, nomeExibicao: 'Bia' });
+    useLoja.getState().adicionarUsuario({ ...eu, id: 3, nomeExibicao: 'abel' });
+    useLoja.getState().adicionarUsuario({ ...eu, id: 2, nomeExibicao: 'Bia' });
+    expect(useLoja.getState().usuarios.map((u) => u.nomeExibicao)).toEqual(['abel', 'Ana', 'Bia']);
+    useLoja.getState().adicionarUsuario({ ...eu, id: 4, nomeExibicao: 'ana' });
+    expect(useLoja.getState().usuarios.map((u) => u.id)).toEqual([3, 1, 4, 2]);
     useLoja.getState().limpar();
     expect(useLoja.getState()).toMatchObject({ nomeServidor: null, eu: null, usuarios: [], conexao: 'conectando' });
   });

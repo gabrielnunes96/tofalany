@@ -1,13 +1,13 @@
 # Tô Falando v1 — Especificação funcional
 
-> Demanda: `to-falando-v1` · Versão 3 · 04/11/2026 · Situação: **aprovada em 04/11/2026**
+> Demanda: `to-falando-v1` · Versão 4 · 05/11/2026 · Situação: **aprovada em 05/11/2026**
 
 ## 1. Objetivo
 Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por texto, voz, vídeo e transmissão de tela, hospedado pelo próprio grupo, sem custo de serviço e sem depender de plataformas de terceiros.
 
 ## 2. Contexto
 - Hoje o grupo usa plataformas de terceiros. A demanda pede um equivalente privado, simples e estável, para uso pessoal, não comercial.
-- Texto original em `00-demanda.md`. Complementos do usuário em 04/11/2026: soundboard, cargo de administrador, limite de 20 contas, push-to-talk com atalho editável, edição e exclusão de mensagens, notificações e sons de voz. Na versão 2: mensagens diretas e transmissão acima de 720p30 só para administrador. Na versão 3: anexos de documento (PDF e ZIP) além de imagem, até 25 MB.
+- Texto original em `00-demanda.md`. Complementos do usuário em 04/11/2026: soundboard, cargo de administrador, limite de 20 contas, push-to-talk com atalho editável, edição e exclusão de mensagens, notificações e sons de voz. Na versão 2: mensagens diretas e transmissão acima de 720p30 só para administrador. Na versão 3: anexos de documento (PDF e ZIP) além de imagem, até 25 MB. Na versão 4 (05/11/2026): auditoria para administradores.
 - Envolvidos: o usuário (dono e host do servidor) e os amigos convidados.
 
 ## 3. Atores
@@ -29,6 +29,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 - Soundboard: até 5 sons curtos tocados no canal de voz.
 - Webcam e transmissão de tela (uma por canal) com qualidade selecionável.
 - Notificações de mensagem e sons de entrada/saída/mute.
+- Auditoria: registro de entradas e saídas, canais de voz, ações de administração e edição/exclusão de mensagens em canais, consultado por administradores.
 - Instaladores Windows (.exe) e Linux (.AppImage, .deb); servidor em docker-compose; README de implantação (Tailscale e VPS).
 
 **Fora (explícito):**
@@ -40,6 +41,7 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 - Mais de um "servidor" (comunidade) por instalação: uma instalação = um grupo.
 - Moderação além do que está nas regras (sem banimento por IP, sem filtros de conteúdo).
 - Anexos em outros formatos além de JPEG, PNG, GIF, WebP, PDF e ZIP; pré-visualização de PDF dentro do app; abrir o conteúdo do ZIP no app.
+- Auditoria: exportar o registro (CSV ou outro formato), registrar IP ou dispositivo, registrar qualquer coisa das DMs, alertas automáticos.
 
 ## 5. Regras de negócio
 | ID | Regra | Origem |
@@ -63,6 +65,11 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 | RN-14 | Configurações de dispositivo, áudio, atalhos, qualidade padrão e URL do servidor são guardadas por máquina, não na conta. | Demanda |
 | RN-15 | Avatar: PNG, JPEG, GIF ou WebP, até 8 MB, redimensionado para 256×256. | Demanda + assumido |
 | RN-19 | Anexo no chat (canal ou DM): até 25 MB por arquivo. Imagens (JPEG, PNG, GIF, WebP) aparecem no chat; documentos (PDF, ZIP) aparecem como arquivo para baixar, com nome e tamanho. O formato é conferido pelo conteúdo, não só pela extensão. | Usuário, 04/11 (v3) |
+| RN-20 | O servidor registra na auditoria, com data e hora, quem fez e o alvo: (a) cadastro, login, saída e quando a pessoa fica online/offline no app; (b) entrada e saída de canal de voz e início/fim de transmissão de tela; (c) ações de administração: cargo alterado, conta removida, código de convite trocado, som cadastrado/trocado/removido, canal criado/renomeado/removido, mensagem apagada por administrador, senha redefinida pelo host; (d) mensagem editada ou apagada pelo autor em canal. O texto das mensagens nunca vai para a auditoria. | Usuário, 05/11 (v4) |
+| RN-21 | Nada das DMs entra na auditoria (nem edição/exclusão), coerente com RN-18. | Usuário, 05/11 (v4) + assumido |
+| RN-22 | Só administrador consulta a auditoria; o servidor recusa para membro. | Usuário, 05/11 (v4) |
+| RN-23 | Registros com mais de 30 dias são apagados automaticamente (prazo configurável pelo host, padrão 30). | Usuário, 05/11 (v4) |
+| RN-24 | Quedas curtas de conexão não poluem o registro: "offline" só é registrado se a pessoa não voltar em até 30 segundos. | Assumido |
 
 ## 6. Requisitos funcionais
 | ID | Requisito | Regras |
@@ -103,6 +110,9 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 | RF-31 | Reconexão automática ao servidor e à chamada de voz quando a rede cai, com aviso na tela enquanto reconecta. | — |
 | RF-32 | Instaladores: .exe (Windows) e .AppImage/.deb (Linux), gerados por `npm run dist:win` e `npm run dist:linux`. | — |
 | RF-33 | Servidor sobe com docker-compose, com arquivo de configuração de exemplo, em máquinas arm64 e amd64. | — |
+| RF-34 | Registrar os eventos de auditoria no servidor no momento em que acontecem. | RN-20, RN-21, RN-24 |
+| RF-35 | Tela de auditoria (administrador): lista do mais recente para o mais antigo, com data/hora, pessoa, evento e detalhe (alvo, canal); filtros por pessoa, tipo de evento, canal e período; carrega mais ao rolar. | RN-22 |
+| RF-36 | Limpeza automática dos registros fora do prazo. | RN-23 |
 
 ## 7. Requisitos não funcionais
 - **Memória**: app ocioso (logado, sem chamada) abaixo de 300 MB de RAM somando os processos.
@@ -174,6 +184,16 @@ Um app desktop próprio (Windows e Linux) para um grupo de amigos conversar por 
 - **CA-40** (RF-29) — Dado Windows com a opção de áudio do sistema ligada, quando A toca um vídeo, então B ouve o áudio dele; no Linux, a opção aparece desabilitada com a explicação.
 - **CA-41** (RF-30) — Dado uma transmissão ativa, quando B clica nela, então ela abre grande e permite tela cheia.
 
+**Auditoria**
+- **CA-48** (RF-34, RN-20a) — Dado A que se cadastra, entra, fecha o app e sai, quando um administrador abre a auditoria, então vê cadastro, login, online, offline e saída de A com horário.
+- **CA-49** (RF-34, RN-20b) — Dado A que entra no canal de voz "Geral", transmite a tela e sai, quando o administrador filtra pelo canal "Geral", então vê entrada, início e fim da transmissão e saída de A.
+- **CA-50** (RF-34, RN-20c) — Dado um administrador que muda o cargo de B, troca o convite e remove um canal, e o host que redefine a senha de C, quando a auditoria é aberta, então cada ação aparece com quem fez e o alvo.
+- **CA-51** (RF-34, RN-20d, RN-21) — Dado A que edita e apaga mensagens num canal e numa DM, quando o administrador abre a auditoria, então aparecem só as do canal, sem o texto das mensagens.
+- **CA-52** (RN-22) — Dado um membro, quando tenta abrir a auditoria pela tela ou chamando o servidor diretamente, então não vê a opção e o servidor recusa.
+- **CA-53** (RF-36, RN-23) — Dado registros com 31 dias e com 29 dias, quando a limpeza roda, então só os de 31 dias somem.
+- **CA-54** (RF-35) — Dado 300 registros de várias pessoas e tipos, quando o administrador filtra por pessoa, tipo e período, então só os correspondentes aparecem, e rolar carrega os mais antigos.
+- **CA-55** (RN-24) — Dado A conectado, quando a conexão de A cai por 10 segundos e volta, então nenhum offline/online é registrado; quando A fica 1 minuto fora, então o offline é registrado.
+
 **Rede, instalação e não funcionais**
 - **CA-42** (RF-31) — Dado A numa chamada, quando a rede de A cai por 10 segundos e volta, então A volta ao chat e à chamada sem ação manual, com aviso de "reconectando" durante a queda.
 - **CA-43** (RF-32) — Dado o repositório, quando rodar `npm run dist:linux`, então são gerados o .AppImage e o .deb, e o .deb instala e abre no Ubuntu; `npm run dist:win` gera o instalador .exe que instala e abre no Windows.
@@ -196,5 +216,6 @@ Não se aplica: projeto novo, sem sistemas ou usuários existentes.
 | D-5 | Link de convite: um link fixo (o código do arquivo de configuração, o mesmo para todos) ou links gerados por administrador, com validade e uso único? Proposta: link fixo, como a demanda; o administrador troca o código se ele vazar. | Usuário | Link fixo; administrador troca o código no app (04/11). |
 
 | D-6 | DM: só entre duas pessoas, só texto e imagem, e privada até para administrador (RN-18)? | Usuário | Não bloqueante: segue a proposta salvo objeção na aprovação. |
+| D-7 | Auditoria de mensagens: edição/exclusão só nos canais, nunca nas DMs (RN-21)? | Usuário | Não bloqueante: segue a proposta salvo objeção na aprovação. |
 
 > Portão: a especificação técnica só começa com esta seção vazia (ou com as dúvidas restantes marcadas como não bloqueantes) e com a aprovação registrada no topo.

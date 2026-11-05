@@ -10,6 +10,7 @@ import { buscarPorId, buscarPorLogin, cadastrarUsuario, conferirConvite, paraDto
 import { criarSessao, revogarSessao } from '../dominio/sessoes.js';
 import { hashToken } from '../auth/tokens.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
+import { registrarAuditoria } from '../dominio/auditoria.js';
 
 const texto = { type: 'string', maxLength: 512 } as const;
 const corpoCadastro = {
@@ -44,8 +45,11 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
     if (!senha.ok) throw new ErroHttp(400, 'dados_invalidos', senha.erro);
     const senhaHash = await gerarHashSenha(senha.valor);
     const linha = cadastrarUsuario(banco, { convite: corpo.convite, usuario: usuario.valor, senhaHash, limiteContas: config.limiteContas });
+    const token = criarSessao(banco, linha.id);
+    // Só depois de a conta (e o registro conta_criada, na mesma transação) estar gravada.
+    tempoReal.io.emit('usuario:criado', paraDto(linha));
     reply.code(201);
-    return { token: criarSessao(banco, linha.id), usuario: paraDto(linha) };
+    return { token, usuario: paraDto(linha) };
   });
 
   app.post('/api/auth/login', { schema: { body: corpoLogin } }, async (req): Promise<SessaoResponse> => {
@@ -55,11 +59,17 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
     hashFicticio ??= gerarHashSenha('senha-que-nao-existe');
     const confere = await conferirSenha(corpo.senha, linha?.senha_hash ?? (await hashFicticio));
     if (!linha || !confere) throw new ErroHttp(401, 'credenciais_invalidas', 'Usuário ou senha incorretos.');
-    return { token: criarSessao(banco, linha.id), usuario: paraDto(linha) };
+    const token = banco.transaction(() => {
+      const novo = criarSessao(banco, linha.id);
+      registrarAuditoria(banco, { tipo: 'login', atorId: linha.id });
+      return novo;
+    })();
+    return { token, usuario: paraDto(linha) };
   });
 
   app.post('/api/auth/sair', { preHandler: exigirSessao(banco) }, async (req, reply) => {
     revogarSessao(banco, req.tokenSessao!);
+    registrarAuditoria(banco, { tipo: 'saiu', atorId: req.usuarioId! });
     tempoReal.revogarToken(hashToken(req.tokenSessao!), 'saiu');
     reply.code(204);
   });

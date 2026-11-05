@@ -26,4 +26,21 @@ export const MIGRACOES: readonly string[] = [
     valor TEXT NOT NULL
   );
   `,
+  // 002 — auditoria (T27). Sem texto de mensagem e nada de DM (RN-20, RN-21).
+  `
+  CREATE TABLE auditoria (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quando INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    ator_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    alvo_usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    canal_id INTEGER,
+    detalhes TEXT NOT NULL DEFAULT '{}'
+  );
+  CREATE INDEX auditoria_quando ON auditoria(quando);
+  CREATE INDEX auditoria_ator ON auditoria(ator_id, id);
+  CREATE INDEX auditoria_alvo ON auditoria(alvo_usuario_id, id);
+  CREATE INDEX auditoria_tipo ON auditoria(tipo, id);
+  CREATE INDEX auditoria_canal ON auditoria(canal_id, id);
+  `,
 ];
