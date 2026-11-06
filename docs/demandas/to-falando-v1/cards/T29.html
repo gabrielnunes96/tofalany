@@ -1,0 +1,25 @@
+<!-- T29 — Notificações e sons: chave geral, silenciar conversa, entrada e saída do servidor -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1 (v5 e v5.1): RF-39, RF-40, RF-41, RN-27; CA-59, CA-60, CA-61.</p>
+<h3>Padrão</h3>
+<p>Técnica, seção v5 (atualizada): preferências locais validadas no processo principal; decisão em funções puras (<code>decidirMensagemNova</code>, <code>decidirAvisoPresenca</code>).</p>
+
+<h3>Implementação (05/11/2026, commit 6eb7cc9)</h3>
+<ul>
+  <li><b>Mensagens</b>: chave geral "Notificações de mensagens" e silenciar por conversa (botão 🔔/🔕 com aria-pressed no topo do canal ou DM; ícone e "silenciada" para o leitor de tela na barra). Desligado ou silenciado: o contador continua, a notificação não sai (RN-27). Silenciadas guardadas por servidor.</li>
+  <li><b>Entrada e saída do servidor</b> (RF-41): quando alguém passa de offline para online/ausente ou o contrário, som curto (três notas) e notificação "fulano entrou/saiu", cada um desligável; deafen não toca; calado por 5 s depois de cada (re)conexão (evita a rajada após reinício do servidor); com o som desligado a notificação não usa o som do sistema; clicar só traz a janela.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>notificar.test.ts</code> (inclui <code>decidirAvisoPresenca</code>), <code>validacao.test.ts</code>, <code>configuracoes.test.ts</code>; E2E <code>e2e/naolidas.spec.ts</code> (CA-59/60/61). Suíte: 331 testes e 25 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-60: ana silencia #jogos</td><td>ok</td><td>mensagem em #jogos só conta; em #ruido notifica (print T29-jogos-silenciado)</td></tr>
+  <tr><td>E2E CA-59: notificações de mensagem desligadas</td><td>ok</td><td>contador sobe, nenhuma notificação nova</td></tr>
+  <tr><td>E2E CA-61: bia entra e sai</td><td>ok</td><td>"ToFalany | bia entrou"/"bia saiu" e sons; desligados, nada toca nem aparece e o status muda (print T29-configuracoes-notificacoes)</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> notificações reais do sistema (Linux e Windows) com e sem som.</p>
+<p><b>Observação:</b> os E2E agora fecham os apps que sobram quando um teste falha no meio (antes eles ficavam abertos e deixavam a máquina lenta para os testes seguintes).</p>
+<p>Revisão: 10 achados (0 graves, 3 médios, 7 menores), todos corrigidos ou registrados.</p>

@@ -474,9 +474,9 @@
         "CA-61"
       ],
       "validacao": "unidade da decisão; E2E: notificações desligadas só contam; canal silenciado sem notificação e com ícone",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "6eb7cc9"
     },
     {
       "id": "T23",
