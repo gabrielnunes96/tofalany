@@ -1,0 +1,27 @@
+<!-- T22 — Qualidade por cargo, codec e áudio do sistema -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-28, RF-29, RN-17, RN-14; CA-39, CA-39a, CA-40.</p>
+<h3>Padrão</h3>
+<p>Técnica R-2 (tela + tela:pedir + webhook silenciando), R-3 (H.264 padrão, VP9 opção, sem simulcast), R-10 (banda por qualidade).</p>
+
+<h3>Implementação (06/11/2026, commit 4697e4b)</h3>
+<ul>
+  <li><b>Servidor</b>: <code>tela:pedir</code> recusa membro acima de 720p30 ("Só administradores transmitem acima de 720p30."). Webhook <code>track_published</code> de tela silencia (<code>mutePublishedTrack</code>) a faixa de quem não tem a trava do canal, acima das dimensões da qualidade (retrato considerado), sem dimensões vindas de membro, ou áudio da tela sem trava; responde ao LiveKit sem esperar o silenciamento. Perder o cargo transmitindo acima de 720p30 encerra a transmissão (motivo <code>cargo_alterado</code>).</li>
+  <li><b>App</b>: seletor com a qualidade antes das miniaturas — membro só 720p30 (já marcado, com o motivo); admin escolhe, vindo do padrão dele (Configurações → Transmissão de tela, por máquina). Codec H.264 (recomendado) ou VP9, sem VP8 de reserva. Taxa máxima 2,5 / 6 / 10 Mbit/s e quadros por qualidade; depois de publicar, a captura recebe o teto real de resolução (o livekit-client só pede "ideal"). Ao perder o cargo, a transmissão acima de 720p30 para no app também.</li>
+  <li><b>RF-29</b>: áudio do sistema por loopback só no Windows (da T21); no Linux a opção fica desabilitada com o motivo.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/tela.test.ts</code> (membro recusado, admin aceito, regra das dimensões, chamada de silenciar, áudio, sem dimensões, cargo alterado), <code>voz.test.ts</code> (webhook track_published), <code>validacao.test.ts</code>, <code>transmissao.test.tsx</code>, <code>voz.test.ts</code> do cliente; E2E <code>e2e/voz.spec.ts</code> (CA-39a e 1080p60 com VP9; membro em 720p30 chega com no máximo 1280×720). Suíte: 345 testes e 28 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 06/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-39a: ana (membro) abre o seletor</td><td>ok</td><td>só 720p30, já marcado (print T22-membro-so-720p30)</td></tr>
+  <tr><td>Integração CA-39a: membro pede 1440p60 direto ao servidor</td><td>ok</td><td>recusado</td></tr>
+  <tr><td>E2E: dono (admin) com padrão 1080p60 e VP9</td><td>ok</td><td>transmissão registrada em 1080p60; na ana, no máximo 1920 de largura</td></tr>
+  <tr><td>E2E: ana transmite em 720p30</td><td>ok</td><td>no dono, até 1280×720</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> CA-39 — 1440p60 de verdade (2560×1440 a 50–60 quadros e a banda); CA-40 no Windows — ouvir o áudio de um vídeo pela transmissão e conferir se a voz da chamada não volta como eco (o loopback captura todo o áudio do sistema; se houver eco, é preciso decidir uma mitigação); uma tela 16:10 em 720p30 não ficar silenciada.</p>
+<p><b>Limitação registrada:</b> se a mídia reconectar e o LiveKit publicar a tela de novo antes de a trava ser retomada, a faixa pode ser silenciada; nesse caso parar e transmitir de novo resolve (fica para a T23, reconexão).</p>
+<p>Revisão: 13 achados (0 graves, 6 médios, 7 menores), corrigidos ou registrados acima.</p>

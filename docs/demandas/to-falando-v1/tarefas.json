@@ -436,9 +436,9 @@
         "CA-40"
       ],
       "validacao": "integração: membro pedindo 1440p60 recusado e faixa grande silenciada; usuário mede 1440p60 e áudio do sistema no Windows",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "4697e4b"
     },
     {
       "id": "T28",
