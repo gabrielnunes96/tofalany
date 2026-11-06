@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -145,5 +145,16 @@ describe('mesclarPessoas e mesclarSons (RF-19, RF-38)', () => {
     expect(Object.keys(muitos).at(-1)).toBe('http://s24.exemplo.com');
     expect(mesclarSons(undefined, { voz: false, soundboard: 0 })).toEqual({ voz: false, soundboard: 0 });
     expect(mesclarSons(undefined, { voz: 'x', soundboard: 3 })).toEqual({ voz: true, soundboard: 0.8 });
+  });
+});
+
+describe('mesclarNotificacoes (RF-39 a RF-41)', () => {
+  it('liga/desliga cada opção e guarda conversas silenciadas válidas por servidor', () => {
+    const r = mesclarNotificacoes(undefined, {
+      mensagens: false,
+      entradaSaidaSom: 'x',
+      silenciadas: { 'http://s.exemplo.com': ['c:1', 'd:2', 'c:1', 'x:3', 5], 'javascript:x': ['c:1'] },
+    });
+    expect(r).toEqual({ mensagens: false, entradaSaidaSom: true, entradaSaidaAviso: true, silenciadas: { 'http://s.exemplo.com': ['c:1', 'd:2'] } });
   });
 });

@@ -1,4 +1,4 @@
-import { AUDIO_PADRAO, SONS_PADRAO, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
+import { AUDIO_PADRAO, NOTIFICACOES_PADRAO, SONS_PADRAO, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
 import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, NOME_SOM_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
@@ -178,5 +178,24 @@ export function mesclarSons(base: PreferenciasSons = SONS_PADRAO, bruto: unknown
   const o = bruto as Record<string, unknown>;
   if (typeof o.voz === 'boolean') r.voz = o.voz;
   if (typeof o.soundboard === 'number' && Number.isFinite(o.soundboard) && o.soundboard >= 0 && o.soundboard <= 1) r.soundboard = Math.round(o.soundboard * 100) / 100;
+  return r;
+}
+
+/** RF-39 a RF-41: valida as preferências de notificação (conversas silenciadas por servidor, até 20 servidores e 500 conversas). */
+export function mesclarNotificacoes(base: PreferenciasNotificacoes = NOTIFICACOES_PADRAO, bruto: unknown): PreferenciasNotificacoes {
+  const r: PreferenciasNotificacoes = { ...base, silenciadas: { ...base.silenciadas } };
+  if (!bruto || typeof bruto !== 'object') return r;
+  const o = bruto as Record<string, unknown>;
+  for (const k of ['mensagens', 'entradaSaidaSom', 'entradaSaidaAviso'] as const) if (typeof o[k] === 'boolean') r[k] = o[k] as boolean;
+  if (o.silenciadas && typeof o.silenciadas === 'object' && !Array.isArray(o.silenciadas)) {
+    for (const [chave, lista] of Object.entries(o.silenciadas as Record<string, unknown>).slice(0, 20)) {
+      const url = normalizarUrlServidor(chave);
+      if (!url.ok || !Array.isArray(lista)) continue;
+      delete r.silenciadas[url.valor];
+      r.silenciadas[url.valor] = [...new Set(lista.filter((c): c is string => typeof c === 'string' && /^[cd]:\d{1,9}$/.test(c)))].slice(0, 500);
+    }
+    const chaves = Object.keys(r.silenciadas);
+    for (const velho of chaves.slice(0, Math.max(0, chaves.length - 20))) delete r.silenciadas[velho];
+  }
   return r;
 }

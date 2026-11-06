@@ -17,6 +17,8 @@ const print = (janela: Page, nome: string) => janela.screenshot({ path: join(PRI
 test.describe.configure({ retries: 1 });
 
 let pasta: string;
+/** Apps abertos no teste; os que sobrarem (teste que falhou no meio) são fechados no afterEach. */
+const abertos: ElectronApplication[] = [];
 let servidor: FastifyInstance;
 let url: string;
 
@@ -67,12 +69,14 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
+  await Promise.all(abertos.splice(0).map((a) => a.close().catch(() => undefined)));
   await servidor.close();
   rmSync(pasta, { recursive: true, force: true });
 });
 
 async function abrirApp(nome: string): Promise<{ app: ElectronApplication; janela: Page }> {
   const app = await electron.launch({ args: [principal], env: { ...process.env, TOFALANDO_USER_DATA: join(pasta, nome), TOFALANDO_MIDIA_FALSA: '1' } });
+  abertos.push(app);
   return { app, janela: await app.firstWindow() };
 }
 

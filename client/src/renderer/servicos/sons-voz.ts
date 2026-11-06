@@ -1,5 +1,5 @@
 /** RF-21: sons curtos da voz, gerados na hora (sem arquivos). */
-export type SomVoz = 'entrar' | 'sair' | 'mudo' | 'desmudo';
+export type SomVoz = 'entrar' | 'sair' | 'mudo' | 'desmudo' | 'servidor-entrou' | 'servidor-saiu';
 
 /** Notas (Hz) e duração de cada nota (s): subir = entrou/desmutou, descer = saiu/mutou. */
 export const NOTAS: Record<SomVoz, { freqs: number[]; duracao: number }> = {
@@ -7,6 +7,9 @@ export const NOTAS: Record<SomVoz, { freqs: number[]; duracao: number }> = {
   sair: { freqs: [880, 587], duracao: 0.09 },
   mudo: { freqs: [523, 392], duracao: 0.06 },
   desmudo: { freqs: [392, 523], duracao: 0.06 },
+  // RF-41: alguém entrou/saiu do servidor (três notas, mais suaves).
+  'servidor-entrou': { freqs: [523, 659, 784], duracao: 0.08 },
+  'servidor-saiu': { freqs: [784, 659, 523], duracao: 0.08 },
 };
 
 const VOLUME = 0.12;

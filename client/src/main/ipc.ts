@@ -16,7 +16,7 @@ export function registrarIpc(
 ): void {
   ipcMain.handle('notificar', (_e, p: PedidoNotificacao) => {
     if (!p || typeof p.titulo !== 'string' || typeof p.corpo !== 'string' || typeof p.chave !== 'string') throw new Error('Pedido inválido.');
-    return notificacoes.mostrar({ titulo: p.titulo, corpo: p.corpo, chave: p.chave, conversaAberta: p.conversaAberta === true });
+    return notificacoes.mostrar({ titulo: p.titulo, corpo: p.corpo, chave: p.chave, conversaAberta: p.conversaAberta === true, silencioso: p.silencioso === true });
   });
   ipcMain.handle('config:ler', () => configuracoes.ler());
   ipcMain.handle('config:gravar', (_evento, parcial: Partial<ConfiguracoesLocais>) => {

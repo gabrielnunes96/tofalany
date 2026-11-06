@@ -122,7 +122,22 @@ export interface ConfiguracoesLocais {
   pessoas: Record<string, PreferenciasPessoas>;
   /** RF-21, RF-41: sons que dá para desligar. */
   sons: PreferenciasSons;
+  /** RF-39, RF-40, RF-41: notificações deste computador (RN-27). */
+  notificacoes: PreferenciasNotificacoes;
 }
+
+export interface PreferenciasNotificacoes {
+  /** RF-39: notificação de mensagens ligada. */
+  mensagens: boolean;
+  /** RF-41: som quando alguém entra ou sai do servidor. */
+  entradaSaidaSom: boolean;
+  /** RF-41: notificação "fulano entrou/saiu". */
+  entradaSaidaAviso: boolean;
+  /** RF-40: conversas silenciadas ("c:<id>"/"d:<id>") por servidor. */
+  silenciadas: Record<string, string[]>;
+}
+
+export const NOTIFICACOES_PADRAO: PreferenciasNotificacoes = { mensagens: true, entradaSaidaSom: true, entradaSaidaAviso: true, silenciadas: {} };
 
 /** Volume (0 a 2 = 0 a 200%) e silêncio de cada pessoa num servidor (só neste computador, RN-26). */
 export interface PreferenciasPessoas {
@@ -145,6 +160,7 @@ export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   atalhos: ATALHOS_PADRAO,
   pessoas: {},
   sons: SONS_PADRAO,
+  notificacoes: NOTIFICACOES_PADRAO,
 };
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */

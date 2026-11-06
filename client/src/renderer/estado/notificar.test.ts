@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MensagemDto } from '@tofalando/shared';
-import { decidirMensagemNova } from './notificar';
+import { decidirAvisoPresenca, decidirMensagemNova } from './notificar';
 
 const usuarios = [
   { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#fff', avatarUrl: null, cargo: 'membro' as const },
@@ -27,13 +27,39 @@ describe('decidirMensagemNova (RF-12)', () => {
     expect(decidirMensagemNova(msg({}), ctx({ chaveAberta: 'c:5' }))?.acao).toBe('lido');
     const semFoco = decidirMensagemNova(msg({}), ctx({ chaveAberta: 'c:5', focado: false }))!;
     expect(semFoco.acao).toBe('contar');
-    expect(semFoco.notificacao.conversaAberta).toBe(true);
+    expect(semFoco.notificacao?.conversaAberta).toBe(true);
   });
 
   it('DM (CA-19a): título é o nome; anexo sem texto vira "📎 nome" ou "📎 N anexos"', () => {
     const a = { id: 'x', url: '/files/x.pdf', tipo: 'documento' as const, nome: 'r.pdf', bytes: 1, largura: null, altura: null };
     const dm = decidirMensagemNova(msg({ canalId: null, dmId: 3, texto: '', anexos: [a] }), ctx())!;
     expect(dm).toMatchObject({ chave: 'd:3', acao: 'contar', notificacao: { titulo: 'Dono', corpo: '📎 r.pdf' } });
-    expect(decidirMensagemNova(msg({ canalId: null, dmId: 3, texto: '', anexos: [a, a] }), ctx())!.notificacao.corpo).toBe('📎 2 anexos');
+    expect(decidirMensagemNova(msg({ canalId: null, dmId: 3, texto: '', anexos: [a, a] }), ctx())!.notificacao?.corpo).toBe('📎 2 anexos');
+  });
+
+  it('RF-39/RF-40: desligadas ou conversa silenciada — conta, mas não notifica', () => {
+    const base = { euId: 1, chaveAberta: null, focado: true, usuarios: [], canais: [] };
+    const msg = { id: 9, canalId: 3, dmId: null, autorId: 2, texto: 'oi', criadaEm: 0, editadaEm: null, anexos: [] };
+    expect(decidirMensagemNova(msg, { ...base, notificar: false })).toEqual({ chave: 'c:3', acao: 'contar' });
+    expect(decidirMensagemNova(msg, { ...base, silenciadas: ['c:3'] })?.notificacao).toBeUndefined();
+    expect(decidirMensagemNova(msg, { ...base, silenciadas: ['c:4'] })?.notificacao).toBeDefined();
+  });
+});
+
+describe('decidirAvisoPresenca (RF-41)', () => {
+  const ctx = { id: 2, euId: 1, calado: false, som: true, aviso: true, surdo: false };
+  it('entrou e saiu avisam; ausente↔online não', () => {
+    expect(decidirAvisoPresenca(undefined, 'online', ctx)).toEqual({ tipo: 'entrou', som: true, aviso: true });
+    expect(decidirAvisoPresenca(undefined, 'ausente', ctx)?.tipo).toBe('entrou');
+    expect(decidirAvisoPresenca('ausente', 'offline', ctx)?.tipo).toBe('saiu');
+    expect(decidirAvisoPresenca('online', 'ausente', ctx)).toBeUndefined();
+    expect(decidirAvisoPresenca('ausente', 'online', ctx)).toBeUndefined();
+    expect(decidirAvisoPresenca(undefined, 'offline', ctx)).toBeUndefined();
+  });
+  it('eu mesmo, logo depois de conectar, chaves desligadas e deafen', () => {
+    expect(decidirAvisoPresenca(undefined, 'online', { ...ctx, id: 1 })).toBeUndefined();
+    expect(decidirAvisoPresenca(undefined, 'online', { ...ctx, calado: true })).toBeUndefined();
+    expect(decidirAvisoPresenca(undefined, 'online', { ...ctx, som: false, aviso: false })).toBeUndefined();
+    expect(decidirAvisoPresenca(undefined, 'online', { ...ctx, surdo: true })).toEqual({ tipo: 'entrou', som: false, aviso: true });
   });
 });

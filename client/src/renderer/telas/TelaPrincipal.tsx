@@ -10,6 +10,8 @@ import {
   type PreferenciasAudio,
   type PreferenciasPessoas,
   type PreferenciasSons,
+  type PreferenciasNotificacoes,
+  NOTIFICACOES_PADRAO,
   SONS_PADRAO,
   type Destino,
   type MensagemDto,
@@ -38,7 +40,7 @@ import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
 import { DmAberta } from '../componentes/DmAberta';
 import { chaveCanal, chaveDm, type Chave, type Historico } from '../estado/loja';
-import { decidirMensagemNova } from '../estado/notificar';
+import { decidirAvisoPresenca, decidirMensagemNova } from '../estado/notificar';
 
 interface Props {
   servidorUrl: string;
@@ -141,6 +143,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [audio, setAudio] = useState<PreferenciasAudio>(AUDIO_PADRAO);
   const audioRef = useRef<PreferenciasAudio>(AUDIO_PADRAO);
   const [atalhos, setAtalhos] = useState<Atalhos>(ATALHOS_PADRAO);
+  // RF-39 a RF-41: notificações deste computador (declaradas antes da leitura do disco, que as preenche).
+  const [notif, setNotif] = useState<PreferenciasNotificacoes>(NOTIFICACOES_PADRAO);
+  const notifRef = useRef(notif);
+  const nomeServidorRef = useRef(nomeServidor);
+  useEffect(() => {
+    nomeServidorRef.current = nomeServidor;
+  }, [nomeServidor]);
+  /** Quando chegou o último retrato (ola): logo depois, mudanças de presença não são novidade. */
+  const olaEmRef = useRef(0);
   // RF-19/RF-38: volume e silêncio de cada pessoa, deste servidor (RN-26); RF-21: sons de voz.
   const [pessoasVoz, setPessoasVoz] = useState<PreferenciasPessoas>({
     volumes: {},
@@ -173,6 +184,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           setPessoasVoz(pessoas);
           salaVozRef.current?.definirPessoas(pessoas);
         }
+        notifRef.current = c.notificacoes ?? NOTIFICACOES_PADRAO;
+        setNotif(notifRef.current);
         sonsRef.current = c.sons ?? SONS_PADRAO;
         setPrefSons(sonsRef.current);
         sonsVozRef.current?.definirSaida(lido.saidaId);
@@ -232,6 +245,46 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       ...pessoasRef.current,
       silenciados: sim ? [...atuais, id] : atuais,
     });
+  };
+  // RF-39 a RF-41: notificações deste computador.
+  function mudarNotificacoes(novo: PreferenciasNotificacoes) {
+    notifRef.current = novo;
+    setNotif(novo);
+    void ponte()
+      .config.gravar({ notificacoes: { ...novo, silenciadas: { [servidorUrl]: novo.silenciadas[servidorUrl] ?? [] } } })
+      .catch(() => undefined);
+  }
+  const silenciadasAqui = notif.silenciadas[servidorUrl] ?? [];
+  const silenciarConversa = (chave: string, sim: boolean) => {
+    const atuais = (notifRef.current.silenciadas[servidorUrl] ?? []).filter((c) => c !== chave);
+    mudarNotificacoes({ ...notifRef.current, silenciadas: { ...notifRef.current.silenciadas, [servidorUrl]: sim ? [...atuais, chave] : atuais } });
+  };
+  const avisarEntradaSaida = (id: number, antes: 'online' | 'ausente' | undefined, status: StatusPessoa) => {
+    const nome = useLoja.getState().usuarios.find((u) => u.id === id)?.nomeExibicao;
+    if (!nome) return;
+    const d = decidirAvisoPresenca(antes, status, {
+      id,
+      euId: useLoja.getState().eu?.id,
+      calado: Date.now() - olaEmRef.current < 5000 || useLoja.getState().conexao !== 'conectado',
+      som: notifRef.current.entradaSaidaSom,
+      aviso: notifRef.current.entradaSaidaAviso,
+      surdo: controlesRef.current.surdo,
+    });
+    if (!d) return;
+    const entrou = d.tipo === 'entrou';
+    if (d.som) sonsVozRef.current?.tocar(entrou ? 'servidor-entrou' : 'servidor-saiu');
+    if (d.aviso) {
+      void ponte()
+        .notificacoes.mostrar({
+          titulo: nomeServidorRef.current ?? 'ToFalany',
+          corpo: `${nome} ${entrou ? 'entrou' : 'saiu'}`,
+          chave: `u:${id}`,
+          conversaAberta: false,
+          // Com o som de entrada/saída desligado, a notificação não toca o som do sistema.
+          silencioso: !notifRef.current.entradaSaidaSom,
+        })
+        .catch(() => undefined);
+    }
   };
   function mudarSons(novo: PreferenciasSons) {
     sonsRef.current = novo;
@@ -370,18 +423,22 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         focado: document.hasFocus(),
         usuarios: estado.usuarios,
         canais: estado.canais,
+        notificar: notifRef.current.mensagens,
+        silenciadas: notifRef.current.silenciadas[servidorUrl] ?? [],
       });
       if (!d) return;
       if (d.acao === 'lido') conexaoRef.current?.avisarLido(destinoDe(d.chave), m.id);
       else acoes.contarNaoLida(d.chave, m.id);
-      void ponte()
-        .notificacoes.mostrar(d.notificacao)
-        .catch(() => undefined);
+      if (d.notificacao)
+        void ponte()
+          .notificacoes.mostrar(d.notificacao)
+          .catch(() => undefined);
     }
 
     const conexao = conectarTempoReal(servidorUrl, token, {
       aoEstado: acoes.definirConexao,
       aoOla: (ola) => {
+        olaEmRef.current = Date.now();
         acoes.aplicarOla(ola);
         // Reconectou com a voz ligada: a presença volta para todos.
         const canal = minhaVozRef.current;
@@ -447,7 +504,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         }
         acoes.definirVoz(estados);
       },
-      aoPresenca: acoes.definirPresenca,
+      aoPresenca: (id, status) => {
+        // RF-41: alguém entrou ou saiu do servidor.
+        avisarEntradaSaida(id, useLoja.getState().presencas[id], status);
+        acoes.definirPresenca(id, status);
+      },
       aoSomTocado: ({ somId, porUsuarioId, canalVozId }) => {
         const estado = useLoja.getState();
         const som = estado.sons.find((x) => x.id === somId);
@@ -522,6 +583,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     () =>
       ponte().notificacoes.aoClicar((chave) => {
         const [tipo, id] = chave.split(':');
+        // Aviso sobre uma pessoa (entrou/saiu): só traz a janela, sem trocar de tela.
+        if (tipo === 'u') return;
         if (tipo === 'c') acoes.abrirCanal(Number(id));
         else if (tipo === 'd') acoes.abrirDm(Number(id));
         setVista('canal');
@@ -695,6 +758,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             aoVolumePessoa={volumePessoa}
             aoSilenciarPessoa={silenciarPessoa}
             presencas={presencas}
+            silenciadas={silenciadasAqui}
           />
           {(minhaVoz !== null || entrandoVoz || avisoVoz) && (
             <section className="painel-voz" aria-label="Conexão de voz">
@@ -861,6 +925,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoCapturar={pausarAtalhos}
               sons={prefSons}
               aoMudarSons={mudarSons}
+              notificacoes={notif}
+              aoMudarNotificacoes={mudarNotificacoes}
               aoVoltar={voltar}
             />
           ) : vistaAtual === 'sons' ? (
@@ -882,6 +948,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoEditarMensagem={editarMensagem}
               aoApagarMensagem={apagarMensagem}
               aoDigitar={(dmId) => conexaoRef.current?.avisarDigitando({ dmId })}
+              silenciada={silenciadasAqui.includes(`d:${dmAtiva}`)}
+              aoSilenciar={(sim) => silenciarConversa(`d:${dmAtiva}`, sim)}
             />
           ) : (
             <CanalAberto
@@ -898,6 +966,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoEditarMensagem={editarMensagem}
               aoApagarMensagem={apagarMensagem}
               aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando({ canalId })}
+              silenciada={canalAtivo !== null && silenciadasAqui.includes(`c:${canalAtivo}`)}
+              aoSilenciar={canalAtivo !== null ? (sim) => silenciarConversa(`c:${canalAtivo}`, sim) : undefined}
             />
           )}
         </main>

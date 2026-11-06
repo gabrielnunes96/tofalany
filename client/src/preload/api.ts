@@ -28,7 +28,7 @@ export interface ApiTofalando {
   };
   notificacoes: {
     /** Pede ao sistema para avisar; o processo principal decide pelo foco da janela. */
-    mostrar(p: { titulo: string; corpo: string; chave: string; conversaAberta: boolean }): Promise<boolean>;
+    mostrar(p: { titulo: string; corpo: string; chave: string; conversaAberta: boolean; silencioso?: boolean }): Promise<boolean>;
     /** Clique na notificação: abre a conversa. Devolve a função que para de ouvir. */
     aoClicar(fn: (chave: string) => void): () => void;
   };

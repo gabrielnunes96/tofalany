@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CanalDto, UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { FormNome } from './FormNome';
+import { BotaoSilenciarConversa } from './BotaoSilenciarConversa';
 import { MensagensCanal } from './MensagensCanal';
 
 interface Props {
@@ -17,6 +18,9 @@ interface Props {
   aoEditarMensagem: (id: number, texto: string) => Promise<string | null>;
   aoApagarMensagem: (id: number) => Promise<string | null>;
   aoDigitar: (canalId: number) => void;
+  /** RF-40: notificações deste canal silenciadas. */
+  silenciada?: boolean;
+  aoSilenciar?: (sim: boolean) => void;
 }
 
 /** Cabeçalho do canal de texto aberto (renomear, remover) e o chat dele. */
@@ -33,6 +37,8 @@ export function CanalAberto({
   aoEditarMensagem,
   aoApagarMensagem,
   aoDigitar,
+  silenciada = false,
+  aoSilenciar,
 }: Props) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
@@ -69,6 +75,7 @@ export function CanalAberto({
         )}
         {modo === 'ver' && (
           <div className="canal-acoes">
+            {aoSilenciar && <BotaoSilenciarConversa silenciada={silenciada} nome={`#${canal.nome}`} aoSilenciar={aoSilenciar} />}
             <button type="button" className="secundario" onClick={() => setModo('renomear')}>
               Renomear
             </button>

@@ -32,6 +32,8 @@ interface Props {
   aoSilenciarPessoa?: (usuarioId: number, silenciar: boolean) => void;
   /** RF-37: status de quem não está offline. */
   presencas?: Partial<Record<number, 'online' | 'ausente'>>;
+  /** RF-40: conversas com notificações silenciadas ("c:<id>"/"d:<id>"). */
+  silenciadas?: string[];
 }
 
 /** Bolinha com o número de não lidas (99+ acima disso). */
@@ -42,6 +44,18 @@ function Contador({ n }: { n: number | undefined }) {
       <span aria-hidden="true">{n > 99 ? '99+' : n}</span>
       <span className="so-leitor">{`${n} não ${n === 1 ? 'lida' : 'lidas'}`}</span>
     </span>
+  );
+}
+
+/** RF-40: ícone de conversa silenciada (o estado completo fica no botão do topo da conversa). */
+function Silenciada() {
+  return (
+    <>
+      <span className="silenciada" title="Notificações silenciadas" aria-hidden="true">
+        🔕
+      </span>
+      <span className="so-leitor">, silenciada</span>
+    </>
   );
 }
 
@@ -271,6 +285,7 @@ export function BarraLateral({
   servidorUrl,
   aoEntrarVoz,
   presencas = {},
+  silenciadas = [],
 }: Props) {
   const [criando, setCriando] = useState<TipoCanal | null>(null);
   const presentesEm = (canalId: number) =>
@@ -316,6 +331,7 @@ export function BarraLateral({
                       onClick={() => aoAbrir(c.id)}
                     >
                       <span aria-hidden="true">#</span> {c.nome}
+                      {silenciadas.includes(`c:${c.id}`) && <Silenciada />}
                       <Contador n={naoLidas[`c:${c.id}`]} />
                     </button>
                   ) : (
@@ -359,6 +375,7 @@ export function BarraLateral({
                   <span className="so-leitor" id={`dm-status-${d.id}`}>
                     {presencas[d.outroId] ?? 'offline'}
                   </span>
+                  {silenciadas.includes(`d:${d.id}`) && <Silenciada />}
                   <Contador n={naoLidas[`d:${d.id}`]} />
                 </button>
               </li>

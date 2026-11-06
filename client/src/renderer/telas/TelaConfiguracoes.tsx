@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasSons } from '@tofalando/shared';
+import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -33,6 +33,9 @@ interface Props {
   /** RF-21/RF-41: sons que dá para desligar. */
   sons?: PreferenciasSons;
   aoMudarSons?: (sons: PreferenciasSons) => void;
+  /** RF-39, RF-41: notificações. */
+  notificacoes?: PreferenciasNotificacoes;
+  aoMudarNotificacoes?: (n: PreferenciasNotificacoes) => void;
   aoVoltar: () => void;
   deps?: DependenciasConfiguracoes;
 }
@@ -47,7 +50,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -227,6 +230,25 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
           <label>
             <input type="checkbox" checked={sons.voz} onChange={(e) => aoMudarSons({ ...sons, voz: e.target.checked })} /> Sons de entrar e sair da voz e de mute
           </label>
+        </fieldset>
+      )}
+
+      {notificacoes && aoMudarNotificacoes && (
+        <fieldset className="opcoes">
+          <legend>Notificações</legend>
+          <label>
+            <input type="checkbox" checked={notificacoes.mensagens} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, mensagens: e.target.checked })} /> Notificações de
+            mensagens
+          </label>
+          <label>
+            <input type="checkbox" checked={notificacoes.entradaSaidaSom} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, entradaSaidaSom: e.target.checked })} /> Som
+            quando alguém entra ou sai do servidor
+          </label>
+          <label>
+            <input type="checkbox" checked={notificacoes.entradaSaidaAviso} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, entradaSaidaAviso: e.target.checked })} />{' '}
+            Notificação quando alguém entra ou sai do servidor
+          </label>
+          <p className="suave">Desligar não zera os contadores de não lidas. Para silenciar um canal ou conversa, use o 🔔 no topo dela.</p>
         </fieldset>
       )}
 
