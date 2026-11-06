@@ -454,9 +454,9 @@
         "CA-57"
       ],
       "validacao": "integração: online/offline com carência e ausente; E2E: B fecha o app e A vê offline; ausente simulado",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "6f05c62"
     },
     {
       "id": "T29",
