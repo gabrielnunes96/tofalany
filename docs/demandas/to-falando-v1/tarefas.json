@@ -396,9 +396,9 @@
         "CA-36"
       ],
       "validacao": "E2E com câmera falsa: B vê o vídeo de A e ele some ao desligar; usuário testa webcam real",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "242e579"
     },
     {
       "id": "T21",
