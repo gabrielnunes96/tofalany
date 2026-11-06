@@ -1,0 +1,81 @@
+# ToFalany — servidor (chat, contas, convite) + LiveKit (voz, vídeo e tela). RF-33.
+#
+#   Tailscale (PC do host):  docker compose up -d
+#   VPS com HTTPS (Caddy):   docker compose --profile vps up -d
+#
+# Configuração: copie "exemplo.env" para ".env" nesta pasta e preencha (o README explica cada caso).
+# Atualizar, voltar versão e restaurar backup: veja o README ("Atualizar e voltar").
+name: tofalany
+
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    # A tag permite voltar: antes de atualizar, VERSAO=<anterior> continua apontando para a imagem antiga.
+    image: tofalany-server:${VERSAO:-local}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      BANCO: /data/tofalando.db
+      PORTA: "3000"
+      HOST: 0.0.0.0
+      # Chave do LiveKit fixa (a mesma do livekit.yaml); só o segredo vem do .env.
+      LIVEKIT_API_KEY: tofalany
+      # O servidor fala com o LiveKit pela rede interna; o app usa LIVEKIT_URL (endereço público).
+      LIVEKIT_URL_INTERNA: http://livekit:7880
+    volumes:
+      - dados:/data
+      # Instaladores oferecidos na página do convite (coloque os .exe/.AppImage/.deb aqui).
+      - ./downloads:/data/downloads:ro
+    ports:
+      # Tailscale: IP do tailnet. VPS: 127.0.0.1 (só o Caddy fala com o servidor; nada de HTTP aberto).
+      - "${BIND_IP_HTTP:-0.0.0.0}:${PORTA_SERVIDOR:-3000}:3000"
+    depends_on:
+      - livekit
+
+  livekit:
+    image: livekit/livekit-server:v1.13.11
+    restart: unless-stopped
+    # O LiveKit anuncia este IP aos apps para o áudio/vídeo (IP do tailnet ou IP público da VPS).
+    command: --config /etc/livekit.yaml --node-ip ${LIVEKIT_NODE_IP:?defina LIVEKIT_NODE_IP no .env}
+    environment:
+      LIVEKIT_KEYS: "tofalany: ${LIVEKIT_API_SECRET:?defina LIVEKIT_API_SECRET no .env}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7880"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+    ports:
+      # Sinalização: no Tailscale o app conecta direto; na VPS passa pelo Caddy (/rtc) e fica em 127.0.0.1.
+      - "${BIND_IP_HTTP:-0.0.0.0}:7880:7880"
+      # Mídia: uma porta UDP só (firewall simples) e TCP de reserva — precisam ficar acessíveis aos apps.
+      - "${BIND_IP_MIDIA:-0.0.0.0}:7882:7882/udp"
+      - "${BIND_IP_MIDIA:-0.0.0.0}:7881:7881"
+
+  caddy:
+    image: caddy:2
+    profiles: [vps]
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-dados:/data
+      - caddy-config:/config
+    depends_on:
+      server:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
+
+volumes:
+  dados:
+  caddy-dados:
+  caddy-config:

@@ -26,6 +26,11 @@ import { registrarRotasAuditoria } from './routes/auditoria.js';
 import { fecharOnlinesPendentes, limparAuditoria } from './dominio/auditoria.js';
 
 const LIMPEZA_AUDITORIA_MS = 6 * 60 * 60 * 1000;
+/**
+ * Atrás do Caddy, só um proxy da rede local/do Docker pode informar o IP real (X-Forwarded-For). Quem falar
+ * direto com a porta do servidor vindo de fora não consegue forjar o IP e fugir do limite de tentativas.
+ */
+const PROXIES_CONFIAVEIS = 'loopback,linklocal,uniquelocal';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -47,7 +52,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
     throw erro;
   }
 
-  const app = Fastify({ logger: config.log ? { redact: ['req.headers.authorization'] } : false, trustProxy: config.atrasDeProxy });
+  const app = Fastify({ logger: config.log ? { redact: ['req.headers.authorization'] } : false, trustProxy: config.atrasDeProxy ? PROXIES_CONFIAVEIS : false });
   app.decorate('banco', banco);
   const limpeza = setInterval(() => {
     try {

@@ -214,7 +214,7 @@ Ordem da demanda, cada etapa validada antes da próxima:
 5. Transmissão de tela com trava por canal e limite por cargo.
 6. Empacotamento (`dist:win`, `dist:linux`), docker-compose, Caddy, README com Tailscale, VPS e tabela de banda.
 
-Implantação: `docker compose --profile tailscale up -d` (PC do host) ou `--profile vps up -d` (com Caddy). Atualizar = `git pull` + `docker compose up -d --build`; a migration roda na subida com backup automático. Rollback = voltar a versão da imagem e restaurar o backup do banco. App: instalar a versão anterior por cima.
+Implantação: `docker compose up -d` (PC do host, Tailscale) ou `docker compose --profile vps up -d` (com Caddy). Portas publicadas no IP escolhido (`BIND_IP_HTTP`/`BIND_IP_MIDIA`): tailnet no Tailscale; na VPS o HTTP do servidor e a sinalização do LiveKit só em 127.0.0.1, atrás do Caddy. Atualizar = `git pull` + `docker compose up -d --build`; a migration roda na subida com backup automático. Rollback = voltar a versão da imagem e restaurar o backup do banco. App: instalar a versão anterior por cima.
 
 ## 11. CI/CD
 Repositório local, sem remoto: nenhuma pipeline nesta demanda. Build e testes rodam pelos scripts do perfil (`npm run build`, `npm test`, `npm run lint`). Se depois houver remoto, uma pipeline pode rodar os mesmos comandos e gerar os instaladores (skill `azure-pipelines`).

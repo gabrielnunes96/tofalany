@@ -1,0 +1,12 @@
+# VPS com HTTPS automático (Let's Encrypt). DOMINIO vem do .env (ex.: fala.exemplo.com ou 1-2-3-4.sslip.io).
+# Tudo no mesmo endereço: o app fala com o servidor e com o LiveKit pelo mesmo host (exigido pelo app).
+{$DOMINIO} {
+	encode zstd gzip
+
+	# Sinalização e API do LiveKit.
+	@livekit path /rtc /rtc/* /twirp/*
+	reverse_proxy @livekit livekit:7880
+
+	# Chat, contas, arquivos, convite e o tempo real (Socket.IO).
+	reverse_proxy server:3000
+}

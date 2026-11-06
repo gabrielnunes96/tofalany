@@ -31,7 +31,22 @@ describe('GET /api/saude', () => {
   it('responde ok com o banco acessível', async () => {
     app = await appTeste();
     const resposta = await app.inject({ method: 'GET', url: '/api/saude' });
-    expect(resposta.json()).toEqual({ ok: true });
+    expect(resposta.json()).toEqual({ ok: true, sqlite: true, livekit: 'sem_config' });
+  });
+
+  it('LiveKit respondendo: ok', async () => {
+    const { createServer } = await import('node:http');
+    const lk = createServer((_req, res) => res.end('OK'));
+    await new Promise<void>((r) => lk.listen(0, '127.0.0.1', r));
+    const porta = (lk.address() as { port: number }).port;
+    app = await appTeste({ LIVEKIT_URL: `ws://127.0.0.1:${porta}`, LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 'segredo-de-teste-com-tamanho-suficiente' });
+    expect((await app.inject({ method: 'GET', url: '/api/saude' })).json()).toEqual({ ok: true, sqlite: true, livekit: 'ok' });
+    lk.close();
+  });
+
+  it('LiveKit configurado e fora do ar: o servidor segue ok e informa', async () => {
+    app = await appTeste({ LIVEKIT_URL: 'ws://127.0.0.1:1', LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 'segredo-de-teste-com-tamanho-suficiente' });
+    expect((await app.inject({ method: 'GET', url: '/api/saude' })).json()).toEqual({ ok: true, sqlite: true, livekit: 'fora' });
   });
 });
 

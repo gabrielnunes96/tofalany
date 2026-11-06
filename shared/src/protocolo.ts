@@ -16,7 +16,11 @@ export interface ServidorInfo {
 
 /** Resposta de GET /api/saude. */
 export interface SaudeInfo {
+  /** O servidor e o banco respondem (o chat funciona mesmo com a mídia fora, RNF de estabilidade). */
   ok: boolean;
+  sqlite: boolean;
+  /** LiveKit: respondendo, fora do ar, ou não configurado neste servidor. */
+  livekit: 'ok' | 'fora' | 'sem_config';
 }
 
 export type Cargo = 'admin' | 'membro';
