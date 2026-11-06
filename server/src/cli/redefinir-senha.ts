@@ -1,7 +1,7 @@
 /**
  * Redefine a senha de uma conta (RF-4) e encerra as sessões dela.
  * Uso: npm run redefinir-senha -w server -- <usuario>
- *      docker compose exec server npm run redefinir-senha -- <usuario>
+ *      docker compose exec server node server/dist/cli/redefinir-senha.js <usuario>
  * A senha nova é pedida duas vezes no terminal (sem aparecer) ou lida das duas primeiras linhas
  * da entrada padrão (senha e confirmação); nunca por argumento, para não ficar no histórico do shell.
  * Saída: 0 = ok, 1 = uso/senha inválida, 2 = usuário não encontrado, 3 = erro interno, 130 = cancelado.
