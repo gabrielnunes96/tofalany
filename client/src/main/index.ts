@@ -10,12 +10,16 @@ import { criarAtalhos, type Modificadores } from './atalhos';
 import { criarOciosidade } from './ociosidade';
 import { registrarCaptura } from './captura';
 import { filtrarRede } from './rede';
+import { integrarSistema } from './integracao';
 import { normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
 const pastaDados = process.env.TOFALANDO_USER_DATA;
 if (pastaDados && !app.isPackaged) app.setPath('userData', pastaDados);
+
+// T24: notificações no Windows instalado e o link tofalany:// no AppImage.
+integrarSistema({ empacotado: app.isPackaged, plataforma: process.platform, appImage: process.env.APPIMAGE, definirId: (id) => app.setAppUserModelId(id) });
 
 // E2E de voz: microfone e câmera falsos do Chromium, sem pedir permissão (só fora do app empacotado).
 if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {

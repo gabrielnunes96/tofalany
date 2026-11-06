@@ -1,0 +1,59 @@
+# Instaladores do ToFalany (RF-32). npm run dist:linux → .AppImage e .deb; npm run dist:win → .exe (NSIS, via wine no Linux).
+appId: com.tofalany.app
+# Versão exata do Electron instalado (o builder baixa os binários de cada plataforma desta versão).
+electronVersion: 45.2.3
+productName: ToFalany
+copyright: ToFalany
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+# O gancho de teclado (uiohook-napi) é nativo: fica fora do asar. Os binários de cada plataforma já vêm no pacote.
+asarUnpack:
+  - '**/node_modules/uiohook-napi/**'
+npmRebuild: false
+# Endurecimento do binário: sem modo Node pelo ambiente e só o app do asar. (A inspeção por linha de comando fica:
+# o Playwright usa para testar o app empacotado.)
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  onlyLoadAppFromAsar: true
+# RF-1a: o sistema abre o app pelos links tofalany:// (o AppImage se registra na primeira execução, R-6).
+protocols:
+  - name: ToFalany
+    schemes:
+      - tofalany
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Network
+  executableName: tofalany
+  icon: build/icon.png
+  synopsis: Voz, chat e tela para o seu grupo
+  description: App de voz, chat de texto, webcam e transmissão de tela para um servidor próprio.
+  maintainer: ToFalany
+  desktop:
+    entry:
+      MimeType: x-scheme-handler/tofalany;
+deb:
+  artifactName: tofalany_${version}_${arch}.${ext}
+  # Áudio pelo PipeWire ou PulseAudio (requisito de plataforma).
+  recommends:
+    - pipewire-pulse | pulseaudio
+appImage:
+  artifactName: ToFalany-${version}.${ext}
+win:
+  target:
+    - nsis
+  icon: build/icon-256.png
+  # Sem assinatura de código (R-8): o SmartScreen avisa na primeira instalação.
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  artifactName: ToFalany-Setup-${version}.${ext}

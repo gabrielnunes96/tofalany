@@ -33,7 +33,9 @@ export function prepararLinks(focar: () => void, enviar: (convite: ConviteLink) 
     return { principal: false, pegarPendente: () => undefined, rendererSaiu: () => undefined };
   }
 
-  if (app.isPackaged) app.setAsDefaultProtocolClient(ESQUEMA_LINK);
+  // No AppImage, quem registra o link é integrarSistema (atalho próprio); o .deb e o .exe registram na instalação,
+  // e aqui só reforçam (no Linux, pelo desktopName do package.json: tofalany.desktop).
+  if (app.isPackaged && !(process.platform === 'linux' && process.env.APPIMAGE)) app.setAsDefaultProtocolClient(ESQUEMA_LINK);
 
   let pendente = conviteDosArgumentos(process.argv);
   let rendererPronto = false;
