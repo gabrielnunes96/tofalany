@@ -19,7 +19,7 @@ function socketFalso() {
 
 function montar() {
   const s = socketFalso();
-  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn(), aoDmAtualizada: vi.fn(), aoLidoAtualizado: vi.fn(), aoSonsAtualizados: vi.fn(), aoVozEstados: vi.fn(), aoVozTirado: vi.fn(), aoSomTocado: vi.fn() };
+  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn(), aoDmAtualizada: vi.fn(), aoLidoAtualizado: vi.fn(), aoSonsAtualizados: vi.fn(), aoVozEstados: vi.fn(), aoVozTirado: vi.fn(), aoSomTocado: vi.fn(), aoPresenca: vi.fn() };
   const fabrica = vi.fn(() => s as unknown as SocketTofalando);
   let avisarRede: (online: boolean) => void = () => undefined;
   const pararRede = vi.fn();
@@ -37,7 +37,12 @@ function montar() {
 describe('conectarTempoReal', () => {
   it('conecta com o token e reconexão automática', () => {
     const { fabrica, ouvintes, s } = montar();
-    expect(fabrica).toHaveBeenCalledWith('http://s', expect.objectContaining({ auth: { token: 'tok' }, reconnection: true }));
+    expect(fabrica).toHaveBeenCalledWith('http://s', expect.objectContaining({ reconnection: true }));
+    // O handshake leva o token e o "ausente" atual (RN-25).
+    const auth = ((fabrica.mock.calls as unknown as unknown[][])[0]![1] as { auth: (cb: (d: unknown) => void) => void }).auth;
+    const enviado = vi.fn();
+    auth(enviado);
+    expect(enviado).toHaveBeenCalledWith({ token: 'tok', ausente: false });
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('conectando');
     s.disparar('connect');
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('conectado');

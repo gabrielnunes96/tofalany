@@ -292,3 +292,13 @@ kbd { font-family: inherit; font-size: 0.85rem; padding: 2px 8px; border: 1px so
 .sons-grade button { margin: 0; padding: 6px 10px; font-size: 0.85rem; }
 .aviso-som { margin: 0; padding: 6px 10px; font-size: 0.85rem; color: var(--amarelo); border-top: 1px solid var(--borda); }
 .aviso-som.vazio { padding: 0; border: 0; }
+
+/* Status das pessoas (RF-37) */
+.status-ponto { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; border: 2px solid var(--superficie); box-sizing: content-box; }
+.status-online { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.status-ausente { background: var(--amarelo); }
+.status-offline { background: transparent; border-color: var(--texto-suave); width: 6px; height: 6px; }
+.avatar-com-status { position: relative; display: inline-flex; }
+.avatar-com-status .status-ponto { position: absolute; right: -2px; bottom: -2px; }
+.grupo-membros { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--texto-suave); margin-top: 6px; }
+button.canal .status-ponto { margin-right: 2px; }

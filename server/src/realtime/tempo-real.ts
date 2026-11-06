@@ -115,7 +115,19 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     pingTimeout: PING_TOLERANCIA_MS,
   });
 
+  // RF-37/RN-25: status visível (online/ausente). Offline só depois da carência (mesma regra da auditoria).
+  const status = new Map<number, 'online' | 'ausente'>();
+  const ausentes = new Set<string>();
+  function recalcularStatus(usuarioId: number) {
+    const conexoes = [...io.of('/').sockets.values()].filter((s) => s.data.usuarioId === usuarioId);
+    if (conexoes.length === 0) return;
+    const novo = conexoes.some((s) => !ausentes.has(s.id)) ? 'online' : 'ausente';
+    if (status.get(usuarioId) === novo) return;
+    status.set(usuarioId, novo);
+    io.emit('presenca:atualizada', { id: usuarioId, status: novo });
+  }
   const presenca = criarPresenca((tipo, usuarioId, motivo) => {
+    if (tipo === 'offline' && status.delete(usuarioId)) io.emit('presenca:atualizada', { id: usuarioId, status: 'offline' });
     try {
       registrarAuditoria(banco, { tipo, atorId: usuarioId, detalhes: motivo ? { motivo } : undefined });
     } catch (erro) {
@@ -180,14 +192,32 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       naoLidas: contarNaoLidas(banco, eu.id),
       sons: listarSons(banco),
       voz: voz.estados(),
+      presencas: {},
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
     soundboard.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));
-    socket.emit('ola', ola);
     presenca.entrou(eu.id);
-    socket.on('disconnect', () => presenca.saiu(eu.id));
+    // RN-25: quem reconecta já ausente avisa no handshake (sem piscar "online" para os outros).
+    if (socket.handshake.auth?.ausente === true) ausentes.add(socket.id);
+    recalcularStatus(eu.id);
+    ola.presencas = Object.fromEntries(status);
+    socket.emit('ola', ola);
+    socket.on('presenca:ausente', (dados) => {
+      const ausente = typeof dados === 'object' && dados !== null && (dados as { ausente?: unknown }).ausente === true;
+      // Repetição não muda nada (nem gera aviso para todos).
+      if (ausente === ausentes.has(socket.id)) return;
+      if (ausente) ausentes.add(socket.id);
+      else ausentes.delete(socket.id);
+      recalcularStatus(eu.id);
+    });
+    socket.on('disconnect', () => {
+      ausentes.delete(socket.id);
+      presenca.saiu(eu.id);
+      // Ainda há outro computador conectado: o status passa a ser o dele.
+      recalcularStatus(eu.id);
+    });
   }
 
   function derrubar(socket: SocketTofalando, motivo: MotivoRevogacao) {

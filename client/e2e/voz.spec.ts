@@ -12,6 +12,10 @@ const CONVITE = 'convite-e2e';
 const PRINTS = join(__dirname, '../../docs/demandas/to-falando-v1/prints');
 const print = (janela: Page, nome: string) => janela.screenshot({ path: join(PRINTS, `${nome}.png`) });
 
+// O indicador de fala vem da detecção do LiveKit, que fica lenta com a máquina carregada (suíte inteira):
+// uma repetição em caso de falha (registrado para a T23).
+test.describe.configure({ retries: 1 });
+
 let pasta: string;
 let servidor: FastifyInstance;
 let url: string;
@@ -54,6 +58,8 @@ test.beforeEach(async () => {
       LIVEKIT_URL: 'ws://127.0.0.1:7880',
       LIVEKIT_API_KEY: 'devkey',
       LIVEKIT_API_SECRET: 'secret',
+      // Offline/saída da voz em 1,5 s (o padrão de 30 s deixaria os testes lentos).
+      CARENCIA_OFFLINE_MS: '1500',
     }),
   );
   await servidor.listen({ port: 0, host: '127.0.0.1' });
@@ -462,4 +468,36 @@ test('CA-32, CA-33, CA-34, CA-35: soundboard no canal de voz', async () => {
 
   await dono.app.close();
   await ana.app.close();
+});
+
+const ocioso = (app: ElectronApplication, segundos: number | undefined) =>
+  app.evaluate((_e, s) => (globalThis as unknown as { __ociosoSegundos: (s: number | undefined) => void }).__ociosoSegundos(s), segundos);
+
+test('CA-56, CA-57: status online, ausente e offline na lista de membros', async () => {
+  test.setTimeout(90_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const membros = dono.janela.getByRole('list', { name: 'Membros' });
+
+  await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible();
+  await expect(membros).toContainText('Online — 2');
+
+  // CA-57: 10 min sem mexer (simulado) → ausente; mexeu → online.
+  await ocioso(ana.app, 700);
+  await expect(membros.getByRole('listitem', { name: 'ana, ausente' })).toBeVisible();
+  await print(dono.janela, 'T28-ana-ausente');
+  await ocioso(ana.app, 3);
+  await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible();
+
+  // CA-56: fechou o app → offline depois da carência; abriu de novo → online.
+  await ana.app.close();
+  await expect(membros.getByRole('listitem', { name: 'ana, offline' })).toBeVisible({ timeout: 10_000 });
+  await expect(membros).toContainText('Offline — 1');
+  await print(dono.janela, 'T28-ana-offline');
+  const ana2 = await abrirApp('ana');
+  await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible({ timeout: 15_000 });
+
+  await dono.app.close();
+  await ana2.app.close();
 });

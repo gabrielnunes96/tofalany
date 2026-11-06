@@ -38,6 +38,11 @@ export interface ApiTofalando {
     /** Enquanto a tela captura um atalho novo, os globais não disparam. */
     pausar(sim: boolean): Promise<void>;
   };
+  /** RN-25: o computador ficou ocioso (ou voltou). */
+  presenca: {
+    ausente(): Promise<boolean>;
+    aoMudar(fn: (ausente: boolean) => void): () => void;
+  };
   arquivos: {
     /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */
     baixar(url: string, nome: string): Promise<string | null>;

@@ -10,6 +10,7 @@ import {
   type OlaPayload,
   type SomDto,
   type VozEstadoDto,
+  type StatusPessoa,
   type UsuarioDto,
   type Destino,
 } from '@tofalando/shared';
@@ -39,6 +40,8 @@ export interface OuvintesTempoReal {
   aoVozTirado(): void;
   /** RF-23: som do soundboard tocado no meu canal de voz. */
   aoSomTocado(p: { somId: number; porUsuarioId: number; canalVozId: number }): void;
+  /** RF-37: status de alguém mudou. */
+  aoPresenca(id: number, status: StatusPessoa): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -73,12 +76,14 @@ export interface ConexaoTempoReal {
   avisarDigitando(destino: Destino): void;
   /** Leu a conversa até esta mensagem. */
   avisarLido(destino: Destino, ultimaMensagemId: number): void;
+  /** RN-25: o computador ficou ocioso (ou voltou). */
+  avisarAusente(ausente: boolean): void;
   /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
   pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
 }
 
 /** Eventos que esperam resposta (ack); "digitando" é só um sinal. */
-type EventoComResposta = Exclude<keyof EventosCliente, 'digitando' | 'lido:marcar'>;
+type EventoComResposta = Exclude<keyof EventosCliente, 'digitando' | 'lido:marcar' | 'presenca:ausente'>;
 
 type AckValor<K extends EventoComResposta> = Parameters<Parameters<EventosCliente[K]>[1]>[0] extends infer R
   ? R extends { ok: true; valor: infer V }
@@ -97,8 +102,10 @@ export function conectarTempoReal(
   rede: Rede = redeDoNavegador,
 ): ConexaoTempoReal {
   let encerrada = false;
+  let ausente = false;
   const socket = fabrica(url, {
-    auth: { token },
+    // O 'ausente' vai junto no handshake de cada (re)conexão (RN-25).
+    auth: (enviar) => enviar({ token, ausente }),
     transports: ['websocket'],
     reconnection: true,
     reconnectionDelay: 500,
@@ -138,6 +145,7 @@ export function conectarTempoReal(
   socket.on('voz:estados', (estados) => ouvintes.aoVozEstados(estados));
   socket.on('voz:tirado', () => ouvintes.aoVozTirado());
   socket.on('som:tocado', (p) => ouvintes.aoSomTocado(p));
+  socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');
@@ -166,6 +174,10 @@ export function conectarTempoReal(
     },
     avisarLido(destino, ultimaMensagemId) {
       if (socket.connected) socket.emit('lido:marcar', { destino, ultimaMensagemId });
+    },
+    avisarAusente(valor) {
+      ausente = valor;
+      if (socket.connected) socket.emit('presenca:ausente', { ausente: valor });
     },
     avisarDigitando(destino) {
       if (socket.connected) socket.emit('digitando', { destino });

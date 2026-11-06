@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, powerMonitor, safeStorage, shell } from 'electron';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
@@ -7,6 +7,7 @@ import { prepararLinks } from './deeplink';
 import { criarArquivos } from './arquivos';
 import { criarNotificacoes } from './notificacoes';
 import { criarAtalhos, type Modificadores } from './atalhos';
+import { criarOciosidade } from './ociosidade';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -97,9 +98,23 @@ if (links.principal) {
     );
     atalhos.definir(configuracoes.ler().atalhos);
     app.on('will-quit', () => atalhos.parar());
-    // E2E: o Playwright não gera teclas do sistema; simula o que o uiohook entregaria (só fora do empacotado).
+    // RN-25: ocioso há 10 min → ausente (o renderer avisa o servidor).
+    let ociosoForcado: number | undefined;
+    const ociosidade = criarOciosidade(
+      () => ociosoForcado ?? powerMonitor.getSystemIdleTime(),
+      (ausente) => {
+        if (janelaPrincipal && !janelaPrincipal.isDestroyed()) janelaPrincipal.webContents.send('presenca:ociosidade', ausente);
+      },
+    );
+    app.on('will-quit', () => ociosidade.parar());
+    ipcMain.handle('presenca:ausente', () => ociosidade.ausente());
+    // E2E: o Playwright não gera teclas do sistema nem ociosidade; simula o que o sistema entregaria (só fora do empacotado).
     if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
       (globalThis as { __teclaGlobal?: unknown }).__teclaGlobal = (tipo: 'down' | 'up', codigo: string, mods: Modificadores = {}) => atalhos.tratarCodigo(tipo, codigo, mods);
+      (globalThis as { __ociosoSegundos?: unknown }).__ociosoSegundos = (s: number | undefined) => {
+        ociosoForcado = s;
+        ociosidade.verificar();
+      };
     }
     ipcMain.handle('atalhos:pausar', (_e, sim: unknown) => atalhos.pausar(sim === true));
     registrarIpc(

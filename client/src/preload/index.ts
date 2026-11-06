@@ -39,6 +39,14 @@ const api: ApiTofalando = {
     },
     pausar: (sim) => ipcRenderer.invoke('atalhos:pausar', sim),
   },
+  presenca: {
+    ausente: () => ipcRenderer.invoke('presenca:ausente'),
+    aoMudar: (fn) => {
+      const ouvinte = (_e: IpcRendererEvent, ausente: boolean) => fn(ausente === true);
+      ipcRenderer.on('presenca:ociosidade', ouvinte);
+      return () => ipcRenderer.removeListener('presenca:ociosidade', ouvinte);
+    },
+  },
   arquivos: {
     baixar: (url, nome) => ipcRenderer.invoke('arquivo:baixar', url, nome),
     abrir: (caminho) => ipcRenderer.invoke('arquivo:abrir', caminho),

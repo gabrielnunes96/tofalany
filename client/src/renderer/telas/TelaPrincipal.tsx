@@ -5,6 +5,7 @@ import {
   AUDIO_PADRAO,
   DIGITANDO_DURACAO_MS,
   type AcaoAtalho,
+  type StatusPessoa,
   type Atalhos,
   type PreferenciasAudio,
   type PreferenciasPessoas,
@@ -32,6 +33,7 @@ import { TelaConvite } from './TelaConvite';
 import { TelaSons } from './TelaSons';
 import { TelaConfiguracoes } from './TelaConfiguracoes';
 import { Avatar } from '../componentes/Avatar';
+import { StatusPonto } from '../componentes/StatusPonto';
 import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
 import { DmAberta } from '../componentes/DmAberta';
@@ -74,10 +76,11 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada }: Props) {
-  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando } = useLoja(
+  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
+      presencas: s.presencas,
       naoLidas: s.naoLidas,
       sons: s.sons,
       dms: s.dms,
@@ -109,6 +112,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       descontarApagada: s.descontarApagada,
       definirSons: s.definirSons,
       definirVoz: s.definirVoz,
+      definirPresenca: s.definirPresenca,
       definirFalando: s.definirFalando,
       salvarSom: s.salvarSom,
       tirarSom: s.tirarSom,
@@ -256,6 +260,19 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     return () => clearTimeout(t);
   }, [avisoSom]);
   const pararSoundboard = () => tocadorRef.current?.parar();
+  // RN-25: ocioso há 10 min (avisado pelo processo principal) → ausente para todos.
+  const ausenteRef = useRef(false);
+  useEffect(() => {
+    const avisar = (ausente: boolean) => {
+      ausenteRef.current = ausente;
+      conexaoRef.current?.avisarAusente(ausente);
+    };
+    void ponte()
+      .presenca.ausente()
+      .then((a) => a && avisar(true))
+      .catch(() => undefined);
+    return ponte().presenca.aoMudar(avisar);
+  }, []);
   // RF-15/RF-16: mute e deafen (valem também fora da voz e são aplicados ao entrar) e atalhos globais.
   const [controles, setControlesEstado] = useState({
     mudo: false,
@@ -430,6 +447,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         }
         acoes.definirVoz(estados);
       },
+      aoPresenca: acoes.definirPresenca,
       aoSomTocado: ({ somId, porUsuarioId, canalVozId }) => {
         const estado = useLoja.getState();
         const som = estado.sons.find((x) => x.id === somId);
@@ -463,6 +481,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   }, [servidorUrl, token, acoes, aoSessaoRevogada]);
 
   const usuario = eu ?? usuarioInicial;
+  const membrosPorStatus = useMemo(() => {
+    const com = usuarios.map((u) => ({ u, status: (presencas[u.id] ?? 'offline') as StatusPessoa }));
+    const ativos = com.filter((m) => m.status !== 'offline');
+    const fora = com.filter((m) => m.status === 'offline');
+    return [
+      ...(ativos.length ? [{ grupo: `Online — ${ativos.length}` }, ...ativos] : []),
+      ...(fora.length ? [{ grupo: `Offline — ${fora.length}` }, ...fora] : []),
+    ] as ({ grupo: string } | { u: UsuarioDto; status: StatusPessoa })[];
+  }, [usuarios, presencas]);
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
   const ehAdmin = usuario.cargo === 'admin';
   const vistaAtual: Vista = !ehAdmin && (vista === 'auditoria' || vista === 'membros' || vista === 'convite' || vista === 'sons') ? 'canal' : vista;
@@ -667,6 +694,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             pessoasVoz={pessoasVoz}
             aoVolumePessoa={volumePessoa}
             aoSilenciarPessoa={silenciarPessoa}
+            presencas={presencas}
           />
           {(minhaVoz !== null || entrandoVoz || avisoVoz) && (
             <section className="painel-voz" aria-label="Conexão de voz">
@@ -876,25 +904,35 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
 
         <aside className="coluna-direita">
           <h2 className="subtitulo">Membros — {usuarios.length}</h2>
+          {/* RF-37: online/ausente primeiro, depois offline; cada um com a bolinha de status. */}
           <ul className="lista-membros" aria-label="Membros">
-            {usuarios.map((u) => (
-              <li key={u.id}>
-                <Avatar usuario={u} servidorUrl={servidorUrl} tamanho={28} />
-                <span>{u.nomeExibicao}</span>
-                {u.cargo === 'admin' && <span className="selo">admin</span>}
-                {u.id !== usuario.id && (
-                  <button
-                    type="button"
-                    className="icone conversar"
-                    aria-label={`Conversar com ${u.nomeExibicao}`}
-                    title="Mensagem direta"
-                    onClick={() => conversarCom(u.id)}
-                  >
-                    ✉
-                  </button>
-                )}
-              </li>
-            ))}
+            {membrosPorStatus.map((item) =>
+              'grupo' in item ? (
+                <li key={item.grupo} className="grupo-membros" aria-hidden="true">
+                  {item.grupo}
+                </li>
+              ) : (
+                <li key={item.u.id} aria-label={`${item.u.nomeExibicao}, ${item.status}`}>
+                  <span className="avatar-com-status">
+                    <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
+                    <StatusPonto status={item.status} />
+                  </span>
+                  <span>{item.u.nomeExibicao}</span>
+                  {item.u.cargo === 'admin' && <span className="selo">admin</span>}
+                  {item.u.id !== usuario.id && (
+                    <button
+                      type="button"
+                      className="icone conversar"
+                      aria-label={`Conversar com ${item.u.nomeExibicao}`}
+                      title="Mensagem direta"
+                      onClick={() => conversarCom(item.u.id)}
+                    >
+                      ✉
+                    </button>
+                  )}
+                </li>
+              ),
+            )}
           </ul>
         </aside>
       </div>

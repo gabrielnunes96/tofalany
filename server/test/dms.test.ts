@@ -28,7 +28,8 @@ async function trio() {
     const s: Cliente = conectar(url, { auth: { token }, transports: ['websocket'], reconnection: false, forceNew: true });
     sockets.push(s);
     const recebidos: { evento: string; dados: unknown }[] = [];
-    s.onAny((evento, dados) => recebidos.push({ evento, dados }));
+    // Status das pessoas (RF-37) é público: não entra na conta de "o que vazou".
+    s.onAny((evento, dados) => evento !== 'presenca:atualizada' && recebidos.push({ evento, dados }));
     const ola = await new Promise<OlaPayload>((r) => s.once('ola', r));
     return { s, ola, id: usuario.id as number, token: token as string, recebidos };
   };

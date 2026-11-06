@@ -50,7 +50,7 @@ test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', 
 
   // CA-9: promover; a ana ganha as funções de administrador sem reiniciar.
   await dono.janela.getByRole('button', { name: 'Membros' }).click();
-  const linhaAna = dono.janela.getByRole('listitem', { name: 'ana' });
+  const linhaAna = dono.janela.getByRole('list', { name: 'Contas do servidor' }).getByRole('listitem', { name: 'ana', exact: true });
   await linhaAna.getByRole('button', { name: 'Tornar administrador' }).click();
   await expect(linhaAna.getByText('Administrador')).toBeVisible();
   await expect(ana.janela.getByRole('button', { name: 'Membros' })).toBeVisible();
@@ -65,7 +65,7 @@ test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', 
   await linhaAna.getByRole('button', { name: 'Confirmar remoção' }).click();
   await expect(ana.janela.getByRole('heading', { name: 'Entrar' })).toBeVisible();
   await expect(ana.janela.getByRole('status')).toHaveText('Sua conta foi removida deste servidor.');
-  await expect(dono.janela.getByRole('listitem', { name: 'ana' })).toHaveCount(0);
+  await expect(dono.janela.getByRole('list', { name: 'Contas do servidor' }).getByRole('listitem', { name: 'ana', exact: true })).toHaveCount(0);
   await ana.janela.getByLabel('Nome de usuário').fill('ana');
   await ana.janela.getByLabel('Senha').fill('senha-forte-1');
   await ana.janela.getByRole('button', { name: 'Entrar' }).click();

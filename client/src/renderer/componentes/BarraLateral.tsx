@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CanalDto, DmDto, TipoCanal, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
 import { Avatar } from './Avatar';
+import { StatusPonto } from './StatusPonto';
 import { FormNome } from './FormNome';
 
 interface Props {
@@ -29,6 +30,8 @@ interface Props {
   pessoasVoz?: { volumes: Record<string, number>; silenciados: number[] };
   aoVolumePessoa?: (usuarioId: number, volume: number) => void;
   aoSilenciarPessoa?: (usuarioId: number, silenciar: boolean) => void;
+  /** RF-37: status de quem não está offline. */
+  presencas?: Partial<Record<number, 'online' | 'ausente'>>;
 }
 
 /** Bolinha com o número de não lidas (99+ acima disso). */
@@ -267,6 +270,7 @@ export function BarraLateral({
   aoSilenciarPessoa,
   servidorUrl,
   aoEntrarVoz,
+  presencas = {},
 }: Props) {
   const [criando, setCriando] = useState<TipoCanal | null>(null);
   const presentesEm = (canalId: number) =>
@@ -351,7 +355,10 @@ export function BarraLateral({
                   aria-current={d.id === dmAtiva ? 'page' : undefined}
                   onClick={() => aoAbrirDm(d.id)}
                 >
-                  <span aria-hidden="true">@</span> {nome}
+                  <StatusPonto status={presencas[d.outroId] ?? 'offline'} oculto /> {nome}
+                  <span className="so-leitor" id={`dm-status-${d.id}`}>
+                    {presencas[d.outroId] ?? 'offline'}
+                  </span>
                   <Contador n={naoLidas[`d:${d.id}`]} />
                 </button>
               </li>

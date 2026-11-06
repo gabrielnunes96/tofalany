@@ -214,6 +214,12 @@ export interface SomDto {
   duracaoMs: number;
 }
 
+/** RF-37, RN-25: status calculado de cada pessoa. */
+export type StatusPessoa = 'online' | 'ausente' | 'offline';
+
+/** RN-25: sem mexer no computador por este tempo, a pessoa fica ausente. */
+export const AUSENTE_APOS_S = 600;
+
 /** Quem está em qual canal de voz (RF-13), com mute/deafen/câmera para os ícones. */
 export interface VozEstadoDto {
   usuarioId: number;
@@ -257,6 +263,8 @@ export interface OlaPayload {
   sons: SomDto[];
   /** RF-13: quem está em cada canal de voz. */
   voz: VozEstadoDto[];
+  /** RF-37: quem não está offline (id → online/ausente). */
+  presencas: Record<string, 'online' | 'ausente'>;
   /** RF-12: mensagens não lidas por conversa ("c:<id>" / "d:<id>"), só as que têm alguma. */
   naoLidas: Record<string, number>;
 }
@@ -291,6 +299,8 @@ export interface EventosServidor {
   'voz:tirado': (payload: { motivo: 'outro_computador' }) => void;
   /** RF-23: alguém tocou um som do soundboard; chega só para quem está naquele canal de voz. */
   'som:tocado': (payload: { somId: number; porUsuarioId: number; canalVozId: number }) => void;
+  /** RF-37: status de alguém mudou. */
+  'presenca:atualizada': (payload: { id: number; status: StatusPessoa }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }
@@ -319,6 +329,8 @@ export interface EventosCliente {
   'voz:estado': (dados: VozEstadoPedido, ack: Ack) => void;
   /** RF-23: toca um som para o canal de voz em que estou (RN-12, RN-13). */
   'som:tocar': (dados: { somId: number }, ack: Ack) => void;
+  /** RN-25: o computador ficou ocioso (ou voltou), sem resposta. */
+  'presenca:ausente': (dados: { ausente: boolean }) => void;
 }
 
 /**
