@@ -417,9 +417,9 @@
         "CA-49"
       ],
       "validacao": "integração da trava; E2E com 2 apps: segundo recebe aviso e consegue após o primeiro parar",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "ec605dd"
     },
     {
       "id": "T22",

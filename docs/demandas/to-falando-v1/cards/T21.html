@@ -1,0 +1,27 @@
+<!-- T21 — Transmissão de tela com trava por canal -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-26, RF-27, RF-30, RN-10 e a parte de transmissão do CA-49; CA-37, CA-38, CA-41. RF-28 (qualidades por cargo) e RF-29 completo ficam na T22.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (tela:pedir/tela:parar), §5 (sem simulcast, contentHint "motion") e R-5.</p>
+
+<h3>Implementação (05/11/2026, commit ec605dd)</h3>
+<ul>
+  <li><b>Servidor</b> (<code>realtime/tela.ts</code>): só quem está no canal pede; uma transmissão por canal ("dono já está transmitindo neste canal."); liberada ao parar, ao sair da voz por qualquer motivo ou quando outro computador da pessoa assume; <code>tela:iniciada/parada</code> para todos; <code>ola.transmissoes</code>; auditoria tela_iniciou/tela_parou (com motivo).</li>
+  <li><b>Processo principal</b> (<code>main/captura.ts</code>): miniaturas de telas e janelas; a captura só entrega a fonte que o seletor mostrou, escolhida pela mesma janela há menos de 15 s; nenhum outro getDisplayMedia captura nada; áudio do sistema (loopback) só no Windows.</li>
+  <li><b>App</b>: botão 🖥️ no painel de voz; aviso antes do seletor se alguém já transmite; seletor modal com foco inicial, Tab preso, Esc e foco devolvido; trava antes da captura e liberada em qualquer falha; botão travado enquanto começa (parar no meio cancela a captura); "Você está transmitindo — Parar transmissão"; para os outros, "X está transmitindo" com "Assistir" → grande com "Tela cheia"; 🖥️ na lista de quem está na voz; na reconexão a trava acompanha a transmissão real.</li>
+  <li><b>Correção de layout</b>: com os botões novos, "Sair da voz" saía da barra lateral; o painel de voz agora quebra a linha.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/tela.test.ts</code> (trava, outro canal, sair da voz, outro computador, auditoria), <code>main/captura.test.ts</code>, <code>voz.test.ts</code>, <code>transmissao.test.tsx</code>, <code>loja.test.ts</code>; E2E <code>e2e/voz.spec.ts</code> (CA-37/38/41/49). Suíte: 343 testes e 27 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-37: dono abre o seletor</td><td>ok</td><td>miniaturas das telas; áudio do sistema desabilitado no Linux (print T21-seletor-de-tela)</td></tr>
+  <tr><td>E2E CA-41: ana assiste</td><td>ok</td><td>vídeo grande com imagem e "Tela cheia" (print T21-ana-assiste-tela-do-dono)</td></tr>
+  <tr><td>E2E CA-38: ana tenta transmitir junto</td><td>ok</td><td>"dono já está transmitindo neste canal." e nada inicia; depois que o dono para, ela transmite</td></tr>
+  <tr><td>E2E CA-49</td><td>ok</td><td>tela_iniciou/tela_parou/tela_iniciou com quem e o canal</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> transmitir uma janela de verdade para outra máquina; tela cheia; no Windows, o seletor com as janelas abertas.</p>
+<p>Revisão: 11 achados (2 graves, 5 médios, 4 menores), todos corrigidos; o texto que citava o README sobre o áudio no Linux foi trocado por uma explicação direta (o README vem na T26).</p>
