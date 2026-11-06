@@ -379,9 +379,9 @@
         "CA-35"
       ],
       "validacao": "integração das regras; E2E: botões desabilitados fora da voz, volume 0 não toca; usuário ouve em outra máquina",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "b14afdb"
     },
     {
       "id": "T20",

@@ -76,7 +76,7 @@ Toda rota `/api/admin/*` confere o cargo no servidor; `403 sem_permissao` para m
 | `voz:estado` | `{ canalVozId \| null, mudo, surdo, camera }` | presença mostrada a todos |
 | `tela:pedir` | `{ canalVozId, qualidade }` | `ok` · `ocupado { porUsuarioId }` (RN-10) · `qualidade_nao_permitida` (RN-17) |
 | `tela:parar` | `{ canalVozId }` | libera a trava |
-| `som:tocar` | `{ somId }` | `ok` · `fora_da_voz` (RN-12) · `aguarde { ms }` (RN-13) |
+| `som:tocar` | `{ somId }` | `ok` · erro "Entre num canal de voz…" (RN-12) · erro "Aguarde N s…" (RN-13); o app conta o descanso localmente (o ack padrão só tem a mensagem) |
 
 Servidor → cliente: `ola` (retrato completo ao conectar: eu, usuários, canais, DMs, não lidas, presença em voz, transmissões, sons, link de convite), `usuario:atualizado`, `usuario:removido`, `canal:criado|renomeado|removido`, `mensagem:nova|editada|apagada`, `digitando`, `voz:estados`, `tela:iniciada|parada`, `som:tocado { somId, porUsuarioId, canalVozId }` (só para a sala), `sons:atualizados`, `sessao:revogada`.
 
