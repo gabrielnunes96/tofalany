@@ -552,9 +552,9 @@
         "CA-47"
       ],
       "validacao": "usuário segue o README do zero em cada cenário",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "5200bb0"
     }
   ]
 }
