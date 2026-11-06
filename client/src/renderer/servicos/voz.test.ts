@@ -314,6 +314,22 @@ describe('sala de voz (RF-13)', () => {
     expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível transmitir a tela.');
   });
 
+  it('RF-31: avisa enquanto a mídia reconecta', async () => {
+    const { sala, emitir } = salaFalsa();
+    const o = { ...ouvintesVoz(), aoReconectando: vi.fn() };
+    const voz = criarSalaVoz(o, () => sala, vi.fn(async () => microfone()));
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    emitir(RoomEvent.Reconnecting);
+    expect(o.aoReconectando).toHaveBeenLastCalledWith(true);
+    emitir(RoomEvent.Reconnected);
+    expect(o.aoReconectando).toHaveBeenLastCalledWith(false);
+    emitir(RoomEvent.SignalReconnecting);
+    expect(o.aoReconectando).toHaveBeenLastCalledWith(true);
+    emitir(RoomEvent.Disconnected);
+    expect(o.aoReconectando).toHaveBeenLastCalledWith(false);
+    expect(o.aoCaiu).toHaveBeenCalled();
+  });
+
   it('queda sem pedir para sair avisa; microfone negado entra só para ouvir', async () => {
     const { sala, emitir } = salaFalsa();
     const o = ouvintesVoz();

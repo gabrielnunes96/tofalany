@@ -27,7 +27,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
-import { criarSalaVoz, EntradaCancelada, type SalaVoz, type VideoSala } from '../servicos/voz';
+// A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
+import type { SalaVoz, VideoSala } from '../servicos/voz';
 import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
@@ -147,6 +148,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [minhaVoz, setMinhaVozEstado] = useState<number | null>(null);
   const [avisoVoz, setAvisoVoz] = useState<string | null>(null);
   const [entrandoVoz, setEntrandoVoz] = useState(false);
+  /** RF-31: a mídia da voz caiu e está voltando. */
+  const [reconectandoVoz, setReconectandoVoz] = useState(false);
   /** Canal para onde estou entrando (trava contra clique duplo e permite cancelar se o canal sumir). */
   const entrandoRef = useRef<number | null>(null);
   // RN-14: preferências de áudio deste computador (RF-17, RF-18).
@@ -443,36 +446,59 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     setMinhaVozEstado(id);
   };
 
-  useEffect(() => {
-    const sala = criarSalaVoz({
-      aoFalando: acoes.definirFalando,
-      aoCaiu: () => {
-        if (minhaVozRef.current !== null) tocar('sair');
-        minhaVozRef.current = null;
-        setMinhaVozEstado(null);
-        setAvisoVoz('Você saiu da voz: a conexão de mídia caiu ou você entrou em outro computador.');
-        void conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
-      },
-      aoAviso: setAvisoVoz,
-      aoTransmitindo: setTransmitindo,
-      aoVideos: (lista) => aoVideos(lista),
-      aoTelas: setTelasRemotas,
-      aoMinhaTelaParou: () => {
-        const canal = minhaVozRef.current;
-        if (canal !== null) void conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
-      },
+  const criandoSalaRef = useRef<Promise<SalaVoz | null> | null>(null);
+  const montadoRef = useRef(true);
+  /** Cria a sala na primeira vez que for preciso (carrega o módulo de voz sob demanda). */
+  function obterSala(): Promise<SalaVoz | null> {
+    if (salaVozRef.current) return Promise.resolve(salaVozRef.current);
+    criandoSalaRef.current ??= import('../servicos/voz').then(({ criarSalaVoz }) => {
+      if (!montadoRef.current) return null;
+      const sala = criarSalaVoz({
+        aoFalando: acoes.definirFalando,
+        aoCaiu: () => {
+          if (minhaVozRef.current !== null) tocar('sair');
+          minhaVozRef.current = null;
+          setMinhaVozEstado(null);
+          setAvisoVoz('Você saiu da voz: a conexão de mídia caiu ou você entrou em outro computador.');
+          void conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
+        },
+        aoAviso: setAvisoVoz,
+        aoTransmitindo: setTransmitindo,
+        aoVideos: (lista) => aoVideos(lista),
+        aoTelas: setTelasRemotas,
+        aoReconectando: (r) => {
+          setReconectandoVoz(r);
+          // Reconexão completa troca a sessão de mídia (sid): o servidor precisa da nova para reconhecer a saída certa.
+          const canal = minhaVozRef.current;
+          if (!r && canal !== null) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid(), controlesRef.current));
+        },
+        aoMinhaTelaParou: () => {
+          const canal = minhaVozRef.current;
+          if (canal !== null) void conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
+        },
+      });
+      sala.definirPessoas(pessoasRef.current);
+      sala.controlar({ mudo: controlesRef.current.mudo, surdo: controlesRef.current.surdo });
+      salaVozRef.current = sala;
+      return sala;
     });
-    salaVozRef.current = sala;
-    sala.definirPessoas(pessoasRef.current);
+    return criandoSalaRef.current;
+  }
+
+  useEffect(() => {
+    montadoRef.current = true;
     const sonsVoz = criarSonsVoz();
     sonsVoz.definirSaida(audioRef.current.saidaId);
     sonsVozRef.current = sonsVoz;
     return () => {
+      montadoRef.current = false;
+      const sala = salaVozRef.current;
       salaVozRef.current = null;
+      criandoSalaRef.current = null;
       minhaVozRef.current = null;
       sonsVozRef.current = null;
       sonsVoz.fechar();
-      void sala.destruir();
+      void sala?.destruir();
     };
   }, [acoes]);
 
@@ -748,9 +774,22 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
 
   /** RF-13: entra no canal de voz (sai do anterior, se houver). */
   async function entrarVoz(canalId: number) {
-    const sala = salaVozRef.current;
-    if (!sala || entrandoRef.current !== null) return;
+    if (entrandoRef.current !== null) return;
     entrandoRef.current = canalId;
+    setEntrandoVoz(true);
+    let sala: SalaVoz | null = null;
+    try {
+      sala = await obterSala();
+    } catch {
+      // Módulo de voz não carregou (arquivo corrompido?): tenta de novo na próxima vez.
+      criandoSalaRef.current = null;
+      setAvisoVoz('Não foi possível carregar a voz. Tente de novo.');
+    }
+    if (!sala || entrandoRef.current !== canalId) {
+      entrandoRef.current = null;
+      setEntrandoVoz(false);
+      return;
+    }
     setAvisoVoz(null);
     setEntrandoVoz(true);
     const tinhaVoz = minhaVozRef.current !== null;
@@ -778,7 +817,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       if (controlesRef.current !== enviados) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid(), controlesRef.current));
     } catch (e) {
       setMinhaVoz(null);
-      if (!(e instanceof EntradaCancelada)) {
+      if (!(e as { cancelada?: boolean } | null)?.cancelada) {
         setAvisoVoz(e instanceof ErroApiCliente ? e.message : 'Não foi possível conectar à voz. Confira se o servidor de mídia está no ar.');
       }
       // Saiu do canal anterior e não entrou no novo: a presença antiga não pode ficar.
@@ -896,6 +935,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               <p className="estado" role="status">
                 {entrandoVoz ? (
                   'Conectando à voz…'
+                ) : minhaVoz !== null && reconectandoVoz ? (
+                  <>
+                    <strong className="reconectando">Reconectando à voz…</strong>
+                    {canais.find((c) => c.id === minhaVoz)?.nome}
+                  </>
                 ) : minhaVoz !== null ? (
                   <>
                     <strong>Voz conectada</strong>

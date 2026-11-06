@@ -52,6 +52,8 @@ export function App() {
         setEstado({ fase: 'sem-conexao', url: servidor, mensagem: teste.erro, convite });
         return;
       }
+      // O processo principal só deixa falar com o servidor salvo; este, já testado, vale enquanto o convite estiver aberto.
+      await ponte().rede.servidorPendente(servidor).catch(() => undefined);
       const sessao = await ponte().sessao.ler().catch(() => null);
       if (sessao?.servidorUrl === servidor) {
         await ponte().config.gravar({ servidorUrl: servidor });

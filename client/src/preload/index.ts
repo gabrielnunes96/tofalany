@@ -52,6 +52,9 @@ const api: ApiTofalando = {
     escolher: (fonteId, audio) => ipcRenderer.invoke('captura:escolher', { fonteId, audio }),
     audioDisponivel: process.platform === 'win32',
   },
+  rede: {
+    servidorPendente: (url) => ipcRenderer.invoke('rede:pendente', url),
+  },
   arquivos: {
     baixar: (url, nome) => ipcRenderer.invoke('arquivo:baixar', url, nome),
     abrir: (caminho) => ipcRenderer.invoke('arquivo:abrir', caminho),

@@ -9,6 +9,8 @@ import { criarNotificacoes } from './notificacoes';
 import { criarAtalhos, type Modificadores } from './atalhos';
 import { criarOciosidade } from './ociosidade';
 import { registrarCaptura } from './captura';
+import { filtrarRede } from './rede';
+import { normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -89,6 +91,17 @@ if (links.principal) {
   void app.whenReady().then(() => {
     const dados = app.getPath('userData');
     const configuracoes = criarArmazemConfiguracoes(join(dados, 'configuracoes.json'));
+    // CA-46: a janela só fala com o servidor configurado.
+    const redeVista: { url: string; ok: boolean }[] = [];
+    const registrarRede = process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged ? (url: string, ok: boolean) => void redeVista.push({ url, ok }) : undefined;
+    if (registrarRede) (globalThis as { __redeVista?: unknown }).__redeVista = redeVista;
+    // Servidor de um convite em andamento (a janela o define depois de testá-lo; vale até virar o salvo).
+    let servidorPendente: string | null = null;
+    ipcMain.handle('rede:pendente', (_e, url: unknown) => {
+      const n = typeof url === 'string' ? normalizarUrlServidor(url) : undefined;
+      servidorPendente = n?.ok ? n.valor : null;
+    });
+    filtrarRede(() => configuracoes.ler().servidorUrl, app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL, registrarRede, () => servidorPendente);
     // RF-15: atalhos globais mandam aperto/soltura para a janela (funcionam com ela em segundo plano).
     const atalhos = criarAtalhos(
       (e) => {

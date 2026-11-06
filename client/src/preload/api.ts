@@ -50,6 +50,10 @@ export interface ApiTofalando {
     /** RF-29: áudio do sistema só existe no Windows. */
     audioDisponivel: boolean;
   };
+  /** CA-46: servidor de um convite em andamento (já testado) pode ser usado antes de virar o salvo. */
+  rede: {
+    servidorPendente(url: string | null): Promise<void>;
+  };
   arquivos: {
     /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */
     baixar(url: string, nome: string): Promise<string | null>;

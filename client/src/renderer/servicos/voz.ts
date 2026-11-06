@@ -18,6 +18,8 @@ export interface OuvintesVoz {
   aoTelas?(telas: VideoSala[]): void;
   /** A minha transmissão acabou por fora (ex.: a janela transmitida fechou). */
   aoMinhaTelaParou?(): void;
+  /** RF-31: a mídia caiu e o LiveKit está tentando voltar (true) ou voltou (false). */
+  aoReconectando?(reconectando: boolean): void;
 }
 
 /** Taxa máxima por qualidade (bits/s): a banda que cada espectador recebe (R-10). */
@@ -99,6 +101,8 @@ const novaSala = (): SalaLivekit => new Room({ adaptiveStream: true, dynacast: t
 
 /** Saiu antes de terminar de conectar. */
 export class EntradaCancelada extends Error {
+  /** Para quem não importa a classe (a tela carrega este módulo sob demanda). */
+  readonly cancelada = true;
   constructor() {
     super('Entrada na voz cancelada.');
   }
@@ -339,8 +343,19 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         if (sala !== atual) return;
         ouvintes.aoFalando(falando.map((p) => Number(p.identity)).filter((id) => Number.isInteger(id)));
       }) as never);
+      // RF-31: o livekit-client tenta voltar sozinho (retoma ou reconecta inteiro); a tela só avisa.
+      const reconectando = () => {
+        if (sala !== atual) return;
+        // Marca para os testes de ponta a ponta (e para depurar): a volta costuma levar menos de 1 s.
+        document.documentElement.dataset.vozReconexoes = String(Number(document.documentElement.dataset.vozReconexoes ?? 0) + 1);
+        ouvintes.aoReconectando?.(true);
+      };
+      atual.on(RoomEvent.Reconnecting, reconectando as never);
+      atual.on(RoomEvent.SignalReconnecting, reconectando as never);
+      atual.on(RoomEvent.Reconnected, (() => sala === atual && ouvintes.aoReconectando?.(false)) as never);
       atual.on(RoomEvent.Disconnected, (() => {
         if (sala !== atual) return;
+        ouvintes.aoReconectando?.(false);
         sala = undefined;
         conectada = false;
         limpar();
@@ -446,6 +461,8 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       saindo = true;
       sala = undefined;
       conectada = false;
+      // Sair no meio de uma reconexão: o aviso não pode ficar preso para a próxima entrada.
+      ouvintes.aoReconectando?.(false);
       limpar();
       limparVideos();
       pararMic();

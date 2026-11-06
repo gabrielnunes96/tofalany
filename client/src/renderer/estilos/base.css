@@ -336,3 +336,4 @@ button.fonte-tela img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; 
 button.fonte-tela span { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .opcao-audio { display: flex; align-items: center; gap: 8px; }
 .opcao-audio input { width: auto; margin: 0; }
+.painel-voz .estado strong.reconectando { color: var(--amarelo); }
