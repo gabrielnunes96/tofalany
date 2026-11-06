@@ -1,0 +1,28 @@
+<!-- T25 — Implantação com docker-compose -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-33; CA-44; RNF de segurança e estabilidade.</p>
+<h3>Padrão</h3>
+<p>Técnica §5 (LiveKit: UDP 7882, TCP 7881, webhook, node_ip), §10 (implantação e rollback, ajustado) e a exigência da T23 (LiveKit no mesmo host do endereço das pessoas).</p>
+
+<h3>Implementação (06/11/2026, commit 37cb2a0)</h3>
+<ul>
+  <li><b>Imagem</b> (<code>server/Dockerfile</code>): dois estágios sobre <code>node:24-bookworm-slim</code> (amd64/arm64), dependências de produção, usuário <code>node</code>, volume <code>/data</code> (banco, backups, arquivos, instaladores), healthcheck em <code>/api/saude</code>. 441 MB no disco (106 MB comprimida).</li>
+  <li><b>Compose</b> (<code>deploy/</code>): servidor + LiveKit 1.13.11 sempre; Caddy (HTTPS automático) no perfil <code>vps</code>, levando <code>/rtc</code> e <code>/twirp</code> ao LiveKit e o resto ao servidor, no mesmo domínio. Portas publicadas no IP escolhido: no Tailscale, o IP do tailnet; na VPS, servidor e sinalização só em 127.0.0.1 (só a mídia, 7881/7882, fica aberta). Atrás do Caddy, o servidor só confia no IP informado por proxies de rede privada (ninguém de fora forja IP para fugir do limite de tentativas). Chave do LiveKit fixa ("tofalany", a do webhook); só o segredo vem da configuração. <code>deploy/downloads/</code> vira a pasta de instaladores da página do convite. Imagem com tag (<code>VERSAO</code>) para voltar.</li>
+  <li><b>Configuração</b> (<code>deploy/exemplo.env</code>): campos obrigatórios vazios (sem segredo de exemplo que funcione), explicação de cada um para Tailscale e VPS.</li>
+  <li><b>Saúde</b>: <code>/api/saude</code> informa banco e LiveKit (ok/fora/sem configuração), com cache de 10 s; a mídia fora não derruba o servidor.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/servidor.test.ts</code> (saúde: sem configuração, ok, fora); E2E opcional <code>e2e/implantacao.spec.ts</code> contra um servidor do compose já no ar (<code>TOFALANDO_COMPOSE_URL</code>, <code>TOFALANDO_COMPOSE_CONVITE</code>). Suíte: 353 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 06/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td><code>docker compose build</code> / <code>up -d</code></td><td>ok</td><td>servidor e LiveKit "healthy"; portas só em 127.0.0.1 com a configuração de VPS</td></tr>
+  <tr><td><code>GET /api/saude</code></td><td>ok</td><td>{"ok":true,"sqlite":true,"livekit":"ok"}</td></tr>
+  <tr><td>E2E CA-44 contra o compose</td><td>ok</td><td>dois apps cadastram, conversam e se ouvem pelo LiveKit do compose (print T25-app-no-servidor-do-compose); webhooks do LiveKit chegando ao servidor</td></tr>
+  <tr><td>Reinício do servidor</td><td>ok</td><td>contas preservadas no volume</td></tr>
+  <tr><td><code>caddy validate</code></td><td>ok</td><td>Caddyfile válido</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> CA-44 numa máquina arm64 (Oracle) — o better-sqlite3 e o sharp têm binários arm64, mas o build multi-arquitetura aqui exigiria o emulador do Docker (binfmt), que não instalei por mexer no sistema; VPS com domínio e HTTPS; Tailscale a partir de outra máquina.</p>
+<p>Revisão: 15 achados (1 grave, 6 médios, 8 menores), corrigidos; arm64 e VPS ficam na validação acima.</p>

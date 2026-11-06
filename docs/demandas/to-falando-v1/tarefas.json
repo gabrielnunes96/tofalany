@@ -534,9 +534,9 @@
         "CA-44"
       ],
       "validacao": "docker compose up local (amd64) e app conecta; buildx gera arm64; usuário sobe na VPS",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "37cb2a0"
     },
     {
       "id": "T26",
