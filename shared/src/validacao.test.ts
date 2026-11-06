@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -128,5 +128,22 @@ describe('mesclarAudio', () => {
       sensibilidadeDb: -30,
     });
     expect(mesclarAudio(base, { entradaId: '', ganhoAutomatico: 'sim', sensibilidadeDb: 10, outro: 1 })).toEqual(base);
+  });
+});
+
+describe('mesclarPessoas e mesclarSons (RF-19, RF-38)', () => {
+  it('guarda volume 0–200% e silenciados válidos por servidor', () => {
+    const r = mesclarPessoas({}, {
+      'http://100.64.0.1:3000': { volumes: { '2': 0.5, '3': 2.5, x: 1, '4': 1.234 }, silenciados: [3, 3, -1, 'a', 5] },
+      'javascript:alert(1)': { volumes: {}, silenciados: [] },
+    });
+    expect(r).toEqual({ 'http://100.64.0.1:3000': { volumes: { '2': 0.5, '4': 1.23 }, silenciados: [3, 5] } });
+    expect(Object.keys(mesclarPessoas({}, { ' fala.exemplo.com/x ': { volumes: {}, silenciados: [] } }))).toEqual(['http://fala.exemplo.com']);
+    let muitos = {};
+    for (let i = 0; i < 25; i++) muitos = mesclarPessoas(muitos, { [`http://s${i}.exemplo.com`]: { volumes: {}, silenciados: [] } });
+    expect(Object.keys(muitos)).toHaveLength(20);
+    expect(Object.keys(muitos).at(-1)).toBe('http://s24.exemplo.com');
+    expect(mesclarSons(undefined, { voz: false })).toEqual({ voz: false });
+    expect(mesclarSons(undefined, { voz: 'x' })).toEqual({ voz: true });
   });
 });

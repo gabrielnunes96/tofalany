@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio } from '@tofalando/shared';
+import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasSons } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -30,6 +30,9 @@ interface Props {
   aoMudarAtalhos: (atalhos: Atalhos) => void;
   /** Pausa os atalhos globais enquanto captura um novo (senão a combinação testada dispararia a ação). */
   aoCapturar?: (sim: boolean) => void;
+  /** RF-21/RF-41: sons que dá para desligar. */
+  sons?: PreferenciasSons;
+  aoMudarSons?: (sons: PreferenciasSons) => void;
   aoVoltar: () => void;
   deps?: DependenciasConfiguracoes;
 }
@@ -44,7 +47,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -217,6 +220,15 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
         </label>
         {audio.modoMicrofone === 'ptt' && !atalhos.ptt && <p className="erro">Defina o atalho de push-to-talk abaixo; sem ele o microfone não abre.</p>}
       </fieldset>
+
+      {sons && aoMudarSons && (
+        <fieldset className="opcoes">
+          <legend>Sons</legend>
+          <label>
+            <input type="checkbox" checked={sons.voz} onChange={(e) => aoMudarSons({ ...sons, voz: e.target.checked })} /> Sons de entrar e sair da voz e de mute
+          </label>
+        </fieldset>
+      )}
 
       <h2>Atalhos</h2>
       <p className="suave">Funcionam com o app em segundo plano.</p>

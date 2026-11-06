@@ -118,12 +118,31 @@ export interface ConfiguracoesLocais {
   audio: PreferenciasAudio;
   /** RF-15: atalhos globais (PTT, mute, deafen). */
   atalhos: Atalhos;
+  /** RF-19, RF-38: volume e silêncio de cada pessoa, por servidor (chave = URL do servidor). */
+  pessoas: Record<string, PreferenciasPessoas>;
+  /** RF-21, RF-41: sons que dá para desligar. */
+  sons: PreferenciasSons;
 }
+
+/** Volume (0 a 2 = 0 a 200%) e silêncio de cada pessoa num servidor (só neste computador, RN-26). */
+export interface PreferenciasPessoas {
+  volumes: Record<string, number>;
+  silenciados: number[];
+}
+
+export interface PreferenciasSons {
+  /** Sons de entrar e sair do canal de voz e de mute/desmute (RF-21). */
+  voz: boolean;
+}
+
+export const SONS_PADRAO: PreferenciasSons = { voz: true };
 
 export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   servidorUrl: null,
   audio: AUDIO_PADRAO,
   atalhos: ATALHOS_PADRAO,
+  pessoas: {},
+  sons: SONS_PADRAO,
 };
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */

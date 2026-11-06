@@ -1,10 +1,26 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto } from '@tofalando/shared';
+import {
+  ATALHOS_PADRAO,
+  AUDIO_PADRAO,
+  DIGITANDO_DURACAO_MS,
+  type AcaoAtalho,
+  type Atalhos,
+  type PreferenciasAudio,
+  type PreferenciasPessoas,
+  type PreferenciasSons,
+  SONS_PADRAO,
+  type Destino,
+  type MensagemDto,
+  type MotivoRevogacao,
+  type TipoCanal,
+  type UsuarioDto,
+} from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { criarSalaVoz, EntradaCancelada, type SalaVoz } from '../servicos/voz';
+import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { ponte } from '../servicos/ponte';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
@@ -111,6 +127,21 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [audio, setAudio] = useState<PreferenciasAudio>(AUDIO_PADRAO);
   const audioRef = useRef<PreferenciasAudio>(AUDIO_PADRAO);
   const [atalhos, setAtalhos] = useState<Atalhos>(ATALHOS_PADRAO);
+  // RF-19/RF-38: volume e silêncio de cada pessoa, deste servidor (RN-26); RF-21: sons de voz.
+  const [pessoasVoz, setPessoasVoz] = useState<PreferenciasPessoas>({
+    volumes: {},
+    silenciados: [],
+  });
+  const pessoasRef = useRef(pessoasVoz);
+  const [prefSons, setPrefSons] = useState<PreferenciasSons>(SONS_PADRAO);
+  const sonsRef = useRef(prefSons);
+  const sonsVozRef = useRef<SonsVoz | null>(null);
+  const tocar = (som: SomVoz) => {
+    // Com o áudio desligado (deafen), nada toca — nem os avisos.
+    if (sonsRef.current.voz && !controlesRef.current.surdo) sonsVozRef.current?.tocar(som);
+  };
+  /** A pessoa já mexeu nos ajustes por pessoa: a leitura do disco (que chega depois) não desfaz. */
+  const mexeuPessoasRef = useRef(false);
   useEffect(() => {
     let vivo = true;
     void ponte()
@@ -119,6 +150,18 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         if (!vivo) return;
         const lido = c.audio ?? AUDIO_PADRAO;
         setAtalhos(c.atalhos ?? ATALHOS_PADRAO);
+        const pessoas = c.pessoas?.[servidorUrl] ?? {
+          volumes: {},
+          silenciados: [],
+        };
+        if (!mexeuPessoasRef.current) {
+          pessoasRef.current = pessoas;
+          setPessoasVoz(pessoas);
+          salaVozRef.current?.definirPessoas(pessoas);
+        }
+        sonsRef.current = c.sons ?? SONS_PADRAO;
+        setPrefSons(sonsRef.current);
+        sonsVozRef.current?.definirSaida(lido.saidaId);
         audioRef.current = lido;
         setAudio(lido);
         void salaVozRef.current?.aplicarAudio(lido);
@@ -127,13 +170,70 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     return () => {
       vivo = false;
     };
+  }, [servidorUrl]);
+  // Gravações adiadas (sliders mandam dezenas de mudanças): guardam o que gravar e para qual servidor.
+  const pendente = useRef<{ pessoas?: { servidor: string; valor: PreferenciasPessoas }; audio?: PreferenciasAudio; relogio?: ReturnType<typeof setTimeout> }>(
+    {},
+  );
+  const descarregar = () => {
+    const p = pendente.current;
+    clearTimeout(p.relogio);
+    pendente.current = {};
+    const parcial = { ...(p.pessoas ? { pessoas: { [p.pessoas.servidor]: p.pessoas.valor } } : {}), ...(p.audio ? { audio: p.audio } : {}) };
+    if (Object.keys(parcial).length > 0)
+      void ponte()
+        .config.gravar(parcial)
+        .catch(() => undefined);
+  };
+  const adiarGravacao = (parcial: { pessoas?: { servidor: string; valor: PreferenciasPessoas }; audio?: PreferenciasAudio }) => {
+    clearTimeout(pendente.current.relogio);
+    pendente.current = { ...pendente.current, ...parcial, relogio: setTimeout(descarregar, 400) };
+  };
+  // Fechar a janela não desmonta o React: grava o que estava esperando antes.
+  useEffect(() => {
+    window.addEventListener('beforeunload', descarregar);
+    return () => {
+      window.removeEventListener('beforeunload', descarregar);
+      descarregar();
+    };
+    // descarregar só usa refs.
   }, []);
-  const gravarAudio = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  function mudarPessoas(novo: PreferenciasPessoas) {
+    mexeuPessoasRef.current = true;
+    pessoasRef.current = novo;
+    setPessoasVoz(novo);
+    salaVozRef.current?.definirPessoas(novo);
+    adiarGravacao({ pessoas: { servidor: servidorUrl, valor: novo } });
+  }
+  const volumePessoa = (id: number, volume: number) =>
+    mudarPessoas({
+      ...pessoasRef.current,
+      volumes: { ...pessoasRef.current.volumes, [String(id)]: volume },
+    });
+  const silenciarPessoa = (id: number, sim: boolean) => {
+    const atuais = pessoasRef.current.silenciados.filter((x) => x !== id);
+    mudarPessoas({
+      ...pessoasRef.current,
+      silenciados: sim ? [...atuais, id] : atuais,
+    });
+  };
+  function mudarSons(novo: PreferenciasSons) {
+    sonsRef.current = novo;
+    setPrefSons(novo);
+    void ponte()
+      .config.gravar({ sons: novo })
+      .catch(() => undefined);
+  }
   // RF-15/RF-16: mute e deafen (valem também fora da voz e são aplicados ao entrar) e atalhos globais.
-  const [controles, setControlesEstado] = useState({ mudo: false, surdo: false });
+  const [controles, setControlesEstado] = useState({
+    mudo: false,
+    surdo: false,
+  });
   const controlesRef = useRef(controles);
   const [transmitindo, setTransmitindo] = useState(false);
   function definirControles(novo: { mudo: boolean; surdo: boolean }) {
+    const antes = controlesRef.current;
+    if (minhaVozRef.current !== null && (antes.mudo || antes.surdo) !== (novo.mudo || novo.surdo)) tocar(novo.mudo || novo.surdo ? 'mudo' : 'desmudo');
     controlesRef.current = novo;
     setControlesEstado(novo);
     salaVozRef.current?.controlar(novo);
@@ -171,25 +271,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     audioRef.current = novo;
     setAudio(novo);
     // Arrastar o slider gera dezenas de mudanças: grava no disco só quando para.
-    clearTimeout(gravarAudio.current);
-    gravarAudio.current = setTimeout(() => {
-      void ponte()
-        .config.gravar({ audio: audioRef.current })
-        .catch(() => undefined);
-    }, 400);
+    adiarGravacao({ audio: novo });
+    sonsVozRef.current?.definirSaida(novo.saidaId);
     return salaVozRef.current?.aplicarAudio(novo).catch(() => undefined);
   }
-  // Ao sair da tela logada, grava o que ainda estava esperando.
-  useEffect(
-    () => () => {
-      if (gravarAudio.current === undefined) return;
-      clearTimeout(gravarAudio.current);
-      void ponte()
-        .config.gravar({ audio: audioRef.current })
-        .catch(() => undefined);
-    },
-    [],
-  );
   const setMinhaVoz = (id: number | null) => {
     minhaVozRef.current = id;
     setMinhaVozEstado(id);
@@ -199,6 +284,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     const sala = criarSalaVoz({
       aoFalando: acoes.definirFalando,
       aoCaiu: () => {
+        if (minhaVozRef.current !== null) tocar('sair');
         minhaVozRef.current = null;
         setMinhaVozEstado(null);
         setAvisoVoz('Você saiu da voz: a conexão de mídia caiu ou você entrou em outro computador.');
@@ -208,9 +294,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoTransmitindo: setTransmitindo,
     });
     salaVozRef.current = sala;
+    sala.definirPessoas(pessoasRef.current);
+    const sonsVoz = criarSonsVoz();
+    sonsVoz.definirSaida(audioRef.current.saidaId);
+    sonsVozRef.current = sonsVoz;
     return () => {
       salaVozRef.current = null;
       minhaVozRef.current = null;
+      sonsVozRef.current = null;
+      sonsVoz.fechar();
       void sala.destruir();
     };
   }, [acoes]);
@@ -287,8 +379,21 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoDmAtualizada: acoes.salvarDm,
       aoLidoAtualizado: acoes.aplicarLeitura,
       aoSonsAtualizados: acoes.definirSons,
-      aoVozEstados: acoes.definirVoz,
+      aoVozEstados: (estados) => {
+        // RF-21: alguém entrou ou saiu do canal em que estou.
+        const meu = minhaVozRef.current;
+        const euId = useLoja.getState().eu?.id;
+        if (meu !== null) {
+          const ali = (lista: typeof estados) => new Set(lista.filter((e) => e.canalVozId === meu && e.usuarioId !== euId).map((e) => e.usuarioId));
+          const antes = ali(useLoja.getState().voz);
+          const agora = ali(estados);
+          if ([...agora].some((id) => !antes.has(id))) tocar('entrar');
+          else if ([...antes].some((id) => !agora.has(id))) tocar('sair');
+        }
+        acoes.definirVoz(estados);
+      },
       aoVozTirado: () => {
+        if (minhaVozRef.current !== null) tocar('sair');
         minhaVozRef.current = null;
         setMinhaVozEstado(null);
         setAvisoVoz('Você entrou na voz por outro computador; aqui a voz foi desligada.');
@@ -310,8 +415,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const vistaAtual: Vista = !ehAdmin && (vista === 'auditoria' || vista === 'membros' || vista === 'convite' || vista === 'sons') ? 'canal' : vista;
 
   /** Conversa na tela agora (null em perfil/administração). */
-  const chaveAberta: Chave | null =
-    vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
+  const chaveAberta: Chave | null = vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
   useEffect(() => {
     chaveAbertaRef.current = chaveAberta;
   }, [chaveAberta]);
@@ -389,7 +493,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       () => acoes.removerMensagem(id, chave ?? null),
     );
   };
-  const removerCanal = (id: number) => pedir((c) => c.pedir('canal:remover', { id }), () => acoes.removerCanal(id));
+  const removerCanal = (id: number) =>
+    pedir(
+      (c) => c.pedir('canal:remover', { id }),
+      () => acoes.removerCanal(id),
+    );
 
   function abrirAuditoria() {
     setPessoasAuditoria(usuarios.map((u) => ({ id: u.id, nome: u.nomeExibicao })));
@@ -397,7 +505,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     // Inclui contas removidas que ainda têm registros no prazo; se falhar, fica a lista dos ativos.
     api
       .usuariosAdmin()
-      .then((todos) => setPessoasAuditoria(todos.map((u) => ({ id: u.id, nome: u.nomeExibicao, removido: u.removido }))))
+      .then((todos) =>
+        setPessoasAuditoria(
+          todos.map((u) => ({
+            id: u.id,
+            nome: u.nomeExibicao,
+            removido: u.removido,
+          })),
+        ),
+      )
       .catch(() => undefined);
   }
 
@@ -429,6 +545,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         return;
       }
       setMinhaVoz(canalId);
+      tocar('entrar');
       // Mute/deafen trocados enquanto esperava a resposta: manda o estado atual.
       if (controlesRef.current !== enviados) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid(), controlesRef.current));
     } catch (e) {
@@ -445,6 +562,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   }
 
   async function sairVoz() {
+    if (minhaVozRef.current !== null) tocar('sair');
     setMinhaVoz(null);
     await salaVozRef.current?.sair();
     await conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
@@ -484,6 +602,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             minhaVoz={minhaVoz}
             servidorUrl={servidorUrl}
             aoEntrarVoz={(id) => void entrarVoz(id)}
+            euId={usuario.id}
+            pessoasVoz={pessoasVoz}
+            aoVolumePessoa={volumePessoa}
+            aoSilenciarPessoa={silenciarPessoa}
           />
           {(minhaVoz !== null || entrandoVoz || avisoVoz) && (
             <section className="painel-voz" aria-label="Conexão de voz">
@@ -501,11 +623,30 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               </p>
               {minhaVoz !== null && !entrandoVoz && (
                 <>
-                  <span className={`transmitindo${transmitindo && !controles.mudo && !controles.surdo ? ' ativo' : ''}`} role="img" aria-label={transmitindo ? 'Transmitindo' : 'Microfone em silêncio'} title={transmitindo ? 'Transmitindo' : 'Em silêncio'} />
-                  <button type="button" className={`icone controle${controles.mudo || controles.surdo ? ' desligado' : ''}`} aria-pressed={controles.mudo || controles.surdo} aria-label="Mutar microfone" title="Mutar microfone (mute)" onClick={alternarMudo}>
+                  <span
+                    className={`transmitindo${transmitindo && !controles.mudo && !controles.surdo ? ' ativo' : ''}`}
+                    role="img"
+                    aria-label={transmitindo ? 'Transmitindo' : 'Microfone em silêncio'}
+                    title={transmitindo ? 'Transmitindo' : 'Em silêncio'}
+                  />
+                  <button
+                    type="button"
+                    className={`icone controle${controles.mudo || controles.surdo ? ' desligado' : ''}`}
+                    aria-pressed={controles.mudo || controles.surdo}
+                    aria-label="Mutar microfone"
+                    title="Mutar microfone (mute)"
+                    onClick={alternarMudo}
+                  >
                     🎙️
                   </button>
-                  <button type="button" className={`icone controle${controles.surdo ? ' desligado' : ''}`} aria-pressed={controles.surdo} aria-label="Desligar áudio" title="Desligar áudio (deafen)" onClick={alternarSurdo}>
+                  <button
+                    type="button"
+                    className={`icone controle${controles.surdo ? ' desligado' : ''}`}
+                    aria-pressed={controles.surdo}
+                    aria-label="Desligar áudio"
+                    title="Desligar áudio (deafen)"
+                    onClick={alternarSurdo}
+                  >
                     🎧
                   </button>
                   <button type="button" className="perigo" onClick={() => void sairVoz()}>
@@ -611,6 +752,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               atalhos={atalhos}
               aoMudarAtalhos={mudarAtalhos}
               aoCapturar={pausarAtalhos}
+              sons={prefSons}
+              aoMudarSons={mudarSons}
               aoVoltar={voltar}
             />
           ) : vistaAtual === 'sons' ? (
@@ -661,7 +804,13 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 <span>{u.nomeExibicao}</span>
                 {u.cargo === 'admin' && <span className="selo">admin</span>}
                 {u.id !== usuario.id && (
-                  <button type="button" className="icone conversar" aria-label={`Conversar com ${u.nomeExibicao}`} title="Mensagem direta" onClick={() => conversarCom(u.id)}>
+                  <button
+                    type="button"
+                    className="icone conversar"
+                    aria-label={`Conversar com ${u.nomeExibicao}`}
+                    title="Mensagem direta"
+                    onClick={() => conversarCom(u.id)}
+                  >
                     ✉
                   </button>
                 )}

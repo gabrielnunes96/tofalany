@@ -274,3 +274,12 @@ button.icone.controle { font-size: 1rem; padding: 4px 6px; position: relative; }
 button.icone.controle.desligado { color: var(--magenta); background: rgba(255, 42, 109, 0.14); }
 button.icone.controle.desligado::after { content: ''; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; background: var(--magenta); transform: rotate(-35deg); }
 kbd { font-family: inherit; font-size: 0.85rem; padding: 2px 8px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--campo); color: var(--destaque); }
+
+/* Ajustes por pessoa na voz (RF-19, RF-38) */
+.presentes-voz li { flex-wrap: wrap; }
+.presentes-voz li button.icone { padding: 0 6px; font-size: 0.9rem; opacity: 0.7; }
+.presentes-voz li:hover button.icone, .presentes-voz li button.icone:focus-visible, .presentes-voz li button.icone[aria-expanded='true'] { opacity: 1; }
+.ajustes-pessoa { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 6px 4px 8px 26px; }
+.ajustes-pessoa input[type='range'] { accent-color: var(--destaque); margin: 0; }
+.ajustes-pessoa button { margin: 0; padding: 4px 8px; font-size: 0.8rem; align-self: flex-start; }
+.silenciado { font-size: 0.8rem; }

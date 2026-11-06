@@ -94,6 +94,10 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
   await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
   await dono.janela.getByLabel('Nome do novo canal de voz').fill('Papo');
   await dono.janela.getByRole('button', { name: 'Criar', exact: true }).click();
+  // O microfone falso é um apito: o RNNoise o abafa e a detecção de voz quase não abre. Sem supressão, ele passa.
+  await dono.janela.getByRole('button', { name: 'Configurações' }).click();
+  await dono.janela.getByLabel('Supressão de ruído').uncheck();
+  await dono.janela.getByRole('button', { name: 'Voltar' }).click();
 
   for (const p of [dono, ana]) {
     await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
@@ -248,7 +252,9 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
   await ana.janela.waitForTimeout(1500);
   await semFalar(2000);
   await teclaGlobal(dono.app, 'down', 'Backquote');
-  await expect(donoFalando).toBeVisible({ timeout: 15_000 });
+  // O portão abre na hora (indicador local); o "falando" da ana depende da detecção do LiveKit, mais lenta sob carga.
+  await expect(j.getByRole('img', { name: 'Transmitindo' })).toBeVisible({ timeout: 5_000 });
+  await expect(donoFalando).toBeVisible({ timeout: 25_000 });
   await print(ana.janela, 'T16-ptt-segurado-ana-ve-dono-falando');
   await teclaGlobal(dono.app, 'up', 'Backquote');
   await expect(donoFalando).toHaveCount(0, { timeout: 10_000 });
@@ -301,4 +307,74 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
   await print(reaberto.janela, 'T16-atalhos-depois-de-reiniciar');
   await reaberto.app.close();
   await ana.app.close();
+});
+
+test('CA-27, CA-29, CA-58: volume por pessoa só para quem ajustou, sons de entrar/sair e silenciar lembrado', async () => {
+  test.setTimeout(150_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const somDa = (p: Page) => p.evaluate(() => document.documentElement.dataset.somVoz ?? '');
+
+  await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await dono.janela.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await dono.janela.getByRole('button', { name: 'Criar', exact: true }).click();
+
+  // CA-29: a ana está no canal; o dono entra e sai — ela ouve os sons.
+  await ana.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+  await expect(ana.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  await expect.poll(() => somDa(ana.janela)).toMatch(/^entrar:/);
+  const antes = await somDa(ana.janela);
+  await dono.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+  await expect(dono.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  await expect.poll(() => somDa(ana.janela)).not.toBe(antes);
+  expect(await somDa(ana.janela)).toMatch(/^entrar:/);
+
+  // CA-27: a ana baixa o dono para 50%; só na máquina dela.
+  await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1, { timeout: 15_000 });
+  await ana.janela.getByRole('button', { name: 'Ajustes de voz de dono' }).click();
+  await ana.janela.getByLabel(/Volume de dono/).fill('150');
+  await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveAttribute('data-volume', '1.5');
+  await ana.janela.getByLabel(/Volume de dono/).fill('50');
+  await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveAttribute('data-volume', '0.5');
+  await expect(dono.janela.locator('[data-testid="audios-voz"] audio')).toHaveAttribute('data-volume', '1');
+  await print(ana.janela, 'T17-volume-por-pessoa');
+
+  // CA-58: a ana silencia o dono; ele não fica sabendo.
+  await ana.janela.getByRole('button', { name: 'Silenciar dono' }).click();
+  await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveAttribute('data-volume', '0');
+  await expect(ana.janela.getByLabel('silenciado por você')).toBeVisible();
+  await expect(dono.janela.getByLabel('silenciado por você')).toHaveCount(0);
+  await expect(dono.janela.locator('[data-testid="audios-voz"] audio')).toHaveAttribute('data-volume', '1');
+
+  // CA-29: o dono sai — a ana ouve o som de saída.
+  const antesSaida = await somDa(ana.janela);
+  await dono.janela.getByRole('button', { name: 'Sair da voz' }).click();
+  await expect.poll(() => somDa(ana.janela)).not.toBe(antesSaida);
+  expect(await somDa(ana.janela)).toMatch(/^sair:/);
+
+  // Reabrir a ana: o dono continua silenciado e com o volume guardado.
+  await ana.app.close();
+  const ana2 = await abrirApp('ana');
+  await ana2.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+  await dono.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+  await expect(ana2.janela.locator('[data-testid="audios-voz"] audio')).toHaveAttribute('data-volume', '0', { timeout: 15_000 });
+  await ana2.janela.getByRole('button', { name: 'Ajustes de voz de dono' }).click();
+  await expect(ana2.janela.getByLabel(/Volume de dono/)).toHaveValue('50');
+  await expect(ana2.janela.getByRole('button', { name: 'Silenciar dono' })).toHaveAttribute('aria-pressed', 'true');
+  await ana2.janela.getByRole('button', { name: 'Silenciar dono' }).click();
+  await expect(ana2.janela.locator('[data-testid="audios-voz"] audio')).toHaveAttribute('data-volume', '0.5');
+  await print(ana2.janela, 'T17-silenciar-lembrado-apos-reabrir');
+
+  // Sons desligados nas Configurações: o dono sai e a ana não ouve nada.
+  await ana2.janela.getByRole('button', { name: 'Configurações' }).click();
+  await ana2.janela.getByLabel('Sons de entrar e sair da voz e de mute').uncheck();
+  const semSom = await somDa(ana2.janela);
+  await dono.janela.getByRole('button', { name: 'Sair da voz' }).click();
+  await expect(ana2.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem')).toHaveCount(1);
+  await ana2.janela.waitForTimeout(500);
+  expect(await somDa(ana2.janela)).toBe(semSom);
+
+  await dono.app.close();
+  await ana2.app.close();
 });

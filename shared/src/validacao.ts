@@ -1,4 +1,4 @@
-import { AUDIO_PADRAO, type PreferenciasAudio } from './protocolo.js';
+import { AUDIO_PADRAO, SONS_PADRAO, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
 import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, NOME_SOM_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
@@ -141,5 +141,39 @@ export function mesclarAudio(base: PreferenciasAudio = AUDIO_PADRAO, bruto: unkn
   const s = o.sensibilidadeDb;
   if (typeof s === 'number' && Number.isFinite(s) && s >= -100 && s <= 0) r.sensibilidadeDb = Math.round(s);
   if (o.modoMicrofone === 'deteccao' || o.modoMicrofone === 'ptt') r.modoMicrofone = o.modoMicrofone;
+  return r;
+}
+
+/** Volume máximo por pessoa (200%, RF-19). */
+export const VOLUME_PESSOA_MAX = 2;
+
+/** Valida volume e silêncio por servidor (no máximo 20 servidores e 200 pessoas cada, para o arquivo não crescer sem fim). */
+export function mesclarPessoas(base: Record<string, PreferenciasPessoas>, bruto: unknown): Record<string, PreferenciasPessoas> {
+  const r: Record<string, PreferenciasPessoas> = { ...base };
+  if (!bruto || typeof bruto !== 'object') return r;
+  for (const [chave, valor] of Object.entries(bruto as Record<string, unknown>).slice(0, 20)) {
+    const url = normalizarUrlServidor(chave);
+    if (!url.ok || !valor || typeof valor !== 'object') continue;
+    const servidor = url.valor;
+    const v = valor as Record<string, unknown>;
+    const volumes: Record<string, number> = {};
+    if (v.volumes && typeof v.volumes === 'object') {
+      for (const [id, vol] of Object.entries(v.volumes as Record<string, unknown>).slice(0, 200)) {
+        if (/^\d{1,9}$/.test(id) && typeof vol === 'number' && Number.isFinite(vol) && vol >= 0 && vol <= VOLUME_PESSOA_MAX) volumes[id] = Math.round(vol * 100) / 100;
+      }
+    }
+    const silenciados = Array.isArray(v.silenciados) ? [...new Set(v.silenciados.filter((id): id is number => Number.isInteger(id) && id > 0))].slice(0, 200) : [];
+    // O servidor mexido por último vai para o fim; acima de 20 servidores, os mais antigos saem.
+    delete r[servidor];
+    r[servidor] = { volumes, silenciados };
+  }
+  const chaves = Object.keys(r);
+  for (const velho of chaves.slice(0, Math.max(0, chaves.length - 20))) delete r[velho];
+  return r;
+}
+
+export function mesclarSons(base: PreferenciasSons = SONS_PADRAO, bruto: unknown): PreferenciasSons {
+  const r = { ...base };
+  if (bruto && typeof bruto === 'object' && typeof (bruto as Record<string, unknown>).voz === 'boolean') r.voz = (bruto as { voz: boolean }).voz;
   return r;
 }

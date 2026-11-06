@@ -31,6 +31,8 @@ export interface SalaVoz {
   microfone(): Microfone | undefined;
   /** RF-16: mute (fecha o microfone), deafen (zera quem está na sala e também muta) e PTT apertado. */
   controlar(c: Partial<ControlesVoz>): void;
+  /** RF-19/RF-38: volume (0 a 2) de cada pessoa e quem está silenciado, só neste computador. */
+  definirPessoas(p: { volumes: Record<string, number>; silenciados: number[] }): void;
   sair(): Promise<void>;
   /** Sessão de mídia atual (participant.sid), para o servidor reconhecer a saída certa. */
   sid(): string | undefined;
@@ -88,11 +90,19 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
   const controles: ControlesVoz = { mudo: false, surdo: false, ptt: false };
   let pararTransmitindo: (() => void) | undefined;
   /** Leva o estado de mute/deafen/PTT ao portão, à publicação e ao volume de quem está na sala. */
-  /** Volume escolhido por pessoa (RF-19, T17); o deafen zera sem perder o valor. */
-  const volumes = new Map<string, number>();
+  /** Volume escolhido por pessoa (RF-19) e silenciados (RF-38); deafen e silêncio zeram sem perder o volume. */
+  let volumes: Record<string, number> = {};
+  let silenciados = new Set<string>();
   function aplicarVolume(elemento: HTMLMediaElement, faixa: RemoteTrack) {
-    const v = controles.surdo ? 0 : (volumes.get(elemento.dataset.participante ?? '') ?? 1);
-    (faixa as RemoteTrack & { setVolume?(v: number): void }).setVolume?.(v);
+    const id = elemento.dataset.participante ?? '';
+    const v = controles.surdo || silenciados.has(id) ? 0 : (volumes[id] ?? 1);
+    const ajustar = (faixa as RemoteTrack & { setVolume?(v: number): void }).setVolume?.bind(faixa);
+    try {
+      ajustar?.(v);
+    } catch {
+      // Sem Web Audio, o volume vai no elemento, que só aceita até 100%.
+      ajustar?.(Math.min(1, v));
+    }
     elemento.dataset.volume = String(v);
   }
   function aplicarControles() {
@@ -250,6 +260,11 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     microfone: () => mic,
+    definirPessoas(p) {
+      volumes = { ...p.volumes };
+      silenciados = new Set(p.silenciados.map(String));
+      for (const [elemento, t] of faixas) aplicarVolume(elemento, t);
+    },
     controlar(c) {
       Object.assign(controles, c);
       aplicarControles();

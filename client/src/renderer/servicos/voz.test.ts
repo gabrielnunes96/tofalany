@@ -198,6 +198,33 @@ describe('sala de voz (RF-13)', () => {
     expect(o.aoTransmitindo).toHaveBeenLastCalledWith(false);
   });
 
+  it('RF-19/RF-38: volume por pessoa e silenciar; deafen zera e volta ao volume escolhido', async () => {
+    const { sala, emitir } = salaFalsa();
+    const voz = criarSalaVoz(ouvintesVoz(), () => sala, vi.fn(async () => microfone()));
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    const faixa = (id: string) => {
+      const el = document.createElement('audio');
+      const f = { kind: 'audio', attach: () => el, detach: vi.fn(() => []), setVolume: vi.fn() };
+      emitir(RoomEvent.TrackSubscribed, f, {}, { identity: id });
+      return { el, f };
+    };
+    const a = faixa('2');
+    const b = faixa('3');
+    voz.definirPessoas({ volumes: { '2': 0.5, '3': 1.8 }, silenciados: [] });
+    expect(a.f.setVolume).toHaveBeenLastCalledWith(0.5);
+    expect(b.el.dataset.volume).toBe('1.8');
+    voz.definirPessoas({ volumes: { '2': 0.5, '3': 1.8 }, silenciados: [3] });
+    expect(b.f.setVolume).toHaveBeenLastCalledWith(0);
+    expect(a.f.setVolume).toHaveBeenLastCalledWith(0.5);
+    voz.controlar({ surdo: true });
+    expect(a.f.setVolume).toHaveBeenLastCalledWith(0);
+    voz.controlar({ surdo: false });
+    expect(a.f.setVolume).toHaveBeenLastCalledWith(0.5);
+    // Quem chega depois já entra com o volume guardado.
+    voz.definirPessoas({ volumes: { '4': 0.2 }, silenciados: [] });
+    expect(faixa('4').f.setVolume).toHaveBeenLastCalledWith(0.2);
+  });
+
   it('queda sem pedir para sair avisa; microfone negado entra só para ouvir', async () => {
     const { sala, emitir } = salaFalsa();
     const o = ouvintesVoz();

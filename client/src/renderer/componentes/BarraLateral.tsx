@@ -24,6 +24,11 @@ interface Props {
   minhaVoz?: number | null;
   servidorUrl?: string;
   aoEntrarVoz?: (canalId: number) => void;
+  /** RF-19/RF-38: ajustes de quem está no meu canal de voz (só neste computador). */
+  euId?: number;
+  pessoasVoz?: { volumes: Record<string, number>; silenciados: number[] };
+  aoVolumePessoa?: (usuarioId: number, volume: number) => void;
+  aoSilenciarPessoa?: (usuarioId: number, silenciar: boolean) => void;
 }
 
 /** Bolinha com o número de não lidas (99+ acima disso). */
@@ -37,42 +42,131 @@ function Contador({ n }: { n: number | undefined }) {
   );
 }
 
-const TITULOS: Record<TipoCanal, string> = { texto: 'Canais de texto', voz: 'Canais de voz' };
+const TITULOS: Record<TipoCanal, string> = {
+  texto: 'Canais de texto',
+  voz: 'Canais de voz',
+};
 
 /** Canal de voz na barra: renomear (qualquer membro) e remover (só administrador, com confirmação). */
-interface PropsItemVoz extends Pick<Props, 'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl'> {
+interface PropsItemVoz extends Pick<
+  Props,
+  'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa'
+> {
   canal: CanalDto;
   presentes: { usuario: UsuarioDto; estado: VozEstadoDto; falando: boolean }[];
   aqui: boolean;
 }
 
 /** Quem está no canal de voz, com o indicador de fala (RF-13) e ícones de mute/deafen. */
-function PresentesVoz({ canal, presentes, servidorUrl }: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl'>) {
+/** Volume (0–200%) e silenciar uma pessoa, só neste computador (RF-19, RF-38). */
+function AjustesPessoa({
+  usuario,
+  volume,
+  silenciado,
+  aoVolume,
+  aoSilenciar,
+}: {
+  usuario: UsuarioDto;
+  volume: number;
+  silenciado: boolean;
+  aoVolume: (v: number) => void;
+  aoSilenciar: (s: boolean) => void;
+}) {
+  const nome = usuario.nomeExibicao;
+  const porcento = Math.round(volume * 100);
+  return (
+    <div className="ajustes-pessoa" role="group" id={`ajustes-${usuario.id}`} aria-label={`Ajustes de voz de ${nome}`}>
+      <label htmlFor={`volume-${usuario.id}`}>
+        Volume de {nome}{' '}
+        <span className="suave" aria-hidden="true">
+          {porcento}%
+        </span>
+      </label>
+      <input
+        id={`volume-${usuario.id}`}
+        type="range"
+        min={0}
+        max={200}
+        step={5}
+        value={porcento}
+        aria-valuetext={`${porcento}%`}
+        onChange={(e) => aoVolume(Number(e.target.value) / 100)}
+      />
+      <button type="button" className={silenciado ? 'perigo' : 'secundario'} aria-pressed={silenciado} onClick={() => aoSilenciar(!silenciado)}>
+        Silenciar {nome}
+      </button>
+    </div>
+  );
+}
+
+function PresentesVoz({
+  canal,
+  presentes,
+  servidorUrl,
+  aqui,
+  euId,
+  pessoasVoz,
+  aoVolumePessoa,
+  aoSilenciarPessoa,
+}: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl' | 'aqui' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa'>) {
+  const [abertos, setAbertos] = useState<number | null>(null);
   if (presentes.length === 0) return null;
   return (
     <ul className="presentes-voz" aria-label={`Na voz em ${canal.nome}`}>
-      {presentes.map(({ usuario, estado, falando }) => (
-        <li key={usuario.id} className={falando ? 'falando' : undefined} aria-label={`${usuario.nomeExibicao}${falando ? ', falando' : ''}`}>
-          <Avatar usuario={usuario} servidorUrl={servidorUrl ?? ''} tamanho={20} />
-          <span className="nome">{usuario.nomeExibicao}</span>
-          {estado.surdo ? (
-            <span role="img" title="Sem áudio" aria-label="sem áudio">
-              🔇
-            </span>
-          ) : (
-            estado.mudo && (
-              <span role="img" title="Microfone desligado" aria-label="microfone desligado">
-                🎙️✕
+      {presentes.map(({ usuario, estado, falando }) => {
+        const silenciado = !!pessoasVoz?.silenciados.includes(usuario.id);
+        // Só ajusta quem eu ouço: gente do meu canal, menos eu.
+        const ajustavel = aqui && usuario.id !== euId && !!aoVolumePessoa && !!aoSilenciarPessoa;
+        return (
+          <li key={usuario.id} className={falando ? 'falando' : undefined} aria-label={`${usuario.nomeExibicao}${falando ? ', falando' : ''}`}>
+            <Avatar usuario={usuario} servidorUrl={servidorUrl ?? ''} tamanho={20} />
+            <span className="nome">{usuario.nomeExibicao}</span>
+            {silenciado && aqui && (
+              <span role="img" title="Silenciado por você" aria-label="silenciado por você" className="silenciado">
+                🔕
               </span>
-            )
-          )}
-        </li>
-      ))}
+            )}
+            {estado.surdo ? (
+              <span role="img" title="Sem áudio" aria-label="sem áudio">
+                🔇
+              </span>
+            ) : (
+              estado.mudo && (
+                <span role="img" title="Microfone desligado" aria-label="microfone desligado">
+                  🎙️✕
+                </span>
+              )
+            )}
+            {ajustavel && (
+              <button
+                type="button"
+                className="icone"
+                aria-expanded={abertos === usuario.id}
+                aria-controls={abertos === usuario.id ? `ajustes-${usuario.id}` : undefined}
+                aria-label={`Ajustes de voz de ${usuario.nomeExibicao}`}
+                title="Volume e silenciar"
+                onClick={() => setAbertos(abertos === usuario.id ? null : usuario.id)}
+              >
+                ⋯
+              </button>
+            )}
+            {ajustavel && abertos === usuario.id && (
+              <AjustesPessoa
+                usuario={usuario}
+                volume={pessoasVoz?.volumes[String(usuario.id)] ?? 1}
+                silenciado={silenciado}
+                aoVolume={(v) => aoVolumePessoa!(usuario.id, v)}
+                aoSilenciar={(sim) => aoSilenciarPessoa!(usuario.id, sim)}
+              />
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes, aqui, servidorUrl }: PropsItemVoz) {
+function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes, aqui, servidorUrl, ...pessoas }: PropsItemVoz) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -144,7 +238,7 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes
           {erro}
         </p>
       )}
-      <PresentesVoz canal={canal} presentes={presentes} servidorUrl={servidorUrl} />
+      <PresentesVoz canal={canal} presentes={presentes} servidorUrl={servidorUrl} aqui={aqui} {...pessoas} />
     </div>
   );
 }
@@ -167,6 +261,10 @@ export function BarraLateral({
   voz = [],
   falando = [],
   minhaVoz = null,
+  euId,
+  pessoasVoz,
+  aoVolumePessoa,
+  aoSilenciarPessoa,
   servidorUrl,
   aoEntrarVoz,
 }: Props) {
@@ -224,6 +322,10 @@ export function BarraLateral({
                       aoRemover={aoRemover}
                       aoEntrarVoz={aoEntrarVoz}
                       presentes={presentesEm(c.id)}
+                      euId={euId}
+                      pessoasVoz={pessoasVoz}
+                      aoVolumePessoa={aoVolumePessoa}
+                      aoSilenciarPessoa={aoSilenciarPessoa}
                       aqui={minhaVoz === c.id}
                       servidorUrl={servidorUrl}
                     />

@@ -65,6 +65,31 @@ describe('BarraLateral', () => {
     expect(aoEntrarVoz).toHaveBeenCalledTimes(1);
   });
 
+  it('RF-19/RF-38: ajustes só para quem está no meu canal (menos eu): volume e silenciar', () => {
+    const u = (id: number, nome: string) => ({ id, usuario: nome, nomeExibicao: nome, cor: '#00f0ff', avatarUrl: null, cargo: 'membro' as const });
+    const aoVolumePessoa = vi.fn();
+    const aoSilenciarPessoa = vi.fn();
+    const base = { ...props, ehAdmin: false, aoRenomear: vi.fn(async () => null), aoRemover: vi.fn(async () => null), usuarios: [u(1, 'dono'), u(2, 'ana')] };
+    const voz = [1, 2].map((usuarioId) => ({ usuarioId, canalVozId: 2, mudo: false, surdo: false, camera: false }));
+    const { rerender } = render(
+      <BarraLateral {...base} voz={voz} minhaVoz={null} euId={1} pessoasVoz={{ volumes: { '2': 0.5 }, silenciados: [] }} aoVolumePessoa={aoVolumePessoa} aoSilenciarPessoa={aoSilenciarPessoa} />,
+    );
+    // Fora do canal: sem ajustes.
+    expect(screen.queryByRole('button', { name: /Ajustes de voz/ })).toBeNull();
+    rerender(<BarraLateral {...base} voz={voz} minhaVoz={2} euId={1} pessoasVoz={{ volumes: { '2': 0.5 }, silenciados: [2] }} aoVolumePessoa={aoVolumePessoa} aoSilenciarPessoa={aoSilenciarPessoa} />);
+    expect(screen.queryByRole('button', { name: 'Ajustes de voz de dono' })).toBeNull();
+    expect(screen.getByLabelText('silenciado por você')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustes de voz de ana' }));
+    const volume = screen.getByLabelText(/Volume de ana/) as HTMLInputElement;
+    expect(volume.value).toBe('50');
+    fireEvent.change(volume, { target: { value: '150' } });
+    expect(aoVolumePessoa).toHaveBeenCalledWith(2, 1.5);
+    const reativar = screen.getByRole('button', { name: 'Silenciar ana' });
+    expect(reativar.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(reativar);
+    expect(aoSilenciarPessoa).toHaveBeenCalledWith(2, false);
+  });
+
   it('membro renomeia canal de voz e não vê "remover"', async () => {
     const aoRenomear = vi.fn(async () => null);
     render(<BarraLateral {...props} ehAdmin={false} aoRenomear={aoRenomear} aoRemover={vi.fn()} />);
