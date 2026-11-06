@@ -12,6 +12,20 @@ export interface OuvintesVoz {
   aoAviso(mensagem: string): void;
   /** RF-14: o portão do meu microfone abriu (transmitindo) ou fechou. */
   aoTransmitindo?(aberto: boolean): void;
+  /** RF-25: vídeos de câmera na sala (o meu, como prévia, e os dos outros). */
+  aoVideos?(videos: VideoSala[]): void;
+}
+
+/** Faixa de vídeo que a tela prende num <video> (attach/detach do livekit-client). */
+export interface FaixaVideo {
+  attach(elemento: HTMLMediaElement): HTMLMediaElement;
+  detach(elemento: HTMLMediaElement): HTMLMediaElement;
+}
+
+export interface VideoSala {
+  usuarioId: number;
+  faixa: FaixaVideo;
+  meu: boolean;
 }
 
 /** Controles do microfone e da saída durante a chamada (RF-14, RF-16). */
@@ -31,6 +45,8 @@ export interface SalaVoz {
   microfone(): Microfone | undefined;
   /** RF-16: mute (fecha o microfone), deafen (zera quem está na sala e também muta) e PTT apertado. */
   controlar(c: Partial<ControlesVoz>): void;
+  /** RF-25: liga ou desliga a minha câmera (simulcast); devolve se ficou ligada. */
+  camera(ligar: boolean): Promise<boolean>;
   /** RF-19/RF-38: volume (0 a 2) de cada pessoa e quem está silenciado, só neste computador. */
   definirPessoas(p: { volumes: Record<string, number>; silenciados: number[] }): void;
   sair(): Promise<void>;
@@ -53,6 +69,11 @@ export interface SalaLivekit {
     ): Promise<{ track?: { replaceTrack(f: MediaStreamTrack, doUsuario?: boolean): Promise<unknown>; mute(): Promise<unknown>; unmute(): Promise<unknown> } }>;
   };
   switchActiveDevice(tipo: MediaDeviceKind, id: string): Promise<unknown>;
+}
+
+/** Só o que usamos da câmera do participante local (permite testar sem WebRTC). */
+interface CameraLocal {
+  setCameraEnabled(ligar: boolean, opcoes?: object, publicar?: object): Promise<{ track?: FaixaVideo } | undefined>;
 }
 
 /** webAudioMix: volume por pessoa acima de 100% e escolha da saída (T15, T17). */
@@ -88,6 +109,21 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     return p;
   };
   const controles: ControlesVoz = { mudo: false, surdo: false, ptt: false };
+  // RF-25: câmeras na sala (identidade → faixa) e a minha.
+  const videos = new Map<string, FaixaVideo>();
+  let meuVideo: FaixaVideo | undefined;
+  const emitirVideos = () => {
+    const lista: VideoSala[] = [...videos].map(([id, faixa]) => ({ usuarioId: Number(id), faixa, meu: false }));
+    // A tela sabe quem sou eu: o meu vídeo vai marcado como meu (usuarioId 0).
+    if (meuVideo) lista.unshift({ usuarioId: 0, faixa: meuVideo, meu: true });
+    ouvintes.aoVideos?.(lista);
+  };
+  const limparVideos = () => {
+    const tinha = videos.size > 0 || !!meuVideo;
+    videos.clear();
+    meuVideo = undefined;
+    if (tinha) ouvintes.aoVideos?.([]);
+  };
   let pararTransmitindo: (() => void) | undefined;
   /** Leva o estado de mute/deafen/PTT ao portão, à publicação e ao volume de quem está na sala. */
   /** Volume escolhido por pessoa (RF-19) e silenciados (RF-38); deafen e silêncio zeram sem perder o volume. */
@@ -212,19 +248,46 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       sala = atual;
       if (!caixa.isConnected) document.body.appendChild(caixa);
       // Cada elemento leva quem fala: some quando a faixa é desassinada ou a pessoa sai da sala.
-      atual.on(RoomEvent.TrackSubscribed, ((track: RemoteTrack, _pub: unknown, participante: RemoteParticipant) => {
-        if (track.kind !== 'audio' || sala !== atual) return;
+      atual.on(RoomEvent.TrackSubscribed, ((track: RemoteTrack, pub: { isMuted?: boolean } | undefined, participante: RemoteParticipant) => {
+        if (sala !== atual) return;
+        if (track.kind === 'video') {
+          // Câmera desligada (publicação muda) não entra: volta quando a pessoa religar (TrackUnmuted).
+          if (track.source === Track.Source.Camera && participante && !pub?.isMuted) {
+            videos.set(participante.identity, track);
+            emitirVideos();
+          }
+          return;
+        }
+        if (track.kind !== 'audio') return;
         const elemento = track.attach();
         elemento.dataset.participante = participante?.identity ?? '';
         faixas.set(elemento, track);
         caixa.appendChild(elemento);
         aplicarVolume(elemento, track);
       }) as never);
+      // Desligar a câmera silencia a publicação (não desassina): some e volta pela marcação de mudo.
+      const camera = (pub: { kind?: string; source?: string }) => pub.kind === 'video' && pub.source === Track.Source.Camera;
+      atual.on(RoomEvent.TrackMuted, ((pub: { kind?: string; source?: string }, participante: Participant) => {
+        if (sala !== atual || !camera(pub) || !participante || participante === (atual.localParticipant as unknown as Participant)) return;
+        if (videos.delete(participante.identity)) emitirVideos();
+      }) as never);
+      atual.on(RoomEvent.TrackUnmuted, ((pub: { kind?: string; source?: string; track?: FaixaVideo }, participante: Participant) => {
+        if (sala !== atual || !camera(pub) || !pub.track || !participante || participante === (atual.localParticipant as unknown as Participant)) return;
+        videos.set(participante.identity, pub.track);
+        emitirVideos();
+      }) as never);
       atual.on(RoomEvent.TrackUnsubscribed, ((track: RemoteTrack) => {
+        if (sala !== atual) return;
+        for (const [id, v] of [...videos]) {
+          if (v !== track) continue;
+          videos.delete(id);
+          emitirVideos();
+        }
         for (const [e, t] of [...faixas]) if (t === track) tirarElemento(e);
       }) as never);
       atual.on(RoomEvent.ParticipantDisconnected, ((participante: RemoteParticipant) => {
         for (const e of [...faixas.keys()]) if (e.dataset.participante === participante.identity) tirarElemento(e);
+        if (videos.delete(participante.identity)) emitirVideos();
       }) as never);
       atual.on(RoomEvent.ActiveSpeakersChanged, ((falando: Participant[]) => {
         if (sala !== atual) return;
@@ -235,6 +298,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         sala = undefined;
         conectada = false;
         limpar();
+        limparVideos();
         pararMic();
         ouvintes.aoFalando([]);
         if (!saindo) ouvintes.aoCaiu();
@@ -260,6 +324,25 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     microfone: () => mic,
+    async camera(ligar) {
+      const atual = sala;
+      if (!atual || !conectada) return false;
+      try {
+        // Simulcast: quem assiste pequeno recebe a camada menor (técnica §5).
+        const pub = await (atual.localParticipant as unknown as CameraLocal).setCameraEnabled(ligar, { resolution: { width: 1280, height: 720, frameRate: 30 } }, { simulcast: true });
+        if (sala !== atual) {
+          // Saiu da voz enquanto a câmera abria: garante a luz apagada.
+          (pub?.track as { stop?(): void } | undefined)?.stop?.();
+          return false;
+        }
+        meuVideo = ligar ? pub?.track : undefined;
+        emitirVideos();
+        return ligar && !!meuVideo;
+      } catch {
+        if (ligar) ouvintes.aoAviso('Não foi possível abrir a câmera.');
+        return false;
+      }
+    },
     definirPessoas(p) {
       volumes = { ...p.volumes };
       silenciados = new Set(p.silenciados.map(String));
@@ -276,6 +359,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       sala = undefined;
       conectada = false;
       limpar();
+      limparVideos();
       pararMic();
       ouvintes.aoFalando([]);
       await atual.disconnect();

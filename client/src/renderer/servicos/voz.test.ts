@@ -225,6 +225,50 @@ describe('sala de voz (RF-13)', () => {
     expect(faixa('4').f.setVolume).toHaveBeenLastCalledWith(0.2);
   });
 
+  it('RF-25: câmera ligada e desligada; vídeos dos outros aparecem e somem', async () => {
+    const { sala, emitir } = salaFalsa();
+    const minha = { attach: vi.fn(), detach: vi.fn() };
+    (sala.localParticipant as unknown as { setCameraEnabled: unknown }).setCameraEnabled = vi.fn(async (ligar: boolean) => (ligar ? { track: minha } : undefined));
+    const o = { ...ouvintesVoz(), aoVideos: vi.fn() };
+    const voz = criarSalaVoz(o, () => sala, vi.fn(async () => microfone()));
+    expect(await voz.camera(true)).toBe(false);
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    expect(await voz.camera(true)).toBe(true);
+    expect(o.aoVideos).toHaveBeenLastCalledWith([{ usuarioId: 0, faixa: minha, meu: true }]);
+    const dela = { kind: 'video', source: 'camera', attach: vi.fn(), detach: vi.fn() };
+    emitir(RoomEvent.TrackSubscribed, dela, {}, { identity: '2' });
+    expect(o.aoVideos).toHaveBeenLastCalledWith([
+      { usuarioId: 0, faixa: minha, meu: true },
+      { usuarioId: 2, faixa: dela, meu: false },
+    ]);
+    // Tela compartilhada não entra na grade de câmeras.
+    emitir(RoomEvent.TrackSubscribed, { kind: 'video', source: 'screen_share' }, {}, { identity: '3' });
+    expect(o.aoVideos.mock.lastCall![0]).toHaveLength(2);
+    // Desligar a câmera do outro lado chega como "mudo" da publicação; religar, como "desmudo".
+    emitir(RoomEvent.TrackMuted, { kind: 'video', source: 'camera' }, { identity: '2' });
+    expect(o.aoVideos.mock.lastCall![0].map((v: { usuarioId: number }) => v.usuarioId)).toEqual([0]);
+    emitir(RoomEvent.TrackUnmuted, { kind: 'video', source: 'camera', track: dela }, { identity: '2' });
+    expect(o.aoVideos.mock.lastCall![0].map((v: { usuarioId: number }) => v.usuarioId)).toEqual([0, 2]);
+    expect(await voz.camera(false)).toBe(false);
+    emitir(RoomEvent.TrackUnsubscribed, dela);
+    expect(o.aoVideos).toHaveBeenLastCalledWith([]);
+    // Quem chega com a câmera desligada (publicação muda) não entra na grade.
+    emitir(RoomEvent.TrackSubscribed, { kind: 'video', source: 'camera' }, { isMuted: true }, { identity: '4' });
+    expect(o.aoVideos).toHaveBeenLastCalledWith([]);
+    // Quem sai da sala some da grade.
+    emitir(RoomEvent.TrackSubscribed, dela, {}, { identity: '2' });
+    emitir(RoomEvent.ParticipantDisconnected, { identity: '2' });
+    expect(o.aoVideos).toHaveBeenLastCalledWith([]);
+    // Sair limpa a minha prévia.
+    await voz.camera(true);
+    await voz.sair();
+    expect(o.aoVideos).toHaveBeenLastCalledWith([]);
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    (sala.localParticipant as unknown as { setCameraEnabled: ReturnType<typeof vi.fn> }).setCameraEnabled.mockRejectedValueOnce(new Error('sem câmera'));
+    expect(await voz.camera(true)).toBe(false);
+    expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível abrir a câmera.');
+  });
+
   it('queda sem pedir para sair avisa; microfone negado entra só para ouvir', async () => {
     const { sala, emitir } = salaFalsa();
     const o = ouvintesVoz();

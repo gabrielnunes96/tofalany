@@ -23,10 +23,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
-import { criarSalaVoz, EntradaCancelada, type SalaVoz } from '../servicos/voz';
+import { criarSalaVoz, EntradaCancelada, type SalaVoz, type VideoSala } from '../servicos/voz';
 import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
+import { GradeVideos } from '../componentes/GradeVideos';
 import { ponte } from '../servicos/ponte';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
@@ -53,11 +54,11 @@ interface Props {
 }
 
 /** Estado de voz enviado ao servidor (mute/deafen/câmera chegam nas T16 e T20). */
-const estadoVoz = (canalVozId: number | null, sid?: string, c: { mudo: boolean; surdo: boolean } = { mudo: false, surdo: false }) => ({
+const estadoVoz = (canalVozId: number | null, sid?: string, c: { mudo: boolean; surdo: boolean; camera?: boolean } = { mudo: false, surdo: false }) => ({
   canalVozId,
   mudo: c.mudo || c.surdo,
   surdo: c.surdo,
-  camera: false,
+  camera: !!c.camera,
   sid,
 });
 
@@ -330,24 +331,48 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [controles, setControlesEstado] = useState({
     mudo: false,
     surdo: false,
+    camera: false,
   });
   const controlesRef = useRef(controles);
   const [transmitindo, setTransmitindo] = useState(false);
-  function definirControles(novo: { mudo: boolean; surdo: boolean }) {
+  // RF-25: vídeos das câmeras na sala.
+  const [videos, setVideos] = useState<VideoSala[]>([]);
+  const cameraPendente = useRef(false);
+  async function alternarCamera() {
+    // Enquanto a câmera abre (permissão, dispositivo), outro clique não faz nada.
+    if (cameraPendente.current) return;
+    cameraPendente.current = true;
+    try {
+      const ligar = !controlesRef.current.camera;
+      const ligada = (await salaVozRef.current?.camera(ligar)) ?? false;
+      definirControles({ ...controlesRef.current, camera: ligada });
+    } finally {
+      cameraPendente.current = false;
+    }
+  }
+  /** A sala sempre esvazia os vídeos ao sair (queda, tirado, canal removido, troca): sem o meu, a câmera está desligada. */
+  const aoVideos = (lista: VideoSala[]) => {
+    setVideos(lista);
+    if (!lista.some((v) => v.meu) && controlesRef.current.camera) {
+      controlesRef.current = { ...controlesRef.current, camera: false };
+      setControlesEstado(controlesRef.current);
+    }
+  };
+  function definirControles(novo: { mudo: boolean; surdo: boolean; camera: boolean }) {
     const antes = controlesRef.current;
     if (minhaVozRef.current !== null && (antes.mudo || antes.surdo) !== (novo.mudo || novo.surdo)) tocar(novo.mudo || novo.surdo ? 'mudo' : 'desmudo');
     controlesRef.current = novo;
     setControlesEstado(novo);
     // Deafen corta também o som do soundboard que estiver tocando.
     if (novo.surdo) pararSoundboard();
-    salaVozRef.current?.controlar(novo);
+    salaVozRef.current?.controlar({ mudo: novo.mudo, surdo: novo.surdo });
     const canal = minhaVozRef.current;
     if (canal !== null) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid(), novo));
   }
   const alternarMudo = () => {
     const c = controlesRef.current;
     // Desmutar durante o deafen desliga os dois (como o microfone volta, o áudio também).
-    definirControles(c.surdo ? { mudo: false, surdo: false } : { ...c, mudo: !c.mudo });
+    definirControles(c.surdo ? { ...c, mudo: false, surdo: false } : { ...c, mudo: !c.mudo });
   };
   const alternarSurdo = () => {
     const c = controlesRef.current;
@@ -397,6 +422,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       },
       aoAviso: setAvisoVoz,
       aoTransmitindo: setTransmitindo,
+      aoVideos: (lista) => aoVideos(lista),
     });
     salaVozRef.current = sala;
     sala.definirPessoas(pessoasRef.current);
@@ -802,6 +828,16 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   >
                     🎧
                   </button>
+                  <button
+                    type="button"
+                    className={`icone controle${controles.camera ? ' ligado' : ''}`}
+                    aria-pressed={controles.camera}
+                    aria-label="Câmera"
+                    title={controles.camera ? 'Desligar câmera' : 'Ligar câmera'}
+                    onClick={() => void alternarCamera()}
+                  >
+                    📹
+                  </button>
                   <button type="button" className="perigo" onClick={() => void sairVoz()}>
                     Sair da voz
                   </button>
@@ -903,6 +939,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         </aside>
 
         <main className="conteudo">
+          <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />
           {vistaAtual === 'auditoria' ? (
             <TelaAuditoria api={api} pessoas={pessoasAuditoria} canais={canais} aoVoltar={voltar} />
           ) : vistaAtual === 'membros' ? (

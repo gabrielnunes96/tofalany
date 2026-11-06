@@ -307,3 +307,11 @@ button.canal .status-ponto { margin-right: 2px; }
 .silenciada { font-size: 0.75rem; opacity: 0.8; margin-left: auto; }
 button.icone.silenciar-conversa { font-size: 1rem; }
 button.icone.silenciar-conversa.ativo { color: var(--magenta); }
+
+/* Câmeras (RF-25) */
+.grade-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.quadro-video { position: relative; margin: 0; border: 1px solid var(--borda); border-radius: var(--raio); overflow: hidden; background: #000; aspect-ratio: 16 / 9; }
+.quadro-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.quadro-video.meu video { transform: scaleX(-1); }
+.quadro-video figcaption { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: var(--raio); background: rgba(10, 10, 18, 0.75); color: var(--texto); font-size: 0.8rem; }
+button.icone.controle.ligado { color: var(--destaque); background: rgba(0, 240, 255, 0.14); }

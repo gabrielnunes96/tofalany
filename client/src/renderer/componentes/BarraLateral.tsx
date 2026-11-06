@@ -143,6 +143,11 @@ function PresentesVoz({
                 🔕
               </span>
             )}
+            {estado.camera && (
+              <span role="img" title="Câmera ligada" aria-label="câmera ligada">
+                📹
+              </span>
+            )}
             {estado.surdo ? (
               <span role="img" title="Sem áudio" aria-label="sem áudio">
                 🔇

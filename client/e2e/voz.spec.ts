@@ -505,3 +505,34 @@ test('CA-56, CA-57: status online, ausente e offline na lista de membros', async
   await dono.app.close();
   await ana2.app.close();
 });
+
+test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () => {
+  test.setTimeout(90_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await dono.janela.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await dono.janela.getByRole('button', { name: 'Criar', exact: true }).click();
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+
+  await dono.janela.getByRole('button', { name: 'Câmera', exact: true }).click();
+  await expect(dono.janela.getByRole('button', { name: 'Câmera', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  // A prévia do dono e o vídeo dele na ana, com imagem de verdade (câmera falsa do Chromium).
+  await expect(dono.janela.getByLabel('Vídeo de dono')).toBeVisible();
+  const videoNaAna = ana.janela.getByLabel('Vídeo de dono');
+  await expect(videoNaAna).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => videoNaAna.evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('câmera ligada')).toBeVisible();
+  await print(ana.janela, 'T20-ana-ve-camera-do-dono');
+
+  await dono.janela.getByRole('button', { name: 'Câmera', exact: true }).click();
+  await expect(videoNaAna).toHaveCount(0, { timeout: 15_000 });
+  await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('câmera ligada')).toHaveCount(0);
+
+  await dono.app.close();
+  await ana.app.close();
+});
