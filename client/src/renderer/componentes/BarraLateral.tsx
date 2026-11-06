@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CanalDto, DmDto, TipoCanal, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
 import { Avatar } from './Avatar';
 import { StatusPonto } from './StatusPonto';
 import { FormNome } from './FormNome';
@@ -34,6 +34,8 @@ interface Props {
   presencas?: Partial<Record<number, 'online' | 'ausente'>>;
   /** RF-40: conversas com notificações silenciadas ("c:<id>"/"d:<id>"). */
   silenciadas?: string[];
+  /** RN-10: quem transmite a tela em cada canal de voz. */
+  transmissoes?: TransmissaoDto[];
 }
 
 /** Bolinha com o número de não lidas (99+ acima disso). */
@@ -70,7 +72,7 @@ interface PropsItemVoz extends Pick<
   'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa'
 > {
   canal: CanalDto;
-  presentes: { usuario: UsuarioDto; estado: VozEstadoDto; falando: boolean }[];
+  presentes: { usuario: UsuarioDto; estado: VozEstadoDto; falando: boolean; transmite: boolean }[];
   aqui: boolean;
 }
 
@@ -130,7 +132,7 @@ function PresentesVoz({
   if (presentes.length === 0) return null;
   return (
     <ul className="presentes-voz" aria-label={`Na voz em ${canal.nome}`}>
-      {presentes.map(({ usuario, estado, falando }) => {
+      {presentes.map(({ usuario, estado, falando, transmite }) => {
         const silenciado = !!pessoasVoz?.silenciados.includes(usuario.id);
         // Só ajusta quem eu ouço: gente do meu canal, menos eu.
         const ajustavel = aqui && usuario.id !== euId && !!aoVolumePessoa && !!aoSilenciarPessoa;
@@ -141,6 +143,11 @@ function PresentesVoz({
             {silenciado && aqui && (
               <span role="img" title="Silenciado por você" aria-label="silenciado por você" className="silenciado">
                 🔕
+              </span>
+            )}
+            {transmite && (
+              <span role="img" title="Transmitindo a tela" aria-label="transmitindo a tela">
+                🖥️
               </span>
             )}
             {estado.camera && (
@@ -291,13 +298,23 @@ export function BarraLateral({
   aoEntrarVoz,
   presencas = {},
   silenciadas = [],
+  transmissoes = [],
 }: Props) {
   const [criando, setCriando] = useState<TipoCanal | null>(null);
   const presentesEm = (canalId: number) =>
     voz.flatMap((estado) => {
       if (estado.canalVozId !== canalId) return [];
       const usuario = usuarios.find((u) => u.id === estado.usuarioId);
-      return usuario ? [{ usuario, estado, falando: falando.includes(usuario.id) }] : [];
+      return usuario
+        ? [
+            {
+              usuario,
+              estado,
+              falando: falando.includes(usuario.id),
+              transmite: transmissoes.some((t) => t.canalVozId === canalId && t.usuarioId === usuario.id),
+            },
+          ]
+        : [];
     });
 
   return (

@@ -58,7 +58,7 @@ export function criarVoz(
   io: ServidorTempoReal,
   banco: Banco,
   registrarErro: (e: unknown) => void,
-  opcoes: { carenciaMs: number; removerDaMidia?: RemoverDaMidia },
+  opcoes: { carenciaMs: number; removerDaMidia?: RemoverDaMidia; aoSair?: (usuarioId: number, canalVozId: number) => void },
 ): Voz {
   const presentes = new Map<number, Presente>();
 
@@ -83,6 +83,8 @@ export function criarVoz(
     clearTimeout(p.pendente);
     presentes.delete(usuarioId);
     auditar('voz_saiu', usuarioId, p.estado.canalVozId, motivo, nomeCanal);
+    // Quem sai da voz deixa de transmitir (RN-10).
+    opcoes.aoSair?.(usuarioId, p.estado.canalVozId);
     return p;
   }
 
@@ -117,6 +119,8 @@ export function criarVoz(
             // Outro computador assumiu: o anterior (ainda conectado) sai da voz e da mídia.
             if (atual.socketId !== socket.id) {
               io.to(atual.socketId).emit('voz:tirado', { motivo: 'outro_computador' });
+              // A sessão anterior saiu da mídia (mesmo continuando no mesmo canal): o que ela transmitia acaba.
+              opcoes.aoSair?.(usuarioId, atual.estado.canalVozId);
               if (atual.estado.canalVozId !== canal.id) removerDaMidia(usuarioId, atual.estado.canalVozId);
             }
             if (atual.estado.canalVozId !== canal.id) tirar(usuarioId, 'trocou_de_canal');

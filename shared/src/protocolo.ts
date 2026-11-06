@@ -255,6 +255,17 @@ export interface VozEstadoPedido {
   sid?: string;
 }
 
+/** RF-26/RF-28: qualidade da transmissão de tela (membro só 720p30, RN-17). */
+export type QualidadeTela = '720p30' | '1080p60' | '1440p60';
+export const QUALIDADES_TELA: QualidadeTela[] = ['720p30', '1080p60', '1440p60'];
+
+/** RN-10: quem transmite em cada canal de voz. */
+export interface TransmissaoDto {
+  canalVozId: number;
+  usuarioId: number;
+  qualidade: QualidadeTela;
+}
+
 /** Sala do LiveKit de um canal de voz. */
 export const salaLivekit = (canalVozId: number) => `voz-${canalVozId}`;
 
@@ -279,6 +290,8 @@ export interface OlaPayload {
   sons: SomDto[];
   /** RF-13: quem está em cada canal de voz. */
   voz: VozEstadoDto[];
+  /** RN-10: transmissões de tela ativas. */
+  transmissoes: TransmissaoDto[];
   /** RF-37: quem não está offline (id → online/ausente). */
   presencas: Record<string, 'online' | 'ausente'>;
   /** RF-12: mensagens não lidas por conversa ("c:<id>" / "d:<id>"), só as que têm alguma. */
@@ -315,6 +328,9 @@ export interface EventosServidor {
   'voz:tirado': (payload: { motivo: 'outro_computador' }) => void;
   /** RF-23: alguém tocou um som do soundboard; chega só para quem está naquele canal de voz. */
   'som:tocado': (payload: { somId: number; porUsuarioId: number; canalVozId: number }) => void;
+  /** RN-10: transmissão de tela começou ou parou (para todos: a barra mostra quem transmite). */
+  'tela:iniciada': (t: TransmissaoDto) => void;
+  'tela:parada': (payload: { canalVozId: number; usuarioId: number }) => void;
   /** RF-37: status de alguém mudou. */
   'presenca:atualizada': (payload: { id: number; status: StatusPessoa }) => void;
   /** Conta removida por um administrador: some da lista. */
@@ -345,6 +361,9 @@ export interface EventosCliente {
   'voz:estado': (dados: VozEstadoPedido, ack: Ack) => void;
   /** RF-23: toca um som para o canal de voz em que estou (RN-12, RN-13). */
   'som:tocar': (dados: { somId: number }, ack: Ack) => void;
+  /** RF-26/RN-10: pede a trava do canal para transmitir (recusa se outro já transmite). */
+  'tela:pedir': (dados: { canalVozId: number; qualidade: QualidadeTela }, ack: Ack<TransmissaoDto>) => void;
+  'tela:parar': (dados: { canalVozId: number }, ack: Ack) => void;
   /** RN-25: o computador ficou ocioso (ou voltou), sem resposta. */
   'presenca:ausente': (dados: { ausente: boolean }) => void;
 }

@@ -28,6 +28,8 @@ import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
 import { GradeVideos } from '../componentes/GradeVideos';
+import { SeletorTela, type FonteTela } from '../componentes/SeletorTela';
+import { PainelTransmissao } from '../componentes/PainelTransmissao';
 import { ponte } from '../servicos/ponte';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
@@ -79,10 +81,11 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada }: Props) {
-  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas } = useLoja(
+  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
+      transmissoes: s.transmissoes,
       presencas: s.presencas,
       naoLidas: s.naoLidas,
       sons: s.sons,
@@ -115,6 +118,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       descontarApagada: s.descontarApagada,
       definirSons: s.definirSons,
       definirVoz: s.definirVoz,
+      iniciarTransmissao: s.iniciarTransmissao,
+      pararTransmissao: s.pararTransmissao,
       definirPresenca: s.definirPresenca,
       definirFalando: s.definirFalando,
       salvarSom: s.salvarSom,
@@ -335,6 +340,17 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   });
   const controlesRef = useRef(controles);
   const [transmitindo, setTransmitindo] = useState(false);
+  // RF-26/RF-30: transmissão de tela — seletor, telas dos outros chegando.
+  const [seletorTela, setSeletorTela] = useState(false);
+  const [iniciandoTela, setIniciandoTela] = useState(false);
+  const iniciandoTelaRef = useRef(false);
+  const botaoTelaRef = useRef<HTMLButtonElement>(null);
+  /** Fecha o seletor e devolve o foco ao botão que o abriu. */
+  const fecharSeletorTela = () => {
+    setSeletorTela(false);
+    setTimeout(() => botaoTelaRef.current?.focus(), 0);
+  };
+  const [telasRemotas, setTelasRemotas] = useState<VideoSala[]>([]);
   // RF-25: vídeos das câmeras na sala.
   const [videos, setVideos] = useState<VideoSala[]>([]);
   const cameraPendente = useRef(false);
@@ -423,6 +439,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoAviso: setAvisoVoz,
       aoTransmitindo: setTransmitindo,
       aoVideos: (lista) => aoVideos(lista),
+      aoTelas: setTelasRemotas,
+      aoMinhaTelaParou: () => {
+        const canal = minhaVozRef.current;
+        if (canal !== null) void conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
+      },
     });
     salaVozRef.current = sala;
     sala.definirPessoas(pessoasRef.current);
@@ -470,6 +491,16 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         const canal = minhaVozRef.current;
         if (canal === null) return;
         void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid(), controlesRef.current)).then((r) => {
+          // RN-10: a trava acompanha a transmissão de verdade — retoma se ainda transmito; libera se não.
+          if (r.ok && minhaVozRef.current === canal) {
+            const transmitindo = salaVozRef.current?.transmitindoTela() ?? false;
+            const travaMinha = ola.transmissoes?.some((x) => x.canalVozId === canal && x.usuarioId === ola.eu.id);
+            if (transmitindo)
+              void conexaoRef.current?.pedir('tela:pedir', { canalVozId: canal, qualidade: '720p30' }).then((t) => {
+                if (!t.ok) void salaVozRef.current?.pararTela();
+              });
+            else if (travaMinha) void conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
+          }
           // O canal sumiu durante a queda (ou o servidor recusou): sai da mídia também.
           if (r.ok || minhaVozRef.current !== canal) return;
           minhaVozRef.current = null;
@@ -530,6 +561,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         }
         acoes.definirVoz(estados);
       },
+      aoTelaIniciada: acoes.iniciarTransmissao,
+      aoTelaParada: acoes.pararTransmissao,
       aoPresenca: (id, status) => {
         // RF-41: alguém entrou ou saiu do servidor.
         avisarEntradaSaida(id, useLoja.getState().presencas[id], status);
@@ -568,6 +601,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   }, [servidorUrl, token, acoes, aoSessaoRevogada]);
 
   const usuario = eu ?? usuarioInicial;
+  const minhaTela = minhaVoz !== null && transmissoes.some((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id);
   const membrosPorStatus = useMemo(() => {
     const com = usuarios.map((u) => ({ u, status: (presencas[u.id] ?? 'offline') as StatusPessoa }));
     const ativos = com.filter((m) => m.status !== 'offline');
@@ -737,6 +771,51 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       () => setLiberadoEm(Date.now() + SOM_INTERVALO_MS),
     );
 
+  /** RF-27: antes de abrir o seletor, avisa se alguém já transmite neste canal. */
+  function abrirSeletorTela() {
+    const canal = minhaVozRef.current;
+    const outro = useLoja.getState().transmissoes.find((t) => t.canalVozId === canal && t.usuarioId !== usuario.id);
+    if (outro) {
+      const nome = usuarios.find((u) => u.id === outro.usuarioId)?.nomeExibicao ?? 'Alguém';
+      setAvisoVoz(`${nome} já está transmitindo neste canal.`);
+      return;
+    }
+    setSeletorTela(true);
+  }
+  async function transmitirTela(fonte: FonteTela, audioSistema: boolean) {
+    fecharSeletorTela();
+    const canal = minhaVozRef.current;
+    const sala = salaVozRef.current;
+    if (canal === null || !sala || iniciandoTelaRef.current) return;
+    iniciandoTelaRef.current = true;
+    setIniciandoTela(true);
+    let ok = false;
+    try {
+      // A trava vem antes da captura (RN-10): se outro pegou, nada inicia.
+      const r = await conexaoRef.current?.pedir('tela:pedir', { canalVozId: canal, qualidade: '720p30' });
+      if (!r?.ok) {
+        setAvisoVoz(r?.erro ?? 'Sem conexão com o servidor.');
+        return;
+      }
+      try {
+        await ponte().captura.escolher(fonte.id, audioSistema);
+        ok = await sala.transmitir('720p30', audioSistema);
+      } catch {
+        setAvisoVoz('Não foi possível transmitir a tela.');
+      }
+      // Qualquer falha depois da trava: libera (senão o canal fica "ocupado" sem transmissão).
+      if (!ok) await conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
+    } finally {
+      iniciandoTelaRef.current = false;
+      setIniciandoTela(false);
+    }
+  }
+  async function pararTela() {
+    const canal = minhaVozRef.current;
+    await salaVozRef.current?.pararTela();
+    if (canal !== null) await conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
+  }
+
   async function sairVoz() {
     pararSoundboard();
     if (minhaVozRef.current !== null) tocar('sair');
@@ -784,6 +863,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             aoVolumePessoa={volumePessoa}
             aoSilenciarPessoa={silenciarPessoa}
             presencas={presencas}
+            transmissoes={transmissoes}
             silenciadas={silenciadasAqui}
           />
           {(minhaVoz !== null || entrandoVoz || avisoVoz) && (
@@ -837,6 +917,18 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     onClick={() => void alternarCamera()}
                   >
                     📹
+                  </button>
+                  <button
+                    type="button"
+                    className={`icone controle${minhaTela ? ' ligado' : ''}`}
+                    aria-pressed={minhaTela}
+                    aria-label="Transmitir tela"
+                    ref={botaoTelaRef}
+                    disabled={iniciandoTela}
+                    title={iniciandoTela ? 'Iniciando a transmissão…' : minhaTela ? 'Parar transmissão' : 'Transmitir tela'}
+                    onClick={() => (minhaTela ? void pararTela() : abrirSeletorTela())}
+                  >
+                    🖥️
                   </button>
                   <button type="button" className="perigo" onClick={() => void sairVoz()}>
                     Sair da voz
@@ -939,6 +1031,23 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         </aside>
 
         <main className="conteudo">
+          {minhaTela && (
+            <section className="aviso-transmissao" aria-label="Sua transmissão">
+              <span>🖥️ Você está transmitindo a tela.</span>
+              <button type="button" className="perigo" disabled={iniciandoTela} onClick={() => void pararTela()}>
+                Parar transmissão
+              </button>
+            </section>
+          )}
+          {transmissoes
+            .filter((t) => t.canalVozId === minhaVoz && t.usuarioId !== usuario.id)
+            .map((t) => (
+              <PainelTransmissao
+                key={t.usuarioId}
+                nome={usuarios.find((u) => u.id === t.usuarioId)?.nomeExibicao ?? 'Alguém'}
+                faixa={telasRemotas.find((v) => v.usuarioId === t.usuarioId)?.faixa}
+              />
+            ))}
           <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />
           {vistaAtual === 'auditoria' ? (
             <TelaAuditoria api={api} pessoas={pessoasAuditoria} canais={canais} aoVoltar={voltar} />
@@ -1009,6 +1118,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           )}
         </main>
 
+        {seletorTela && (
+          <SeletorTela
+            listar={ponte().captura.fontes}
+            audioDisponivel={ponte().captura.audioDisponivel}
+            aoEscolher={(f, a) => void transmitirTela(f, a)}
+            aoCancelar={fecharSeletorTela}
+          />
+        )}
         <aside className="coluna-direita">
           <h2 className="subtitulo">Membros — {usuarios.length}</h2>
           {/* RF-37: online/ausente primeiro, depois offline; cada um com a bolinha de status. */}

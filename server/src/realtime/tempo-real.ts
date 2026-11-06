@@ -28,6 +28,7 @@ import { RoomServiceClient } from 'livekit-server-sdk';
 import { salaLivekit } from '@tofalando/shared';
 import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
 import { criarSoundboard } from './soundboard.js';
+import { criarTela } from './tela.js';
 
 interface DadosSocket {
   usuarioId: number;
@@ -146,7 +147,10 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
         }
       }
     : undefined;
-  const voz = criarVoz(io, banco, (e) => app.log.error(e), { carenciaMs: config.carenciaOfflineMs, removerDaMidia });
+  // A tela é criada depois da voz, mas a voz avisa quem saiu (libera a trava de transmissão).
+  // (o callback só roda depois, quando alguém sai; a essa altura `tela` já existe)
+  const voz = criarVoz(io, banco, (e) => app.log.error(e), { carenciaMs: config.carenciaOfflineMs, removerDaMidia, aoSair: (u, c) => tela.saiuDaVoz(u, c) });
+  const tela = criarTela(io, banco, voz, (e) => app.log.error(e));
   const soundboard = criarSoundboard(io, banco, voz, (e) => app.log.error(e));
 
   io.use((socket, next) => {
@@ -193,10 +197,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       sons: listarSons(banco),
       voz: voz.estados(),
       presencas: {},
+      transmissoes: tela.transmissoes(),
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
     soundboard.registrar(socket);
+    tela.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));
     presenca.entrou(eu.id);
     // RN-25: quem reconecta já ausente avisa no handshake (sem piscar "online" para os outros).

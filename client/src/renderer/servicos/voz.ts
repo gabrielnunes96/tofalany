@@ -1,5 +1,5 @@
 import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
-import type { PreferenciasAudio } from '@tofalando/shared';
+import type { PreferenciasAudio, QualidadeTela } from '@tofalando/shared';
 import { abrirMicrofone, type Microfone } from './pipeline-audio';
 
 /** O que a tela precisa saber da sala de voz. */
@@ -14,7 +14,18 @@ export interface OuvintesVoz {
   aoTransmitindo?(aberto: boolean): void;
   /** RF-25: vídeos de câmera na sala (o meu, como prévia, e os dos outros). */
   aoVideos?(videos: VideoSala[]): void;
+  /** RF-30: transmissões de tela dos outros que estão chegando. */
+  aoTelas?(telas: VideoSala[]): void;
+  /** A minha transmissão acabou por fora (ex.: a janela transmitida fechou). */
+  aoMinhaTelaParou?(): void;
 }
+
+/** RF-28: resolução e quadros de cada qualidade. */
+export const RESOLUCOES_TELA: Record<QualidadeTela, { width: number; height: number; frameRate: number }> = {
+  '720p30': { width: 1280, height: 720, frameRate: 30 },
+  '1080p60': { width: 1920, height: 1080, frameRate: 60 },
+  '1440p60': { width: 2560, height: 1440, frameRate: 60 },
+};
 
 /** Faixa de vídeo que a tela prende num <video> (attach/detach do livekit-client). */
 export interface FaixaVideo {
@@ -47,6 +58,11 @@ export interface SalaVoz {
   controlar(c: Partial<ControlesVoz>): void;
   /** RF-25: liga ou desliga a minha câmera (simulcast); devolve se ficou ligada. */
   camera(ligar: boolean): Promise<boolean>;
+  /** RF-26: começa a transmitir a fonte já escolhida (sem simulcast, "motion"); devolve se começou. */
+  transmitir(qualidade: QualidadeTela, audio: boolean): Promise<boolean>;
+  pararTela(): Promise<void>;
+  /** Estou transmitindo a tela agora (para conferir trava "minha" vinda do servidor). */
+  transmitindoTela(): boolean;
   /** RF-19/RF-38: volume (0 a 2) de cada pessoa e quem está silenciado, só neste computador. */
   definirPessoas(p: { volumes: Record<string, number>; silenciados: number[] }): void;
   sair(): Promise<void>;
@@ -74,6 +90,7 @@ export interface SalaLivekit {
 /** Só o que usamos da câmera do participante local (permite testar sem WebRTC). */
 interface CameraLocal {
   setCameraEnabled(ligar: boolean, opcoes?: object, publicar?: object): Promise<{ track?: FaixaVideo } | undefined>;
+  setScreenShareEnabled(ligar: boolean, opcoes?: object, publicar?: object): Promise<{ track?: FaixaVideo } | undefined>;
 }
 
 /** webAudioMix: volume por pessoa acima de 100% e escolha da saída (T15, T17). */
@@ -118,7 +135,18 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     if (meuVideo) lista.unshift({ usuarioId: 0, faixa: meuVideo, meu: true });
     ouvintes.aoVideos?.(lista);
   };
+  // RF-30: telas transmitidas pelos outros (identidade → faixa) e se eu estou transmitindo.
+  const telas = new Map<string, FaixaVideo>();
+  let transmitindoTela = false;
+  /** Cada pedido de transmitir/parar ganha um número: um "parar" no meio do início cancela a captura que terminar depois. */
+  let pedidoTela = 0;
+  const emitirTelas = () => ouvintes.aoTelas?.([...telas].map(([id, faixa]) => ({ usuarioId: Number(id), faixa, meu: false })));
   const limparVideos = () => {
+    if (telas.size > 0) {
+      telas.clear();
+      ouvintes.aoTelas?.([]);
+    }
+    transmitindoTela = false;
     const tinha = videos.size > 0 || !!meuVideo;
     videos.clear();
     meuVideo = undefined;
@@ -250,6 +278,11 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       // Cada elemento leva quem fala: some quando a faixa é desassinada ou a pessoa sai da sala.
       atual.on(RoomEvent.TrackSubscribed, ((track: RemoteTrack, pub: { isMuted?: boolean } | undefined, participante: RemoteParticipant) => {
         if (sala !== atual) return;
+        if (track.kind === 'video' && track.source === Track.Source.ScreenShare && participante) {
+          telas.set(participante.identity, track);
+          emitirTelas();
+          return;
+        }
         if (track.kind === 'video') {
           // Câmera desligada (publicação muda) não entra: volta quando a pessoa religar (TrackUnmuted).
           if (track.source === Track.Source.Camera && participante && !pub?.isMuted) {
@@ -283,11 +316,23 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
           videos.delete(id);
           emitirVideos();
         }
+        for (const [id, v] of [...telas]) {
+          if (v !== track) continue;
+          telas.delete(id);
+          emitirTelas();
+        }
         for (const [e, t] of [...faixas]) if (t === track) tirarElemento(e);
       }) as never);
       atual.on(RoomEvent.ParticipantDisconnected, ((participante: RemoteParticipant) => {
         for (const e of [...faixas.keys()]) if (e.dataset.participante === participante.identity) tirarElemento(e);
         if (videos.delete(participante.identity)) emitirVideos();
+        if (telas.delete(participante.identity)) emitirTelas();
+      }) as never);
+      // A transmissão terminou por fora (janela fechada, "parar de compartilhar" do sistema).
+      atual.on(RoomEvent.LocalTrackUnpublished, ((pub: { source?: string }) => {
+        if (sala !== atual || pub.source !== Track.Source.ScreenShare || !transmitindoTela) return;
+        transmitindoTela = false;
+        ouvintes.aoMinhaTelaParou?.();
       }) as never);
       atual.on(RoomEvent.ActiveSpeakersChanged, ((falando: Participant[]) => {
         if (sala !== atual) return;
@@ -324,6 +369,42 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     microfone: () => mic,
+    async transmitir(qualidade, audio) {
+      const atual = sala;
+      if (!atual || !conectada) return false;
+      const meu = ++pedidoTela;
+      try {
+        const pub = await (atual.localParticipant as unknown as CameraLocal).setScreenShareEnabled(
+          true,
+          { audio, resolution: RESOLUCOES_TELA[qualidade], contentHint: 'motion', selfBrowserSurface: 'exclude' },
+          // Sem simulcast na tela (técnica §5): uma camada só, na qualidade pedida.
+          { simulcast: false },
+        );
+        if (sala !== atual) {
+          (pub?.track as { stop?(): void } | undefined)?.stop?.();
+          transmitindoTela = false;
+          return false;
+        }
+        // Pediram para parar enquanto a captura começava: desfaz.
+        if (meu !== pedidoTela) {
+          await (atual.localParticipant as unknown as CameraLocal).setScreenShareEnabled(false).catch(() => undefined);
+          return false;
+        }
+        transmitindoTela = !!pub?.track;
+        return transmitindoTela;
+      } catch {
+        ouvintes.aoAviso('Não foi possível transmitir a tela.');
+        return false;
+      }
+    },
+    transmitindoTela: () => transmitindoTela,
+    async pararTela() {
+      const atual = sala;
+      pedidoTela++;
+      transmitindoTela = false;
+      if (!atual) return;
+      await (atual.localParticipant as unknown as CameraLocal).setScreenShareEnabled(false).catch(() => undefined);
+    },
     async camera(ligar) {
       const atual = sala;
       if (!atual || !conectada) return false;

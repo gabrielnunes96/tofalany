@@ -43,6 +43,13 @@ export interface ApiTofalando {
     ausente(): Promise<boolean>;
     aoMudar(fn: (ausente: boolean) => void): () => void;
   };
+  /** RF-26: fontes para transmitir (telas e janelas, com miniatura) e a escolhida. */
+  captura: {
+    fontes(): Promise<{ id: string; nome: string; tipo: 'tela' | 'janela'; miniatura: string }[]>;
+    escolher(fonteId: string, audio: boolean): Promise<void>;
+    /** RF-29: áudio do sistema só existe no Windows. */
+    audioDisponivel: boolean;
+  };
   arquivos: {
     /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */
     baixar(url: string, nome: string): Promise<string | null>;

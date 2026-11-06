@@ -11,6 +11,7 @@ import {
   type SomDto,
   type VozEstadoDto,
   type StatusPessoa,
+  type TransmissaoDto,
   type UsuarioDto,
   type Destino,
 } from '@tofalando/shared';
@@ -42,6 +43,9 @@ export interface OuvintesTempoReal {
   aoSomTocado(p: { somId: number; porUsuarioId: number; canalVozId: number }): void;
   /** RF-37: status de alguém mudou. */
   aoPresenca(id: number, status: StatusPessoa): void;
+  /** RN-10: transmissão de tela começou/parou em algum canal. */
+  aoTelaIniciada(t: TransmissaoDto): void;
+  aoTelaParada(canalVozId: number): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -146,6 +150,8 @@ export function conectarTempoReal(
   socket.on('voz:tirado', () => ouvintes.aoVozTirado());
   socket.on('som:tocado', (p) => ouvintes.aoSomTocado(p));
   socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
+  socket.on('tela:iniciada', (t) => ouvintes.aoTelaIniciada(t));
+  socket.on('tela:parada', ({ canalVozId }) => ouvintes.aoTelaParada(canalVozId));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');

@@ -7,7 +7,7 @@ describe('useLoja', () => {
   beforeEach(() => useLoja.getState().limpar());
 
   it('aplica o retrato inicial e limpa ao sair', () => {
-    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, convite: { link: 'http://s/convite/a' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {} });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'Turma' }, convite: { link: 'http://s/convite/a' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [] });
     expect(useLoja.getState().linkConvite).toBe('http://s/convite/a');
     useLoja.getState().definirLinkConvite('http://s/convite/b');
     expect(useLoja.getState().linkConvite).toBe('http://s/convite/b');
@@ -32,7 +32,7 @@ describe('useLoja', () => {
 describe('canais na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
   const ola = (canais: { id: number; tipo: 'texto' | 'voz'; nome: string; posicao: number }[]) =>
-    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais, dms: [], naoLidas: {}, sons: [], voz: [], presencas: {} });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais, dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [] });
 
   it('ordena texto antes de voz, abre o primeiro de texto e troca ao remover o aberto', () => {
     ola([
@@ -85,16 +85,25 @@ describe('histórico de mensagens na loja', () => {
   });
 
   it('RF-37: status vem do ola e muda pelo evento; offline sai da lista', () => {
-    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: { '1': 'online', '2': 'ausente' } });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: { '1': 'online', '2': 'ausente' }, transmissoes: [] });
     expect(useLoja.getState().presencas).toEqual({ 1: 'online', 2: 'ausente' });
     useLoja.getState().definirPresenca(2, 'online');
     useLoja.getState().definirPresenca(1, 'offline');
     expect(useLoja.getState().presencas).toEqual({ 2: 'online' });
   });
 
+  it('RN-10: transmissões do ola, iniciar troca a do canal, parar tira', () => {
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [{ canalVozId: 5, usuarioId: 1, qualidade: '720p30' }] });
+    useLoja.getState().iniciarTransmissao({ canalVozId: 5, usuarioId: 2, qualidade: '720p30' });
+    useLoja.getState().iniciarTransmissao({ canalVozId: 6, usuarioId: 3, qualidade: '720p30' });
+    expect(useLoja.getState().transmissoes.map((t) => [t.canalVozId, t.usuarioId])).toEqual([[5, 2], [6, 3]]);
+    useLoja.getState().pararTransmissao(5);
+    expect(useLoja.getState().transmissoes.map((t) => t.canalVozId)).toEqual([6]);
+  });
+
   it('sons vêm do ola e são trocados pelo evento', () => {
     const som = { id: 1, nome: 'Grilo', url: '/files/a.wav', duracaoMs: 800 };
-    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [som], voz: [], presencas: {} });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [som], voz: [], presencas: {}, transmissoes: [] });
     expect(useLoja.getState().sons).toEqual([som]);
     useLoja.getState().salvarSom({ ...som, id: 3 });
     useLoja.getState().salvarSom({ ...som, nome: 'Grilo 2' });
@@ -111,7 +120,7 @@ describe('histórico de mensagens na loja', () => {
     l.receberPagina('c:2', { mensagens: [msg(2, 2)], fim: true }, l.iniciarCarga('c:2'));
     l.removerCanal(2);
     expect(useLoja.getState().historicos['c:2']).toBeUndefined();
-    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {} });
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [] });
     expect(useLoja.getState().historicos).toEqual({});
   });
 });
@@ -123,7 +132,7 @@ describe('respostas atrasadas do histórico', () => {
   it('resposta de antes da reconexão é ignorada; a ordem fica certa', () => {
     const l = useLoja.getState();
     const velha = l.iniciarCarga('c:1');
-    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {} });
+    l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [] });
     const nova = l.iniciarCarga('c:1');
     l.receberPagina('c:1', { mensagens: [msg(11), msg(12)], fim: false }, nova);
     l.receberPagina('c:1', { mensagens: [msg(1), msg(2)], fim: false }, velha);
@@ -167,7 +176,7 @@ describe('edição, exclusão e digitando na loja', () => {
 describe('DMs na loja', () => {
   beforeEach(() => useLoja.getState().limpar());
   const ola = (dms: { id: number; outroId: number; ultimaEm: number }[]) =>
-    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }], dms, naoLidas: {}, sons: [], voz: [], presencas: {} });
+    useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }], dms, naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [] });
 
   it('ordena pela mais recente; abrir DM e voltar ao canal; reconectar mantém a DM aberta se ela existe', () => {
     ola([{ id: 1, outroId: 2, ultimaEm: 10 }, { id: 2, outroId: 3, ultimaEm: 20 }]);
@@ -209,6 +218,7 @@ describe('não lidas na loja', () => {
       sons: [],
       voz: [],
       presencas: {},
+      transmissoes: [],
     });
     expect(useLoja.getState().naoLidas).toEqual({ 'c:1': 3, 'd:2': 1 });
     useLoja.getState().contarNaoLida('c:1', 10);

@@ -30,6 +30,7 @@ function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | 
   const api: ApiTofalando = {
     atalhos: { aoEvento: () => () => undefined, pausar: async () => undefined },
     presenca: { ausente: async () => false, aoMudar: () => () => undefined },
+    captura: { fontes: async () => [], escolher: async () => undefined, audioDisponivel: false },
     config: { ler: async () => ({ servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO }), gravar: gravarConfig },
     sessao: {
       ler: async () => estado.sessao,

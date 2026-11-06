@@ -19,7 +19,7 @@ function socketFalso() {
 
 function montar() {
   const s = socketFalso();
-  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn(), aoDmAtualizada: vi.fn(), aoLidoAtualizado: vi.fn(), aoSonsAtualizados: vi.fn(), aoVozEstados: vi.fn(), aoVozTirado: vi.fn(), aoSomTocado: vi.fn(), aoPresenca: vi.fn() };
+  const ouvintes: OuvintesTempoReal = { aoEstado: vi.fn(), aoOla: vi.fn(), aoRevogada: vi.fn(), aoUsuarioCriado: vi.fn(), aoUsuarioAtualizado: vi.fn(), aoUsuarioRemovido: vi.fn(), aoConviteAtualizado: vi.fn(), aoCanalCriado: vi.fn(), aoCanalRenomeado: vi.fn(), aoCanalRemovido: vi.fn(), aoMensagemNova: vi.fn(), aoMensagemEditada: vi.fn(), aoMensagemApagada: vi.fn(), aoDigitando: vi.fn(), aoDmAtualizada: vi.fn(), aoLidoAtualizado: vi.fn(), aoSonsAtualizados: vi.fn(), aoVozEstados: vi.fn(), aoVozTirado: vi.fn(), aoSomTocado: vi.fn(), aoPresenca: vi.fn(), aoTelaIniciada: vi.fn(), aoTelaParada: vi.fn() };
   const fabrica = vi.fn(() => s as unknown as SocketTofalando);
   let avisarRede: (online: boolean) => void = () => undefined;
   const pararRede = vi.fn();

@@ -189,8 +189,9 @@ button.canal.ativo { background: rgba(255, 42, 109, 0.14); color: var(--texto); 
 .presentes-voz li .avatar { box-shadow: 0 0 0 2px transparent; transition: box-shadow 0.15s; }
 .presentes-voz li.falando { color: var(--texto); }
 .presentes-voz li.falando .avatar { box-shadow: 0 0 0 2px var(--destaque), 0 0 10px var(--destaque); }
-.painel-voz { border-top: 1px solid var(--borda); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
-.painel-voz .estado { flex: 1; font-size: 0.85rem; }
+.painel-voz { border-top: 1px solid var(--borda); padding: 8px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.painel-voz .estado { flex: 1 1 100%; margin: 0; font-size: 0.85rem; }
+.painel-voz .perigo { margin-left: auto; }
 .painel-voz .estado strong { color: var(--destaque); display: block; }
 .painel-voz button { margin: 0; padding: 6px 10px; }
 
@@ -315,3 +316,23 @@ button.icone.silenciar-conversa.ativo { color: var(--magenta); }
 .quadro-video.meu video { transform: scaleX(-1); }
 .quadro-video figcaption { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: var(--raio); background: rgba(10, 10, 18, 0.75); color: var(--texto); font-size: 0.8rem; }
 button.icone.controle.ligado { color: var(--destaque); background: rgba(0, 240, 255, 0.14); }
+
+/* Transmissão de tela (RF-26, RF-30) */
+.aviso-transmissao { display: flex; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--magenta); border-radius: var(--raio); background: rgba(255, 42, 109, 0.08); }
+.aviso-transmissao span { flex: 1; }
+.aviso-transmissao button { margin: 0; }
+.transmissao-grande { margin-bottom: 12px; border: 1px solid var(--borda); border-radius: var(--raio); overflow: hidden; background: #000; }
+.transmissao-grande video { width: 100%; max-height: 70vh; display: block; object-fit: contain; }
+.transmissao-acoes { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--superficie); }
+.transmissao-acoes span { flex: 1; }
+.transmissao-acoes button { margin: 0; padding: 4px 10px; }
+.seletor-fundo { position: fixed; inset: 0; z-index: 50; background: rgba(5, 4, 10, 0.75); display: flex; align-items: center; justify-content: center; }
+.seletor-tela { width: min(900px, 92vw); max-height: 86vh; overflow: auto; padding: 16px; border: 1px solid var(--destaque); border-radius: var(--raio); background: var(--fundo); box-shadow: var(--brilho); }
+.seletor-tela h3 { margin: 12px 0 6px; font-size: 0.85rem; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.05em; }
+.fontes-tela { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+button.fonte-tela { width: 100%; margin: 0; padding: 6px; display: flex; flex-direction: column; gap: 6px; background: var(--superficie); color: var(--texto); border: 1px solid var(--borda); }
+button.fonte-tela:hover, button.fonte-tela:focus-visible { border-color: var(--destaque); }
+button.fonte-tela img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; }
+button.fonte-tela span { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opcao-audio { display: flex; align-items: center; gap: 8px; }
+.opcao-audio input { width: auto; margin: 0; }

@@ -536,3 +536,62 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
   await dono.app.close();
   await ana.app.close();
 });
+
+test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por canal e visualização grande', async () => {
+  test.setTimeout(120_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const d = dono.janela;
+  const a = ana.janela;
+  await d.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await d.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await d.getByRole('button', { name: 'Criar', exact: true }).click();
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+
+  // CA-37: seletor próprio com miniaturas; escolher a primeira tela.
+  await d.getByRole('button', { name: 'Transmitir tela', exact: true }).click();
+  const seletor = d.getByRole('dialog', { name: 'Transmitir tela' });
+  await expect(seletor.getByRole('region', { name: 'Telas' }).getByRole('button').first()).toBeVisible({ timeout: 15_000 });
+  await expect(seletor.getByLabel('Incluir o áudio do sistema')).toBeDisabled();
+  await print(d, 'T21-seletor-de-tela');
+  await seletor.getByRole('region', { name: 'Telas' }).getByRole('button').first().click();
+  await expect(d.getByRole('region', { name: 'Sua transmissão' })).toBeVisible({ timeout: 15_000 });
+
+  // CA-41: a ana vê o aviso, assiste grande, com imagem de verdade.
+  const aviso = a.getByRole('region', { name: 'Transmissão de dono' });
+  await expect(aviso.getByRole('button', { name: 'Assistir' })).toBeEnabled({ timeout: 15_000 });
+  await aviso.getByRole('button', { name: 'Assistir' }).click();
+  const tela = a.getByLabel('Tela de dono');
+  await expect.poll(() => tela.evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect(a.getByRole('button', { name: 'Tela cheia' })).toBeVisible();
+  await expect(a.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('transmitindo a tela')).toBeVisible();
+  await print(a, 'T21-ana-assiste-tela-do-dono');
+
+  // CA-38: a ana tenta transmitir no mesmo canal — aviso e nada inicia.
+  await a.getByRole('button', { name: 'Transmitir tela', exact: true }).click();
+  await expect(a.getByRole('alert')).toContainText('dono já está transmitindo neste canal.');
+  await expect(a.getByRole('dialog', { name: 'Transmitir tela' })).toHaveCount(0);
+
+  // O dono para; a ana consegue.
+  await d.getByRole('button', { name: 'Parar transmissão' }).click();
+  await expect(aviso).toHaveCount(0, { timeout: 15_000 });
+  await a.getByRole('button', { name: 'Transmitir tela', exact: true }).click();
+  await a.getByRole('dialog', { name: 'Transmitir tela' }).getByRole('region', { name: 'Telas' }).getByRole('button').first().click();
+  await expect(a.getByRole('region', { name: 'Sua transmissão' })).toBeVisible({ timeout: 15_000 });
+  await expect(d.getByRole('region', { name: 'Transmissão de ana' })).toBeVisible({ timeout: 15_000 });
+
+  // CA-49: auditoria com quem e o canal.
+  const tipos = (servidor.banco.prepare("SELECT tipo, detalhes FROM auditoria WHERE tipo LIKE 'tela_%' ORDER BY id").all() as { tipo: string; detalhes: string }[]).map((r) => [r.tipo, JSON.parse(r.detalhes).atorNome, JSON.parse(r.detalhes).canalNome]);
+  expect(tipos).toEqual([
+    ['tela_iniciou', 'dono', 'Papo'],
+    ['tela_parou', 'dono', 'Papo'],
+    ['tela_iniciou', 'ana', 'Papo'],
+  ]);
+
+  await dono.app.close();
+  await ana.app.close();
+});

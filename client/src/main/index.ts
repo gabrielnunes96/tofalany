@@ -8,6 +8,7 @@ import { criarArquivos } from './arquivos';
 import { criarNotificacoes } from './notificacoes';
 import { criarAtalhos, type Modificadores } from './atalhos';
 import { criarOciosidade } from './ociosidade';
+import { registrarCaptura } from './captura';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -117,6 +118,8 @@ if (links.principal) {
       };
     }
     ipcMain.handle('atalhos:pausar', (_e, sim: unknown) => atalhos.pausar(sim === true));
+    // RF-26: seletor próprio de tela/janela para a transmissão.
+    registrarCaptura();
     registrarIpc(
       configuracoes,
       criarArmazemSessao(join(dados, 'sessao.json'), {

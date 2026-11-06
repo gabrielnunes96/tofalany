@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -36,6 +36,10 @@ interface Loja {
   /** RF-37: status de quem não está offline (ausência na lista = offline). */
   presencas: Partial<Record<number, 'online' | 'ausente'>>;
   definirPresenca(id: number, status: StatusPessoa): void;
+  /** RN-10: transmissões de tela ativas (uma por canal). */
+  transmissoes: TransmissaoDto[];
+  iniciarTransmissao(t: TransmissaoDto): void;
+  pararTransmissao(canalVozId: number): void;
   definirVoz(estados: VozEstadoDto[]): void;
   definirFalando(ids: number[]): void;
   definirSons(sons: SomDto[]): void;
@@ -109,6 +113,7 @@ const inicial = {
   sons: [] as SomDto[],
   voz: [] as VozEstadoDto[],
   presencas: {} as Partial<Record<number, 'online' | 'ausente'>>,
+  transmissoes: [] as TransmissaoDto[],
   falando: [] as number[],
 };
 
@@ -128,6 +133,8 @@ export const useLoja = create<Loja>((set) => ({
   definirConexao: (conexao) => set({ conexao }),
   definirSons: (sons) => set({ sons }),
   definirVoz: (voz) => set({ voz }),
+  iniciarTransmissao: (t) => set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => x.canalVozId !== t.canalVozId), t] })),
+  pararTransmissao: (canalVozId) => set((s) => ({ transmissoes: s.transmissoes.filter((x) => x.canalVozId !== canalVozId) })),
   definirPresenca: (id, status) =>
     set((s) => {
       const presencas = { ...s.presencas };
@@ -138,7 +145,7 @@ export const useLoja = create<Loja>((set) => ({
   definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
   salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
   tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
-  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas, sons, voz, presencas }) =>
+  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas, sons, voz, presencas, transmissoes }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -151,6 +158,7 @@ export const useLoja = create<Loja>((set) => ({
         dms: ordenarDms(dms),
         sons,
         voz,
+        transmissoes: transmissoes ?? [],
         presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
         dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
         // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.

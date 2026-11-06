@@ -269,6 +269,51 @@ describe('sala de voz (RF-13)', () => {
     expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível abrir a câmera.');
   });
 
+  it('RF-26/RF-30: transmitir sem simulcast, telas dos outros, parar no meio do início, fim por fora', async () => {
+    const { sala, emitir } = salaFalsa();
+    let liberar!: (v: unknown) => void;
+    const minhaTela = { attach: vi.fn(), detach: vi.fn(), stop: vi.fn() };
+    const setScreenShareEnabled = vi.fn(async (ligar: boolean) => (ligar ? { track: minhaTela } : undefined));
+    (sala.localParticipant as unknown as { setScreenShareEnabled: unknown }).setScreenShareEnabled = setScreenShareEnabled;
+    const o = { ...ouvintesVoz(), aoTelas: vi.fn(), aoMinhaTelaParou: vi.fn() };
+    const voz = criarSalaVoz(o, () => sala, vi.fn(async () => microfone()));
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    expect(await voz.transmitir('720p30', false)).toBe(true);
+    expect(setScreenShareEnabled).toHaveBeenLastCalledWith(
+      true,
+      expect.objectContaining({ contentHint: 'motion', resolution: { width: 1280, height: 720, frameRate: 30 } }),
+      { simulcast: false },
+    );
+    expect(voz.transmitindoTela()).toBe(true);
+    // Fim por fora (janela fechou).
+    emitir(RoomEvent.LocalTrackUnpublished, { source: 'screen_share' });
+    expect(o.aoMinhaTelaParou).toHaveBeenCalledTimes(1);
+    expect(voz.transmitindoTela()).toBe(false);
+
+    // Parar no meio do início: a captura que termina depois é desfeita.
+    setScreenShareEnabled.mockImplementationOnce(() => new Promise((r) => (liberar = r as (v: unknown) => void)));
+    const iniciando = voz.transmitir('720p30', false);
+    await voz.pararTela();
+    liberar({ track: minhaTela });
+    expect(await iniciando).toBe(false);
+    expect(setScreenShareEnabled).toHaveBeenLastCalledWith(false);
+    expect(voz.transmitindoTela()).toBe(false);
+
+    // Telas dos outros entram e saem.
+    const dela = { kind: 'video', source: 'screen_share', attach: vi.fn(), detach: vi.fn() };
+    emitir(RoomEvent.TrackSubscribed, dela, {}, { identity: '2' });
+    expect(o.aoTelas).toHaveBeenLastCalledWith([{ usuarioId: 2, faixa: dela, meu: false }]);
+    emitir(RoomEvent.TrackUnsubscribed, dela);
+    expect(o.aoTelas).toHaveBeenLastCalledWith([]);
+    emitir(RoomEvent.TrackSubscribed, dela, {}, { identity: '2' });
+    emitir(RoomEvent.ParticipantDisconnected, { identity: '2' });
+    expect(o.aoTelas).toHaveBeenLastCalledWith([]);
+
+    setScreenShareEnabled.mockRejectedValueOnce(new Error('negado'));
+    expect(await voz.transmitir('720p30', false)).toBe(false);
+    expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível transmitir a tela.');
+  });
+
   it('queda sem pedir para sair avisa; microfone negado entra só para ouvir', async () => {
     const { sala, emitir } = salaFalsa();
     const o = ouvintesVoz();
