@@ -517,9 +517,9 @@
         "CA-43"
       ],
       "validacao": ".AppImage e .deb gerados e o .deb instala e abre aqui; .exe gerado; usuário instala no Windows",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "1b416b2"
     },
     {
       "id": "T25",
