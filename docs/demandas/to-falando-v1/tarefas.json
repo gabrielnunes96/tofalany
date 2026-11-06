@@ -499,9 +499,9 @@
         "CA-46"
       ],
       "validacao": "E2E: queda e volta do LiveKit reconecta; RAM ociosa < 300 MB; só o servidor configurado nas requisições",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "83f032d"
     },
     {
       "id": "T24",
