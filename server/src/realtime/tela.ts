@@ -1,4 +1,4 @@
-import { QUALIDADES_TELA, type QualidadeTela, type TransmissaoDto } from '@tofalando/shared';
+import { DIMENSOES_TELA, QUALIDADES_TELA, qualidadesPermitidas, type QualidadeTela, type TransmissaoDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal } from '../dominio/canais.js';
@@ -48,6 +48,11 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           if (typeof canalVozId !== 'number' || !Number.isInteger(canalVozId)) throw new ErroHttp(400, 'dados_invalidos', 'Canal inválido.');
           if (!QUALIDADES_TELA.includes(qualidade as QualidadeTela)) throw new ErroHttp(400, 'dados_invalidos', 'Qualidade inválida.');
           if (voz.presenca(usuarioId)?.canalVozId !== canalVozId) throw new ErroHttp(403, 'sem_permissao', 'Entre no canal de voz para transmitir.');
+          // RN-17: membro transmite só em 720p30 (o servidor aplica, não só a tela).
+          const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
+          if (!qualidadesPermitidas(cargo).includes(qualidade as QualidadeTela)) {
+            throw new ErroHttp(403, 'sem_permissao', 'Só administradores transmitem acima de 720p30.');
+          }
           const atual = ativas.get(canalVozId);
           if (atual && atual.usuarioId !== usuarioId) {
             const nome = buscarPorId(banco, atual.usuarioId)?.nome_exibicao ?? 'Alguém';
@@ -70,6 +75,29 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           return undefined;
         }),
       );
+    },
+    /**
+     * R-2: confere a faixa de tela publicada no LiveKit (webhook). Silenciar quando quem publicou não tem a
+     * trava do canal (segunda tela) ou passou das dimensões da qualidade pedida (membro acima de 720p30).
+     * As dimensões vêm de quem publica: um app adulterado poderia mentir (risco aceito na técnica).
+     */
+    faixaForaDaRegra(usuarioId: number, canalVozId: number, largura: number, altura: number, soAudio = false): boolean {
+      const t = ativas.get(canalVozId);
+      if (!t || t.usuarioId !== usuarioId) return true;
+      // Áudio da tela: basta ter a trava.
+      if (soAudio) return false;
+      const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
+      // Sem dimensões (o livekit-client sempre manda em vídeo): de membro, é suspeito.
+      if (largura <= 0 || altura <= 0) return cargo !== 'admin';
+      const qualidade = qualidadesPermitidas(cargo).includes(t.qualidade) ? t.qualidade : '720p30';
+      const max = DIMENSOES_TELA[qualidade];
+      // Retrato (tela em pé) também vale: compara o lado maior e o menor.
+      return Math.max(largura, altura) > max.largura || Math.min(largura, altura) > max.altura;
+    },
+    /** RN-17: quem perdeu o cargo transmitindo acima de 720p30 deixa de transmitir. */
+    cargoMudou(usuarioId: number) {
+      const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
+      for (const t of [...ativas.values()]) if (t.usuarioId === usuarioId && !qualidadesPermitidas(cargo).includes(t.qualidade)) liberar(t.canalVozId, 'cargo_alterado');
     },
     /** Quem saiu da voz (por qualquer motivo) deixa de transmitir. */
     saiuDaVoz(usuarioId: number, canalVozId: number) {

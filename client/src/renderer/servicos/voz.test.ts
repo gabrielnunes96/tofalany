@@ -282,7 +282,7 @@ describe('sala de voz (RF-13)', () => {
     expect(setScreenShareEnabled).toHaveBeenLastCalledWith(
       true,
       expect.objectContaining({ contentHint: 'motion', resolution: { width: 1280, height: 720, frameRate: 30 } }),
-      { simulcast: false },
+      { simulcast: false, videoCodec: 'h264', backupCodec: false, screenShareEncoding: { maxBitrate: 2_500_000, maxFramerate: 30 } },
     );
     expect(voz.transmitindoTela()).toBe(true);
     // Fim por fora (janela fechou).

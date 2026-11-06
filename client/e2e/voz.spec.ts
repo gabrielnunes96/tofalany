@@ -583,6 +583,13 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
   await a.getByRole('dialog', { name: 'Transmitir tela' }).getByRole('region', { name: 'Telas' }).getByRole('button').first().click();
   await expect(a.getByRole('region', { name: 'Sua transmissão' })).toBeVisible({ timeout: 15_000 });
   await expect(d.getByRole('region', { name: 'Transmissão de ana' })).toBeVisible({ timeout: 15_000 });
+  // RN-17: a transmissão da ana (membro, 720p30) chega dentro do teto.
+  await d.getByRole('region', { name: 'Transmissão de ana' }).getByRole('button', { name: 'Assistir' }).click({ timeout: 15_000 });
+  const telaAna = d.getByLabel('Tela de ana');
+  await expect.poll(() => telaAna.evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
+  const [w, h] = await telaAna.evaluate((v: HTMLVideoElement) => [v.videoWidth, v.videoHeight]);
+  expect(Math.max(w!, h!)).toBeLessThanOrEqual(1280);
+  expect(Math.min(w!, h!)).toBeLessThanOrEqual(720);
 
   // CA-49: auditoria com quem e o canal.
   const tipos = (servidor.banco.prepare("SELECT tipo, detalhes FROM auditoria WHERE tipo LIKE 'tela_%' ORDER BY id").all() as { tipo: string; detalhes: string }[]).map((r) => [r.tipo, JSON.parse(r.detalhes).atorNome, JSON.parse(r.detalhes).canalNome]);
@@ -591,6 +598,54 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
     ['tela_parou', 'dono', 'Papo'],
     ['tela_iniciou', 'ana', 'Papo'],
   ]);
+
+  await dono.app.close();
+  await ana.app.close();
+});
+
+test('CA-39a, RF-28: membro só 720p30; administrador escolhe 1080p60 (e VP9) e transmite', async () => {
+  test.setTimeout(120_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const d = dono.janela;
+  const a = ana.janela;
+  await d.getByRole('button', { name: 'Configurações' }).click();
+  await d.getByLabel('Codec').selectOption('vp9');
+  await d.getByLabel('Qualidade padrão').selectOption('1080p60');
+  await d.getByRole('button', { name: 'Voltar' }).click();
+  await d.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await d.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await d.getByRole('button', { name: 'Criar', exact: true }).click();
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+
+  // CA-39a: a ana (membro) só tem 720p30, já selecionado.
+  await a.getByRole('button', { name: 'Transmitir tela', exact: true }).click();
+  const seletorAna = a.getByRole('dialog', { name: 'Transmitir tela' });
+  await expect(seletorAna.getByLabel('720p30')).toBeChecked();
+  await expect(seletorAna.getByLabel('1080p60')).toBeDisabled();
+  await expect(seletorAna.getByLabel('1440p60')).toBeDisabled();
+  await print(a, 'T22-membro-so-720p30');
+  await seletorAna.getByRole('button', { name: 'Cancelar' }).click();
+
+  // O dono (admin) vem com o padrão dele (1080p60) e transmite.
+  await d.getByRole('button', { name: 'Transmitir tela', exact: true }).click();
+  const seletor = d.getByRole('dialog', { name: 'Transmitir tela' });
+  await expect(seletor.getByLabel('1080p60')).toBeChecked();
+  await seletor.getByRole('region', { name: 'Telas' }).getByRole('button').first().click();
+  await expect(d.getByRole('region', { name: 'Sua transmissão' })).toBeVisible({ timeout: 15_000 });
+  const aviso = a.getByRole('region', { name: 'Transmissão de dono' });
+  await aviso.getByRole('button', { name: 'Assistir' }).click({ timeout: 15_000 });
+  const tela = a.getByLabel('Tela de dono');
+  await expect.poll(() => tela.evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
+  // Nunca acima de 1920×1080 (pode ser menor se a tela do computador for menor).
+  expect(await tela.evaluate((v: HTMLVideoElement) => Math.max(v.videoWidth, v.videoHeight))).toBeLessThanOrEqual(1920);
+
+  const registro = servidor.banco.prepare("SELECT detalhes FROM auditoria WHERE tipo = 'tela_iniciou' ORDER BY id DESC LIMIT 1").get() as { detalhes: string };
+  expect(JSON.parse(registro.detalhes).qualidade).toBe('1080p60');
 
   await dono.app.close();
   await ana.app.close();

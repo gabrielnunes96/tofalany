@@ -115,7 +115,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasMensagens(app, banco);
   registrarRotasAnexos(app, banco, armazem);
   registrarRotasSons(app, banco, armazem, tempoReal);
-  await registrarRotasLivekit(app, banco, config, tempoReal.voz);
+  await registrarRotasLivekit(app, banco, config, tempoReal.voz, (u, c, f) => tempoReal.conferirFaixaTela(u, c, f));
   registrarRotasConvite(
     app,
     banco,

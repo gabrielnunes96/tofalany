@@ -16,7 +16,13 @@ const VALIDADE_TOKEN = '6h';
 const IDADE_MAX_EVENTO_S = 5 * 60;
 
 /** RF-13: token do LiveKit para um canal de voz e webhook que confere a presença (saída da sala). */
-export async function registrarRotasLivekit(app: FastifyInstance, banco: Banco, config: Config, voz: Pick<Voz, 'midiaSaiu'>) {
+export async function registrarRotasLivekit(
+  app: FastifyInstance,
+  banco: Banco,
+  config: Config,
+  voz: Pick<Voz, 'midiaSaiu'>,
+  conferirFaixaTela: (usuarioId: number, canalVozId: number, faixa: { sid: string; largura: number; altura: number; soAudio?: boolean }) => Promise<boolean> = async () => false,
+) {
   const livekit = config.livekit;
 
   app.post(
@@ -77,6 +83,19 @@ export async function registrarRotasLivekit(app: FastifyInstance, banco: Banco, 
       const sala = /^voz-(\d+)$/.exec(evento.room?.name ?? '');
       const usuarioId = Number(evento.participant?.identity);
       if (evento.event === 'participant_left' && sala && Number.isInteger(usuarioId)) voz.midiaSaiu(usuarioId, Number(sala[1]), evento.participant?.sid || undefined);
+      // R-2/RN-17: tela publicada fora da regra (segunda tela, membro acima de 720p30) é silenciada.
+      const faixa = evento.track;
+      const fonteTela = faixa?.source === TrackSource.SCREEN_SHARE || faixa?.source === TrackSource.SCREEN_SHARE_AUDIO;
+      if (evento.event === 'track_published' && sala && Number.isInteger(usuarioId) && faixa && fonteTela) {
+        if (faixa.source === TrackSource.SCREEN_SHARE && (!faixa.width || !faixa.height)) req.log.warn({ usuarioId }, 'tela publicada sem dimensões');
+        // Sem esperar o LiveKit responder (o webhook dele tem prazo curto).
+        void conferirFaixaTela(usuarioId, Number(sala[1]), {
+          sid: faixa.sid,
+          largura: faixa.width,
+          altura: faixa.height,
+          soAudio: faixa.source === TrackSource.SCREEN_SHARE_AUDIO,
+        }).catch((e: unknown) => req.log.error(e));
+      }
       return reply.code(200).send({ ok: true });
     });
   });

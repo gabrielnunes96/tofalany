@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons } from '@tofalando/shared';
+import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -36,6 +36,10 @@ interface Props {
   /** RF-39, RF-41: notificações. */
   notificacoes?: PreferenciasNotificacoes;
   aoMudarNotificacoes?: (n: PreferenciasNotificacoes) => void;
+  /** RF-28, R-3: qualidade padrão (só o que o cargo permite) e codec da transmissão de tela. */
+  tela?: PreferenciasTela;
+  aoMudarTela?: (t: PreferenciasTela) => void;
+  qualidadesTela?: QualidadeTela[];
   aoVoltar: () => void;
   deps?: DependenciasConfiguracoes;
 }
@@ -50,7 +54,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -250,6 +254,28 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
           </label>
           <p className="suave">Desligar não zera os contadores de não lidas. Para silenciar um canal ou conversa, use o 🔔 no topo dela.</p>
         </fieldset>
+      )}
+
+      {tela && aoMudarTela && (
+        <>
+          <h2>Transmissão de tela</h2>
+          <div className="perfil-form">
+            <label htmlFor="cfg-qualidade-tela">Qualidade padrão</label>
+            <select id="cfg-qualidade-tela" value={qualidadesTela.includes(tela.qualidade) ? tela.qualidade : '720p30'} onChange={(e) => aoMudarTela({ ...tela, qualidade: e.target.value as QualidadeTela })}>
+              {(['720p30', '1080p60', '1440p60'] as const).map((q) => (
+                <option key={q} value={q} disabled={!qualidadesTela.includes(q)}>
+                  {q}
+                </option>
+              ))}
+            </select>
+            {qualidadesTela.length === 1 && <p className="suave">Acima de 720p30, só administradores.</p>}
+            <label htmlFor="cfg-codec-tela">Codec</label>
+            <select id="cfg-codec-tela" value={tela.codec} onChange={(e) => aoMudarTela({ ...tela, codec: e.target.value as 'h264' | 'vp9' })}>
+              <option value="h264">H.264 (recomendado: usa a placa de vídeo)</option>
+              <option value="vp9">VP9</option>
+            </select>
+          </div>
+        </>
       )}
 
       <h2>Atalhos</h2>

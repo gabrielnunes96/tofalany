@@ -50,6 +50,15 @@ export interface TempoReal {
   conferirSessoes(): void;
   /** RF-13: presença nos canais de voz. */
   voz: Voz;
+  /** R-2/RN-17: faixa de tela publicada (webhook); silencia no LiveKit se estiver fora da regra. Devolve se silenciou. */
+  conferirFaixaTela(
+    usuarioId: number,
+    canalVozId: number,
+    faixa: { sid: string; largura: number; altura: number; soAudio?: boolean },
+    silenciar?: (sala: string, identidade: string, sid: string) => Promise<void>,
+  ): Promise<boolean>;
+  /** RN-17: o cargo de alguém mudou (transmissão acima de 720p30 de quem não é mais admin para). */
+  cargoMudou(usuarioId: number): void;
 }
 
 export const salaUsuario = (id: number) => `usuario:${id}`;
@@ -149,6 +158,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     : undefined;
   // A tela é criada depois da voz, mas a voz avisa quem saiu (libera a trava de transmissão).
   // (o callback só roda depois, quando alguém sai; a essa altura `tela` já existe)
+  const silenciarFaixa = salas ? (sala: string, identidade: string, sid: string) => salas.mutePublishedTrack(sala, identidade, sid, true).then(() => undefined) : undefined;
   const voz = criarVoz(io, banco, (e) => app.log.error(e), { carenciaMs: config.carenciaOfflineMs, removerDaMidia, aoSair: (u, c) => tela.saiuDaVoz(u, c) });
   const tela = criarTela(io, banco, voz, (e) => app.log.error(e));
   const soundboard = criarSoundboard(io, banco, voz, (e) => app.log.error(e));
@@ -235,6 +245,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   const tempoReal: TempoReal = {
     io,
     voz,
+    async conferirFaixaTela(usuarioId, canalVozId, faixa, silenciar = silenciarFaixa) {
+      if (!tela.faixaForaDaRegra(usuarioId, canalVozId, faixa.largura, faixa.altura, faixa.soAudio)) return false;
+      await silenciar?.(salaLivekit(canalVozId), String(usuarioId), faixa.sid);
+      return true;
+    },
+    cargoMudou: (usuarioId) => tela.cargoMudou(usuarioId),
     revogarToken(tokenHash, motivo) {
       for (const s of io.of('/').sockets.values()) if (s.data.tokenHash === tokenHash) derrubar(s, motivo);
     },

@@ -52,6 +52,7 @@ export function registrarRotasAdmin(app: FastifyInstance, banco: Banco, config: 
         return paraDto(buscarPorId(banco, id)!);
       })();
       tempoReal.io.emit('usuario:atualizado', dto);
+      tempoReal.cargoMudou(dto.id);
       return dto;
     },
   );

@@ -124,7 +124,17 @@ export interface ConfiguracoesLocais {
   sons: PreferenciasSons;
   /** RF-39, RF-40, RF-41: notificações deste computador (RN-27). */
   notificacoes: PreferenciasNotificacoes;
+  /** RF-28, R-3: qualidade padrão da transmissão (admin escolhe a própria) e codec. */
+  tela: PreferenciasTela;
 }
+
+export interface PreferenciasTela {
+  qualidade: QualidadeTela;
+  /** R-3: H.264 (codificação por hardware comum) ou VP9. */
+  codec: 'h264' | 'vp9';
+}
+
+export const TELA_PADRAO: PreferenciasTela = { qualidade: '720p30', codec: 'h264' };
 
 export interface PreferenciasNotificacoes {
   /** RF-39: notificação de mensagens ligada. */
@@ -161,6 +171,7 @@ export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   pessoas: {},
   sons: SONS_PADRAO,
   notificacoes: NOTIFICACOES_PADRAO,
+  tela: TELA_PADRAO,
 };
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */
@@ -258,6 +269,16 @@ export interface VozEstadoPedido {
 /** RF-26/RF-28: qualidade da transmissão de tela (membro só 720p30, RN-17). */
 export type QualidadeTela = '720p30' | '1080p60' | '1440p60';
 export const QUALIDADES_TELA: QualidadeTela[] = ['720p30', '1080p60', '1440p60'];
+
+/** RF-28/RN-17: dimensões máximas de cada qualidade (o servidor confere a faixa publicada). */
+export const DIMENSOES_TELA: Record<QualidadeTela, { largura: number; altura: number; quadros: number }> = {
+  '720p30': { largura: 1280, altura: 720, quadros: 30 },
+  '1080p60': { largura: 1920, altura: 1080, quadros: 60 },
+  '1440p60': { largura: 2560, altura: 1440, quadros: 60 },
+};
+
+/** RN-17: o que cada cargo pode escolher. */
+export const qualidadesPermitidas = (cargo: Cargo): QualidadeTela[] => (cargo === 'admin' ? QUALIDADES_TELA : ['720p30']);
 
 /** RN-10: quem transmite em cada canal de voz. */
 export interface TransmissaoDto {

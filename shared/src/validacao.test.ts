@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -156,5 +156,12 @@ describe('mesclarNotificacoes (RF-39 a RF-41)', () => {
       silenciadas: { 'http://s.exemplo.com': ['c:1', 'd:2', 'c:1', 'x:3', 5], 'javascript:x': ['c:1'] },
     });
     expect(r).toEqual({ mensagens: false, entradaSaidaSom: true, entradaSaidaAviso: true, silenciadas: { 'http://s.exemplo.com': ['c:1', 'd:2'] } });
+  });
+});
+
+describe('mesclarTela (RF-28)', () => {
+  it('aceita qualidade e codec conhecidos', () => {
+    expect(mesclarTela(undefined, { qualidade: '1440p60', codec: 'vp9' })).toEqual({ qualidade: '1440p60', codec: 'vp9' });
+    expect(mesclarTela(undefined, { qualidade: '4k', codec: 'av1' })).toEqual({ qualidade: '720p30', codec: 'h264' });
   });
 });

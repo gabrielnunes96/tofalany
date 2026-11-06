@@ -1,4 +1,4 @@
-import { AUDIO_PADRAO, NOTIFICACOES_PADRAO, SONS_PADRAO, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
+import { AUDIO_PADRAO, NOTIFICACOES_PADRAO, QUALIDADES_TELA, SONS_PADRAO, TELA_PADRAO, type PreferenciasTela, type QualidadeTela, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
 import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, NOME_SOM_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
@@ -197,5 +197,15 @@ export function mesclarNotificacoes(base: PreferenciasNotificacoes = NOTIFICACOE
     const chaves = Object.keys(r.silenciadas);
     for (const velho of chaves.slice(0, Math.max(0, chaves.length - 20))) delete r.silenciadas[velho];
   }
+  return r;
+}
+
+/** RF-28: qualidade padrão e codec (o servidor ainda confere o cargo ao transmitir). */
+export function mesclarTela(base: PreferenciasTela = TELA_PADRAO, bruto: unknown): PreferenciasTela {
+  const r = { ...base };
+  if (!bruto || typeof bruto !== 'object') return r;
+  const o = bruto as Record<string, unknown>;
+  if (QUALIDADES_TELA.includes(o.qualidade as QualidadeTela)) r.qualidade = o.qualidade as QualidadeTela;
+  if (o.codec === 'h264' || o.codec === 'vp9') r.codec = o.codec;
   return r;
 }

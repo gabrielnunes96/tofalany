@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as TecladoReact } from 'react';
+import type { QualidadeTela } from '@tofalando/shared';
 
 export interface FonteTela {
   id: string;
@@ -11,15 +12,19 @@ interface Props {
   listar: () => Promise<FonteTela[]>;
   /** RF-29: áudio do sistema só no Windows; no Linux a opção aparece desabilitada com o motivo. */
   audioDisponivel: boolean;
-  aoEscolher: (fonte: FonteTela, audio: boolean) => void;
+  /** RF-28: qualidades que o cargo permite (membro: só 720p30) e a já selecionada. */
+  qualidades?: QualidadeTela[];
+  qualidadePadrao?: QualidadeTela;
+  aoEscolher: (fonte: FonteTela, audio: boolean, qualidade: QualidadeTela) => void;
   aoCancelar: () => void;
 }
 
 /** RF-26: seletor próprio com miniaturas das telas e janelas abertas. */
-export function SeletorTela({ listar, audioDisponivel, aoEscolher, aoCancelar }: Props) {
+export function SeletorTela({ listar, audioDisponivel, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
   const [fontes, setFontes] = useState<FonteTela[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [audio, setAudio] = useState(false);
+  const [qualidade, setQualidade] = useState<QualidadeTela>(qualidades.includes(qualidadePadrao) ? qualidadePadrao : '720p30');
 
   useEffect(() => {
     let vivo = true;
@@ -62,7 +67,7 @@ export function SeletorTela({ listar, audioDisponivel, aoEscolher, aoCancelar }:
         <ul className="fontes-tela">
           {lista.map((f) => (
             <li key={f.id}>
-              <button type="button" className="fonte-tela" onClick={() => aoEscolher(f, audio)}>
+              <button type="button" className="fonte-tela" onClick={() => aoEscolher(f, audio, qualidade)}>
                 <img src={f.miniatura} alt="" />
                 <span>{f.nome}</span>
               </button>
@@ -90,6 +95,19 @@ export function SeletorTela({ listar, audioDisponivel, aoEscolher, aoCancelar }:
             Cancelar
           </button>
         </div>
+        <fieldset className="opcoes qualidade-tela" aria-describedby={qualidades.length === 1 ? 'qualidade-tela-motivo' : undefined}>
+          <legend>Qualidade</legend>
+          {(['720p30', '1080p60', '1440p60'] as const).map((q) => (
+            <label key={q}>
+              <input type="radio" name="qualidade-tela" checked={qualidade === q} disabled={!qualidades.includes(q)} onChange={() => setQualidade(q)} /> {q}
+            </label>
+          ))}
+          {qualidades.length === 1 && (
+            <p className="suave" id="qualidade-tela-motivo">
+              Acima de 720p30, só administradores.
+            </p>
+          )}
+        </fieldset>
         <label className="opcao-audio">
           <input type="checkbox" checked={audio} disabled={!audioDisponivel} onChange={(e) => setAudio(e.target.checked)} /> Incluir o áudio do sistema
         </label>

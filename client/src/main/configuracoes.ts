@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, normalizarUrlServidor, type ConfiguracoesLocais } from '@tofalando/shared';
+import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, normalizarUrlServidor, type ConfiguracoesLocais } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
   ler(): ConfiguracoesLocais;
@@ -28,6 +28,7 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('pessoas' in obj) resultado.pessoas = mesclarPessoas(base.pessoas, obj.pessoas);
   if ('sons' in obj) resultado.sons = mesclarSons(base.sons, obj.sons);
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
+  if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
   return resultado;
 }
 

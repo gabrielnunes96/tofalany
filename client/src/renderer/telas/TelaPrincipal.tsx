@@ -11,6 +11,10 @@ import {
   type PreferenciasPessoas,
   type PreferenciasSons,
   type PreferenciasNotificacoes,
+  type PreferenciasTela,
+  type QualidadeTela,
+  TELA_PADRAO,
+  qualidadesPermitidas,
   NOTIFICACOES_PADRAO,
   SONS_PADRAO,
   type Destino,
@@ -149,6 +153,17 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [audio, setAudio] = useState<PreferenciasAudio>(AUDIO_PADRAO);
   const audioRef = useRef<PreferenciasAudio>(AUDIO_PADRAO);
   const [atalhos, setAtalhos] = useState<Atalhos>(ATALHOS_PADRAO);
+  // RF-28/R-3: qualidade padrão e codec deste computador; qualidade da transmissão em curso (para retomar a trava).
+  const [telaPrefs, setTelaPrefs] = useState<PreferenciasTela>(TELA_PADRAO);
+  const telaRef = useRef(telaPrefs);
+  const qualidadeAtualRef = useRef<QualidadeTela>('720p30');
+  function mudarTela(novo: PreferenciasTela) {
+    telaRef.current = novo;
+    setTelaPrefs(novo);
+    void ponte()
+      .config.gravar({ tela: novo })
+      .catch(() => undefined);
+  }
   // RF-39 a RF-41: notificações deste computador (declaradas antes da leitura do disco, que as preenche).
   const [notif, setNotif] = useState<PreferenciasNotificacoes>(NOTIFICACOES_PADRAO);
   const notifRef = useRef(notif);
@@ -191,6 +206,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           salaVozRef.current?.definirPessoas(pessoas);
         }
         notifRef.current = c.notificacoes ?? NOTIFICACOES_PADRAO;
+        telaRef.current = c.tela ?? TELA_PADRAO;
+        setTelaPrefs(telaRef.current);
         setNotif(notifRef.current);
         sonsRef.current = c.sons ?? SONS_PADRAO;
         setPrefSons(sonsRef.current);
@@ -496,7 +513,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             const transmitindo = salaVozRef.current?.transmitindoTela() ?? false;
             const travaMinha = ola.transmissoes?.some((x) => x.canalVozId === canal && x.usuarioId === ola.eu.id);
             if (transmitindo)
-              void conexaoRef.current?.pedir('tela:pedir', { canalVozId: canal, qualidade: '720p30' }).then((t) => {
+              void conexaoRef.current?.pedir('tela:pedir', { canalVozId: canal, qualidade: qualidadeAtualRef.current }).then((t) => {
                 if (!t.ok) void salaVozRef.current?.pararTela();
               });
             else if (travaMinha) void conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
@@ -513,7 +530,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoUsuarioAtualizado: (u) => {
         acoes.atualizarUsuario(u);
         // Perdeu o cargo: sai da tela de administração (e não volta sozinho se for promovido de novo).
-        if (u.id === useLoja.getState().eu?.id && u.cargo !== 'admin') setVista('canal');
+        if (u.id === useLoja.getState().eu?.id && u.cargo !== 'admin') {
+          setVista('canal');
+          // RN-17: transmitindo acima de 720p30 sem ser mais administrador — para (o servidor também libera).
+          if (salaVozRef.current?.transmitindoTela() && !qualidadesPermitidas(u.cargo).includes(qualidadeAtualRef.current)) {
+            void salaVozRef.current.pararTela();
+            setAvisoVoz('Sua transmissão parou: acima de 720p30 só administradores transmitem.');
+          }
+        }
       },
       aoUsuarioRemovido: acoes.removerUsuario,
       aoConviteAtualizado: (link) => {
@@ -782,7 +806,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     }
     setSeletorTela(true);
   }
-  async function transmitirTela(fonte: FonteTela, audioSistema: boolean) {
+  async function transmitirTela(fonte: FonteTela, audioSistema: boolean, qualidade: QualidadeTela) {
     fecharSeletorTela();
     const canal = minhaVozRef.current;
     const sala = salaVozRef.current;
@@ -792,14 +816,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     let ok = false;
     try {
       // A trava vem antes da captura (RN-10): se outro pegou, nada inicia.
-      const r = await conexaoRef.current?.pedir('tela:pedir', { canalVozId: canal, qualidade: '720p30' });
+      const r = await conexaoRef.current?.pedir('tela:pedir', { canalVozId: canal, qualidade });
       if (!r?.ok) {
         setAvisoVoz(r?.erro ?? 'Sem conexão com o servidor.');
         return;
       }
       try {
         await ponte().captura.escolher(fonte.id, audioSistema);
-        ok = await sala.transmitir('720p30', audioSistema);
+        ok = await sala.transmitir(qualidade, audioSistema, telaRef.current.codec);
+        if (ok) qualidadeAtualRef.current = qualidade;
       } catch {
         setAvisoVoz('Não foi possível transmitir a tela.');
       }
@@ -1073,6 +1098,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoMudarSons={mudarSons}
               notificacoes={notif}
               aoMudarNotificacoes={mudarNotificacoes}
+              tela={telaPrefs}
+              aoMudarTela={mudarTela}
+              qualidadesTela={qualidadesPermitidas(usuario.cargo)}
               aoVoltar={voltar}
             />
           ) : vistaAtual === 'sons' ? (
@@ -1122,7 +1150,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           <SeletorTela
             listar={ponte().captura.fontes}
             audioDisponivel={ponte().captura.audioDisponivel}
-            aoEscolher={(f, a) => void transmitirTela(f, a)}
+            qualidades={qualidadesPermitidas(usuario.cargo)}
+            qualidadePadrao={telaPrefs.qualidade}
+            aoEscolher={(f, a, q) => void transmitirTela(f, a, q)}
             aoCancelar={fecharSeletorTela}
           />
         )}

@@ -1,5 +1,5 @@
 import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
-import type { PreferenciasAudio, QualidadeTela } from '@tofalando/shared';
+import { DIMENSOES_TELA, type PreferenciasAudio, type QualidadeTela } from '@tofalando/shared';
 import { abrirMicrofone, type Microfone } from './pipeline-audio';
 
 /** O que a tela precisa saber da sala de voz. */
@@ -20,12 +20,13 @@ export interface OuvintesVoz {
   aoMinhaTelaParou?(): void;
 }
 
-/** RF-28: resolução e quadros de cada qualidade. */
-export const RESOLUCOES_TELA: Record<QualidadeTela, { width: number; height: number; frameRate: number }> = {
-  '720p30': { width: 1280, height: 720, frameRate: 30 },
-  '1080p60': { width: 1920, height: 1080, frameRate: 60 },
-  '1440p60': { width: 2560, height: 1440, frameRate: 60 },
-};
+/** Taxa máxima por qualidade (bits/s): a banda que cada espectador recebe (R-10). */
+export const TAXAS_TELA: Record<QualidadeTela, number> = { '720p30': 2_500_000, '1080p60': 6_000_000, '1440p60': 10_000_000 };
+
+/** RF-28: resolução e quadros de cada qualidade (as mesmas dimensões que o servidor confere). */
+export const RESOLUCOES_TELA = Object.fromEntries(
+  Object.entries(DIMENSOES_TELA).map(([q, d]) => [q, { width: d.largura, height: d.altura, frameRate: d.quadros }]),
+) as Record<QualidadeTela, { width: number; height: number; frameRate: number }>;
 
 /** Faixa de vídeo que a tela prende num <video> (attach/detach do livekit-client). */
 export interface FaixaVideo {
@@ -59,7 +60,7 @@ export interface SalaVoz {
   /** RF-25: liga ou desliga a minha câmera (simulcast); devolve se ficou ligada. */
   camera(ligar: boolean): Promise<boolean>;
   /** RF-26: começa a transmitir a fonte já escolhida (sem simulcast, "motion"); devolve se começou. */
-  transmitir(qualidade: QualidadeTela, audio: boolean): Promise<boolean>;
+  transmitir(qualidade: QualidadeTela, audio: boolean, codec?: 'h264' | 'vp9'): Promise<boolean>;
   pararTela(): Promise<void>;
   /** Estou transmitindo a tela agora (para conferir trava "minha" vinda do servidor). */
   transmitindoTela(): boolean;
@@ -369,7 +370,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     microfone: () => mic,
-    async transmitir(qualidade, audio) {
+    async transmitir(qualidade, audio, codec = 'h264') {
       const atual = sala;
       if (!atual || !conectada) return false;
       const meu = ++pedidoTela;
@@ -377,9 +378,15 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         const pub = await (atual.localParticipant as unknown as CameraLocal).setScreenShareEnabled(
           true,
           { audio, resolution: RESOLUCOES_TELA[qualidade], contentHint: 'motion', selfBrowserSurface: 'exclude' },
-          // Sem simulcast na tela (técnica §5): uma camada só, na qualidade pedida.
-          { simulcast: false },
+          // Sem simulcast na tela (técnica §5): uma camada só, na qualidade pedida; H.264 por padrão (R-3).
+          // backupCodec desligado: VP9 sem VP8 de reserva (pesaria na CPU em 1440p60 sem codificação por hardware).
+          { simulcast: false, videoCodec: codec, backupCodec: false, screenShareEncoding: { maxBitrate: TAXAS_TELA[qualidade], maxFramerate: RESOLUCOES_TELA[qualidade].frameRate } },
         );
+        // A resolução pedida pelo livekit-client é só "ideal": garante o teto (o servidor silencia o que passar, RN-17).
+        const r = RESOLUCOES_TELA[qualidade];
+        await (pub?.track as { mediaStreamTrack?: MediaStreamTrack } | undefined)?.mediaStreamTrack
+          ?.applyConstraints({ width: { max: r.width }, height: { max: r.height }, frameRate: { max: r.frameRate } })
+          .catch(() => undefined);
         if (sala !== atual) {
           (pub?.track as { stop?(): void } | undefined)?.stop?.();
           transmitindoTela = false;

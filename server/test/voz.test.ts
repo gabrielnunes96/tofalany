@@ -240,5 +240,8 @@ describe('webhook do LiveKit', () => {
     await webhook(evento);
     expect(listarVoz()).toEqual([papo.id]);
     expect(listarAuditoria(app!.banco).registros.find((r) => r.tipo === 'voz_saiu')?.detalhes?.motivo).toBe('midia_saiu');
+    // R-2: tela publicada fora da regra chega pelo webhook e é conferida (o LiveKit de teste nem existe: só não pode derrubar).
+    const tela = { id: 'EV_tela', event: 'track_published', room: { name: `voz-${papo.id}` }, participant: { identity: '2' }, track: { sid: 'TR_1', source: 3, width: 1920, height: 1080 } };
+    expect((await webhook(tela)).statusCode).toBe(200);
   });
 });

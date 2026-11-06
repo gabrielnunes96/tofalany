@@ -1,5 +1,5 @@
 import type { AddressInfo } from 'node:net';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { io as conectar, type Socket } from 'socket.io-client';
 import type { CanalDto, EventosCliente, EventosServidor, OlaPayload, TransmissaoDto } from '@tofalando/shared';
@@ -99,5 +99,40 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
       ['dono', 'saiu_da_voz'],
       ['ana', 'saiu_da_voz'],
     ]);
+  });
+
+  it('CA-39a: membro só 720p30 (servidor recusa acima); admin pode 1440p60; faixa fora da regra é silenciada (R-2)', async () => {
+    const { a, b, papo, jogo } = await preparar();
+    await naVoz(a.s, papo);
+    await naVoz(b.s, jogo);
+    // ana (membro) pedindo 1440p60 direto ao servidor.
+    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1440p60' })).toEqual({ ok: false, erro: 'Só administradores transmitem acima de 720p30.' });
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '720p30' })).ok).toBe(true);
+    // dono (admin) em 1440p60.
+    expect(await pedir(a.s, 'tela:pedir', { canalVozId: papo, qualidade: '1440p60' })).toMatchObject({ ok: true, valor: { qualidade: '1440p60' } });
+
+    const conferir = (u: number, c: number, largura: number, altura: number) => app!.tempoReal.conferirFaixaTela(u, c, { sid: 'TR_1', largura, altura });
+    expect(await conferir(2, jogo, 1280, 720)).toBe(false);
+    expect(await conferir(2, jogo, 1920, 1080)).toBe(true);
+    expect(await conferir(2, jogo, 720, 1280)).toBe(false);
+    expect(await conferir(1, papo, 2560, 1440)).toBe(false);
+    expect(await conferir(1, papo, 3840, 2160)).toBe(true);
+    // Sem a trava do canal (segunda tela): silenciada — com a chamada certa ao LiveKit.
+    const silenciar = vi.fn(async () => undefined);
+    expect(await app!.tempoReal.conferirFaixaTela(2, papo, { sid: 'TR_9', largura: 640, altura: 360 }, silenciar)).toBe(true);
+    expect(silenciar).toHaveBeenCalledWith(`voz-${papo}`, '2', 'TR_9');
+    // Áudio da tela: só a posse da trava conta.
+    expect(await app!.tempoReal.conferirFaixaTela(2, jogo, { sid: 'TR_a', largura: 0, altura: 0, soAudio: true }, silenciar)).toBe(false);
+    expect(await app!.tempoReal.conferirFaixaTela(2, papo, { sid: 'TR_b', largura: 0, altura: 0, soAudio: true }, silenciar)).toBe(true);
+    // Sem dimensões: de membro, fora da regra; de admin, passa.
+    expect(await conferir(2, jogo, 0, 0)).toBe(true);
+    expect(await conferir(1, papo, 0, 0)).toBe(false);
+
+    // RN-17: o dono perde o cargo transmitindo em 1440p60 — a transmissão acaba (motivo cargo_alterado).
+    app!.banco.prepare("UPDATE usuarios SET cargo = 'membro' WHERE id = 1").run();
+    const parada = new Promise((r) => b.s.once('tela:parada', r));
+    app!.tempoReal.cargoMudou(1);
+    expect(await parada).toEqual({ canalVozId: papo, usuarioId: 1 });
+    expect(listarAuditoria(app!.banco).registros.find((r) => r.tipo === 'tela_parou')?.detalhes?.motivo).toBe('cargo_alterado');
   });
 });

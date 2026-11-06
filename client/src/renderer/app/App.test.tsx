@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ATALHOS_PADRAO, AUDIO_PADRAO, NOTIFICACOES_PADRAO, SONS_PADRAO, type ConfiguracoesLocais, type ConviteLink, type ServidorInfo, type UsuarioDto } from '@tofalando/shared';
+import { ATALHOS_PADRAO, AUDIO_PADRAO, NOTIFICACOES_PADRAO, TELA_PADRAO, SONS_PADRAO, type ConfiguracoesLocais, type ConviteLink, type ServidorInfo, type UsuarioDto } from '@tofalando/shared';
 import type { ApiTofalando, SessaoLocal } from '../../preload/api';
 
 // A tela principal abre o tempo real; aqui só importa saber que chegou nela.
@@ -25,13 +25,13 @@ const B = 'http://servidor-b:3000';
 function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | null; pendente: ConviteLink | null }) {
   const gravarConfig = vi.fn(async (p: { servidorUrl?: string | null }): Promise<ConfiguracoesLocais> => {
     if (p.servidorUrl !== undefined) estado.servidorUrl = p.servidorUrl;
-    return { servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO };
+    return { servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO };
   });
   const api: ApiTofalando = {
     atalhos: { aoEvento: () => () => undefined, pausar: async () => undefined },
     presenca: { ausente: async () => false, aoMudar: () => () => undefined },
     captura: { fontes: async () => [], escolher: async () => undefined, audioDisponivel: false },
-    config: { ler: async () => ({ servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO }), gravar: gravarConfig },
+    config: { ler: async () => ({ servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO }), gravar: gravarConfig },
     sessao: {
       ler: async () => estado.sessao,
       gravar: async (s) => void (estado.sessao = s),
