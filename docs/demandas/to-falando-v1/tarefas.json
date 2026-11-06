@@ -339,9 +339,9 @@
         "CA-58"
       ],
       "validacao": "E2E: volume aplicado só no app B, som de entrada disparado; usuário ouve",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "a2d5604"
     },
     {
       "id": "T18",

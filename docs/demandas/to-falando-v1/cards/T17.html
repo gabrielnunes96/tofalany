@@ -1,0 +1,26 @@
+<!-- T17 — Volume por pessoa, silenciar pessoa e sons de voz -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-19, RF-21, RF-38, RN-26 e a parte de desligar os sons de voz do RF-41; CA-27, CA-29, CA-58.</p>
+<h3>Padrão</h3>
+<p>Técnica, seção "Status, silenciar e notificações (v5)": preferências locais por servidor; volume efetivo 0 para silenciados, preservando o escolhido.</p>
+
+<h3>Implementação (05/11/2026, commit a2d5604)</h3>
+<ul>
+  <li><b>Por pessoa</b>: botão "⋯" em quem está no meu canal (menos eu) abre volume 0–200% (aria-valuetext em %) e "Silenciar" (aria-pressed). Ícone "silenciado por você" só para mim; a pessoa não é avisada. Guardado em <code>config.pessoas[servidor]</code>, validado no processo principal (URL normalizada, até 20 servidores e 200 pessoas). Deafen tem prioridade e não apaga os volumes; acima de 100% usa o ganho do Web Audio (sem ele, limita a 100%).</li>
+  <li><b>Sons de voz</b> (<code>servicos/sons-voz.ts</code>): bipes gerados na hora — sobe para entrar/desmutar, desce para sair/mutar; tocam na saída escolhida (espera a troca de saída), não tocam durante o deafen, e nenhum erro de áudio atrapalha a voz. Desligáveis em Configurações → Sons.</li>
+  <li><b>Gravação</b>: uma gravação adiada única (sliders), com o servidor certo e descarga ao fechar a janela; a leitura do disco não desfaz um ajuste feito antes de ela chegar.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>voz.test.ts</code>, <code>sons-voz.test.ts</code>, <code>componentes.test.tsx</code>, <code>validacao.test.ts</code>, <code>configuracoes.test.ts</code>; E2E <code>e2e/voz.spec.ts</code> (CA-27/29/58). Suíte: 314 testes e 22 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-29: ana no canal; dono entra e sai</td><td>ok</td><td>sons "entrar" e "sair" na ana; com os sons desligados, nada</td></tr>
+  <tr><td>E2E CA-27: ana põe o dono em 150% e depois 50%</td><td>ok</td><td>volume 1,5 e 0,5 só na ana; no dono continua 1 (print T17-volume-por-pessoa)</td></tr>
+  <tr><td>E2E CA-58: ana silencia o dono e reabre o app</td><td>ok</td><td>volume 0 e ícone só para ela; depois de reabrir continua silenciado e reativar volta a 50% (print T17-silenciar-lembrado-apos-reabrir)</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> ouvir os sons e o volume acima de 100% de verdade; CA-27 com três pessoas (o E2E usa dois apps: prova que o ajuste é local).</p>
+<p><b>Observações:</b> com a detecção de voz da T16, o apito do microfone falso passa pelo RNNoise quase sem abrir o portão; os testes de fala desligam a supressão. Instabilidades vistas sob carga e anotadas para a T23: indicador de fala do LiveKit lento (os testes agora conferem antes o indicador local "Transmitindo") e uma abertura do Electron que falhou uma vez em <code>tempo-real.spec.ts</code>.</p>
+<p>Revisão: 11 achados (0 graves, 2 médios, 9 menores), todos corrigidos ou registrados.</p>
