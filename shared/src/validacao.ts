@@ -174,6 +174,9 @@ export function mesclarPessoas(base: Record<string, PreferenciasPessoas>, bruto:
 
 export function mesclarSons(base: PreferenciasSons = SONS_PADRAO, bruto: unknown): PreferenciasSons {
   const r = { ...base };
-  if (bruto && typeof bruto === 'object' && typeof (bruto as Record<string, unknown>).voz === 'boolean') r.voz = (bruto as { voz: boolean }).voz;
+  if (!bruto || typeof bruto !== 'object') return r;
+  const o = bruto as Record<string, unknown>;
+  if (typeof o.voz === 'boolean') r.voz = o.voz;
+  if (typeof o.soundboard === 'number' && Number.isFinite(o.soundboard) && o.soundboard >= 0 && o.soundboard <= 1) r.soundboard = Math.round(o.soundboard * 100) / 100;
   return r;
 }

@@ -143,7 +143,7 @@ describe('mesclarPessoas e mesclarSons (RF-19, RF-38)', () => {
     for (let i = 0; i < 25; i++) muitos = mesclarPessoas(muitos, { [`http://s${i}.exemplo.com`]: { volumes: {}, silenciados: [] } });
     expect(Object.keys(muitos)).toHaveLength(20);
     expect(Object.keys(muitos).at(-1)).toBe('http://s24.exemplo.com');
-    expect(mesclarSons(undefined, { voz: false })).toEqual({ voz: false });
-    expect(mesclarSons(undefined, { voz: 'x' })).toEqual({ voz: true });
+    expect(mesclarSons(undefined, { voz: false, soundboard: 0 })).toEqual({ voz: false, soundboard: 0 });
+    expect(mesclarSons(undefined, { voz: 'x', soundboard: 3 })).toEqual({ voz: true, soundboard: 0.8 });
   });
 });

@@ -283,3 +283,12 @@ kbd { font-family: inherit; font-size: 0.85rem; padding: 2px 8px; border: 1px so
 .ajustes-pessoa input[type='range'] { accent-color: var(--destaque); margin: 0; }
 .ajustes-pessoa button { margin: 0; padding: 4px 8px; font-size: 0.8rem; align-self: flex-start; }
 .silenciado { font-size: 0.8rem; }
+
+/* Soundboard (RF-23) */
+.painel-soundboard { border-top: 1px solid var(--borda); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.painel-soundboard h2 { margin: 0; font-size: 0.9rem; }
+.painel-soundboard input[type='range'] { accent-color: var(--amarelo); margin: 0; }
+.sons-grade { display: flex; flex-wrap: wrap; gap: 6px; }
+.sons-grade button { margin: 0; padding: 6px 10px; font-size: 0.85rem; }
+.aviso-som { margin: 0; padding: 6px 10px; font-size: 0.85rem; color: var(--amarelo); border-top: 1px solid var(--borda); }
+.aviso-som.vazio { padding: 0; border: 0; }

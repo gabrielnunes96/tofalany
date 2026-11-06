@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
+  SOM_INTERVALO_MS,
   ATALHOS_PADRAO,
   AUDIO_PADRAO,
   DIGITANDO_DURACAO_MS,
@@ -21,6 +22,8 @@ import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { criarSalaVoz, EntradaCancelada, type SalaVoz } from '../servicos/voz';
 import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
+import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
+import { PainelSoundboard } from '../componentes/PainelSoundboard';
 import { ponte } from '../servicos/ponte';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
@@ -53,6 +56,13 @@ const estadoVoz = (canalVozId: number | null, sid?: string, c: { mudo: boolean; 
   camera: false,
   sid,
 });
+
+/** O que espera para ser gravado no disco (sliders mandam dezenas de mudanças). */
+interface GravacaoAdiada {
+  pessoas?: { servidor: string; valor: PreferenciasPessoas };
+  audio?: PreferenciasAudio;
+  sons?: PreferenciasSons;
+}
 
 type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes';
 
@@ -172,20 +182,22 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     };
   }, [servidorUrl]);
   // Gravações adiadas (sliders mandam dezenas de mudanças): guardam o que gravar e para qual servidor.
-  const pendente = useRef<{ pessoas?: { servidor: string; valor: PreferenciasPessoas }; audio?: PreferenciasAudio; relogio?: ReturnType<typeof setTimeout> }>(
-    {},
-  );
+  const pendente = useRef<GravacaoAdiada & { relogio?: ReturnType<typeof setTimeout> }>({});
   const descarregar = () => {
     const p = pendente.current;
     clearTimeout(p.relogio);
     pendente.current = {};
-    const parcial = { ...(p.pessoas ? { pessoas: { [p.pessoas.servidor]: p.pessoas.valor } } : {}), ...(p.audio ? { audio: p.audio } : {}) };
+    const parcial = {
+      ...(p.pessoas ? { pessoas: { [p.pessoas.servidor]: p.pessoas.valor } } : {}),
+      ...(p.audio ? { audio: p.audio } : {}),
+      ...(p.sons ? { sons: p.sons } : {}),
+    };
     if (Object.keys(parcial).length > 0)
       void ponte()
         .config.gravar(parcial)
         .catch(() => undefined);
   };
-  const adiarGravacao = (parcial: { pessoas?: { servidor: string; valor: PreferenciasPessoas }; audio?: PreferenciasAudio }) => {
+  const adiarGravacao = (parcial: GravacaoAdiada) => {
     clearTimeout(pendente.current.relogio);
     pendente.current = { ...pendente.current, ...parcial, relogio: setTimeout(descarregar, 400) };
   };
@@ -220,10 +232,30 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   function mudarSons(novo: PreferenciasSons) {
     sonsRef.current = novo;
     setPrefSons(novo);
-    void ponte()
-      .config.gravar({ sons: novo })
-      .catch(() => undefined);
+    adiarGravacao({ sons: novo });
   }
+  // RF-23: soundboard — tocador local com cache, painel e aviso de quem tocou.
+  const tocadorRef = useRef<TocadorSoundboard | null>(null);
+  const [soundboardAberto, setSoundboardAberto] = useState(false);
+  // Aviso "X tocou Y": o número faz o mesmo texto repetido reiniciar o tempo e ser anunciado de novo.
+  const [avisoSom, setAvisoSom] = useState<{ texto: string; n: number } | null>(null);
+  /** RN-13: quando posso tocar de novo (vale mesmo fechando o painel). */
+  const [liberadoEm, setLiberadoEm] = useState(0);
+  useEffect(() => {
+    const tocador = criarTocadorSoundboard(servidorUrl);
+    tocador.definirSaida(audioRef.current.saidaId);
+    tocadorRef.current = tocador;
+    return () => {
+      tocadorRef.current = null;
+      tocador.fechar();
+    };
+  }, [servidorUrl]);
+  useEffect(() => {
+    if (!avisoSom) return;
+    const t = setTimeout(() => setAvisoSom(null), 4000);
+    return () => clearTimeout(t);
+  }, [avisoSom]);
+  const pararSoundboard = () => tocadorRef.current?.parar();
   // RF-15/RF-16: mute e deafen (valem também fora da voz e são aplicados ao entrar) e atalhos globais.
   const [controles, setControlesEstado] = useState({
     mudo: false,
@@ -236,6 +268,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     if (minhaVozRef.current !== null && (antes.mudo || antes.surdo) !== (novo.mudo || novo.surdo)) tocar(novo.mudo || novo.surdo ? 'mudo' : 'desmudo');
     controlesRef.current = novo;
     setControlesEstado(novo);
+    // Deafen corta também o som do soundboard que estiver tocando.
+    if (novo.surdo) pararSoundboard();
     salaVozRef.current?.controlar(novo);
     const canal = minhaVozRef.current;
     if (canal !== null) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canal, salaVozRef.current?.sid(), novo));
@@ -273,6 +307,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     // Arrastar o slider gera dezenas de mudanças: grava no disco só quando para.
     adiarGravacao({ audio: novo });
     sonsVozRef.current?.definirSaida(novo.saidaId);
+    tocadorRef.current?.definirSaida(novo.saidaId);
     return salaVozRef.current?.aplicarAudio(novo).catch(() => undefined);
   }
   const setMinhaVoz = (id: number | null) => {
@@ -378,7 +413,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoDigitando: (chave, usuarioId) => acoes.registrarDigitando(chave, usuarioId, Date.now() + DIGITANDO_DURACAO_MS),
       aoDmAtualizada: acoes.salvarDm,
       aoLidoAtualizado: acoes.aplicarLeitura,
-      aoSonsAtualizados: acoes.definirSons,
+      aoSonsAtualizados: (lista) => {
+        acoes.definirSons(lista);
+        tocadorRef.current?.esquecer(lista);
+      },
       aoVozEstados: (estados) => {
         // RF-21: alguém entrou ou saiu do canal em que estou.
         const meu = minhaVozRef.current;
@@ -391,6 +429,21 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           else if ([...antes].some((id) => !agora.has(id))) tocar('sair');
         }
         acoes.definirVoz(estados);
+      },
+      aoSomTocado: ({ somId, porUsuarioId, canalVozId }) => {
+        const estado = useLoja.getState();
+        const som = estado.sons.find((x) => x.id === somId);
+        if (!som) return;
+        const quem = estado.usuarios.find((u) => u.id === porUsuarioId)?.nomeExibicao ?? 'Alguém';
+        // Chegou depois de eu sair (ou trocar) de canal: ignora.
+        if (minhaVozRef.current !== canalVozId) return;
+        setAvisoSom((a) => ({ texto: `${quem} tocou ${som.nome}`, n: (a?.n ?? 0) + 1 }));
+        // Deafen não ouve (RN-12); volume 0 não ouve (RF-24).
+        if (controlesRef.current.surdo) return;
+        void tocadorRef.current?.tocar(som, sonsRef.current.soundboard).then((tocou) => {
+          // Marca para os testes de ponta a ponta (e para depurar) que o som saiu de fato.
+          if (tocou) document.documentElement.dataset.somSoundboard = `${somId}:${Date.now()}`;
+        });
       },
       aoVozTirado: () => {
         if (minhaVozRef.current !== null) tocar('sair');
@@ -545,6 +598,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         return;
       }
       setMinhaVoz(canalId);
+      void tocadorRef.current?.carregar(useLoja.getState().sons);
       tocar('entrar');
       // Mute/deafen trocados enquanto esperava a resposta: manda o estado atual.
       if (controlesRef.current !== enviados) void conexaoRef.current?.pedir('voz:estado', estadoVoz(canalId, sala.sid(), controlesRef.current));
@@ -561,7 +615,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     }
   }
 
+  const tocarSom = (somId: number) =>
+    pedir(
+      (c) => c.pedir('som:tocar', { somId }),
+      () => setLiberadoEm(Date.now() + SOM_INTERVALO_MS),
+    );
+
   async function sairVoz() {
+    pararSoundboard();
     if (minhaVozRef.current !== null) tocar('sair');
     setMinhaVoz(null);
     await salaVozRef.current?.sair();
@@ -666,6 +727,21 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               {avisoVoz}
             </p>
           )}
+          {/* Região viva sempre montada: o leitor de tela anuncia quando o texto muda. */}
+          <p className={`aviso-som${avisoSom ? '' : ' vazio'}`} aria-live="polite" aria-atomic="true">
+            {avisoSom ? `🔊 ${avisoSom.texto}` : ''}
+          </p>
+          {soundboardAberto && (
+            <PainelSoundboard
+              sons={sons}
+              naVoz={minhaVoz !== null}
+              liberadoEm={liberadoEm}
+              volume={prefSons.soundboard}
+              aoVolume={(v) => mudarSons({ ...sonsRef.current, soundboard: v })}
+              aoTocar={tocarSom}
+              aoFechar={() => setSoundboardAberto(false)}
+            />
+          )}
           <section className="painel-usuario" aria-label="Você">
             <div className="painel-usuario-topo">
               <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={36} />
@@ -684,6 +760,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               </button>
               <button type="button" className="secundario" onClick={() => setVista('configuracoes')}>
                 Configurações
+              </button>
+              <button type="button" className="secundario" aria-expanded={soundboardAberto} onClick={() => setSoundboardAberto(!soundboardAberto)}>
+                Tocar sons
               </button>
               {linkConvite && (
                 <button

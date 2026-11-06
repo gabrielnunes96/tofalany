@@ -37,6 +37,8 @@ export interface OuvintesTempoReal {
   aoVozEstados(estados: VozEstadoDto[]): void;
   /** Entrei na voz por outro computador: este sai da sala. */
   aoVozTirado(): void;
+  /** RF-23: som do soundboard tocado no meu canal de voz. */
+  aoSomTocado(p: { somId: number; porUsuarioId: number; canalVozId: number }): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -135,6 +137,7 @@ export function conectarTempoReal(
   socket.on('sons:atualizados', (sons) => ouvintes.aoSonsAtualizados(sons));
   socket.on('voz:estados', (estados) => ouvintes.aoVozEstados(estados));
   socket.on('voz:tirado', () => ouvintes.aoVozTirado());
+  socket.on('som:tocado', (p) => ouvintes.aoSomTocado(p));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');

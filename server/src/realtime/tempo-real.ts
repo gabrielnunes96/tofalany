@@ -27,6 +27,7 @@ import type { Armazem } from '../arquivos/armazem.js';
 import { RoomServiceClient } from 'livekit-server-sdk';
 import { salaLivekit } from '@tofalando/shared';
 import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
+import { criarSoundboard } from './soundboard.js';
 
 interface DadosSocket {
   usuarioId: number;
@@ -134,6 +135,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       }
     : undefined;
   const voz = criarVoz(io, banco, (e) => app.log.error(e), { carenciaMs: config.carenciaOfflineMs, removerDaMidia });
+  const soundboard = criarSoundboard(io, banco, voz, (e) => app.log.error(e));
 
   io.use((socket, next) => {
     const token: unknown = socket.handshake.auth?.token;
@@ -181,6 +183,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
+    soundboard.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));
     socket.emit('ola', ola);
     presenca.entrou(eu.id);

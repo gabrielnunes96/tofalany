@@ -109,7 +109,9 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
 
   // A ana recebe o áudio do dono (faixa assinada) e vê o indicador de fala dele (o microfone falso apita).
   await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1, { timeout: 15_000 });
-  await expect(naVozDaAna.getByRole('listitem', { name: 'dono, falando' })).toBeVisible({ timeout: 15_000 });
+  // O portão do dono abre na hora; o "falando" depende da detecção do LiveKit, mais lenta sob carga.
+  await expect(dono.janela.getByRole('img', { name: 'Transmitindo' })).toBeVisible({ timeout: 10_000 });
+  await expect(naVozDaAna.getByRole('listitem', { name: 'dono, falando' })).toBeVisible({ timeout: 25_000 });
   await print(ana.janela, 'T14-voz-ana-ve-dono-falando');
   await print(dono.janela, 'T14-voz-dono-conectado');
 
@@ -377,4 +379,87 @@ test('CA-27, CA-29, CA-58: volume por pessoa só para quem ajustou, sons de entr
 
   await dono.app.close();
   await ana2.app.close();
+});
+
+/** WAV PCM 8 kHz mono com um tom de 440 Hz. */
+function wavTom(segundos: number): Buffer {
+  const amostras = 8000 * segundos;
+  const b = Buffer.alloc(44 + amostras * 2);
+  b.write('RIFF', 0, 'latin1');
+  b.writeUInt32LE(36 + amostras * 2, 4);
+  b.write('WAVEfmt ', 8, 'latin1');
+  b.writeUInt32LE(16, 16);
+  b.writeUInt16LE(1, 20);
+  b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(8000, 24);
+  b.writeUInt32LE(16000, 28);
+  b.writeUInt16LE(2, 32);
+  b.writeUInt16LE(16, 34);
+  b.write('data', 36, 'latin1');
+  b.writeUInt32LE(amostras * 2, 40);
+  for (let i = 0; i < amostras; i++) b.writeInt16LE(Math.round(8000 * Math.sin((2 * Math.PI * 440 * i) / 8000)), 44 + i * 2);
+  return b;
+}
+
+test('CA-32, CA-33, CA-34, CA-35: soundboard no canal de voz', async () => {
+  test.setTimeout(120_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const j = dono.janela;
+  const tocouNa = (p: Page) => p.evaluate(() => document.documentElement.dataset.somSoundboard ?? '');
+
+  // O dono (admin) cadastra um som pela tela.
+  await j.getByRole('button', { name: 'Soundboard' }).click();
+  await j.getByLabel('Nome do som').fill('Grilo');
+  await j.getByLabel('Arquivo de áudio').setInputFiles({ name: 'grilo.wav', mimeType: 'audio/wav', buffer: wavTom(1) });
+  await j.getByRole('button', { name: 'Cadastrar som' }).click();
+  await expect(j.getByRole('status')).toContainText('cadastrado');
+  await j.getByRole('button', { name: 'Voltar' }).click();
+
+  // CA-33: fora da voz, os botões ficam desabilitados.
+  await j.getByRole('button', { name: 'Tocar sons' }).click();
+  const painel = j.getByRole('region', { name: 'Soundboard' });
+  await expect(painel.getByRole('button', { name: 'Grilo' })).toBeDisabled();
+
+  await j.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await j.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await j.getByRole('button', { name: 'Criar', exact: true }).click();
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+
+  // CA-32: o dono toca; a ana ouve e vê quem tocou.
+  await painel.getByRole('button', { name: 'Grilo' }).click();
+  await expect(ana.janela.locator('.aviso-som')).toHaveText('🔊 dono tocou Grilo');
+  await expect.poll(() => tocouNa(ana.janela)).toMatch(/^\d+:/);
+  await print(ana.janela, 'T19-ana-ve-quem-tocou');
+  // CA-34: logo depois, o botão descansa.
+  await expect(painel.getByRole('button', { name: 'Grilo' })).toBeDisabled();
+  await print(j, 'T19-painel-soundboard');
+
+  // CA-35: a ana zera o volume do soundboard — vê o aviso, mas não toca.
+  await ana.janela.getByRole('button', { name: 'Tocar sons' }).click();
+  await ana.janela.getByLabel(/Volume do soundboard/).fill('0');
+  const ultimo = await tocouNa(ana.janela);
+  await expect(painel.getByRole('button', { name: 'Grilo' })).toBeEnabled({ timeout: 5_000 });
+  await painel.getByRole('button', { name: 'Grilo' }).click();
+  await expect(ana.janela.locator('.aviso-som')).toBeVisible();
+  await ana.janela.waitForTimeout(800);
+  expect(await tocouNa(ana.janela)).toBe(ultimo);
+  // As vozes continuam: o áudio do dono segue chegando na ana.
+  await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1);
+
+  // RN-12: com deafen, o som também não toca (volume de volta a 80%).
+  await ana.janela.getByLabel(/Volume do soundboard/).fill('80');
+  await ana.janela.getByRole('button', { name: 'Desligar áudio', exact: true }).click();
+  const antesDeafen = await tocouNa(ana.janela);
+  await expect(painel.getByRole('button', { name: 'Grilo' })).toBeEnabled({ timeout: 5_000 });
+  await painel.getByRole('button', { name: 'Grilo' }).click();
+  await ana.janela.waitForTimeout(800);
+  expect(await tocouNa(ana.janela)).toBe(antesDeafen);
+
+  await dono.app.close();
+  await ana.app.close();
 });

@@ -133,9 +133,11 @@ export interface PreferenciasPessoas {
 export interface PreferenciasSons {
   /** Sons de entrar e sair do canal de voz e de mute/desmute (RF-21). */
   voz: boolean;
+  /** RF-24: volume local do soundboard (0 a 1; 0 = não ouvir). */
+  soundboard: number;
 }
 
-export const SONS_PADRAO: PreferenciasSons = { voz: true };
+export const SONS_PADRAO: PreferenciasSons = { voz: true, soundboard: 0.8 };
 
 export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   servidorUrl: null,
@@ -287,6 +289,8 @@ export interface EventosServidor {
   'voz:estados': (estados: VozEstadoDto[]) => void;
   /** A mesma pessoa entrou na voz por outro computador: este sai da sala. */
   'voz:tirado': (payload: { motivo: 'outro_computador' }) => void;
+  /** RF-23: alguém tocou um som do soundboard; chega só para quem está naquele canal de voz. */
+  'som:tocado': (payload: { somId: number; porUsuarioId: number; canalVozId: number }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
 }
@@ -313,6 +317,8 @@ export interface EventosCliente {
   'dm:abrir': (dados: { usuarioId: number }, ack: Ack<DmDto>) => void;
   /** RF-13: entrou, mudou (mute/deafen/câmera) ou saiu (canalVozId null) da voz. */
   'voz:estado': (dados: VozEstadoPedido, ack: Ack) => void;
+  /** RF-23: toca um som para o canal de voz em que estou (RN-12, RN-13). */
+  'som:tocar': (dados: { somId: number }, ack: Ack) => void;
 }
 
 /**

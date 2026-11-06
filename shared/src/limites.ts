@@ -44,3 +44,6 @@ export const NOME_SOM_MAX = 32;
 
 /** Cores sorteadas para o perfil de quem acabou de se cadastrar (o usuário troca no perfil, T5). */
 export const CORES_PERFIL = ['#00f0ff', '#ff2a6d', '#fcee0a', '#3dffb0', '#b14bff', '#ff8a00', '#4d7cff', '#ff4dd2'];
+
+/** RN-13: intervalo mínimo entre dois sons do soundboard da mesma pessoa. */
+export const SOM_INTERVALO_MS = 3000;

@@ -14,6 +14,10 @@ import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
  */
 export interface Voz {
   estados(): VozEstadoDto[];
+  /** Onde a pessoa está na voz agora (e por qual conexão), se estiver. */
+  presenca(usuarioId: number): { canalVozId: number; socketId: string } | undefined;
+  /** Conexões de quem está num canal de voz (para mandar só a eles). */
+  conexoesNoCanal(canalVozId: number): string[];
   registrar(socket: SocketTofalando): void;
   /** Canal de voz removido: todos saem dele. */
   canalRemovido(canal: { id: number; nome: string }): void;
@@ -84,6 +88,11 @@ export function criarVoz(
 
   return {
     estados,
+    presenca(usuarioId) {
+      const p = presentes.get(usuarioId);
+      return p && { canalVozId: p.estado.canalVozId, socketId: p.socketId };
+    },
+    conexoesNoCanal: (canalVozId) => [...presentes.values()].filter((p) => p.estado.canalVozId === canalVozId).map((p) => p.socketId),
     registrar(socket) {
       const usuarioId = socket.data.usuarioId;
       socket.on(
