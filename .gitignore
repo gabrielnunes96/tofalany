@@ -2,7 +2,7 @@ node_modules/
 dist/
 release/
 out/
-.claude/local/
+.claude/
 .env
 server/data/
 *.log
