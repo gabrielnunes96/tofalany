@@ -27,6 +27,9 @@ if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
   app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 }
 
+// Testes E2E: a janela abre sem roubar o foco de quem está usando o PC (o som vai para uma saída falsa: e2e/silencio.ts).
+const testeDiscreto = process.env.TOFALANDO_E2E === '1' && !app.isPackaged;
+
 let janelaPrincipal: BrowserWindow | undefined;
 
 const links = prepararLinks(
@@ -62,7 +65,7 @@ function criarJanela(): BrowserWindow {
     },
   });
 
-  janela.once('ready-to-show', () => janela.show());
+  janela.once('ready-to-show', () => (testeDiscreto ? janela.showInactive() : janela.show()));
   janela.on('closed', () => {
     if (janelaPrincipal === janela) janelaPrincipal = undefined;
     links.rendererSaiu();

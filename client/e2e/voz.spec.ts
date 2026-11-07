@@ -160,6 +160,8 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
 
   // CA-28: o medidor se mexe com o microfone (falso, que apita) e a supressão forte carrega no app empacotado.
   await j.getByRole('button', { name: 'Configurações' }).click();
+  // O apito do microfone falso é baixo: sem o ganho automático (desligado por padrão desde 07/11), o RNNoise o apaga.
+  await j.getByLabel('Controle automático de ganho').check();
   await j.getByRole('button', { name: 'Testar microfone' }).click();
   await expect(j.getByRole('status').filter({ hasText: 'Supressão de ruído' })).toContainText('forte (RNNoise)', { timeout: 10_000 });
   const medidor = j.getByRole('meter', { name: 'Nível do microfone' });
@@ -210,6 +212,7 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   await expect(reaberto.janela.getByLabel('Microfone', { exact: true })).toHaveValue(voltar);
   await expect(reaberto.janela.getByLabel('Cancelamento de eco')).not.toBeChecked();
   await expect(reaberto.janela.getByLabel('Supressão de ruído')).not.toBeChecked();
+  // Ligado no começo do teste: a escolha fica guardada.
   await expect(reaberto.janela.getByLabel('Controle automático de ganho')).toBeChecked();
   await print(reaberto.janela, 'T15-escolhas-guardadas-apos-reabrir');
 
@@ -538,6 +541,7 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
 });
 
 test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por canal e visualização grande', async () => {
+  test.skip(!!globalThis.process['env'].TOFALANDO_E2E_ISOLADO, 'captura de tela: rode com npm run test:e2e:desktop');
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
   await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
@@ -604,6 +608,7 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
 });
 
 test('CA-39a, RF-28: membro só 720p30; administrador escolhe 1080p60 (e VP9) e transmite', async () => {
+  test.skip(!!globalThis.process['env'].TOFALANDO_E2E_ISOLADO, 'captura de tela: rode com npm run test:e2e:desktop');
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
   await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });

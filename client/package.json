@@ -7,10 +7,11 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc -p tsconfig.json --noEmit && electron-vite build",
-    "test:e2e": "electron-vite build && playwright test",
+    "test:e2e": "electron-vite build && sh e2e/isolado.sh",
     "postinstall": "install-electron",
     "dist:linux": "npm run build && electron-builder --linux",
-    "dist:win": "npm run build && electron-builder --win"
+    "dist:win": "npm run build && electron-builder --win",
+    "test:e2e:desktop": "electron-vite build && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

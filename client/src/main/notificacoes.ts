@@ -1,4 +1,4 @@
-import { Notification, type BrowserWindow } from 'electron';
+import { app, Notification, type BrowserWindow } from 'electron';
 
 export interface PedidoNotificacao {
   titulo: string;
@@ -16,6 +16,8 @@ export function deveNotificar(conversaAberta: boolean, janelaFocada: boolean): b
   return !conversaAberta || !janelaFocada;
 }
 
+const testesDiscretos = process.env.TOFALANDO_E2E === '1' && !app.isPackaged;
+
 export function criarNotificacoes(obterJanela: () => BrowserWindow | undefined) {
   /** Referência viva até o clique ou o fechamento: sem ela o objeto é recolhido e o clique não chega (Windows). */
   const vivas = new Set<Notification>();
@@ -24,7 +26,9 @@ export function criarNotificacoes(obterJanela: () => BrowserWindow | undefined) 
       const janela = obterJanela();
       if (!deveNotificar(p.conversaAberta, !!janela?.isFocused())) return false;
       if (!Notification.isSupported()) return false;
-      const n = new Notification({ title: p.titulo.slice(0, 120), body: p.corpo.slice(0, 200), silent: p.silencioso === true });
+      // Testes E2E: sem o som do sistema (quem toca é o desktop, fora da saída de áudio falsa dos testes).
+      const silencioso = p.silencioso === true || testesDiscretos;
+      const n = new Notification({ title: p.titulo.slice(0, 120), body: p.corpo.slice(0, 200), silent: silencioso });
       vivas.add(n);
       n.on('close', () => vivas.delete(n));
       n.on('click', () => {

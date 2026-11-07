@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('electron', () => ({ Notification: {} }));
+vi.mock('electron', () => ({ Notification: {}, app: { isPackaged: false } }));
 const { deveNotificar } = await import('./notificacoes');
 
 describe('deveNotificar (RF-12)', () => {
