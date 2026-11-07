@@ -1,4 +1,5 @@
 import { loadRnnoise, RnnoiseWorkletNode } from '@sapphi-red/web-noise-suppressor';
+import { nivelEmDb } from './nivel';
 import rnnoiseWorklet from '@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url';
 import rnnoiseWasm from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url';
 import rnnoiseSimdWasm from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url';
@@ -205,11 +206,4 @@ export function criarMedidor(faixa: MediaStreamTrack): Medidor {
   };
 }
 
-/** RMS em dBFS, limitado a -100..0. */
-export function nivelEmDb(amostras: Float32Array): number {
-  let soma = 0;
-  for (const a of amostras) soma += a * a;
-  const rms = Math.sqrt(soma / Math.max(1, amostras.length));
-  if (rms <= 0) return -100;
-  return Math.max(-100, Math.min(0, 20 * Math.log10(rms)));
-}
+export { nivelEmDb };

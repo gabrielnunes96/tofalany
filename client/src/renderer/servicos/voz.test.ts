@@ -21,6 +21,7 @@ function salaFalsa(opcoes: { conectar?: 'ok' | 'falha' } = {}) {
     switchActiveDevice: vi.fn(async () => undefined),
     localParticipant: {
       sid: 'PA_1',
+      identity: '1',
       publishTrack: vi.fn(async () => ({ track: { replaceTrack, mute, unmute } })),
     },
   };
@@ -72,8 +73,9 @@ describe('sala de voz (RF-13)', () => {
     emitir(RoomEvent.TrackSubscribed, { kind: 'video', attach: vi.fn() });
     expect(document.querySelectorAll('[data-testid="audios-voz"] > *')).toHaveLength(1);
 
-    emitir(RoomEvent.ActiveSpeakersChanged, [{ identity: '2' }, { identity: 'x' }]);
-    expect(o.aoFalando).toHaveBeenLastCalledWith([2]);
+    // Backlog v2, item 1: o meu indicador acende pelo portão do microfone, na hora (sem esperar o LiveKit).
+    mic.portao.abrir(true);
+    expect(o.aoFalando).toHaveBeenLastCalledWith([1]);
 
     emitir(RoomEvent.TrackUnsubscribed, faixa);
     expect(audio.isConnected).toBe(false);

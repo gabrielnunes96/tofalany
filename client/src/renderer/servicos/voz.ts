@@ -1,10 +1,11 @@
 import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
 import { DIMENSOES_TELA, type PreferenciasAudio, type QualidadeTela } from '@tofalando/shared';
 import { abrirMicrofone, type Microfone } from './pipeline-audio';
+import { criarMedidorFala, fonteDeFaixa } from './medidor-fala';
 
 /** O que a tela precisa saber da sala de voz. */
 export interface OuvintesVoz {
-  /** Quem está falando agora (ids de usuário), na ordem do LiveKit. */
+  /** Quem está falando agora (ids de usuário), medido no próprio app (backlog v2, item 1). */
   aoFalando(ids: number[]): void;
   /** A sala caiu ou a pessoa foi tirada (entrou em outro computador, canal removido…). */
   aoCaiu(): void;
@@ -82,6 +83,7 @@ export interface SalaLivekit {
   disconnect(): Promise<void>;
   localParticipant: {
     sid?: string;
+    identity?: string;
     publishTrack(
       faixa: MediaStreamTrack,
       opcoes: { source: Track.Source; name: string },
@@ -184,10 +186,16 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     if (faixa) void (fechado ? faixa.mute() : faixa.unmute()).catch(() => undefined);
     for (const [elemento, t] of faixas) aplicarVolume(elemento, t);
   }
+  // Backlog v2, item 1: a bolinha de quem fala vem do nível do áudio que chega (e do meu portão), na hora;
+  // o "quem fala" do LiveKit chegava com algumas centenas de milissegundos de atraso.
+  let ctxFala: AudioContext | undefined;
+  const fala = criarMedidorFala((ids) => ouvintes.aoFalando(ids.map(Number).filter((id) => Number.isInteger(id))));
+  const meuId = () => sala?.localParticipant.identity ?? '';
   const pararMic = () => {
     pararTransmitindo?.();
     pararTransmitindo = undefined;
     ouvintes.aoTransmitindo?.(false);
+    fala.definirEu(meuId(), false);
     mic?.parar();
     mic = undefined;
     micPrefs = undefined;
@@ -265,7 +273,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     ouvintes.aoTransmitindo?.(false);
     mic = novo;
     micPrefs = desejado;
-    pararTransmitindo = novo.portao.aoMudar((aberto) => ouvintes.aoTransmitindo?.(aberto));
+    pararTransmitindo = novo.portao.aoMudar((aberto) => {
+      ouvintes.aoTransmitindo?.(aberto);
+      fala.definirEu(meuId(), aberto);
+    });
     aplicarControles();
     if (novo.usouPadrao) ouvintes.aoAviso('O microfone escolhido não foi encontrado; usando o padrão do sistema.');
   }
@@ -297,6 +308,14 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
           return;
         }
         if (track.kind !== 'audio') return;
+        if (participante && track.mediaStreamTrack) {
+          try {
+            ctxFala ??= new AudioContext();
+            fala.adicionar(participante.identity, fonteDeFaixa(ctxFala, track.mediaStreamTrack));
+          } catch {
+            // Sem Web Audio: fica sem a bolinha dessa pessoa (o áudio segue normal).
+          }
+        }
         const elemento = track.attach();
         elemento.dataset.participante = participante?.identity ?? '';
         faixas.set(elemento, track);
@@ -314,8 +333,9 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         videos.set(participante.identity, pub.track);
         emitirVideos();
       }) as never);
-      atual.on(RoomEvent.TrackUnsubscribed, ((track: RemoteTrack) => {
+      atual.on(RoomEvent.TrackUnsubscribed, ((track: RemoteTrack, _pub: unknown, participante?: RemoteParticipant) => {
         if (sala !== atual) return;
+        if (track.kind === 'audio' && participante) fala.remover(participante.identity);
         for (const [id, v] of [...videos]) {
           if (v !== track) continue;
           videos.delete(id);
@@ -329,6 +349,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         for (const [e, t] of [...faixas]) if (t === track) tirarElemento(e);
       }) as never);
       atual.on(RoomEvent.ParticipantDisconnected, ((participante: RemoteParticipant) => {
+        fala.remover(participante.identity);
         for (const e of [...faixas.keys()]) if (e.dataset.participante === participante.identity) tirarElemento(e);
         if (videos.delete(participante.identity)) emitirVideos();
         if (telas.delete(participante.identity)) emitirTelas();
@@ -338,10 +359,6 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         if (sala !== atual || pub.source !== Track.Source.ScreenShare || !transmitindoTela) return;
         transmitindoTela = false;
         ouvintes.aoMinhaTelaParou?.();
-      }) as never);
-      atual.on(RoomEvent.ActiveSpeakersChanged, ((falando: Participant[]) => {
-        if (sala !== atual) return;
-        ouvintes.aoFalando(falando.map((p) => Number(p.identity)).filter((id) => Number.isInteger(id)));
       }) as never);
       // RF-31: o livekit-client tenta voltar sozinho (retoma ou reconecta inteiro); a tela só avisa.
       const reconectando = () => {
@@ -466,12 +483,14 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       limpar();
       limparVideos();
       pararMic();
-      ouvintes.aoFalando([]);
+      fala.parar();
       await atual.disconnect();
     },
     sid: () => sala?.localParticipant.sid || undefined,
     async destruir() {
       await api.sair();
+      void ctxFala?.close().catch(() => undefined);
+      ctxFala = undefined;
       caixa.remove();
     },
   };
