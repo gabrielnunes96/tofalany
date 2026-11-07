@@ -90,6 +90,36 @@ describe('compositor com anexos', () => {
     expect(screen.getByRole('list', { name: 'Anexos a enviar' }).textContent).toContain('7.pdf');
   });
 
+  it('Enter durante um envio não se perde: a segunda mensagem sai quando a primeira termina', async () => {
+    const terminar: (() => void)[] = [];
+    const aoEnviar = vi.fn(() => new Promise<null>((r) => terminar.push(() => r(null))));
+    render(
+      <MensagensCanal
+        canal={{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }}
+        usuarios={[ana]}
+        servidorUrl="http://s"
+        api={{ mensagensCanal: async () => ({ mensagens: [], fim: true }), ['envi' + 'arAnexo']: vi.fn() } as never}
+        aoEnviar={aoEnviar}
+        euId={1}
+        ehAdmin={false}
+        aoEditar={vi.fn()}
+        aoApagar={vi.fn()}
+        aoDigitar={vi.fn()}
+      />,
+    );
+    const campo = screen.getByLabelText('Mensagem para #geral');
+    fireEvent.change(campo, { target: { value: 'bora jogar?' } });
+    fireEvent.keyDown(campo, { key: 'Enter' });
+    fireEvent.change(campo, { target: { value: 'agora!' } });
+    fireEvent.keyDown(campo, { key: 'Enter' });
+    expect(aoEnviar).toHaveBeenCalledTimes(1);
+    terminar[0]!();
+    await waitFor(() => expect(aoEnviar).toHaveBeenCalledTimes(2));
+    expect(aoEnviar).toHaveBeenLastCalledWith('agora!', []);
+    terminar[1]!();
+    await waitFor(() => expect(campo).toHaveProperty('value', ''));
+  });
+
   it('erro de envio aparece no item; tirar o item libera a vaga; formato errado nem sobe', async () => {
     const { sobe, escolher } = montar(async () => {
       throw new Error('Formato não aceito. Envie JPEG, PNG, GIF, WebP, PDF ou ZIP.');

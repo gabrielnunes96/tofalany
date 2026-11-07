@@ -72,9 +72,6 @@ async function interceptarNotificacoes(app: ElectronApplication) {
   return () => app.evaluate(() => (globalThis as unknown as { notificacoes: string[] }).notificacoes);
 }
 
-// Às vezes, no Xvfb, a ana conta 1 em vez de 2 (backlog v2, item 0c): uma nova tentativa até a causa sair.
-test.describe.configure({ retries: 1 });
-
 test('CA-19: contador em conversa fechada some ao abrir; notificação fora da conversa e com o app sem foco; clique abre', async () => {
   const dono = await entrar('dono', true);
   await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });

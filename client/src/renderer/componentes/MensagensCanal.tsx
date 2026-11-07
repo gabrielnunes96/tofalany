@@ -108,6 +108,8 @@ export function Conversa({
   const [texto, setTexto] = useState('');
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  /** Enter apertado enquanto a mensagem anterior ia: manda assim que ela terminar (antes era ignorado). */
+  const enviarDepois = useRef(false);
   const [pendentes, setPendentes] = useState<Pendente[]>([]);
   const [arrastando, setArrastando] = useState(false);
   const seletor = useRef<HTMLInputElement>(null);
@@ -227,6 +229,10 @@ export function Conversa({
 
   async function enviar(evento?: FormEvent) {
     evento?.preventDefault();
+    if (enviando && !subindo && (texto.trim() !== '' || prontos.length > 0)) {
+      enviarDepois.current = true;
+      return;
+    }
     if (!podeEnviar) return;
     const v = validarTextoMensagem(texto);
     if (!v.ok && prontos.length === 0) return;
@@ -246,6 +252,13 @@ export function Conversa({
       estavaNoFim.current = true;
     }
   }
+
+  // Envio que ficou na fila: sai quando o anterior terminou e o compositor já mostra o texto novo.
+  useEffect(() => {
+    if (enviando || !enviarDepois.current) return;
+    enviarDepois.current = false;
+    void enviar();
+  });
 
   function teclas(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
