@@ -5,6 +5,9 @@
 #                       sslip.io, código de convite e segredo do LiveKit), instaladores da última release e sobe.
 #   ./vm.sh atualizar   git pull, instaladores da última release, reconstrói e sobe; confere a saúde.
 #   ./vm.sh status      contêineres, saúde e versão.
+#   ./vm.sh consulta "SELECT …"   consulta só de leitura no banco (senhas e tokens aparecem mascarados).
+#   ./vm.sh copia-banco           cópia do banco sem senhas e sessões em deploy/copia-banco-<data>.db,
+#                                 para baixar (scp) e abrir no DB Browser for SQLite.
 #
 # Rode de dentro da pasta deploy do repositório (cd ~/tofalany/deploy). Na VM, não no seu PC.
 set -euo pipefail
@@ -133,6 +136,21 @@ status() {
   grep -E '^(URL_PUBLICA|DOMINIO)=' .env 2> /dev/null || true
 }
 
+banco_cli() {
+  compose exec -T server node server/dist/cli/banco.js "$@"
+}
+
+copia_banco() {
+  local nome
+  nome="copia-banco-$(date +%Y%m%d-%H%M%S).db"
+  banco_cli copia "/data/$nome"
+  compose cp "server:/data/$nome" "./$nome"
+  compose exec -T server rm -f "/data/$nome"
+  chmod 600 "./$nome"
+  ok "Cópia em $PASTA/$nome"
+  echo "   No seu PC: scp tofalany:$PASTA/$nome .   (depois apague a da VM: rm $PASTA/$nome)"
+}
+
 case "${1:-}" in
   instalar)
     instalar_docker
@@ -151,8 +169,14 @@ case "${1:-}" in
     subir
     ;;
   status) status ;;
+  tabelas) banco_cli tabelas ;;
+  consulta)
+    [ -n "${2:-}" ] || erro 'Uso: ./vm.sh consulta "SELECT …"'
+    banco_cli consulta "$2"
+    ;;
+  copia-banco) copia_banco ;;
   *)
-    echo "Uso: ./vm.sh instalar | atualizar | status"
+    echo "Uso: ./vm.sh instalar | atualizar | status | tabelas | consulta \"SELECT …\" | copia-banco"
     exit 1
     ;;
 esac

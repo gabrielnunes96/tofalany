@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "redefinir-senha": "node dist/cli/redefinir-senha.js"
+    "redefinir-senha": "node dist/cli/redefinir-senha.js",
+    "banco": "node dist/cli/banco.js"
   },
   "dependencies": {
     "@fastify/cors": "^11.4.0",

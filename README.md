@@ -212,6 +212,34 @@ O código de convite pode ser trocado pelo app (administrador, em **Convite**). 
 
 Banco, arquivos enviados e backups ficam no volume Docker `tofalany_dados` (em `/data` dentro do contêiner). Apagar o volume (`docker compose down -v`) **apaga tudo**.
 
+## Consultar o banco
+
+O banco é um SQLite. Os comandos abaixo abrem o banco **só para leitura**: não alteram nada no servidor. Colunas com hash de senha, token ou código aparecem mascaradas (`•••`).
+
+Na VPS, de dentro de `~/tofalany/deploy`:
+
+```bash
+./vm.sh tabelas                                   # tabelas e quantas linhas cada uma tem
+./vm.sh consulta "SELECT id, usuario, cargo FROM usuarios"
+./vm.sh copia-banco                               # cópia sem senhas, sessões e códigos de redefinição
+```
+
+A cópia fica em `deploy/copia-banco-<data>.db`. Baixe para o seu PC e abra no [DB Browser for SQLite](https://sqlitebrowser.org/); depois apague a da VM:
+
+```bash
+scp tofalany:tofalany/deploy/copia-banco-<data>.db .
+```
+
+Em desenvolvimento (banco `server/data/tofalando.db`), depois de `npm run build`:
+
+```bash
+npm run banco -w server -- tabelas
+npm run banco -w server -- consulta "SELECT * FROM canais"
+npm run banco -w server -- copia minha-copia.db
+```
+
+As consultas mostram no máximo 200 linhas; use `LIMIT` e `OFFSET` para paginar.
+
 ## Atualizar e voltar
 
 ### Backup manual
