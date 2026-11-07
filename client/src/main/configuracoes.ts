@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type Tema } from '@tofalando/shared';
+import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
   ler(): ConfiguracoesLocais;
@@ -30,6 +30,19 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
   if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
   if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
+  if (Array.isArray(obj.servidores)) {
+    const vistos = new Set<string>();
+    const lista: ServidorConhecido[] = [];
+    for (const item of obj.servidores.slice(0, 20)) {
+      if (!item || typeof item !== 'object') continue;
+      const { url, nome } = item as { url?: unknown; nome?: unknown };
+      const n = typeof url === 'string' ? normalizarUrlServidor(url) : undefined;
+      if (!n?.ok || vistos.has(n.valor)) continue;
+      vistos.add(n.valor);
+      lista.push(typeof nome === 'string' && nome.trim() ? { url: n.valor, nome: nome.trim().slice(0, 64) } : { url: n.valor });
+    }
+    resultado.servidores = lista;
+  }
   if (obj.ocultos && typeof obj.ocultos === 'object') {
     const o = obj.ocultos as Record<string, unknown>;
     resultado.ocultos = { canais: o.canais === true, membros: o.membros === true, cameras: o.cameras === true };

@@ -12,10 +12,13 @@ export interface ApiTofalando {
     ler(): Promise<ConfiguracoesLocais>;
     gravar(parcial: Partial<ConfiguracoesLocais>): Promise<ConfiguracoesLocais>;
   };
+  /** Backlog v2, item 7: uma sessão por servidor. */
   sessao: {
-    ler(): Promise<SessaoLocal | null>;
+    /** A sessão de um servidor; sem servidor, a do último em que a pessoa entrou. */
+    ler(servidorUrl?: string): Promise<SessaoLocal | null>;
     gravar(sessao: SessaoLocal): Promise<void>;
-    apagar(): Promise<void>;
+    /** Apaga a sessão de um servidor (sair dele). */
+    apagar(servidorUrl?: string): Promise<void>;
   };
   convite: {
     /** Convite que abriu o app (uma vez só). */

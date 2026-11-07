@@ -8,9 +8,9 @@ const api: ApiTofalando = {
     gravar: (parcial) => ipcRenderer.invoke('config:gravar', parcial),
   },
   sessao: {
-    ler: () => ipcRenderer.invoke('sessao:ler'),
+    ler: (url) => ipcRenderer.invoke('sessao:ler', url),
     gravar: (sessao) => ipcRenderer.invoke('sessao:gravar', sessao),
-    apagar: () => ipcRenderer.invoke('sessao:apagar'),
+    apagar: (url) => ipcRenderer.invoke('sessao:apagar', url),
   },
   convite: {
     pendente: () => ipcRenderer.invoke('deeplink:pendente'),

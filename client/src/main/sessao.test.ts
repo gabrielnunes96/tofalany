@@ -55,4 +55,25 @@ describe('criarArmazemSessao', () => {
   it('recusa gravar sessão inválida', () => {
     expect(() => criarArmazemSessao(arquivoTemp(), cifraFalsa(true)).gravar({ servidorUrl: 'x', token: '' })).toThrow();
   });
+
+  it('backlog v2, item 7: uma sessão por servidor; apagar um não mexe nos outros; lê o formato antigo', () => {
+    const arquivo = arquivoTemp();
+    const armazem = criarArmazemSessao(arquivo, cifraFalsa(true));
+    armazem.gravar({ servidorUrl: 'https://a.io', token: 'ta' });
+    armazem.gravar({ servidorUrl: 'https://b.io', token: 'tb' });
+    expect(armazem.ler('https://a.io')).toEqual({ servidorUrl: 'https://a.io', token: 'ta' });
+    expect(armazem.ler()).toEqual({ servidorUrl: 'https://b.io', token: 'tb' });
+    armazem.apagar('https://b.io');
+    expect(armazem.ler('https://b.io')).toBeNull();
+    expect(armazem.ler('https://a.io')?.token).toBe('ta');
+    expect(armazem.ler()).toBeNull();
+
+    // Arquivo da versão anterior (uma sessão só) continua valendo.
+    const antigo = arquivoTemp();
+    const dados = Buffer.from(JSON.stringify({ servidorUrl: 'https://v.io', token: 'tv' })).toString('base64');
+    writeFileSync(antigo, JSON.stringify({ cifrado: false, dados }));
+    const lido = criarArmazemSessao(antigo, cifraFalsa(false));
+    expect(lido.ler('https://v.io')?.token).toBe('tv');
+    expect(lido.ler()?.servidorUrl).toBe('https://v.io');
+  });
 });

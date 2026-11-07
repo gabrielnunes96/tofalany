@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { ConviteLink, MotivoRevogacao, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import type { ConviteLink, MotivoRevogacao, ServidorConhecido, SessaoResponse, UsuarioDto } from '@tofalando/shared';
 import { testarServidor } from '../servicos/servidor';
 import { ponte } from '../servicos/ponte';
 import { criarApi, ErroApiCliente } from '../servicos/api';
@@ -7,6 +7,7 @@ import { TelaServidor } from '../telas/TelaServidor';
 import { TelaEntrar } from '../telas/TelaEntrar';
 import { TelaPrincipal } from '../telas/TelaPrincipal';
 import { avisoDeRevogacao } from './avisos';
+import { ColunaServidores } from '../componentes/ColunaServidores';
 
 type Estado =
   | { fase: 'carregando' }
@@ -17,20 +18,40 @@ type Estado =
 
 export function App() {
   const [estado, setEstado] = useState<Estado>({ fase: 'carregando' });
+  const estadoRef = useRef(estado);
+  useEffect(() => {
+    estadoRef.current = estado;
+  }, [estado]);
+  // Backlog v2, item 7: servidores em que a pessoa entrou (a coluna à esquerda).
+  const [servidores, setServidores] = useState<ServidorConhecido[]>([]);
+  const lembrarServidor = useCallback((url: string, nome?: string) => {
+    setServidores((atual) => {
+      const existente = atual.find((s) => s.url === url);
+      if (existente && (nome === undefined || existente.nome === nome)) return atual;
+      const novo = existente ? atual.map((s) => (s.url === url ? { url, nome } : s)) : [...atual, nome ? { url, nome } : { url }];
+      void ponte()
+        .config.gravar({ servidores: novo })
+        .catch(() => undefined);
+      return novo;
+    });
+  }, []);
 
   /** Com servidor guardado: usa a sessão se ela for deste servidor e ainda valer (RF-3). */
   const retomar = useCallback(async (salvo: string) => {
     let url = salvo;
-    let sessao = await ponte().sessao.ler().catch(() => null);
+    let sessao = await ponte()
+      .sessao.ler(salvo)
+      .catch(() => null);
     // Endereço http:// de um servidor que redireciona para HTTPS: o tempo real (WebSocket) não segue redirecionamento.
     if (url.startsWith('http:')) {
       const teste = await testarServidor(url);
       if (teste.ok && teste.valor.endereco !== url) {
         url = teste.valor.endereco;
         await ponte().config.gravar({ servidorUrl: url }).catch(() => undefined);
-        if (sessao?.servidorUrl === salvo) {
+        if (sessao) {
           sessao = { ...sessao, servidorUrl: url };
           await ponte().sessao.gravar(sessao).catch(() => undefined);
+          await ponte().sessao.apagar(salvo).catch(() => undefined);
         }
       }
     }
@@ -43,7 +64,9 @@ export function App() {
       setEstado({ fase: 'principal', url, token: sessao.token, usuario });
     } catch (e) {
       if (e instanceof ErroApiCliente && e.status === 401) {
-        await ponte().sessao.apagar().catch(() => undefined);
+        await ponte()
+          .sessao.apagar(url)
+          .catch(() => undefined);
         setEstado({ fase: 'entrar', url });
       } else {
         setEstado({ fase: 'sem-conexao', url, mensagem: e instanceof Error ? e.message : 'Sem conexão com o servidor.' });
@@ -68,8 +91,10 @@ export function App() {
       const servidor = teste.valor.endereco;
       // O processo principal só deixa falar com o servidor salvo; este, já testado, vale enquanto o convite estiver aberto.
       await ponte().rede.servidorPendente(servidor).catch(() => undefined);
-      const sessao = await ponte().sessao.ler().catch(() => null);
-      if (sessao?.servidorUrl === servidor) {
+      const sessao = await ponte()
+        .sessao.ler(servidor)
+        .catch(() => null);
+      if (sessao) {
         await ponte().config.gravar({ servidorUrl: servidor });
         await retomar(servidor);
       } else setEstado((atual) => ({ fase: 'entrar', url: servidor, convite: codigo, voltar: atual }));
@@ -83,6 +108,8 @@ export function App() {
       const pendente = await ponte().convite.pendente().catch(() => null);
       if (pendente) return abrirConvite(pendente);
       const c = await ponte().config.ler();
+      // Quem vem da versão sem a lista: o servidor salvo entra nela.
+      setServidores(c.servidores?.length ? c.servidores : c.servidorUrl ? [{ url: c.servidorUrl }] : []);
       return c.servidorUrl ? retomar(c.servidorUrl) : setEstado({ fase: 'escolher-servidor', voltar: null });
     })().catch(() => setEstado({ fase: 'escolher-servidor', voltar: null }));
     return parar;
@@ -105,21 +132,24 @@ export function App() {
     await ponte()
       .sessao.gravar({ servidorUrl: url, token: sessao.token })
       .catch((e: unknown) => console.error('Não foi possível guardar a sessão neste computador.', e));
+    lembrarServidor(url);
     setEstado({ fase: 'principal', url, token: sessao.token, usuario: sessao.usuario });
   }
 
   async function sair(url: string, token: string) {
     await criarApi(url, token).sair().catch(() => undefined);
     await ponte()
-      .sessao.apagar()
+      .sessao.apagar(url)
       .catch((e: unknown) => console.error('Não foi possível apagar a sessão guardada.', e));
     setEstado({ fase: 'entrar', url });
   }
 
   const sessaoRevogada = useCallback((motivo: MotivoRevogacao) => {
-    void ponte()
-      .sessao.apagar()
-      .catch(() => undefined);
+    const atual = estadoRef.current;
+    if (atual.fase === 'principal')
+      void ponte()
+        .sessao.apagar(atual.url)
+        .catch(() => undefined);
     setEstado((atual) =>
       atual.fase === 'principal' ? { fase: 'entrar', url: atual.url, aviso: avisoDeRevogacao(motivo) } : atual,
     );
@@ -127,15 +157,36 @@ export function App() {
 
   const trocarServidor = () => setEstado((atual) => ({ fase: 'escolher-servidor', voltar: atual }));
 
+  /** Backlog v2, item 7: clique na coluna: vira o servidor do app e entra com a sessão dele (se houver). */
+  async function irParaServidor(url: string) {
+    await ponte()
+      .config.gravar({ servidorUrl: url })
+      .catch(() => undefined);
+    setEstado({ fase: 'carregando' });
+    await retomar(url);
+  }
+
+  const urlAtiva = estado.fase === 'principal' || estado.fase === 'entrar' || estado.fase === 'sem-conexao' ? estado.url : null;
+  /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
+  const comColuna = (tela: ReactNode) =>
+    servidores.length === 0 ? (
+      tela
+    ) : (
+      <div className="app-com-servidores">
+        <ColunaServidores servidores={servidores} ativo={urlAtiva} aoEscolher={(url) => void irParaServidor(url)} aoAdicionar={trocarServidor} />
+        <div className="app-tela">{tela}</div>
+      </div>
+    );
+
   switch (estado.fase) {
     case 'carregando':
       return null;
     case 'escolher-servidor': {
       const { voltar } = estado;
-      return <TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />;
+      return comColuna(<TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />);
     }
     case 'sem-conexao':
-      return (
+      return comColuna(
         <main className="tela-centro">
           <section className="cartao">
             <h1>Sem conexão</h1>
@@ -149,28 +200,30 @@ export function App() {
               Trocar servidor
             </button>
           </section>
-        </main>
+        </main>,
       );
     case 'entrar':
-      return (
+      return comColuna(
         <TelaEntrar
           key={`${estado.url}|${estado.convite ?? ''}`}
           servidorUrl={estado.url}
           aviso={estado.aviso}
           conviteInicial={estado.convite}
           aoCancelarConvite={estado.voltar && estado.voltar.fase !== 'carregando' ? () => setEstado(estado.voltar!) : undefined}
-          aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />
+          aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />,
       );
     case 'principal':
-      return (
+      return comColuna(
         <TelaPrincipal
+          key={estado.url}
+          aoNomeServidor={(nome) => lembrarServidor(estado.url, nome)}
           servidorUrl={estado.url}
           token={estado.token}
           usuarioInicial={estado.usuario}
           aoSair={() => void sair(estado.url, estado.token)}
           aoTrocarServidor={trocarServidor}
           aoSessaoRevogada={sessaoRevogada}
-        />
+        />,
       );
   }
 }

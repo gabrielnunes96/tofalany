@@ -55,6 +55,8 @@ import { chaveCanal, chaveDm, type Chave, type Historico } from '../estado/loja'
 import { decidirAvisoPresenca, decidirMensagemNova } from '../estado/notificar';
 
 interface Props {
+  /** Backlog v2, item 7: o nome do servidor chegou (vai para a coluna de servidores). */
+  aoNomeServidor?: (nome: string) => void;
   servidorUrl: string;
   token: string;
   /** Usuário de /api/eu, mostrado até o retrato do tempo real chegar. */
@@ -89,7 +91,7 @@ const destinoDe = (chave: Chave): Destino => {
 };
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
-export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada }: Props) {
+export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor }: Props) {
   const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
@@ -730,6 +732,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     };
   }, [servidorUrl, token, acoes, aoSessaoRevogada]);
 
+  // Backlog v2, item 7: o nome do servidor vai para a coluna de servidores.
+  useEffect(() => {
+    if (nomeServidor) aoNomeServidor?.(nomeServidor);
+  }, [nomeServidor, aoNomeServidor]);
   const usuario = eu ?? usuarioInicial;
   const barraVisao = (
     <span className="barra-visao" role="group" aria-label="Mostrar ou ocultar">

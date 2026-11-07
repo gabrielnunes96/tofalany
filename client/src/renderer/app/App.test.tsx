@@ -42,7 +42,7 @@ function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | 
     atualizacao: { estado: async () => null, aoMudar: () => () => undefined, instalar: async () => undefined, abrirPagina: async () => undefined },
     config: { ler: async () => ({ servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO }), gravar: gravarConfig },
     sessao: {
-      ler: async () => estado.sessao,
+      ler: async (url?: string) => (estado.sessao && (!url || estado.sessao.servidorUrl === url) ? estado.sessao : null),
       gravar: async (s) => void (estado.sessao = s),
       apagar: async () => void (estado.sessao = null),
     },

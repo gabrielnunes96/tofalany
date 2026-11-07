@@ -148,6 +148,8 @@ export interface ConfiguracoesLocais {
   tela: PreferenciasTela;
   /** Backlog v2, 1e: fechar a janela deixa o app na bandeja (padrão: sim). */
   fecharParaBandeja?: boolean;
+  /** Backlog v2, item 7: servidores em que a pessoa entrou (a coluna à esquerda). */
+  servidores?: ServidorConhecido[];
   /** Backlog v2, item 10: partes da tela escondidas. */
   ocultos?: PartesOcultas;
   /** Backlog v2, item 9: tema da interface (padrão: neon). */
@@ -201,6 +203,12 @@ export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   notificacoes: NOTIFICACOES_PADRAO,
   tela: TELA_PADRAO,
 };
+
+/** Backlog v2, item 7: servidor da coluna à esquerda (o nome vem do próprio servidor). */
+export interface ServidorConhecido {
+  url: string;
+  nome?: string;
+}
 
 /** Backlog v2, item 10: canais (coluna da esquerda), membros (da direita) e câmeras escondidos. */
 export interface PartesOcultas {

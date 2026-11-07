@@ -24,9 +24,9 @@ export function registrarIpc(
     aoMudarConfig(novo);
     return novo;
   });
-  ipcMain.handle('sessao:ler', () => sessao.ler());
+  ipcMain.handle('sessao:ler', (_e, url: unknown) => sessao.ler(typeof url === 'string' ? url : undefined));
   ipcMain.handle('sessao:gravar', (_evento, nova: SessaoLocal) => sessao.gravar(nova));
-  ipcMain.handle('sessao:apagar', () => sessao.apagar());
+  ipcMain.handle('sessao:apagar', (_e, url: unknown) => sessao.apagar(typeof url === 'string' ? url : undefined));
   ipcMain.handle('deeplink:pendente', () => pegarConvitePendente() ?? null);
   ipcMain.handle('arquivo:baixar', (_e, url: unknown, nome: unknown) => {
     if (typeof url !== 'string' || typeof nome !== 'string') throw new Error('Pedido inválido.');
