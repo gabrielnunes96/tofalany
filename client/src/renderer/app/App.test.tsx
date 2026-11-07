@@ -9,7 +9,14 @@ vi.mock('../telas/TelaPrincipal', () => ({
   TelaPrincipal: ({ servidorUrl }: { servidorUrl: string }) => <p>PRINCIPAL {servidorUrl}</p>,
 }));
 const testar = vi.fn();
-vi.mock('../servicos/servidor', () => ({ testarServidor: (url: string) => testar(url) }));
+// O teste real devolve o endereço a guardar; os casos aqui só dizem ok/erro (o endereço é o mesmo pedido).
+vi.mock('../servicos/servidor', () => ({
+  testarServidor: async (url: string) => {
+    const r = (await testar(url)) as { ok: boolean; valor?: object; erro?: string } | undefined;
+    if (!r) return { ok: false, erro: 'sem resposta' };
+    return r.ok ? { ...r, valor: { endereco: url, ...r.valor } } : r;
+  },
+}));
 const eu: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'ana', cor: '#fff', avatarUrl: null, cargo: 'membro' };
 vi.mock('../servicos/api', async (original) => ({
   ...(await original<typeof import('../servicos/api')>()),

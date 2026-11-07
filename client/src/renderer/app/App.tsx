@@ -19,8 +19,21 @@ export function App() {
   const [estado, setEstado] = useState<Estado>({ fase: 'carregando' });
 
   /** Com servidor guardado: usa a sessão se ela for deste servidor e ainda valer (RF-3). */
-  const retomar = useCallback(async (url: string) => {
-    const sessao = await ponte().sessao.ler().catch(() => null);
+  const retomar = useCallback(async (salvo: string) => {
+    let url = salvo;
+    let sessao = await ponte().sessao.ler().catch(() => null);
+    // Endereço http:// de um servidor que redireciona para HTTPS: o tempo real (WebSocket) não segue redirecionamento.
+    if (url.startsWith('http:')) {
+      const teste = await testarServidor(url);
+      if (teste.ok && teste.valor.endereco !== url) {
+        url = teste.valor.endereco;
+        await ponte().config.gravar({ servidorUrl: url }).catch(() => undefined);
+        if (sessao?.servidorUrl === salvo) {
+          sessao = { ...sessao, servidorUrl: url };
+          await ponte().sessao.gravar(sessao).catch(() => undefined);
+        }
+      }
+    }
     if (!sessao || sessao.servidorUrl !== url) {
       setEstado({ fase: 'entrar', url });
       return;
@@ -46,12 +59,13 @@ export function App() {
    */
   const abrirConvite = useCallback(
     async (convite: ConviteLink) => {
-      const { servidor, codigo } = convite;
-      const teste = await testarServidor(servidor);
+      const { codigo } = convite;
+      const teste = await testarServidor(convite.servidor);
       if (!teste.ok) {
-        setEstado({ fase: 'sem-conexao', url: servidor, mensagem: teste.erro, convite });
+        setEstado({ fase: 'sem-conexao', url: convite.servidor, mensagem: teste.erro, convite });
         return;
       }
+      const servidor = teste.valor.endereco;
       // O processo principal só deixa falar com o servidor salvo; este, já testado, vale enquanto o convite estiver aberto.
       await ponte().rede.servidorPendente(servidor).catch(() => undefined);
       const sessao = await ponte().sessao.ler().catch(() => null);

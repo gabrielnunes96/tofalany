@@ -10,12 +10,26 @@ function ehServidorInfo(v: unknown): v is ServidorInfo {
   return o.app === APP_ID && typeof o.nome === 'string' && typeof o.versao === 'string' && typeof o.contas === 'number' && typeof o.limiteContas === 'number';
 }
 
+/** Resposta do teste: dados do servidor e o endereço a guardar (o final, se ele redirecionou para HTTPS). */
+export type ServidorTestado = ServidorInfo & { endereco: string };
+
+/** Endereço final de um redirecionamento: só aceita a troca de http para https no mesmo host. */
+function enderecoFinal(pedido: string, final: string): string {
+  try {
+    const de = new URL(pedido);
+    const para = new URL(final);
+    return de.protocol === 'http:' && para.protocol === 'https:' && de.hostname === para.hostname ? para.origin : de.origin;
+  } catch {
+    return pedido;
+  }
+}
+
 /** Confere se a URL responde como um servidor ToFalany (RF-1). */
 export async function testarServidor(
   url: string,
   buscar: Buscar = fetch,
   tempoMs: number = TEMPO_TESTE_SERVIDOR_MS,
-): Promise<Resultado<ServidorInfo>> {
+): Promise<Resultado<ServidorTestado>> {
   let resposta: Response;
   try {
     resposta = await buscar(`${url}/api/servidor`, { signal: AbortSignal.timeout(tempoMs) });
@@ -25,7 +39,7 @@ export async function testarServidor(
   if (!resposta.ok) return { ok: false, erro: `O servidor respondeu com erro (${resposta.status}).` };
   try {
     const info: unknown = await resposta.json();
-    return ehServidorInfo(info) ? { ok: true, valor: info } : { ok: false, erro: NAO_E_TOFALANDO };
+    return ehServidorInfo(info) ? { ok: true, valor: { ...info, endereco: enderecoFinal(url, resposta.url || url) } } : { ok: false, erro: NAO_E_TOFALANDO };
   } catch {
     return { ok: false, erro: NAO_E_TOFALANDO };
   }

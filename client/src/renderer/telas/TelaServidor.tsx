@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { normalizarUrlServidor, type Resultado, type ServidorInfo } from '@tofalando/shared';
-import { testarServidor } from '../servicos/servidor';
+import { normalizarUrlServidor, type Resultado } from '@tofalando/shared';
+import { testarServidor, type ServidorTestado } from '../servicos/servidor';
 
 interface Props {
   aoConectar: (url: string) => void | Promise<void>;
   /** Presente quando já há um servidor guardado: volta para ele sem alterar nada. */
   aoCancelar?: () => void;
-  testar?: (url: string) => Promise<Resultado<ServidorInfo>>;
+  testar?: (url: string) => Promise<Resultado<ServidorTestado>>;
 }
 
 /** Primeira execução: pede o endereço do servidor e confere antes de guardar (RF-1, CA-1). */
@@ -25,12 +25,19 @@ export function TelaServidor({ aoConectar, aoCancelar, testar = testarServidor }
     }
     setTestando(true);
     try {
-      const resultado = await testar(url.valor);
+      // Sem "http(s)://" digitado: tenta HTTPS primeiro (servidor na VPS); se não responder, HTTP (Tailscale, rede local).
+      const semEsquema = !/^[a-z][a-z0-9+.-]*:\/\//i.test(texto.trim());
+      const candidatos = semEsquema ? [url.valor.replace(/^http:/, 'https:'), url.valor] : [url.valor];
+      let resultado: Resultado<ServidorTestado> = { ok: false, erro: 'Endereço inválido.' };
+      for (const candidato of candidatos) {
+        resultado = await testar(candidato);
+        if (resultado.ok) break;
+      }
       if (!resultado.ok) {
         setErro(resultado.erro);
         return;
       }
-      await aoConectar(url.valor);
+      await aoConectar(resultado.valor.endereco);
     } catch {
       setErro('Não foi possível guardar o endereço. Tente de novo.');
     } finally {
