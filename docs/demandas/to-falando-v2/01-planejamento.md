@@ -62,6 +62,21 @@ Os limites de CPU e memória mudaram em 2026 e as fontes divergem: confira o seu
 
 Cada item segue o ciclo de sempre (testes, revisão, validação completa e commit), com commit automático por tarefa se você autorizar de novo para esta demanda. Se a sessão precisar acabar antes, o corte natural é depois do bloco das 00h: servidor no ar e correções rápidas publicadas.
 
+## Situação em 07/11, 0h15, e nova ordem
+
+**No ar:** servidor na Oracle (VM micro, `https://167-234-225-58.sslip.io`), release v0.1.0 no GitHub, primeiro amigo entrou e a voz e a tela funcionaram entre duas máquinas.
+
+Ordem a partir daqui, pelo que o uso real mostrou:
+
+1. **v0.2.0**:
+   - correções de defeitos: 0a (endereço `https://`), já feita, e 0b (formato da transmissão);
+   - **1d (atualização automática)**, para todas as próximas versões chegarem sozinhas;
+   - 1b (colar imagem), já feito.
+2. **v0.3.0**:
+   - 1c (qualidade da voz), 1 (bolinha de fala) e 1e (bandeja);
+   - 2 (status), 4 (convite que resolve tudo) e 3 (redefinir senha).
+3. Depois, as fases 2 a 5 abaixo, sem mudança.
+
 ## Fases seguintes
 
 | Fase | Itens | Conteúdo | Estimativa |
