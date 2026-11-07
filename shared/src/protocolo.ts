@@ -540,29 +540,66 @@ export interface EstadoMusica {
   /** Quando a música atual começou (ms desde a época), para mostrar o tempo. */
   desde: number | null;
   fila: MusicaDto[];
+  /** Música atual pausada (/pause). */
+  pausado?: boolean;
+  /** O ToOuvini está na sala (mesmo sem tocar: depois de /stop ele espera alguns minutos). */
+  conectado?: boolean;
 }
 
-export type ComandoMusica = { comando: 'tocar'; busca: string } | { comando: 'pular' } | { comando: 'parar' };
+export type ComandoMusica =
+  | { comando: 'tocar'; busca: string }
+  | { comando: 'pausar' }
+  | { comando: 'continuar' }
+  | { comando: 'pular' }
+  | { comando: 'parar' }
+  | { comando: 'expulsar' };
+
+/** Comandos do ToOuvini para a lista que abre ao digitar "/" no chat (o primeiro nome é o que aparece). */
+export const COMANDOS_MUSICA: readonly { nomes: string[]; argumento?: string; descricao: string }[] = [
+  { nomes: ['play', 'tocar', 'p'], argumento: 'link, playlist ou nome', descricao: 'Toca ou põe na fila (link de playlist põe a playlist inteira)' },
+  { nomes: ['pause', 'pausar'], descricao: 'Pausa a música' },
+  { nomes: ['resume', 'continuar'], descricao: 'Continua a música pausada' },
+  { nomes: ['next', 'skip', 'pular'], descricao: 'Pula para a próxima da fila' },
+  { nomes: ['stop', 'parar'], descricao: 'Para e limpa a fila (o ToOuvini espera um pouco na sala)' },
+  { nomes: ['queue', 'fila'], descricao: 'Mostra a fila' },
+  { nomes: ['kick', 'sair'], descricao: 'Tira o ToOuvini da sala' },
+];
 
 /** Até quantas músicas esperam na fila de um canal, e a duração máxima de cada uma. */
 export const LIMITE_FILA_MUSICA = 50;
+/** Em quantos canais (de qualquer servidor) o ToOuvini toca ao mesmo tempo. */
+export const LIMITE_CANAIS_MUSICA = 5;
 export const DURACAO_MAXIMA_MUSICA_S = 3 * 60 * 60;
 
 /**
  * Lê um comando de música digitado no chat: "/tocar <link ou busca>", "/pular", "/parar".
  * Devolve undefined se o texto não é comando de música (vai como mensagem normal).
  */
-export function lerComandoMusica(texto: string): ComandoMusica | { erro: string } | undefined {
-  const m = /^\/(tocar|play|p|pular|skip|parar|stop)(?:\s+([\s\S]*))?$/i.exec(texto.trim());
+export function lerComandoMusica(texto: string): ComandoMusica | { comando: 'fila' } | { erro: string } | undefined {
+  const m = /^\/([a-zà-ú]+)(?:\s+([\s\S]*))?$/i.exec(texto.trim());
   if (!m) return undefined;
   const nome = m[1]!.toLowerCase();
   const resto = (m[2] ?? '').trim();
-  if (nome === 'tocar' || nome === 'play' || nome === 'p') {
-    if (!resto) return { erro: 'Use /tocar <link do YouTube ou nome da música>.' };
-    if (resto.length > 300) return { erro: 'Busca longa demais.' };
-    return { comando: 'tocar', busca: resto };
+  const def = COMANDOS_MUSICA.find((c) => c.nomes.includes(nome));
+  if (!def) return undefined;
+  switch (def.nomes[0]) {
+    case 'play':
+      if (!resto) return { comando: 'continuar' };
+      if (resto.length > 300) return { erro: 'Busca longa demais.' };
+      return { comando: 'tocar', busca: resto };
+    case 'pause':
+      return { comando: 'pausar' };
+    case 'resume':
+      return { comando: 'continuar' };
+    case 'next':
+      return { comando: 'pular' };
+    case 'stop':
+      return { comando: 'parar' };
+    case 'queue':
+      return { comando: 'fila' };
+    default:
+      return { comando: 'expulsar' };
   }
-  return { comando: nome === 'pular' || nome === 'skip' ? 'pular' : 'parar' };
 }
 
 /** O que fazer ao fechar a janela do app. */

@@ -548,7 +548,15 @@ test('backlog v2, item 14: /tocar no chat põe o bot no canal de voz; todos ouve
     await p.janela.getByRole('button', { name: 'Entrar no canal de voz Sala 1' }).click();
     await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
   }
-  await chat.fill('/tocar tom de teste');
+  // "/" abre a lista de comandos do ToOuvini; escolher /play deixa o campo pronto para o link ou nome.
+  await chat.fill('/');
+  const paleta = dono.janela.getByRole('listbox', { name: 'Comandos' });
+  await expect(paleta.getByRole('option')).toHaveCount(7);
+  await chat.fill('/pl');
+  await expect(paleta.getByRole('option')).toHaveCount(1);
+  await chat.press('Enter');
+  await expect(chat).toHaveValue('/play ');
+  await chat.pressSequentially('tom de teste');
   await chat.press('Enter');
   const painelAna = ana.janela.getByRole('region', { name: 'Música no canal' });
   await expect(painelAna).toContainText('Tom de teste (ytsearch1:tom de teste)', { timeout: 15_000 });
@@ -583,11 +591,20 @@ test('backlog v2, item 14: /tocar no chat põe o bot no canal de voz; todos ouve
     .toBeGreaterThan(0.01);
   await ana.janela.screenshot({ path: join(__dirname, '../../docs/demandas/to-falando-v2/prints/bot-musica.png') });
 
-  // Pular: vai para a segunda. Parar: o bot sai.
-  await painelAna.getByRole('button', { name: '⏭ Pular' }).click();
+  // Pausar e continuar; pular vai para a segunda.
+  await painelAna.getByRole('button', { name: 'Pausar' }).click();
+  await expect(painelAna).toContainText('pausado');
+  await chat.fill('/resume');
+  await chat.press('Enter');
+  await expect(painelAna).toContainText('tocando');
+  await painelAna.getByRole('button', { name: 'Pular' }).click();
   await expect(painelAna).toContainText('Tom de teste (ytsearch1:segunda)', { timeout: 15_000 });
   await expect(painelAna).not.toContainText('Depois:');
-  await dono.janela.getByRole('region', { name: 'Música no canal' }).getByRole('button', { name: '⏹ Parar' }).click();
+  // Parar: limpa e o ToOuvini espera na sala; /kick tira ele de lá.
+  await dono.janela.getByRole('region', { name: 'Música no canal' }).getByRole('button', { name: 'Parar' }).click();
+  await expect(painelAna).toContainText('na sala, sem música', { timeout: 15_000 });
+  await chat.fill('/kick');
+  await chat.press('Enter');
   await expect(painelAna).toHaveCount(0, { timeout: 15_000 });
   await expect(audioBot).toHaveCount(0, { timeout: 15_000 });
 

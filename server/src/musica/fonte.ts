@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import type { Readable } from 'node:stream';
 import { DURACAO_MAXIMA_MUSICA_S } from '@tofalando/shared';
 import { ErroHttp } from '../erros.js';
@@ -18,6 +19,8 @@ export interface FluxoAudio {
 
 export interface FonteMusica {
   buscar(busca: string): Promise<InfoMusica>;
+  /** Uma música ou, para link de playlist, as primeiras `limite` dela. */
+  buscarVarias?(busca: string, limite: number): Promise<InfoMusica[]>;
   abrir(url: string): FluxoAudio;
 }
 
@@ -41,6 +44,30 @@ export function alvoDaBusca(busca: string): string {
     return u.toString();
   }
   return `ytsearch1:${texto}`;
+}
+
+/** Link do YouTube com playlist (list=...): toca a playlist inteira (até o limite da fila). */
+export function ehPlaylist(busca: string): boolean {
+  try {
+    const u = new URL(busca.trim());
+    return HOSTS_YOUTUBE.test(u.hostname) && !!u.searchParams.get('list');
+  } catch {
+    return false;
+  }
+}
+
+/** JSON de playlist do yt-dlp (--flat-playlist -J) → músicas (vídeos privados ou apagados ficam de fora). */
+export function lerPlaylist(saida: string, limite: number): InfoMusica[] {
+  const j = JSON.parse(saida) as { entries?: { id?: unknown; title?: unknown; duration?: unknown; url?: unknown }[] };
+  const lista: InfoMusica[] = [];
+  for (const e of j.entries ?? []) {
+    if (lista.length >= limite) break;
+    if (typeof e.id !== 'string' || typeof e.title !== 'string' || /^\[(private|deleted)/i.test(e.title)) continue;
+    const duracao = typeof e.duration === 'number' && Number.isFinite(e.duration) ? Math.round(e.duration) : 0;
+    if (duracao > DURACAO_MAXIMA_MUSICA_S) continue;
+    lista.push({ titulo: e.title.slice(0, 200), url: `https://www.youtube.com/watch?v=${e.id}`, duracao });
+  }
+  return lista;
 }
 
 /** Primeira linha JSON do yt-dlp (-j) → título, página e duração. */
@@ -83,24 +110,44 @@ function rodar(bin: string, args: string[], tempoMs: number): Promise<string> {
  * yt-dlp descobre e baixa o áudio; o ffmpeg converte para PCM (48 kHz estéreo, volume a 50% para não estourar
  * por cima das vozes). `extras`: argumentos a mais do yt-dlp (na imagem Docker, o runtime de JavaScript).
  */
-export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extras?: string[]; registrarErro?: (e: unknown) => void } = {}): FonteMusica {
+export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extras?: string[]; cookies?: string; registrarErro?: (e: unknown) => void } = {}): FonteMusica {
   const ytdlp = opcoes.ytdlp ?? 'yt-dlp';
   const ffmpeg = opcoes.ffmpeg ?? 'ffmpeg';
-  const extras = opcoes.extras ?? [];
+  // Os cookies valem a partir do momento em que o arquivo existe (o administrador envia pelo app, sem reiniciar).
+  const extrasBase = opcoes.extras ?? [];
+  const argsCookies = () => (opcoes.cookies && existsSync(opcoes.cookies) ? ['--cookies', opcoes.cookies] : []);
   return {
     async buscar(busca) {
       const alvo = alvoDaBusca(busca);
       let saida: string;
       try {
-        saida = await rodar(ytdlp, [...extras, '--no-playlist', '--no-warnings', '--skip-download', '-j', alvo], 45_000);
+        saida = await rodar(ytdlp, [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '--skip-download', '-j', alvo], 45_000);
       } catch (erro) {
         opcoes.registrarErro?.(erro);
-        throw new ErroHttp(502, 'musica_indisponivel', 'Não consegui abrir essa música agora (o YouTube recusou ou está fora).');
+        const recusa = /not a bot|sign in to confirm/i.test(String((erro as Error)?.message));
+        throw new ErroHttp(
+          502,
+          'musica_indisponivel',
+          recusa
+            ? 'O YouTube pediu login para este servidor. O administrador precisa enviar os cookies do YouTube (menu → Bot de música).'
+            : 'Não consegui abrir essa música agora (o YouTube recusou ou está fora).',
+        );
       }
       return lerInfo(saida);
     },
+    async buscarVarias(busca, limite) {
+      if (!ehPlaylist(busca)) return [await this.buscar(busca)];
+      let saida: string;
+      try {
+        saida = await rodar(ytdlp, [...extrasBase, ...argsCookies(), '--yes-playlist', '--flat-playlist', '--no-warnings', '--playlist-end', String(limite), '-J', alvoDaBusca(busca)], 60_000);
+      } catch (erro) {
+        opcoes.registrarErro?.(erro);
+        throw new ErroHttp(502, 'musica_indisponivel', 'Não consegui abrir essa playlist agora (o YouTube recusou ou ela é privada).');
+      }
+      return lerPlaylist(saida, limite);
+    },
     abrir(url) {
-      const baixar = spawn(ytdlp, [...extras, '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '-o', '-', url], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const baixar = spawn(ytdlp, [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '-o', '-', url], { stdio: ['ignore', 'pipe', 'pipe'] });
       const converter = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0', '-vn', '-af', 'volume=0.5', '-f', 's16le', '-ac', '2', '-ar', '48000', 'pipe:1'], {
         stdio: ['pipe', 'pipe', 'pipe'],
       });

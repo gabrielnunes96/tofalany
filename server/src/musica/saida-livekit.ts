@@ -6,6 +6,9 @@ import type { SaidaAudio } from './bot.js';
 /** Identidade do bot no LiveKit (não é número: o webhook e o app não confundem com uma pessoa). */
 export const IDENTIDADE_BOT = 'bot-musica';
 
+/** Nome do bot de música, como ele aparece no canal. */
+export const NOME_BOT = 'ToOuvini';
+
 const TAXA = 48_000;
 const CANAIS = 2;
 /** 20 ms por quadro. */
@@ -37,7 +40,7 @@ export function criarConectorLivekit(lk: { urlInterna: string; chave: string; se
   return async (canalVozId: number): Promise<SaidaAudio> => {
     // Carregado só quando o bot toca: o módulo nativo não pesa no servidor sem música.
     const rtc = await import('@livekit/rtc-node');
-    const token = new AccessToken(lk.chave, lk.segredo, { identity: IDENTIDADE_BOT, name: 'Música', ttl: '6h' });
+    const token = new AccessToken(lk.chave, lk.segredo, { identity: IDENTIDADE_BOT, name: NOME_BOT, ttl: '6h' });
     token.addGrant({ room: salaLivekit(canalVozId), roomJoin: true, canPublish: true, canSubscribe: false, canPublishData: false, canPublishSources: [FonteToken.MICROPHONE] });
     const sala = new rtc.Room();
     await sala.connect(urlDaSala(lk.urlInterna), await token.toJwt(), { autoSubscribe: false, dynacast: false });
@@ -46,7 +49,19 @@ export function criarConectorLivekit(lk: { urlInterna: string; chave: string; se
     const opcoes = new rtc.TrackPublishOptions();
     opcoes.source = rtc.TrackSource.SOURCE_MICROPHONE;
     await sala.localParticipant!.publishTrack(faixa, opcoes);
+    // Pausa: o laço de envio espera aqui (o ffmpeg e o download param sozinhos pela contrapressão do pipe).
+    let soltar: (() => void) | undefined;
+    let pausa: Promise<void> | undefined;
     return {
+      pausar() {
+        pausa ??= new Promise<void>((r) => (soltar = r));
+        fonte.clearQueue();
+      },
+      continuar() {
+        soltar?.();
+        soltar = undefined;
+        pausa = undefined;
+      },
       async tocar(pcm: Readable) {
         let pendente: Buffer = Buffer.alloc(0);
         for await (const pedaco of pcm as AsyncIterable<Buffer>) {
@@ -58,12 +73,14 @@ export function criarConectorLivekit(lk: { urlInterna: string; chave: string; se
               pendente = r.value;
               break;
             }
+            if (pausa) await pausa;
             await fonte.captureFrame(new rtc.AudioFrame(r.value, TAXA, CANAIS, AMOSTRAS));
           }
         }
         await fonte.waitForPlayout();
       },
       async fechar() {
+        soltar?.();
         fonte.clearQueue();
         await sala.disconnect();
         await fonte.close();

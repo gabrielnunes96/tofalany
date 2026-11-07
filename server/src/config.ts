@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { CARENCIA_OFFLINE_MS_PADRAO, LIMITE_CONTAS_PADRAO, PRAZO_AUDITORIA_DIAS_PADRAO } from '@tofalando/shared';
 
 export interface Config {
@@ -40,7 +41,7 @@ export interface Config {
    * Backlog v2, item 14: bot de música (precisa do LiveKit, do yt-dlp e do ffmpeg). MUSICA=false desliga;
    * MUSICA_YTDLP_ARGS são argumentos a mais do yt-dlp (na imagem: o runtime de JavaScript).
    */
-  musica: { ligada: boolean; ytdlp: string; ffmpeg: string; extras: string[] };
+  musica: { ligada: boolean; ytdlp: string; ffmpeg: string; extras: string[]; cookies: string | undefined };
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -84,6 +85,8 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
       ytdlp: ambiente.MUSICA_YTDLP || 'yt-dlp',
       ffmpeg: ambiente.MUSICA_FFMPEG || 'ffmpeg',
       extras: (ambiente.MUSICA_YTDLP_ARGS ?? '').split(/\s+/).filter(Boolean),
+      // Cookies de uma conta do YouTube (o YouTube recusa IP de datacenter sem login). O administrador envia pelo app.
+      cookies: ambiente.MUSICA_COOKIES || ((ambiente.BANCO || 'data/tofalando.db') === ':memory:' ? undefined : join(dirname(ambiente.BANCO || 'data/tofalando.db'), 'musica-cookies.txt')),
     },
   };
 }

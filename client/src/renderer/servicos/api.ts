@@ -33,6 +33,10 @@ export interface ClienteApi {
   entrarComunidade(codigo: string): Promise<ComunidadeDto>;
   sairComunidade(): Promise<void>;
   excluirComunidade(): Promise<void>;
+  /** ToOuvini: cookies do YouTube (administrador do principal). */
+  situacaoMusica(): Promise<{ cookies: boolean; atualizadoEm: number | null }>;
+  enviarCookiesMusica(conteudo: string): Promise<{ cookies: boolean; atualizadoEm: number | null }>;
+  removerCookiesMusica(): Promise<void>;
   auditoria(filtro: FiltroAuditoria): Promise<PaginaAuditoria>;
   atualizarPerfil(dados: AtualizarPerfilRequest): Promise<UsuarioDto>;
   enviarAvatar(arquivo: Blob, nome: string): Promise<{ avatarUrl: string }>;
@@ -117,6 +121,9 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     entrarComunidade: (codigo) => chamar('POST', '/api/comunidades/entrar', { codigo }),
     sairComunidade: () => chamar('POST', '/api/comunidade/sair'),
     excluirComunidade: () => chamar('DELETE', '/api/comunidade'),
+    situacaoMusica: () => chamar('GET', '/api/admin/musica'),
+    enviarCookiesMusica: (conteudo) => chamar('PUT', '/api/admin/musica/cookies', { conteudo }),
+    removerCookiesMusica: () => chamar('DELETE', '/api/admin/musica/cookies'),
     auditoria: (filtro) => chamar('GET', `/api/admin/auditoria${consulta(filtro)}`),
     atualizarPerfil: (dados) => chamar('PATCH', '/api/eu', dados),
     usuariosAdmin: () => chamar('GET', '/api/admin/usuarios'),

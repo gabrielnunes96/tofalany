@@ -42,6 +42,15 @@ interface Props {
   aoDigitar: () => void;
   /** Conversa só para leitura (ex.: DM com conta removida): sem campo de escrever. */
   somenteLeitura?: string;
+  /** Comandos de bot (ex.: ToOuvini) que abrem numa lista ao digitar "/" no começo. */
+  comandos?: readonly ComandoBot[];
+}
+
+/** Um comando de bot para a lista do "/": nomes (o primeiro aparece), argumento e o que faz. */
+export interface ComandoBot {
+  nomes: string[];
+  argumento?: string;
+  descricao: string;
 }
 
 /** Extensão de um arquivo colado: a do nome ou a do tipo (image/png → png). */
@@ -94,6 +103,7 @@ export function Conversa({
   aoApagar,
   aoDigitar,
   somenteLeitura,
+  comandos,
 }: Props) {
   const chave = conversa.chave;
   const historico = useLoja((s) => s.historicos[chave]);
@@ -106,6 +116,13 @@ export function Conversa({
   const alturaAntes = useRef<number | null>(null);
   const estavaNoFim = useRef(true);
   const [texto, setTexto] = useState('');
+  // Comandos de bot: a lista abre ao digitar "/" no começo (até o primeiro espaço) e some com Esc.
+  const [paletaFechada, setPaletaFechada] = useState(false);
+  const [paletaFoco, setPaletaFoco] = useState(0);
+  const campoRef = useRef<HTMLTextAreaElement>(null);
+  const prefixo = /^\/(\S*)$/.exec(texto)?.[1]?.toLowerCase();
+  const sugestoes = !comandos || paletaFechada || prefixo === undefined ? [] : comandos.filter((c) => c.nomes.some((n) => n.startsWith(prefixo)));
+  const comandoAtual = comandos?.find((c) => c.nomes.includes(/^\/(\S+)(\s|$)/.exec(texto)?.[1]?.toLowerCase() ?? '\u0000') && /^\/\S+\s/.test(texto));
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   /** Enter apertado enquanto a mensagem anterior ia: manda assim que ela terminar (antes era ignorado). */
@@ -216,8 +233,11 @@ export function Conversa({
 
   function mudarTexto(valor: string) {
     setTexto(valor);
+    setPaletaFechada(false);
+    setPaletaFoco(0);
     const t = Date.now();
-    if (valor.trim() && t - ultimoSinal.current > DIGITANDO_INTERVALO_MS) {
+    // Comando de bot não é conversa: não avisa "digitando".
+    if (valor.trim() && !valor.startsWith('/') && t - ultimoSinal.current > DIGITANDO_INTERVALO_MS) {
       ultimoSinal.current = t;
       aoDigitar();
     }
@@ -260,7 +280,33 @@ export function Conversa({
     void enviar();
   });
 
+  function escolherComando(c: ComandoBot) {
+    const novo = `/${c.nomes[0]}${c.argumento ? ' ' : ''}`;
+    setTexto(novo);
+    setPaletaFechada(true);
+    campoRef.current?.focus();
+    // Sem argumento: já manda (ex.: /pause).
+    if (!c.argumento) enviarDepois.current = true;
+  }
+
   function teclas(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (sugestoes.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setPaletaFoco((f) => (f + (e.key === 'ArrowDown' ? 1 : sugestoes.length - 1)) % sugestoes.length);
+        return;
+      }
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+        e.preventDefault();
+        escolherComando(sugestoes[Math.min(paletaFoco, sugestoes.length - 1)]!);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setPaletaFechada(true);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       void enviar();
@@ -372,7 +418,44 @@ export function Conversa({
             e.target.value = '';
           }}
         />
+        {sugestoes.length > 0 && (
+          <ul className="paleta-comandos" role="listbox" aria-label="Comandos" id="paleta-comandos">
+            <li className="paleta-titulo" role="presentation">
+              🎵 ToOuvini
+            </li>
+            {sugestoes.map((c, i) => (
+              <li
+                key={c.nomes[0]}
+                id={`comando-${c.nomes[0]}`}
+                role="option"
+                aria-selected={i === paletaFoco}
+                className={i === paletaFoco ? 'foco' : undefined}
+                onMouseEnter={() => setPaletaFoco(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  escolherComando(c);
+                }}
+              >
+                <span className="paleta-nome">
+                  /{c.nomes[0]}
+                  {c.argumento && <span className="paleta-argumento"> &lt;{c.argumento}&gt;</span>}
+                </span>
+                <span className="paleta-descricao">{c.descricao}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {comandoAtual && (
+          <span className="chip-comando" aria-hidden="true">
+            🎵 /{comandoAtual.nomes[0]}
+          </span>
+        )}
         <textarea
+          ref={campoRef}
+          className={comandoAtual ? 'com-comando' : undefined}
+          aria-expanded={sugestoes.length > 0 ? true : undefined}
+          aria-controls={sugestoes.length > 0 ? 'paleta-comandos' : undefined}
+          aria-activedescendant={sugestoes.length > 0 ? `comando-${sugestoes[Math.min(paletaFoco, sugestoes.length - 1)]!.nomes[0]}` : undefined}
           aria-label={`Mensagem para ${conversa.titulo}`}
           placeholder={`Mensagem para ${conversa.titulo}`}
           value={texto}

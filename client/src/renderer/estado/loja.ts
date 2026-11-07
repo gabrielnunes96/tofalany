@@ -150,7 +150,7 @@ export const useLoja = create<Loja>((set) => ({
   iniciarTransmissao: (t) => set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => x.canalVozId !== t.canalVozId), t] })),
   pararTransmissao: (canalVozId) => set((s) => ({ transmissoes: s.transmissoes.filter((x) => x.canalVozId !== canalVozId) })),
   definirMusica: (estado) =>
-    set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length ? [estado] : [])] })),
+    set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])] })),
   definirPresenca: (id, status) =>
     set((s) => {
       const presencas = { ...s.presencas };
@@ -178,7 +178,7 @@ export const useLoja = create<Loja>((set) => ({
         sons,
         voz,
         transmissoes: transmissoes ?? [],
-        musica: (musica ?? []).filter((m) => m.tocando || m.fila.length),
+        musica: (musica ?? []).filter((m) => m.tocando || m.fila.length || m.conectado),
         presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
         dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
         // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.

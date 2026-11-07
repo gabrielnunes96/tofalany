@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { CanalDto, UsuarioDto } from '@tofalando/shared';
+import { COMANDOS_MUSICA, type CanalDto, type UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { FormNome } from './FormNome';
 import { BotaoSilenciarConversa } from './BotaoSilenciarConversa';
@@ -137,6 +137,7 @@ export function CanalAberto({
         aoEditar={aoEditarMensagem}
         aoApagar={aoApagarMensagem}
         aoDigitar={() => aoDigitar(canal.id)}
+        comandos={COMANDOS_MUSICA}
       />
     </section>
   );

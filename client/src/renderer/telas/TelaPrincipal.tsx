@@ -22,6 +22,7 @@ import { TelaPerfil } from './TelaPerfil';
 import { TelaMembros } from './TelaMembros';
 import { TelaConvite } from './TelaConvite';
 import { TelaSons } from './TelaSons';
+import { TelaToOuvini } from './TelaToOuvini';
 import { TelaConfiguracoes } from './TelaConfiguracoes';
 import { Avatar } from '../componentes/Avatar';
 import { StatusPonto, TEXTO_STATUS } from '../componentes/StatusPonto';
@@ -62,7 +63,7 @@ interface GravacaoAdiada {
   sons?: PreferenciasSons;
 }
 
-type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes';
+type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes' | 'toouvini';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
 const destinoDe = (chave: Chave): Destino => {
@@ -882,10 +883,17 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     pedir((c) => c.pedir('mensagem:enviar', { destino, texto, anexos }), acoes.adicionarMensagem);
   /** Backlog v2, item 14: /tocar, /pular e /parar no chat viram comando do bot (não vão como mensagem). */
   const comandoMusica = (comando: ComandoMusica) => pedir((c) => c.pedir('musica:comando', comando), acoes.definirMusica);
+  // /queue só abre a fila no painel (não vai ao servidor).
+  const [filaMusicaAberta, setFilaMusicaAberta] = useState(false);
   const enviarNoCanal = (canalId: number, texto: string, anexos: string[]) => {
     const comando = anexos.length === 0 ? lerComandoMusica(texto) : undefined;
     if (!comando) return enviarMensagem({ canalId }, texto, anexos);
     if ('erro' in comando) return Promise.resolve(comando.erro);
+    if (comando.comando === 'fila') {
+      if (minhaVoz === null) return Promise.resolve('Entre num canal de voz para ver a fila do ToOuvini.');
+      setFilaMusicaAberta(true);
+      return Promise.resolve(null);
+    }
     return comandoMusica(comando);
   };
   /** RF-12a: abre a DM com alguém da lista de membros. */
@@ -1131,7 +1139,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   avisoVoz
                 )}
               </p>
-              {minhaVoz !== null && <PainelMusica estado={musica.find((m) => m.canalVozId === minhaVoz)} usuarios={usuarios} aoComando={comandoMusica} />}
+              {minhaVoz !== null && (
+                <PainelMusica
+                  estado={musica.find((m) => m.canalVozId === minhaVoz)}
+                  usuarios={usuarios}
+                  aoComando={comandoMusica}
+                  filaAberta={filaMusicaAberta}
+                  aoAlternarFila={() => setFilaMusicaAberta(!filaMusicaAberta)}
+                />
+              )}
               {minhaVoz !== null && !entrandoVoz && (
                 <>
                   <span
@@ -1292,6 +1308,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                         Soundboard
                       </button>
                     )}
+                    {ehAdmin && servidorId === 1 && (
+                      <button type="button" onClick={() => setVista('toouvini')}>
+                        Bot de música (ToOuvini)
+                      </button>
+                    )}
                     {permissoes.has('ver_auditoria') && (
                       <button type="button" onClick={abrirAuditoria}>
                         Auditoria
@@ -1387,6 +1408,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes.has('transmitir_alta'))}
               aoVoltar={voltar}
             />
+          ) : vistaAtual === 'toouvini' ? (
+            <TelaToOuvini api={api} aoVoltar={voltar} />
           ) : vistaAtual === 'sons' ? (
             <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
           ) : vistaAtual === 'convite' ? (

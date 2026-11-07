@@ -28,6 +28,7 @@ import { fecharOnlinesPendentes, limparAuditoria } from './dominio/auditoria.js'
 import { separarComunidadeDaUrl } from './auth/sessao-http.js';
 import { existeComunidade } from './dominio/comunidades.js';
 import { registrarRotasComunidades } from './routes/comunidades.js';
+import { registrarRotasMusica } from './routes/musica.js';
 import type { IncomingMessage } from 'node:http';
 
 const LIMPEZA_AUDITORIA_MS = 6 * 60 * 60 * 1000;
@@ -132,6 +133,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   app.decorate('tempoReal', tempoReal);
   registrarRotasServidor(app, banco, config);
   registrarRotasComunidades(app, banco, config, tempoReal, armazem);
+  registrarRotasMusica(app, banco, config);
   registrarRotasPrevia(app, banco);
   registrarRotasAuth(app, banco, config, tempoReal);
   registrarRotasAuditoria(app, banco);

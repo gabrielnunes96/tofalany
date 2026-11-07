@@ -18,7 +18,7 @@ const INTERVALO_PEDIDOS_MS = 1000;
 
 function lerComando(dados: unknown): ComandoMusica {
   const d = typeof dados === 'object' && dados !== null ? (dados as Record<string, unknown>) : {};
-  if (d.comando === 'pular' || d.comando === 'parar') return { comando: d.comando };
+  if (d.comando === 'pular' || d.comando === 'parar' || d.comando === 'pausar' || d.comando === 'continuar' || d.comando === 'expulsar') return { comando: d.comando };
   if (d.comando === 'tocar' && typeof d.busca === 'string' && d.busca.trim() && d.busca.length <= 300) return { comando: 'tocar', busca: d.busca };
   throw new ErroHttp(400, 'dados_invalidos', 'Comando de música inválido.');
 }
@@ -38,7 +38,7 @@ export function criarMusica(
   const agora = deps.agora ?? (() => Date.now());
   const lk = config.livekit;
   const conectar = deps.conectar ?? (lk ? criarConectorLivekit(lk) : undefined);
-  const opcoesFonte = { ytdlp: config.musica.ytdlp, ffmpeg: config.musica.ffmpeg, extras: config.musica.extras, registrarErro };
+  const opcoesFonte = { ytdlp: config.musica.ytdlp, ffmpeg: config.musica.ffmpeg, extras: config.musica.extras, cookies: config.musica.cookies, registrarErro };
   const fonte = deps.fonte ?? criarFonteYtDlp(opcoesFonte);
   let disponivel: Promise<boolean> | undefined;
   const conferir = () => {
@@ -68,6 +68,9 @@ export function criarMusica(
     if (!onde) throw new ErroHttp(403, 'sem_permissao', 'Entre num canal de voz para usar o bot de música.');
     if (comando.comando === 'pular') return bot.pular(onde.canalVozId);
     if (comando.comando === 'parar') return bot.parar(onde.canalVozId);
+    if (comando.comando === 'pausar') return bot.pausar(onde.canalVozId);
+    if (comando.comando === 'continuar') return bot.continuar(onde.canalVozId);
+    if (comando.comando === 'expulsar') return bot.expulsar(onde.canalVozId);
     const falta = (ultimoPedido.get(usuarioId) ?? -Infinity) + INTERVALO_PEDIDOS_MS - agora();
     if (falta > 0) throw new ErroHttp(429, 'muitas_tentativas', 'Calma: um pedido de música por segundo.');
     ultimoPedido.set(usuarioId, agora());
@@ -78,7 +81,7 @@ export function criarMusica(
     estados: (): EstadoMusica[] => bot?.estados() ?? [],
     /** Último a sair do canal de voz: o bot para e sai também. */
     saiuDaVoz(canalVozId: number) {
-      if (bot && voz.conexoesNoCanal(canalVozId).length === 0 && bot.estado(canalVozId).tocando) bot.parar(canalVozId);
+      if (bot && voz.conexoesNoCanal(canalVozId).length === 0 && bot.estado(canalVozId).conectado) void bot.expulsar(canalVozId);
     },
     registrar(socket: SocketTofalando) {
       const usuarioId = socket.data.usuarioId;

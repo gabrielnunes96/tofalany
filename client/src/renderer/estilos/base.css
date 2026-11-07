@@ -581,3 +581,27 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 /* Prévia da tela inteira: sem tela cheia (espelho infinito); um aviso discreto no canto. */
 .previa-minha-tela .previa-aviso { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px; font-size: 0.68rem; color: #fff; background: rgba(10, 10, 18, 0.7); opacity: 0; transition: opacity 0.15s; }
 .previa-minha-tela:hover .previa-aviso { opacity: 1; }
+
+/* ToOuvini: nome do bot, fila e botões; lista de comandos ao digitar "/". */
+.painel-musica .musica-bot { font-size: 0.8rem; }
+.painel-musica.pausado .musica-atual strong { opacity: 0.7; }
+.painel-musica .musica-botoes { flex-wrap: wrap; }
+.musica-lista { margin: 4px 0 6px; padding-left: 20px; max-height: 160px; overflow-y: auto; font-size: 0.8rem; }
+.musica-lista li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compositor { position: relative; }
+.paleta-comandos { position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 30; margin: 0; padding: 6px; list-style: none; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: 0 -8px 26px rgba(0, 0, 0, 0.4); animation: surgir 0.12s ease-out; }
+.paleta-comandos .paleta-titulo { padding: 2px 8px 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texto-suave); }
+.paleta-comandos li[role="option"] { display: flex; align-items: baseline; gap: 12px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.paleta-comandos li.foco { background: color-mix(in srgb, var(--destaque) 16%, transparent); }
+.paleta-nome { font-weight: 700; color: var(--destaque); white-space: nowrap; }
+.paleta-argumento { font-weight: 400; color: var(--texto-suave); }
+.paleta-descricao { font-size: 0.8rem; color: var(--texto-suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-comando { position: absolute; left: 52px; top: -22px; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: var(--texto-no-destaque, #000); background: var(--destaque); box-shadow: var(--brilho); }
+.compositor textarea.com-comando { border-color: var(--destaque); box-shadow: 0 0 0 1px var(--destaque); }
+
+/* Tela do ToOuvini (cookies do YouTube). */
+.passos { margin: 8px 0 12px; padding-left: 22px; display: grid; gap: 4px; }
+.botao-arquivo { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; padding: 8px 14px; border-radius: var(--raio); background: var(--destaque); color: var(--texto-no-destaque, #000); font-weight: 700; cursor: pointer; }
+.botao-arquivo input { display: none; }
+.painel-musica .musica-botoes { flex-wrap: nowrap; gap: 4px; }
+.painel-musica .musica-botoes button { flex: 1; padding: 3px 0; min-width: 0; }
