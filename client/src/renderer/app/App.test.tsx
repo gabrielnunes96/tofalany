@@ -35,6 +35,7 @@ function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | 
     return { servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO };
   });
   const api: ApiTofalando = {
+    versao: '0.0.0-teste',
     atalhos: { aoEvento: () => () => undefined, pausar: async () => undefined },
     presenca: { ausente: async () => false, aoMudar: () => () => undefined },
     captura: { fontes: async () => [], escolher: async () => false, audioDisponivel: false, pararSom: async () => undefined },

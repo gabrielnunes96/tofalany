@@ -8,6 +8,8 @@ export interface SessaoLocal {
 
 /** O que o preload expõe ao renderer em window.tofalando. */
 export interface ApiTofalando {
+  /** Versão do app instalado (ex.: 0.10.0). */
+  versao: string;
   config: {
     ler(): Promise<ConfiguracoesLocais>;
     gravar(parcial: Partial<ConfiguracoesLocais>): Promise<ConfiguracoesLocais>;

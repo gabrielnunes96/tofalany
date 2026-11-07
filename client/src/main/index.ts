@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, shell } from 'electron';
 import { acaoAoFechar } from '@tofalando/shared';
@@ -196,6 +197,10 @@ if (links.principal) {
     }
     ipcMain.handle('atalhos:pausar', (_e, sim: unknown) => atalhos.pausar(sim === true));
     // RF-26: seletor próprio de tela/janela para a transmissão.
+    // Versão do app para o rodapé do menu e as configurações (lida uma vez pela ponte).
+    ipcMain.on('app:versao', (e) => {
+      e.returnValue = versaoDoApp();
+    });
     registrarCaptura();
     registrarIpc(
       configuracoes,
@@ -236,4 +241,14 @@ if (links.principal) {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });
+}
+
+/** Empacotado: a versão do app. Em desenvolvimento (electron out/main/index.js), a do package.json do client. */
+function versaoDoApp(): string {
+  if (app.isPackaged) return app.getVersion();
+  try {
+    return (JSON.parse(readFileSync(join(app.getAppPath(), '..', '..', 'package.json'), 'utf8')) as { version: string }).version;
+  } catch {
+    return app.getVersion();
+  }
 }

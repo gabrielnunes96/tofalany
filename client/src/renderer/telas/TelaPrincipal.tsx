@@ -17,6 +17,7 @@ import { Icone } from '../componentes/Icone';
 import { SeletorStatus } from '../componentes/SeletorStatus';
 import { alternarTelaCheia, useEmTelaCheia } from '../componentes/telaCheia';
 import { ponte } from '../servicos/ponte';
+import { testarServidor } from '../servicos/servidor';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
 import { TelaMembros } from './TelaMembros';
@@ -201,6 +202,17 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       setAvisoVoz(e instanceof Error ? e.message : 'Não foi possível excluir o servidor.');
     }
   }
+  // Versão do servidor (a do app vem da ponte), para o rodapé do menu.
+  const [versaoServidor, setVersaoServidor] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void testarServidor(servidorUrl).then((r) => {
+      if (vivo && r.ok) setVersaoServidor(r.valor.versao);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [servidorUrl]);
   // Barra lateral: canais ou conversas diretas (abrir uma DM, por notificação ou pelo envelope, troca para Diretas).
   const [abaBarra, setAbaBarra] = useState<AbaBarra>('canais');
   // Ping até o servidor de voz, atualizado a cada 2 s enquanto estou num canal.
@@ -1337,6 +1349,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 <button type="button" className="sair" onClick={aoSair}>
                   Sair
                 </button>
+                <p className="versao-app" title="Versão do app e do servidor">
+                  ToFalany v{ponte().versao || '?'}
+                  {versaoServidor && ` · servidor v${versaoServidor}`}
+                </p>
               </div>
             )}
             {copiado && (

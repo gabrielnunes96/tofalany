@@ -3,6 +3,7 @@ import type { AcaoAtalho, ConviteLink } from '@tofalando/shared';
 import type { ApiTofalando } from './api';
 
 const api: ApiTofalando = {
+  versao: String(ipcRenderer.sendSync('app:versao') ?? ''),
   config: {
     ler: () => ipcRenderer.invoke('config:ler'),
     gravar: (parcial) => ipcRenderer.invoke('config:gravar', parcial),

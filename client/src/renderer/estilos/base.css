@@ -605,3 +605,6 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .botao-arquivo input { display: none; }
 .painel-musica .musica-botoes { flex-wrap: nowrap; gap: 4px; }
 .painel-musica .musica-botoes button { flex: 1; padding: 3px 0; min-width: 0; }
+
+/* Versão do app (e do servidor) no rodapé do menu do usuário. */
+.menu-usuario .versao-app { margin: 6px 4px 0; padding-top: 6px; border-top: 1px solid var(--borda); font-size: 0.7rem; color: var(--texto-suave); text-align: center; }
