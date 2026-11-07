@@ -9,8 +9,9 @@ Pedidos do usuário de 06/11/2026, depois de fechar a to-falando-v1. Ainda não 
 | Versão | Itens | Estado |
 | --- | --- | --- |
 | v0.2.0 | 0a (endereço https), 0b (transmissão cortada), 1b (colar imagem), 1d (atualização automática), ganho automático desligado, compositor que perdia anexo | publicada no GitHub |
-| v0.3.0 | 1 (bolinha de fala sem atraso), 1c (qualidade da voz), 1e (bandeja), 2 (status manual), 3 (redefinir senha pelo app), 4 (colar o link de convite) | pronta, sem release |
-| depois | 0c (contador às vezes conta uma a menos), 5 e 6 já feitos na prática (GitHub com releases e servidor na Oracle; falta o roteiro .md da VPS com a comparação de opções), P2, P2b, P3 e P4 | a fazer |
+| v0.3.0 | 1 (bolinha de fala sem atraso), 1c (qualidade da voz), 1e (bandeja), 2 (status manual), 3 (redefinir senha pelo app), 4 (colar o link de convite); 6 (roteiro da VPS em docs/vps.md) | publicada |
+| v0.4.0 | P2: 7 (vários servidores), 8 (painel compacto com menu), 9 (temas Neon da Madrugada, Breu e Aurora), 10 (esconder canais, membros e câmeras) | publicada |
+| depois | 0c (contador às vezes conta uma a menos), contador de não lidas dos outros servidores, P2b, P3 e P4 | a fazer |
 
 ## Prioridades
 
