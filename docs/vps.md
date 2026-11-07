@@ -102,6 +102,8 @@ A resposta esperada é `{"ok":true,"sqlite":true,"livekit":"ok"}`. Se travar ou 
 
 **Atualização automática (recomendado, uma vez só):** `ssh -t tofalany 'cd ~/tofalany/deploy && ./vm.sh automatico'`. A partir daí, a VM confere o GitHub a cada 10 minutos e, quando sai uma release nova, atualiza o servidor e os instaladores do convite sozinha. Durante o build o servidor antigo continua no ar; a troca derruba a conexão por alguns segundos e o app reconecta. O servidor fica sempre na versão da última release (não no que estiver no `main` sem release).
 
+**Imagem pronta:** a cada release, o GitHub monta a imagem do servidor e publica em `ghcr.io/gabrielnunes96/tofalany-server`. A VM só baixa (menos de 1 minuto, sem pesar na máquina). Na primeira vez, deixe o pacote público: GitHub → seu perfil → **Packages** → `tofalany-server` → **Package settings** → **Change visibility** → **Public**. Enquanto ele for privado, a VM monta a imagem sozinha, como antes (uns 10 minutos).
+
 | Tarefa | Comando (no seu PC) |
 | --- | --- |
 | Atualizar agora, sem esperar a conferência automática | `ssh -t tofalany 'cd ~/tofalany/deploy && ./vm.sh atualizar'` |

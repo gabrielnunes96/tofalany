@@ -13,7 +13,8 @@ services:
       context: ..
       dockerfile: server/Dockerfile
     # A tag permite voltar: antes de atualizar, VERSAO=<anterior> continua apontando para a imagem antiga.
-    image: tofalany-server:${VERSAO:-local}
+    # Na VPS, o vm.sh usa a imagem pronta da release (IMAGEM_SERVIDOR=ghcr.io/...); sem ela, monta aqui.
+    image: ${IMAGEM_SERVIDOR:-tofalany-server}:${VERSAO:-local}
     restart: unless-stopped
     env_file: .env
     environment:

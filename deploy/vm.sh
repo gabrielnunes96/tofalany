@@ -16,6 +16,8 @@
 set -euo pipefail
 
 REPO="gabrielnunes96/tofalany"
+# Imagem do servidor publicada pelo CI a cada release (o registro só aceita minúsculas).
+IMAGEM="ghcr.io/$(echo "${REPO%%/*}" | tr '[:upper:]' '[:lower:]')/tofalany-server"
 PASTA="$(cd "$(dirname "$0")" && pwd)"
 # Versão (tag) que está no ar, gravada depois de cada atualização que deu certo.
 INSTALADA="$PASTA/.versao-instalada"
@@ -130,9 +132,36 @@ baixar_instaladores() {
   ok "Instaladores de ${tag} na página do convite"
 }
 
+puxar() {
+  info "Baixando a imagem $1"
+  if docker info > /dev/null 2>&1; then docker pull -q "$1" > /dev/null 2>&1; else sudo docker pull -q "$1" > /dev/null 2>&1; fi
+}
+
+# Grava (ou troca) uma variável na configuração, sem mexer no resto.
+definir_config() {
+  local chave="$1" valor="$2"
+  if grep -q "^${chave}=" .env; then
+    sed -i "s|^${chave}=.*|${chave}=${valor}|" .env
+  else
+    echo "${chave}=${valor}" >> .env
+  fi
+}
+
+# Imagem pronta da release (segundos); se não houver (release antiga, pacote privado), monta aqui (minutos).
 subir() {
-  info "Construindo e subindo (na VM pequena o build leva alguns minutos)"
-  compose up -d --build
+  local tag="${1:-}"
+  if [ -n "$tag" ] && puxar "${IMAGEM}:${tag}"; then
+    definir_config IMAGEM_SERVIDOR "$IMAGEM"
+    definir_config VERSAO "$tag"
+    info "Imagem pronta ${IMAGEM}:${tag}; subindo"
+    compose up -d --no-build
+  else
+    [ -n "$tag" ] && info "Sem imagem pronta de ${tag} (ou o pacote no GitHub está privado): montando aqui"
+    definir_config IMAGEM_SERVIDOR tofalany-server
+    definir_config VERSAO "${tag:-local}"
+    info "Construindo e subindo (na VM pequena o build leva alguns minutos)"
+    compose up -d --build
+  fi
   info "Esperando o servidor ficar saudável"
   local i
   for i in $(seq 1 60); do
@@ -166,7 +195,7 @@ atualizar() {
   [ -n "$tag" ] || erro "O GitHub não devolveu a última release."
   codigo_da_release "$tag"
   baixar_instaladores "$lista"
-  subir
+  subir "$tag"
   echo "$tag" > "$INSTALADA"
   ok "${tag} no ar"
 }

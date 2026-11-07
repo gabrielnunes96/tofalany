@@ -1,6 +1,8 @@
 # Release (item 5 do backlog v2): a cada tag vX.Y.Z, gera os instaladores e publica na página de Releases.
 #   git tag v0.1.0 && git push origin v0.1.0
 # A versão da tag precisa ser a mesma de client/package.json.
+# Também publica a imagem do servidor no GitHub Container Registry (ghcr.io/<dono>/tofalany-server:<tag>):
+# a VPS só baixa a imagem pronta, sem montar nada (ver deploy/vm.sh).
 name: Release
 
 on:
@@ -14,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-${{ github.event.inputs.tag || github.ref_name }}
@@ -79,9 +82,46 @@ jobs:
           path: ${{ matrix.arquivos }}
           if-no-files-found: error
 
+  imagem:
+    name: Imagem do servidor
+    runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Nome da imagem (o registro só aceita minúsculas)
+        run: echo "IMAGEM=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/tofalany-server" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGEM }}:${{ env.TAG }}
+            ${{ env.IMAGEM }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # A release só aparece depois dos instaladores e da imagem: a VPS se atualiza quando vê a release nova.
   publicar:
     name: Publicar release
-    needs: instaladores
+    needs: [instaladores, imagem]
     runs-on: ubuntu-24.04
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
