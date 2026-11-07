@@ -580,6 +580,8 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
   await print(d, 'T21-seletor-de-tela');
   await seletor.getByRole('region', { name: 'Telas' }).getByRole('button').first().click();
   await expect(d.getByRole('region', { name: 'Sua transmissão' })).toBeVisible({ timeout: 15_000 });
+  // Backlog v2, item 12: quem transmite vê a prévia da própria tela (a faixa local).
+  await expect.poll(() => d.getByLabel('Prévia da sua transmissão').evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
 
   // CA-41: a ana vê o aviso, assiste grande, com imagem de verdade.
   const aviso = a.getByRole('region', { name: 'Transmissão de dono' });

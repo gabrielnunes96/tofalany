@@ -460,3 +460,7 @@ button.previa-assistir:hover:not(:disabled) { background: #e00; box-shadow: none
 .form-cargo { margin-top: 10px; padding: 12px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); max-width: 560px; }
 .form-cargo input[type='color'] { width: 64px; height: 32px; padding: 2px; }
 .linha-botoes { display: flex; gap: 8px; }
+
+/* Backlog v2, item 12: prévia da minha transmissão. */
+.aviso-transmissao { flex-wrap: wrap; }
+.previa-minha-tela { flex: 1 1 100%; max-width: 360px; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: var(--raio); border: 1px solid var(--borda); }

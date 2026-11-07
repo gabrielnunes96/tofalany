@@ -73,6 +73,8 @@ export interface SalaVoz {
   pararTela(): Promise<void>;
   /** Estou transmitindo a tela agora (para conferir trava "minha" vinda do servidor). */
   transmitindoTela(): boolean;
+  /** Backlog v2, item 12: a faixa da minha tela, para a prévia local (não gasta banda). */
+  faixaMinhaTela(): MediaStreamTrack | undefined;
   /** RF-19/RF-38: volume (0 a 2) de cada pessoa e quem está silenciado, só neste computador. */
   definirPessoas(p: { volumes: Record<string, number>; silenciados: number[] }): void;
   sair(): Promise<void>;
@@ -151,6 +153,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
   // RF-30: telas transmitidas pelos outros (identidade → faixa) e se eu estou transmitindo.
   const telas = new Map<string, FaixaVideo>();
   let transmitindoTela = false;
+  let minhaFaixaTela: MediaStreamTrack | undefined;
   /** Cada pedido de transmitir/parar ganha um número: um "parar" no meio do início cancela a captura que terminar depois. */
   let pedidoTela = 0;
   const emitirTelas = () => ouvintes.aoTelas?.([...telas].map(([id, faixa]) => ({ usuarioId: Number(id), faixa, meu: false })));
@@ -160,6 +163,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       ouvintes.aoTelas?.([]);
     }
     transmitindoTela = false;
+    minhaFaixaTela = undefined;
     const tinha = videos.size > 0 || !!meuVideo;
     videos.clear();
     meuVideo = undefined;
@@ -251,7 +255,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     try {
       novo = await abrir(desejado);
     } catch {
-      if (sala === atual) ouvintes.aoAviso(publicacao ? 'Não foi possível abrir o microfone escolhido; continua o anterior.' : 'Sem acesso ao microfone: você entrou só para ouvir.');
+      if (sala === atual)
+        ouvintes.aoAviso(
+          publicacao ? 'Não foi possível abrir o microfone escolhido; continua o anterior.' : 'Sem acesso ao microfone: você entrou só para ouvir.',
+        );
       return;
     }
     if (sala !== atual) return novo.parar();
@@ -268,7 +275,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       }
     } catch {
       novo.parar();
-      if (sala === atual) ouvintes.aoAviso(publicacao ? 'Não foi possível trocar o microfone; continua o anterior.' : 'Não foi possível enviar o microfone: você entrou só para ouvir.');
+      if (sala === atual)
+        ouvintes.aoAviso(
+          publicacao ? 'Não foi possível trocar o microfone; continua o anterior.' : 'Não foi possível enviar o microfone: você entrou só para ouvir.',
+        );
       return;
     }
     // Saiu da sala durante a troca: ninguém mais vai parar esta faixa.
@@ -364,6 +374,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       atual.on(RoomEvent.LocalTrackUnpublished, ((pub: { source?: string }) => {
         if (sala !== atual || pub.source !== Track.Source.ScreenShare || !transmitindoTela) return;
         transmitindoTela = false;
+        minhaFaixaTela = undefined;
         ouvintes.aoMinhaTelaParou?.();
       }) as never);
       // RF-31: o livekit-client tenta voltar sozinho (retoma ou reconecta inteiro); a tela só avisa.
@@ -418,7 +429,12 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
           { audio, resolution: RESOLUCOES_TELA[qualidade], contentHint: 'motion', selfBrowserSurface: 'exclude' },
           // Sem simulcast na tela (técnica §5): uma camada só, na qualidade pedida; H.264 por padrão (R-3).
           // backupCodec desligado: VP9 sem VP8 de reserva (pesaria na CPU em 1440p60 sem codificação por hardware).
-          { simulcast: false, videoCodec: codec, backupCodec: false, screenShareEncoding: { maxBitrate: TAXAS_TELA[qualidade], maxFramerate: RESOLUCOES_TELA[qualidade].frameRate } },
+          {
+            simulcast: false,
+            videoCodec: codec,
+            backupCodec: false,
+            screenShareEncoding: { maxBitrate: TAXAS_TELA[qualidade], maxFramerate: RESOLUCOES_TELA[qualidade].frameRate },
+          },
         );
         // A resolução pedida pelo livekit-client é só "ideal": garante o teto (o servidor silencia o que passar, RN-17).
         const r = RESOLUCOES_TELA[qualidade];
@@ -428,6 +444,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         if (sala !== atual) {
           (pub?.track as { stop?(): void } | undefined)?.stop?.();
           transmitindoTela = false;
+          minhaFaixaTela = undefined;
           return false;
         }
         // Pediram para parar enquanto a captura começava: desfaz.
@@ -436,6 +453,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
           return false;
         }
         transmitindoTela = !!pub?.track;
+        minhaFaixaTela = (pub?.track as { mediaStreamTrack?: MediaStreamTrack } | undefined)?.mediaStreamTrack;
         return transmitindoTela;
       } catch {
         ouvintes.aoAviso('Não foi possível transmitir a tela.');
@@ -443,10 +461,12 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       }
     },
     transmitindoTela: () => transmitindoTela,
+    faixaMinhaTela: () => minhaFaixaTela,
     async pararTela() {
       const atual = sala;
       pedidoTela++;
       transmitindoTela = false;
+      minhaFaixaTela = undefined;
       if (!atual) return;
       await (atual.localParticipant as unknown as CameraLocal).setScreenShareEnabled(false).catch(() => undefined);
     },
@@ -455,7 +475,11 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       if (!atual || !conectada) return false;
       try {
         // Simulcast: quem assiste pequeno recebe a camada menor (técnica §5).
-        const pub = await (atual.localParticipant as unknown as CameraLocal).setCameraEnabled(ligar, { resolution: { width: 1280, height: 720, frameRate: 30 } }, { simulcast: true });
+        const pub = await (atual.localParticipant as unknown as CameraLocal).setCameraEnabled(
+          ligar,
+          { resolution: { width: 1280, height: 720, frameRate: 30 } },
+          { simulcast: true },
+        );
         if (sala !== atual) {
           // Saiu da voz enquanto a câmera abria: garante a luz apagada.
           (pub?.track as { stop?(): void } | undefined)?.stop?.();

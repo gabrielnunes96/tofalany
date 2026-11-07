@@ -172,6 +172,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
   }, [alternarParte]);
+  // Backlog v2, item 12: prévia da minha transmissão (a faixa local; não gasta banda).
+  const [previaMinhaTela, setPreviaMinhaTela] = useState<MediaStreamTrack | undefined>(undefined);
+  const [verPrevia, setVerPrevia] = useState(true);
   // Backlog v2, item 8: menu do usuário (fecha ao clicar fora ou com Esc).
   const [menuAberto, setMenuAberto] = useState(false);
   useEffect(() => {
@@ -751,6 +754,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     </span>
   );
   const minhaTela = minhaVoz !== null && transmissoes.some((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id);
+  const faixaPrevia = minhaTela ? previaMinhaTela : undefined;
   const membrosPorStatus = useMemo(() => {
     const com = usuarios.map((u) => ({ u, status: (presencas[u.id] ?? 'offline') as StatusPessoa }));
     const ativos = com.filter((m) => m.status !== 'offline');
@@ -968,7 +972,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       try {
         await ponte().captura.escolher(fonte.id, audioSistema);
         ok = await sala.transmitir(qualidade, audioSistema, telaRef.current.codec);
-        if (ok) qualidadeAtualRef.current = qualidade;
+        if (ok) {
+          qualidadeAtualRef.current = qualidade;
+          setPreviaMinhaTela(sala.faixaMinhaTela());
+        }
       } catch {
         setAvisoVoz('Não foi possível transmitir a tela.');
       }
@@ -1251,9 +1258,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           {minhaTela && (
             <section className="aviso-transmissao" aria-label="Sua transmissão">
               <span>🖥️ Você está transmitindo a tela.</span>
+              {faixaPrevia && (
+                <button type="button" className="secundario" aria-pressed={verPrevia} onClick={() => setVerPrevia(!verPrevia)}>
+                  {verPrevia ? 'Ocultar prévia' : 'Ver prévia'}
+                </button>
+              )}
               <button type="button" className="perigo" disabled={iniciandoTela} onClick={() => void pararTela()}>
                 Parar transmissão
               </button>
+              {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} />}
             </section>
           )}
           {transmissoes
@@ -1400,4 +1413,19 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       </div>
     </div>
   );
+}
+
+/** Backlog v2, item 12: o que a minha tela está mandando, num quadro pequeno (mudo, sem rede). */
+function PreviaLocal({ faixa }: { faixa: MediaStreamTrack }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.srcObject = new MediaStream([faixa]);
+    void v.play().catch(() => undefined);
+    return () => {
+      v.srcObject = null;
+    };
+  }, [faixa]);
+  return <video ref={ref} className="previa-minha-tela" aria-label="Prévia da sua transmissão" muted playsInline />;
 }
