@@ -17,6 +17,7 @@ describe('TelaMembros', () => {
       removerConta: vi.fn(async () => {
         throw new Error('O servidor precisa de pelo menos um administrador.');
       }),
+      gerarRedefinicao: vi.fn(async () => ({ codigo: 'ABCD-EFGH', expiraEm: 0 })),
     };
     render(<TelaMembros eu={dono} usuarios={[ana, dono]} servidorUrl="http://s" api={api} aoAtualizar={vi.fn()} aoRemover={vi.fn()} aoVoltar={vi.fn()} />);
     const linhaAna = screen.getByRole('listitem', { name: 'Ana' });
@@ -34,7 +35,7 @@ describe('TelaMembros', () => {
 
 describe('TelaMembros (sucesso)', () => {
   it('aplica o resultado na hora, fecha a confirmação e não mostra erro', async () => {
-    const api = { mudarCargo: vi.fn(async () => ({ ...ana, cargo: 'admin' as const })), removerConta: vi.fn(async () => undefined) };
+    const api = { mudarCargo: vi.fn(async () => ({ ...ana, cargo: 'admin' as const })), removerConta: vi.fn(async () => undefined), gerarRedefinicao: vi.fn(async () => ({ codigo: 'ABCD-EFGH', expiraEm: 0 })) };
     const aoAtualizar = vi.fn();
     const aoRemover = vi.fn();
     render(<TelaMembros eu={dono} usuarios={[ana, dono]} servidorUrl="http://s" api={api} aoAtualizar={aoAtualizar} aoRemover={aoRemover} aoVoltar={vi.fn()} />);
@@ -64,5 +65,18 @@ describe('TelaConvite', () => {
     fireEvent.change(screen.getByLabelText('Novo código'), { target: { value: 'turma-nova' } });
     fireEvent.click(screen.getByRole('button', { name: 'Trocar código' }));
     await waitFor(() => expect(screen.getByTestId('link-convite').textContent).toBe('http://s/convite/turma-nova'));
+  });
+
+  it('backlog v2, item 3: gera o código de senha e mostra para copiar', async () => {
+    const api = { mudarCargo: vi.fn(), removerConta: vi.fn(), gerarRedefinicao: vi.fn(async () => ({ codigo: 'ABCD-EFGH', expiraEm: Date.now() + 1000 })) };
+    const copiar = vi.fn(async () => undefined);
+    render(<TelaMembros eu={dono} usuarios={[ana, dono]} servidorUrl="http://s" api={api as never} aoAtualizar={vi.fn()} aoRemover={vi.fn()} aoVoltar={vi.fn()} copiar={copiar} />);
+    fireEvent.click(within(screen.getByRole('listitem', { name: 'Ana' })).getByRole('button', { name: 'Gerar código de senha' }));
+    const caixa = await screen.findByRole('status', { name: 'Código de redefinição de senha' });
+    expect(caixa.textContent).toContain('ABCD-EFGH');
+    expect(api.gerarRedefinicao).toHaveBeenCalledWith(2);
+    fireEvent.click(within(caixa).getByRole('button', { name: 'Copiar código' }));
+    await waitFor(() => expect(copiar).toHaveBeenCalledWith('ABCD-EFGH'));
+    expect(await within(caixa).findByRole('button', { name: 'Copiado' })).toBeTruthy();
   });
 });

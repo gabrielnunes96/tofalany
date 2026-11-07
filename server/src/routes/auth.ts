@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { validarSenha, validarUsuario, type CadastroRequest, type LoginRequest, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
+import { validarSenha, validarUsuario, type CadastroRequest, type LoginRequest, type RedefinirSenhaRequest, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
@@ -7,7 +7,8 @@ import { conferirSenha, gerarHashSenha } from '../auth/senha.js';
 import { criarLimitador, type Limitador } from '../auth/limitador.js';
 import { exigirSessao } from '../auth/sessao-http.js';
 import { buscarPorId, buscarPorLogin, cadastrarUsuario, conferirConvite, paraDto } from '../dominio/usuarios.js';
-import { criarSessao, revogarSessao } from '../dominio/sessoes.js';
+import { criarSessao, revogarSessao, revogarSessoesDoUsuario } from '../dominio/sessoes.js';
+import { usarRedefinicao } from '../dominio/redefinicoes.js';
 import { hashToken } from '../auth/tokens.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
@@ -24,12 +25,19 @@ const corpoLogin = {
   properties: { usuario: texto, senha: texto },
 } as const;
 
+const corpoRedefinir = {
+  type: 'object',
+  required: ['usuario', 'codigo', 'senha'],
+  properties: { usuario: texto, codigo: texto, senha: texto },
+} as const;
+
 /** Hash fixo para gastar o mesmo tempo quando o login não existe (não revela quais usuários existem). */
 let hashFicticio: Promise<string> | undefined;
 
 export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: Config, tempoReal: TempoReal): void {
   const limiteCadastro = criarLimitador(config.tentativasPorMinuto, 60_000);
   const limiteLogin = criarLimitador(config.tentativasPorMinuto, 60_000);
+  const limiteRedefinir = criarLimitador(config.tentativasPorMinuto, 60_000);
   const limitar = (limitador: Limitador, req: FastifyRequest) => {
     if (!limitador.permitir(req.ip)) throw new ErroHttp(429, 'muitas_tentativas', 'Muitas tentativas. Aguarde um minuto.');
   };
@@ -65,6 +73,27 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
       return novo;
     })();
     return { token, usuario: paraDto(linha) };
+  });
+
+  // Backlog v2, item 3: troca a senha com o código que o administrador gerou; encerra as sessões da conta.
+  app.post('/api/auth/redefinir', { schema: { body: corpoRedefinir } }, async (req, reply) => {
+    limitar(limiteRedefinir, req);
+    const corpo = req.body as RedefinirSenhaRequest;
+    const senha = validarSenha(corpo.senha);
+    if (!senha.ok) throw new ErroHttp(400, 'dados_invalidos', senha.erro);
+    const hash = await gerarHashSenha(senha.valor);
+    const id = banco.transaction(() => {
+      const linha = buscarPorLogin(banco, corpo.usuario);
+      if (!linha || !usarRedefinicao(banco, linha.id, corpo.codigo)) return undefined;
+      banco.prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ?').run(hash, linha.id);
+      revogarSessoesDoUsuario(banco, linha.id);
+      registrarAuditoria(banco, { tipo: 'senha_redefinida', atorId: linha.id, alvoUsuarioId: linha.id });
+      return linha.id;
+    })();
+    // A mesma resposta para usuário inexistente e código errado (não revela quais contas existem).
+    if (id === undefined) throw new ErroHttp(400, 'codigo_invalido', 'Usuário ou código de redefinição incorretos (ou o código expirou).');
+    tempoReal.revogarUsuario(id, 'sessao_invalida');
+    reply.code(204);
   });
 
   app.post('/api/auth/sair', { preHandler: exigirSessao(banco) }, async (req, reply) => {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Cargo, UsuarioDto } from '@tofalando/shared';
+import type { Cargo, RedefinicaoDto, UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { Avatar } from '../componentes/Avatar';
 
@@ -7,7 +7,9 @@ interface Props {
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
   servidorUrl: string;
-  api: Pick<ClienteApi, 'mudarCargo' | 'removerConta'>;
+  api: Pick<ClienteApi, 'mudarCargo' | 'removerConta' | 'gerarRedefinicao'>;
+  /** Copia o código para a área de transferência (padrão: a do navegador). */
+  copiar?: (texto: string) => Promise<void>;
   /** Aplica na hora o resultado (o evento do servidor também chega, mas pode atrasar com a conexão caída). */
   aoAtualizar: (usuario: UsuarioDto) => void;
   aoRemover: (id: number) => void;
@@ -15,10 +17,13 @@ interface Props {
 }
 
 /** RF-6 (administrador): promover, rebaixar e remover contas. O servidor confere tudo (RN-5, RN-16). */
-export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRemover, aoVoltar }: Props) {
+export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRemover, aoVoltar, copiar = (t) => navigator.clipboard.writeText(t) }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [confirmando, setConfirmando] = useState<number | null>(null);
+  // Backlog v2, item 3: o código aparece só aqui, uma vez, para o administrador mandar à pessoa.
+  const [codigo, setCodigo] = useState<(RedefinicaoDto & { nome: string }) | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   async function agir(id: number, acao: () => Promise<unknown>) {
     setErro(null);
@@ -34,6 +39,11 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRem
   }
 
   const mudarCargo = (u: UsuarioDto, cargo: Cargo) => agir(u.id, async () => aoAtualizar(await api.mudarCargo(u.id, cargo)));
+  const gerarCodigo = (u: UsuarioDto) =>
+    agir(u.id, async () => {
+      setCopiado(false);
+      setCodigo({ ...(await api.gerarRedefinicao(u.id)), nome: u.nomeExibicao });
+    });
   const remover = (u: UsuarioDto) =>
     agir(u.id, async () => {
       await api.removerConta(u.id);
@@ -53,6 +63,25 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRem
           {erro}
         </p>
       )}
+      {codigo && (
+        <div className="codigo-redefinicao" role="status" aria-label="Código de redefinição de senha">
+          <p>
+            Código para <strong>{codigo.nome}</strong> trocar a senha: <code>{codigo.codigo}</code>
+          </p>
+          <p className="suave">
+            Vale uma vez, até {new Date(codigo.expiraEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. Mande para a pessoa: ela usa “Esqueci a
+            senha” na tela de entrar. Gerar outro invalida este.
+          </p>
+          <div>
+            <button type="button" onClick={() => void copiar(codigo.codigo).then(() => setCopiado(true))}>
+              {copiado ? 'Copiado' : 'Copiar código'}
+            </button>
+            <button type="button" className="secundario" onClick={() => setCodigo(null)}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
       <ul className="lista-admin" aria-label="Contas do servidor">
         {usuarios.map((u) => (
           <li key={u.id} aria-label={u.nomeExibicao}>
@@ -71,6 +100,9 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRem
                 Tornar membro
               </button>
             )}
+            <button type="button" className="secundario" disabled={ocupado !== null} onClick={() => void gerarCodigo(u)}>
+              Gerar código de senha
+            </button>
             {confirmando === u.id ? (
               <span className="confirmar" role="group" aria-label={`Confirmar remoção de ${u.nomeExibicao}`}>
                 <button type="button" className="perigo" disabled={ocupado !== null} onClick={() => void remover(u)}>

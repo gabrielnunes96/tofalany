@@ -92,3 +92,37 @@ test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', 
   await ana.app.close();
   await dono.app.close();
 });
+
+test('backlog v2, item 3: o administrador gera o código e a pessoa troca a senha pelo app', async () => {
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+
+  await dono.janela.getByRole('button', { name: 'Membros' }).click();
+  const linhaAna = dono.janela.getByRole('list', { name: 'Contas do servidor' }).getByRole('listitem', { name: 'ana', exact: true });
+  await linhaAna.getByRole('button', { name: 'Gerar código de senha' }).click();
+  const caixa = dono.janela.getByRole('status', { name: 'Código de redefinição de senha' });
+  const codigo = (await caixa.locator('code').textContent())!;
+  expect(codigo).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+
+  // A ana (esqueceu a senha) troca pela tela de entrar: a sessão aberta dela cai.
+  const nova = await electron.launch({ args: [principal], env: { ...process.env, TOFALANDO_USER_DATA: join(pasta, 'ana-outro-pc') } });
+  const j = await nova.firstWindow();
+  await j.getByLabel('Endereço do servidor').fill(url);
+  await j.getByRole('button', { name: 'Conectar' }).click();
+  await j.getByRole('button', { name: 'Esqueci a senha' }).click();
+  await j.getByLabel('Nome de usuário').fill('ana');
+  await j.getByLabel('Código de redefinição').fill(codigo.toLowerCase());
+  await j.getByLabel('Senha nova').fill('senha-nova-123');
+  await j.getByRole('button', { name: 'Trocar a senha' }).click();
+  await expect(j.getByRole('status')).toHaveText('Senha trocada. Entre com a senha nova.');
+  await expect(ana.janela.getByRole('button', { name: 'Entrar' })).toBeVisible({ timeout: 10_000 });
+
+  await j.getByLabel('Senha').fill('senha-nova-123');
+  await j.getByRole('button', { name: 'Entrar' }).click();
+  await expect(j.getByTestId('usuario-logado')).toHaveText('Olá, ana');
+
+  await nova.close();
+  await ana.app.close();
+  await dono.app.close();
+});

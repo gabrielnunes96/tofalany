@@ -8,10 +8,11 @@ import { ErroApiCliente, type ClienteApi } from '../servicos/api';
 afterEach(cleanup);
 
 const sessao: SessaoResponse = { token: 't', usuario: { id: 1, usuario: 'ana', nomeExibicao: 'ana', cor: '#fff', avatarUrl: null, cargo: 'admin' } };
-type ApiEntrar = Pick<ClienteApi, 'cadastrar' | 'entrar'>;
+type ApiEntrar = Pick<ClienteApi, 'cadastrar' | 'entrar' | 'redefinirSenha'>;
 const apiFalsa = (extra: Partial<ApiEntrar> = {}): ApiEntrar => ({
   cadastrar: vi.fn(() => Promise.resolve(sessao)),
   entrar: vi.fn(() => Promise.resolve(sessao)),
+  redefinirSenha: vi.fn(() => Promise.resolve()),
   ...extra,
 });
 const digitar = (rotulo: string, valor: string) => fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });
@@ -77,5 +78,21 @@ describe('TelaEntrar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
     await waitFor(() => expect(aoEntrar).toHaveBeenCalled());
     expect(api.entrar).toHaveBeenCalledWith({ usuario: 'ana', senha: 'qualquer' });
+  });
+
+  it('backlog v2, item 3: "Esqueci a senha" troca a senha com o código e volta para entrar', async () => {
+    const api = apiFalsa();
+    render(<TelaEntrar servidorUrl="http://s" aoEntrar={vi.fn()} aoTrocarServidor={vi.fn()} api={api} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Esqueci a senha' }));
+    expect(screen.getByRole('heading', { name: 'Trocar a senha' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar a senha' }));
+    expect(screen.getByText('Informe o código que o administrador mandou.')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Nome de usuário'), { target: { value: ' ana ' } });
+    fireEvent.change(screen.getByLabelText('Código de redefinição'), { target: { value: 'ABCD-EFGH' } });
+    fireEvent.change(screen.getByLabelText('Senha nova'), { target: { value: 'senha-nova-123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar a senha' }));
+    await waitFor(() => expect(api.redefinirSenha).toHaveBeenCalledWith({ usuario: 'ana', codigo: 'ABCD-EFGH', senha: 'senha-nova-123' }));
+    expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Senha trocada. Entre com a senha nova.');
+    expect(screen.getByRole('heading', { name: 'Entrar' })).toBeTruthy();
   });
 });

@@ -130,6 +130,12 @@ button.link:hover:not(:disabled) { background: transparent; color: var(--texto);
 .perfil-form input[type='color'] { width: 64px; height: 36px; padding: 2px; }
 .aviso-ok { color: var(--ok); margin: 4px 0 0; }
 
+/* Backlog v2, item 3: código de redefinição mostrado ao administrador. */
+.codigo-redefinicao { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--destaque); border-radius: var(--raio); background: var(--superficie); }
+.codigo-redefinicao p { margin: 0 0 6px; }
+.codigo-redefinicao code { font-size: 1.1rem; letter-spacing: 0.08em; color: var(--destaque); }
+.codigo-redefinicao div { display: flex; gap: 8px; }
+.codigo-redefinicao button { margin: 0; padding: 4px 10px; }
 .lista-admin { list-style: none; margin: 0; padding: 0; border: 1px solid var(--borda); border-radius: var(--raio); }
 .lista-admin li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--borda); }
 .lista-admin li:last-child { border-bottom: 0; }

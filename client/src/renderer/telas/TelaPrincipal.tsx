@@ -1169,6 +1169,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoAtualizar={acoes.atualizarUsuario}
               aoRemover={acoes.removerUsuario}
               aoVoltar={voltar}
+              copiar={(texto) => ponte().areaTransferencia.copiar(texto)}
             />
           ) : vistaAtual === 'configuracoes' ? (
             <TelaConfiguracoes

@@ -120,5 +120,15 @@ export const MIGRACOES: readonly string[] = [
     criado_em INTEGER NOT NULL
   );
   `,
+  // 009 — redefinição de senha pelo app (backlog v2, item 3): um código por conta, uso único, 24 h.
+  `
+  CREATE TABLE redefinicoes_senha (
+    usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+    codigo_hash TEXT NOT NULL,
+    expira_em INTEGER NOT NULL,
+    criado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    criado_em INTEGER NOT NULL
+  );
+  `,
 ];
 

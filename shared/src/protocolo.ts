@@ -39,6 +39,20 @@ export interface UsuarioAdminDto extends UsuarioDto {
   removido: boolean;
 }
 
+/** Backlog v2, item 3: código de redefinição de senha gerado pelo administrador. */
+export interface RedefinicaoDto {
+  codigo: string;
+  /** Quando deixa de valer (ms desde 1970). */
+  expiraEm: number;
+}
+
+/** Backlog v2, item 3: "Esqueci a senha" com o código recebido do administrador. */
+export interface RedefinirSenhaRequest {
+  usuario: string;
+  codigo: string;
+  senha: string;
+}
+
 export interface ConviteDto {
   codigo: string;
   link: string;
@@ -71,6 +85,7 @@ export type CodigoErro =
   | 'voz_indisponivel'
   | 'assinatura_invalida'
   | 'convite_invalido'
+  | 'codigo_invalido'
   | 'usuario_em_uso'
   | 'limite_contas'
   | 'credenciais_invalidas'

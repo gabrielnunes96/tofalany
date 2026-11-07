@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -31,6 +31,10 @@ export interface ClienteApi {
   usuariosAdmin(): Promise<UsuarioAdminDto[]>;
   mudarCargo(id: number, cargo: Cargo): Promise<UsuarioDto>;
   removerConta(id: number): Promise<void>;
+  /** Backlog v2, item 3: código de redefinição de senha (só administrador). */
+  gerarRedefinicao(id: number): Promise<RedefinicaoDto>;
+  /** Backlog v2, item 3: "Esqueci a senha" com o código recebido. */
+  redefinirSenha(dados: RedefinirSenhaRequest): Promise<void>;
   lerConvite(): Promise<ConviteDto>;
   trocarConvite(codigo: string): Promise<ConviteDto>;
   mensagensCanal(canalId: number, antes?: number): Promise<PaginaMensagens>;
@@ -94,6 +98,8 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     usuariosAdmin: () => chamar('GET', '/api/admin/usuarios'),
     mudarCargo: (id, cargo) => chamar('PATCH', `/api/admin/usuarios/${id}/cargo`, { cargo }),
     removerConta: (id) => chamar('DELETE', `/api/admin/usuarios/${id}`),
+    gerarRedefinicao: (id) => chamar('POST', `/api/admin/usuarios/${id}/redefinicao`),
+    redefinirSenha: (dados) => chamar('POST', '/api/auth/redefinir', dados),
     lerConvite: () => chamar('GET', '/api/admin/convite'),
     trocarConvite: (codigo) => chamar('PUT', '/api/admin/convite', { codigo }),
     enviarAnexo: (arquivo, nome) => {

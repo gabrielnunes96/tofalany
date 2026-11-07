@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { validarCodigoConvite, type Cargo, type ConviteDto, type UsuarioAdminDto, type UsuarioDto } from '@tofalando/shared';
+import { validarCodigoConvite, type Cargo, type ConviteDto, type RedefinicaoDto, type UsuarioAdminDto, type UsuarioDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
@@ -12,6 +12,7 @@ import type { TempoReal } from '../realtime/tempo-real.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import { baseServidor } from './convite.js';
 import { montarLinkConvite } from '../dominio/convite.js';
+import { gerarRedefinicao } from '../dominio/redefinicoes.js';
 
 const paramId = { type: 'object', required: ['id'], properties: { id: { type: 'integer', minimum: 1 } } } as const;
 
@@ -75,6 +76,16 @@ export function registrarRotasAdmin(app: FastifyInstance, banco: Banco, config: 
     tempoReal.revogarUsuario(id, 'conta_removida');
     tempoReal.io.emit('usuario:removido', { id });
     reply.code(204);
+  });
+
+  // Backlog v2, item 3: código de uso único (24 h) para a pessoa trocar a senha pelo app, sem terminal.
+  app.post('/api/admin/usuarios/:id/redefinicao', { preHandler: soAdmin, schema: { params: paramId } }, async (req): Promise<RedefinicaoDto> => {
+    const { id } = req.params as { id: number };
+    return banco.transaction(() => {
+      if (!buscarPorId(banco, id)) throw new ErroHttp(404, 'nao_encontrado', 'Conta não encontrada.');
+      registrarAuditoria(banco, { tipo: 'redefinicao_gerada', atorId: req.usuarioId!, alvoUsuarioId: id });
+      return gerarRedefinicao(banco, id, req.usuarioId!);
+    })();
   });
 
   app.get('/api/admin/convite', { preHandler: soAdmin }, async (req): Promise<ConviteDto> => {

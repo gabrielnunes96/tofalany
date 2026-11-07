@@ -12,11 +12,11 @@ interface Props {
   aoTrocarServidor: () => void;
   /** Aberto por um convite com o app já em uso: volta para onde estava, sem mudar nada. */
   aoCancelarConvite?: () => void;
-  api?: Pick<ClienteApi, 'cadastrar' | 'entrar'>;
+  api?: Pick<ClienteApi, 'cadastrar' | 'entrar' | 'redefinirSenha'>;
 }
 
-type Modo = 'entrar' | 'cadastrar';
-type Campo = 'convite' | 'usuario' | 'senha';
+type Modo = 'entrar' | 'cadastrar' | 'redefinir';
+type Campo = 'convite' | 'usuario' | 'senha' | 'codigo';
 
 /** Login e cadastro com código de convite (RF-2, RF-3). */
 export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTrocarServidor, aoCancelarConvite, api }: Props) {
@@ -24,6 +24,8 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
   const [convite, setConvite] = useState(conviteInicial ?? '');
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
+  const [codigo, setCodigo] = useState('');
+  const [avisoLocal, setAvisoLocal] = useState<string | null>(null);
   const [errosCampo, setErrosCampo] = useState<Partial<Record<Campo, string>>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -31,6 +33,7 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
   function trocarModo(novo: Modo) {
     setModo(novo);
     setErro(null);
+    setAvisoLocal(null);
     setErrosCampo({});
   }
 
@@ -40,6 +43,11 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
       if (!convite.trim()) novos.convite = 'Informe o código de convite.';
       const u = validarUsuario(usuario);
       if (!u.ok) novos.usuario = u.erro;
+      const s = validarSenha(senha);
+      if (!s.ok) novos.senha = s.erro;
+    } else if (modo === 'redefinir') {
+      if (!usuario.trim()) novos.usuario = 'Informe o nome de usuário.';
+      if (!codigo.trim()) novos.codigo = 'Informe o código que o administrador mandou.';
       const s = validarSenha(senha);
       if (!s.ok) novos.senha = s.erro;
     } else {
@@ -57,6 +65,15 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
     setEnviando(true);
     try {
       const cliente = api ?? criarApi(servidorUrl);
+      if (modo === 'redefinir') {
+        await cliente.redefinirSenha({ usuario: usuario.trim(), codigo: codigo.trim(), senha });
+        setCodigo('');
+        setSenha('');
+        trocarModo('entrar');
+        setAvisoLocal('Senha trocada. Entre com a senha nova.');
+        setEnviando(false);
+        return;
+      }
       const sessao =
         modo === 'cadastrar'
           ? await cliente.cadastrar({ convite: convite.trim(), usuario: usuario.trim(), senha })
@@ -90,13 +107,14 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
   return (
     <main className="tela-centro">
       <form className="cartao" onSubmit={enviar} noValidate>
-        <h1>{modo === 'entrar' ? 'Entrar' : 'Criar conta'}</h1>
+        <h1>{modo === 'entrar' ? 'Entrar' : modo === 'cadastrar' ? 'Criar conta' : 'Trocar a senha'}</h1>
         <p className="suave">Servidor: {servidorUrl}</p>
-        {aviso && (
+        {(avisoLocal ?? aviso) && (
           <p className="aviso" role="status">
-            {aviso}
+            {avisoLocal ?? aviso}
           </p>
         )}
+        {modo === 'redefinir' && <p className="suave">Peça ao administrador do servidor um código de redefinição (ele gera em Membros).</p>}
         <div className="abas" role="group" aria-label="Entrar ou criar conta">
           <button type="button" aria-pressed={modo === 'entrar'} onClick={() => trocarModo('entrar')}>
             Já tenho conta
@@ -107,15 +125,26 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
         </div>
         {modo === 'cadastrar' && campo('convite', 'Código de convite', convite, setConvite, { autoComplete: 'off' })}
         {campo('usuario', 'Nome de usuário', usuario, setUsuario, { autoComplete: 'username' })}
-        {campo('senha', 'Senha', senha, setSenha, { type: 'password', autoComplete: modo === 'entrar' ? 'current-password' : 'new-password' })}
+        {modo === 'redefinir' && campo('codigo', 'Código de redefinição', codigo, setCodigo, { autoComplete: 'off' })}
+        {campo('senha', modo === 'redefinir' ? 'Senha nova' : 'Senha', senha, setSenha, { type: 'password', autoComplete: modo === 'entrar' ? 'current-password' : 'new-password' })}
         {erro && (
           <p className="erro" role="alert">
             {erro}
           </p>
         )}
         <button type="submit" disabled={enviando}>
-          {enviando ? 'Aguarde…' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+          {enviando ? 'Aguarde…' : modo === 'entrar' ? 'Entrar' : modo === 'cadastrar' ? 'Criar conta' : 'Trocar a senha'}
         </button>
+        {modo === 'entrar' && (
+          <button type="button" className="link" onClick={() => trocarModo('redefinir')} disabled={enviando}>
+            Esqueci a senha
+          </button>
+        )}
+        {modo === 'redefinir' && (
+          <button type="button" className="secundario" onClick={() => trocarModo('entrar')} disabled={enviando}>
+            Voltar
+          </button>
+        )}
         {aoCancelarConvite && (
           <button type="button" className="secundario" onClick={aoCancelarConvite} disabled={enviando}>
             Cancelar convite
