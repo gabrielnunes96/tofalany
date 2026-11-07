@@ -32,11 +32,14 @@ jobs:
             arquivos: |
               client/release/*.AppImage
               client/release/*.deb
+              client/release/latest-linux.yml
           - so: windows
             runner: windows-2025
             comando: dist:win
             arquivos: |
               client/release/*.exe
+              client/release/*.exe.blockmap
+              client/release/latest.yml
     runs-on: ${{ matrix.runner }}
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}

@@ -11,6 +11,7 @@ import { criarOciosidade } from './ociosidade';
 import { registrarCaptura } from './captura';
 import { filtrarRede } from './rede';
 import { integrarSistema } from './integracao';
+import { iniciarAtualizacao } from './atualizacao';
 import { normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
@@ -118,6 +119,8 @@ if (links.principal) {
       (erro) => console.error('Atalhos globais indisponíveis:', erro),
     );
     atalhos.definir(configuracoes.ler().atalhos);
+    // Backlog v2, 1d: confere as releases do GitHub e avisa a janela (só no app empacotado).
+    iniciarAtualizacao(() => janelaPrincipal);
     app.on('will-quit', () => atalhos.parar());
     // RN-25: ocioso há 10 min → ausente (o renderer avisa o servidor).
     let ociosoForcado: number | undefined;

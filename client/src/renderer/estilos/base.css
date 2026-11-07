@@ -97,6 +97,11 @@ button.link:hover:not(:disabled) { background: transparent; color: var(--texto);
 
 .layout-principal { min-height: 100%; display: flex; flex-direction: column; }
 .layout-principal > .tela-centro { flex: 1; }
+/* Backlog v2, 1d: aviso de versão nova, flutuando no canto (não mexe no layout). */
+.aviso-atualizacao { position: fixed; right: 16px; bottom: 16px; z-index: 50; max-width: 340px; padding: 12px 14px; border: 1px solid var(--destaque); border-radius: var(--raio); background: var(--superficie); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+.aviso-atualizacao p { margin: 0 0 8px; }
+.aviso-atualizacao div { display: flex; gap: 8px; }
+.aviso-atualizacao button { margin: 0; padding: 6px 10px; }
 .faixa-conexao { background: #3a0f2a; color: #ffd1e3; border-bottom: 1px solid var(--magenta); text-align: center; padding: 6px 12px; font-weight: 600; }
 .subtitulo { font-size: 0.85rem; text-transform: uppercase; color: var(--texto-suave); margin: 12px 0 4px; }
 .lista-membros { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; }

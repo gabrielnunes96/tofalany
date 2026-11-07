@@ -55,6 +55,16 @@ const api: ApiTofalando = {
   rede: {
     servidorPendente: (url) => ipcRenderer.invoke('rede:pendente', url),
   },
+  atualizacao: {
+    estado: () => ipcRenderer.invoke('atualizacao:estado'),
+    aoMudar: (fn) => {
+      const ouvinte = (_e: IpcRendererEvent, estado: { versao: string; modo: 'reiniciar' | 'pagina' }) => fn(estado);
+      ipcRenderer.on('atualizacao:estado', ouvinte);
+      return () => ipcRenderer.removeListener('atualizacao:estado', ouvinte);
+    },
+    instalar: () => ipcRenderer.invoke('atualizacao:instalar'),
+    abrirPagina: () => ipcRenderer.invoke('atualizacao:pagina'),
+  },
   arquivos: {
     baixar: (url, nome) => ipcRenderer.invoke('arquivo:baixar', url, nome),
     abrir: (caminho) => ipcRenderer.invoke('arquivo:abrir', caminho),

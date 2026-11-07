@@ -14,6 +14,12 @@ files:
 asarUnpack:
   - '**/node_modules/uiohook-napi/**'
 npmRebuild: false
+# Backlog v2, 1d: a atualização automática lê as releases deste repositório (latest*.yml publicados pelo CI).
+publish:
+  provider: github
+  owner: gabrielnunes96
+  repo: tofalany
+  releaseType: release
 # Endurecimento do binário: sem modo Node pelo ambiente e só o app do asar. (A inspeção por linha de comando fica:
 # o Playwright usa para testar o app empacotado.)
 electronFuses:

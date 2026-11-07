@@ -54,6 +54,13 @@ export interface ApiTofalando {
   rede: {
     servidorPendente(url: string | null): Promise<void>;
   };
+  /** Backlog v2, 1d: versão nova (baixada, para reiniciar; ou só disponível, para baixar pela página). */
+  atualizacao: {
+    estado(): Promise<{ versao: string; modo: 'reiniciar' | 'pagina' } | null>;
+    aoMudar(fn: (e: { versao: string; modo: 'reiniciar' | 'pagina' }) => void): () => void;
+    instalar(): Promise<void>;
+    abrirPagina(): Promise<void>;
+  };
   arquivos: {
     /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */
     baixar(url: string, nome: string): Promise<string | null>;

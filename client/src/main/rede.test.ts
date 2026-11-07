@@ -35,4 +35,13 @@ describe('privacidade de rede (CA-46)', () => {
     expect(permitido('https://fala.exemplo.com/x', 'nao é url')).toBe(false);
     expect(permitido('http://localhost:51730/x', servidor, 'http://localhost:5173')).toBe(false);
   });
+
+  it('atualização: o processo principal fala com o GitHub por HTTPS; a janela não', () => {
+    const principal = { doProcessoPrincipal: true };
+    expect(permitido('https://github.com/gabrielnunes96/tofalany/releases/download/v0.2.0/latest.yml', 'https://s.io', undefined, principal)).toBe(true);
+    expect(permitido('https://release-assets.githubusercontent.com/x', 'https://s.io', undefined, principal)).toBe(true);
+    expect(permitido('http://github.com/x', 'https://s.io', undefined, principal)).toBe(false);
+    expect(permitido('https://github.com.mal.io/x', 'https://s.io', undefined, principal)).toBe(false);
+    expect(permitido('https://github.com/x', 'https://s.io')).toBe(false);
+  });
 });
