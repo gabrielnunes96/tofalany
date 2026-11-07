@@ -572,6 +572,11 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
   const tela = a.getByLabel('Tela de dono');
   await expect.poll(() => tela.evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
   await expect(a.getByRole('button', { name: 'Tela cheia' })).toBeVisible();
+  // Item 0b do backlog v2: o painel não pode ser espremido pelo chat (cortava o vídeo e escondia a barra).
+  const caixa = await a.getByRole('region', { name: 'Transmissão de dono' }).boundingBox();
+  const video = await tela.boundingBox();
+  const barra = await a.getByRole('button', { name: 'Tela cheia' }).boundingBox();
+  expect(caixa!.height).toBeGreaterThanOrEqual(video!.height + barra!.height);
   await expect(a.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('transmitindo a tela')).toBeVisible();
   await print(a, 'T21-ana-assiste-tela-do-dono');
 
