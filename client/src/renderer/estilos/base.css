@@ -430,7 +430,7 @@ button.icone.controle.sair-voz { color: var(--magenta); }
 .app-com-servidores { display: flex; height: 100%; }
 .app-tela { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; }
 .app-tela > * { flex: 1; min-height: 0; }
-.coluna-servidores { flex: none; width: 64px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; background: var(--fundo); border-right: 1px solid var(--borda); overflow-y: auto; }
+.coluna-servidores { flex: none; width: 64px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; background: var(--fundo); border-right: 1px solid var(--borda); overflow-y: auto; overflow-x: visible; position: relative; z-index: 5; }
 button.servidor-icone { position: relative; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; border-radius: 50%; background: var(--superficie); color: var(--texto); font-weight: 700; display: grid; place-items: center; transition: border-radius 0.18s, background 0.18s; box-shadow: none; }
 button.servidor-icone:hover:not(:disabled), button.servidor-icone.ativo { border-radius: 14px; background: var(--destaque); color: var(--texto-no-destaque); box-shadow: var(--brilho); }
 button.servidor-icone.ativo::before { content: ''; position: absolute; left: -12px; width: 4px; height: 28px; border-radius: 0 4px 4px 0; background: var(--texto); }
@@ -566,3 +566,18 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 /* Controles da voz numa linha só. */
 .painel-voz button.icone.controle { width: 30px; height: 30px; }
 .painel-voz { gap: 6px 4px; }
+
+/* "+" da coluna de servidores: criar um servidor (administrador) ou entrar com convite. */
+.adicionar-servidor { position: relative; }
+.menu-adicionar { position: fixed; left: 72px; top: 60px; z-index: 50; width: 280px; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); animation: surgir 0.14s ease-out; }
+.menu-adicionar > button[role="menuitem"] { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0; padding: 8px 10px; text-align: left; background: transparent; color: var(--texto); border: 0; border-radius: 8px; box-shadow: none; }
+.menu-adicionar > button[role="menuitem"]:hover:not(:disabled) { background: color-mix(in srgb, var(--destaque) 14%, transparent); box-shadow: none; }
+.menu-adicionar small { font-weight: 400; color: var(--texto-suave); font-size: 0.75rem; }
+.menu-adicionar label { font-size: 0.8rem; font-weight: 600; }
+.menu-adicionar input { margin: 0; }
+.menu-adicionar-acoes { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+.menu-adicionar-acoes button { margin: 0; }
+
+/* Prévia da tela inteira: sem tela cheia (espelho infinito); um aviso discreto no canto. */
+.previa-minha-tela .previa-aviso { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px; font-size: 0.68rem; color: #fff; background: rgba(10, 10, 18, 0.7); opacity: 0; transition: opacity 0.15s; }
+.previa-minha-tela:hover .previa-aviso { opacity: 1; }

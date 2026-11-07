@@ -58,6 +58,8 @@ test('backlog v2, item 7: entra em dois servidores e troca entre eles pela colun
   await expect(coluna.getByRole('button', { name: /Turma da Faculdade/ })).toHaveAttribute('aria-current', 'page');
 
   await coluna.getByRole('button', { name: 'Adicionar servidor' }).click();
+  // Administrador: o "+" abre o menu (criar servidor ou entrar com convite).
+  await j.getByRole('menuitem', { name: /Entrar com convite/ }).click();
   await cadastrarPorLink(j, `${b}/convite/convite-familia`);
   await expect(coluna.getByRole('button', { name: /Família/ })).toHaveAttribute('aria-current', 'page');
   await expect(coluna.getByRole('button', { name: /Turma da Faculdade/ })).toHaveText('TF');

@@ -45,7 +45,7 @@ describe('Socket.IO autenticado (T4)', () => {
     const { token } = (await cadastrar(app!, 'ana')).json();
     await cadastrar(app!, 'bia');
     const ola = await proximo<OlaPayload>(abrir(url, token), 'ola');
-    expect(ola.servidor).toEqual({ nome: 'Turma' });
+    expect(ola.servidor).toEqual({ nome: 'Turma', id: 1, donoId: null });
     expect(ola.eu).toMatchObject({ usuario: 'ana', cargo: 'admin' });
     expect(ola.usuarios.map((u) => u.usuario)).toEqual(['ana', 'bia']);
   });

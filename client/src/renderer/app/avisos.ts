@@ -9,5 +9,7 @@ export function avisoDeRevogacao(motivo: MotivoRevogacao): string | undefined {
       return 'Sua sessão foi encerrada. Entre de novo.';
     case 'conta_removida':
       return 'Sua conta foi removida deste servidor.';
+    case 'fora_do_servidor':
+      return 'Você não participa mais deste servidor.';
   }
 }

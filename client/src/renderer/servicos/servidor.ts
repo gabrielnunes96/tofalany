@@ -1,3 +1,4 @@
+import { caminhoComunidade, separarComunidade } from '@tofalando/shared';
 import { APP_ID, TEMPO_TESTE_SERVIDOR_MS, type Resultado, type ServidorInfo } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
@@ -18,7 +19,10 @@ function enderecoFinal(pedido: string, final: string): string {
   try {
     const de = new URL(pedido);
     const para = new URL(final);
-    return de.protocol === 'http:' && para.protocol === 'https:' && de.hostname === para.hostname ? para.origin : de.origin;
+    // O caminho /c/<id> (servidor criado na mesma instalação) faz parte do endereço.
+    const { comunidade } = separarComunidade(pedido);
+    const caminho = caminhoComunidade(comunidade);
+    return (de.protocol === 'http:' && para.protocol === 'https:' && de.hostname === para.hostname ? para.origin : de.origin) + caminho;
   } catch {
     return pedido;
   }

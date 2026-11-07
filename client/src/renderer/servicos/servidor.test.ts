@@ -12,6 +12,13 @@ describe('testarServidor', () => {
     expect(buscar).toHaveBeenCalledWith('http://s:3000/api/servidor', expect.anything());
   });
 
+  it('servidor criado na mesma instalação: o endereço mantém o /c/<id>', async () => {
+    const buscar = vi.fn(() => json({ app: 'tofalany', nome: 'Família', versao: '0.1.0', contas: 2, limiteContas: 20 }));
+    const r = await testarServidor('http://s:3000/c/2', buscar);
+    expect(r).toMatchObject({ ok: true, valor: { nome: 'Família', endereco: 'http://s:3000/c/2' } });
+    expect(buscar).toHaveBeenCalledWith('http://s:3000/c/2/api/servidor', expect.anything());
+  });
+
   it('recusa servidor inacessível', async () => {
     const r = await testarServidor('http://s', () => Promise.reject(new TypeError('falhou')));
     expect(r).toMatchObject({ ok: false, erro: expect.stringContaining('Não foi possível conectar') });

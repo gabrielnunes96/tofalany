@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { COMUNIDADE_PRINCIPAL, separarComunidade } from '@tofalando/shared';
 import type { Cargo, FuncaoDto, RedefinicaoDto, UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { Avatar } from '../componentes/Avatar';
@@ -21,6 +22,8 @@ interface Props {
 
 /** RF-6 (administrador): promover, rebaixar e remover contas. O servidor confere tudo (RN-5, RN-16). */
 export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualizar, aoRemover, aoVoltar, copiar = (t) => navigator.clipboard.writeText(t) }: Props) {
+  // Servidor criado na mesma instalação (/c/<id>): remover tira só daqui; código de senha é coisa da conta (principal).
+  const principal = separarComunidade(servidorUrl).comunidade === COMUNIDADE_PRINCIPAL;
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [confirmando, setConfirmando] = useState<number | null>(null);
@@ -123,9 +126,11 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
                 Tornar membro
               </button>
             )}
-            <button type="button" className="secundario" disabled={ocupado !== null} onClick={() => void gerarCodigo(u)}>
-              Gerar código de senha
-            </button>
+            {principal && (
+              <button type="button" className="secundario" disabled={ocupado !== null} onClick={() => void gerarCodigo(u)}>
+                Gerar código de senha
+              </button>
+            )}
             {confirmando === u.id ? (
               <span className="confirmar" role="group" aria-label={`Confirmar remoção de ${u.nomeExibicao}`}>
                 <button type="button" className="perigo" disabled={ocupado !== null} onClick={() => void remover(u)}>
@@ -137,7 +142,7 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
               </span>
             ) : (
               <button type="button" className="secundario" disabled={ocupado !== null} onClick={() => setConfirmando(u.id)}>
-                Remover conta
+                {principal ? 'Remover conta' : 'Tirar do servidor'}
               </button>
             )}
           </li>
@@ -147,7 +152,9 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
         <GerenciarCargos funcoes={funcoes} api={{ criarFuncao: api.criarFuncao, editarFuncao: api.editarFuncao, removerFuncao: api.removerFuncao }} />
       )}
       <p className="suave">
-        Remover uma conta desconecta a pessoa na hora e libera a vaga. As mensagens dela continuam, com o autor "conta removida".
+        {principal
+          ? 'Remover uma conta desconecta a pessoa na hora e libera a vaga. As mensagens dela continuam, com o autor "conta removida".'
+          : 'Tirar alguém do servidor desconecta a pessoa daqui; a conta dela continua nos outros servidores. Para voltar, ela precisa de um convite.'}
       </p>
     </section>
   );

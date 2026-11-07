@@ -42,6 +42,8 @@ interface Props {
   aoSair: () => void;
   aoTrocarServidor: () => void;
   aoSessaoRevogada: (motivo: MotivoRevogacao) => void;
+  /** Saí deste servidor ou ele foi excluído: a coluna tira o ícone e vai para outro. */
+  aoSairDoServidor?: () => void;
 }
 
 /** Estado de voz enviado ao servidor (mute/deafen/câmera chegam nas T16 e T20). */
@@ -69,7 +71,7 @@ const destinoDe = (chave: Chave): Destino => {
 };
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
-export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor }: Props) {
+export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor, aoSairDoServidor }: Props) {
   const { conexao, eu, usuarios, funcoes, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
@@ -178,6 +180,26 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
   }, [alternarParte]);
+  // Servidores na mesma instalação: sair (membro) ou excluir (quem criou). O principal não sai nem é excluído.
+  const { servidorId, donoServidor } = useLoja(useShallow((s) => ({ servidorId: s.servidorId, donoServidor: s.donoServidor })));
+  async function sairDoServidor() {
+    if (!window.confirm(`Sair do servidor ${nomeServidor ?? ''}? Para voltar, você vai precisar de um convite.`)) return;
+    try {
+      await criarApi(servidorUrl, token).sairComunidade();
+      aoSairDoServidor?.();
+    } catch (e) {
+      setAvisoVoz(e instanceof Error ? e.message : 'Não foi possível sair do servidor.');
+    }
+  }
+  async function excluirServidor() {
+    if (!window.confirm(`Excluir o servidor ${nomeServidor ?? ''}? Canais, mensagens, sons e cargos dele são apagados para todos, sem volta.`)) return;
+    try {
+      await criarApi(servidorUrl, token).excluirComunidade();
+      aoSairDoServidor?.();
+    } catch (e) {
+      setAvisoVoz(e instanceof Error ? e.message : 'Não foi possível excluir o servidor.');
+    }
+  }
   // Barra lateral: canais ou conversas diretas (abrir uma DM, por notificação ou pelo envelope, troca para Diretas).
   const [abaBarra, setAbaBarra] = useState<AbaBarra>('canais');
   // Ping até o servidor de voz, atualizado a cada 2 s enquanto estou num canal.
@@ -194,6 +216,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   // Backlog v2, item 12: prévia da minha transmissão (a faixa local; não gasta banda).
   const [previaMinhaTela, setPreviaMinhaTela] = useState<MediaStreamTrack | undefined>(undefined);
   const [verPrevia, setVerPrevia] = useState(true);
+  /** Transmitindo a tela inteira: a prévia em tela cheia apareceria dentro da própria transmissão (espelho infinito). */
+  const [previaDaTelaInteira, setPreviaDaTelaInteira] = useState(false);
   // Backlog v2, item 8: menu do usuário (fecha ao clicar fora ou com Esc).
   const [menuAberto, setMenuAberto] = useState(false);
   useEffect(() => {
@@ -1007,6 +1031,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         if (ok) {
           qualidadeAtualRef.current = qualidade;
           setPreviaMinhaTela(sala.faixaMinhaTela());
+          setPreviaDaTelaInteira(fonte.tipo === 'tela');
         }
       } catch {
         setAvisoVoz('Não foi possível transmitir a tela.');
@@ -1275,6 +1300,16 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   </>
                 )}
                 <hr />
+                {servidorId !== null && servidorId !== 1 && donoServidor !== usuario.id && (
+                  <button type="button" onClick={() => void sairDoServidor()}>
+                    Sair do servidor
+                  </button>
+                )}
+                {servidorId !== null && servidorId !== 1 && donoServidor === usuario.id && (
+                  <button type="button" className="sair" onClick={() => void excluirServidor()}>
+                    Excluir servidor
+                  </button>
+                )}
                 <button type="button" onClick={aoTrocarServidor}>
                   Trocar servidor
                 </button>
@@ -1304,7 +1339,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               <button type="button" className="perigo" disabled={iniciandoTela} onClick={() => void pararTela()}>
                 Parar transmissão
               </button>
-              {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} />}
+              {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} telaInteira={previaDaTelaInteira} />}
             </section>
           )}
           {transmissoes
@@ -1456,7 +1491,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
 }
 
 /** Backlog v2, item 12: o que a minha tela está mandando, num quadro pequeno (mudo, sem rede), com tela cheia. */
-function PreviaLocal({ faixa }: { faixa: MediaStreamTrack }) {
+function PreviaLocal({ faixa, telaInteira }: { faixa: MediaStreamTrack; telaInteira: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   const caixa = useRef<HTMLElement>(null);
   const cheia = useEmTelaCheia(caixa);
@@ -1470,11 +1505,17 @@ function PreviaLocal({ faixa }: { faixa: MediaStreamTrack }) {
     };
   }, [faixa]);
   return (
-    <figure ref={caixa} className="previa-minha-tela" onDoubleClick={() => alternarTelaCheia(caixa.current)}>
+    <figure ref={caixa} className="previa-minha-tela" onDoubleClick={telaInteira ? undefined : () => alternarTelaCheia(caixa.current)}>
       <video ref={ref} aria-label="Prévia da sua transmissão" muted playsInline />
-      <button type="button" className="icone quadro-tela-cheia" aria-label={cheia ? 'Sair da tela cheia' : 'Prévia em tela cheia'} title={cheia ? 'Sair da tela cheia (ou Esc)' : 'Tela cheia (ou duplo clique)'} onClick={() => alternarTelaCheia(caixa.current)}>
-        {cheia ? '🗗' : '⛶'}
-      </button>
+      {telaInteira ? (
+        <figcaption className="previa-aviso" title="A prévia em tela cheia apareceria dentro da própria transmissão, num espelho infinito. Para ver grande, transmita uma janela.">
+          Tela inteira: sem tela cheia na prévia
+        </figcaption>
+      ) : (
+        <button type="button" className="icone quadro-tela-cheia" aria-label={cheia ? 'Sair da tela cheia' : 'Prévia em tela cheia'} title={cheia ? 'Sair da tela cheia (ou Esc)' : 'Tela cheia (ou duplo clique)'} onClick={() => alternarTelaCheia(caixa.current)}>
+          {cheia ? '🗗' : '⛶'}
+        </button>
+      )}
     </figure>
   );
 }

@@ -33,7 +33,7 @@ export function permitido(
   if (urlDev && (url === urlDev || url.startsWith(urlDev.endsWith('/') ? urlDev : `${urlDev}/`))) return true;
   // Sondagem de endereço novo: só leitura, sem parâmetros (não vira canal para mandar dados a qualquer host).
   const leitura = !opcoes.metodo || opcoes.metodo === 'GET' || opcoes.metodo === 'HEAD';
-  if (u.pathname === '/api/servidor' && u.search === '' && leitura && (u.protocol === 'http:' || u.protocol === 'https:')) return true;
+  if (/^(\/c\/\d{1,9})?\/api\/servidor$/.test(u.pathname) && u.search === '' && leitura && (u.protocol === 'http:' || u.protocol === 'https:')) return true;
   // Primeira execução (ou convite num app novo): ainda não há servidor escolhido, nada a proteger.
   if (!servidorUrl) return true;
   const mesmoHost = (base: string | null | undefined) => {
@@ -45,7 +45,7 @@ export function permitido(
     }
   };
   // Backlog v2: dos outros servidores em que a pessoa entrou, só a consulta do número de não lidas (o ícone da coluna).
-  if (u.pathname === '/api/nao-lidas' && u.search === '' && leitura && (u.protocol === 'http:' || u.protocol === 'https:') && opcoes.conhecidos?.some(mesmoHost)) return true;
+  if (/^(\/c\/\d{1,9})?\/api\/nao-lidas$/.test(u.pathname) && u.search === '' && leitura && (u.protocol === 'http:' || u.protocol === 'https:') && opcoes.conhecidos?.some(mesmoHost)) return true;
   // O servidor do convite em andamento (já testado) vale até a pessoa entrar e ele virar o salvo.
   return mesmoHost(servidorUrl) || mesmoHost(opcoes.pendente);
 }

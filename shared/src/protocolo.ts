@@ -407,7 +407,8 @@ export type Ack<T = undefined> = (resposta: { ok: true; valor: T } | { ok: false
 
 /** Retrato inicial enviado ao conectar o Socket.IO (cresce com canais, DMs, voz… nas próximas tarefas). */
 export interface OlaPayload {
-  servidor: { nome: string };
+  /** Servidor desta conexão: nome, id (1 = principal) e quem criou (só quem criou exclui; servidor antigo não manda). */
+  servidor: { nome: string; id?: number; donoId?: number | null };
   /** Link de convite vigente, que qualquer membro pode copiar (RF-1a). */
   convite: { link: string };
   eu: UsuarioDto;

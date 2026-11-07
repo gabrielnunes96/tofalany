@@ -22,7 +22,7 @@ import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
 import { buscarPorId, listarMembros, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
-import { conviteDa, existeComunidade, membroNaComunidade, nomeComunidade } from '../dominio/comunidades.js';
+import { conviteDa, donoDa, existeComunidade, membroNaComunidade, nomeComunidade } from '../dominio/comunidades.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
 import { listarDms } from '../dominio/dms.js';
@@ -257,7 +257,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     const dms = listarDms(banco, eu.id).filter((d) => ids.has(d.outroId));
     const chaves = new Set([...canais.map((c) => `c:${c.id}`), ...dms.map((d) => `d:${d.id}`)]);
     const ola: OlaPayload = {
-      servidor: { nome: nomeComunidade(banco, comunidadeId, config.nomeServidor) ?? config.nomeServidor },
+      servidor: { nome: nomeComunidade(banco, comunidadeId, config.nomeServidor) ?? config.nomeServidor, id: comunidadeId, donoId: donoDa(banco, comunidadeId) },
       convite: { link: montarLinkConvite(socket.data.baseServidor, conviteDa(banco, comunidadeId) ?? '') },
       eu: paraDto(membros.find((m) => m.id === eu.id) ?? eu),
       usuarios: membros.map(paraDto),

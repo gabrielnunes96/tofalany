@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { ConviteLink, MotivoRevogacao, ServidorConhecido, SessaoResponse, UsuarioDto } from '@tofalando/shared';
+import { caminhoComunidade, separarComunidade, type ConviteLink, type MotivoRevogacao, type ServidorConhecido, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
 import { testarServidor } from '../servicos/servidor';
 import { ponte } from '../servicos/ponte';
 import { criarApi, ErroApiCliente } from '../servicos/api';
@@ -37,6 +37,27 @@ export function App() {
     });
   }, []);
 
+  const servidoresRef = useRef(servidores);
+  useEffect(() => {
+    servidoresRef.current = servidores;
+  }, [servidores]);
+
+  /**
+   * Vários servidores na mesma instalação (https://x e https://x/c/<id>): a conta é a mesma, então a sessão de
+   * qualquer um deles serve para os outros.
+   */
+  const tokenDaInstalacao = useCallback(async (url: string): Promise<string | null> => {
+    const { base } = separarComunidade(url);
+    const candidatos = [base, ...servidoresRef.current.map((s) => s.url)].filter((u, i, l) => u !== url && l.indexOf(u) === i && separarComunidade(u).base === base);
+    for (const u of candidatos) {
+      const s = await ponte()
+        .sessao.ler(u)
+        .catch(() => null);
+      if (s?.token) return s.token;
+    }
+    return null;
+  }, []);
+
   /** Com servidor guardado: usa a sessão se ela for deste servidor e ainda valer (RF-3). */
   const retomar = useCallback(async (salvo: string) => {
     let url = salvo;
@@ -57,14 +78,24 @@ export function App() {
       }
     }
     if (!sessao || sessao.servidorUrl !== url) {
-      setEstado({ fase: 'entrar', url });
-      return;
+      // Outro servidor da mesma instalação: a mesma conta entra sem pedir senha.
+      const token = await tokenDaInstalacao(url);
+      if (!token) {
+        setEstado({ fase: 'entrar', url });
+        return;
+      }
+      sessao = { servidorUrl: url, token };
     }
     try {
       const usuario = await criarApi(url, sessao.token).eu();
+      await ponte()
+        .sessao.gravar({ servidorUrl: url, token: sessao.token })
+        .catch(() => undefined);
       setEstado({ fase: 'principal', url, token: sessao.token, usuario });
     } catch (e) {
-      if (e instanceof ErroApiCliente && e.status === 401) {
+      if (e instanceof ErroApiCliente && e.codigo === 'nao_membro') {
+        setEstado({ fase: 'sem-conexao', url, mensagem: 'Você não participa deste servidor. Peça um convite para quem administra.' });
+      } else if (e instanceof ErroApiCliente && e.status === 401) {
         await ponte()
           .sessao.apagar(url)
           .catch(() => undefined);
@@ -73,7 +104,7 @@ export function App() {
         setEstado({ fase: 'sem-conexao', url, mensagem: e instanceof Error ? e.message : 'Sem conexão com o servidor.' });
       }
     }
-  }, []);
+  }, [tokenDaInstalacao]);
 
   /**
    * RF-1a: link de convite. Se já há sessão neste servidor, só entra. Senão abre o cadastro com o
@@ -98,9 +129,27 @@ export function App() {
       if (sessao) {
         await ponte().config.gravar({ servidorUrl: servidor });
         await retomar(servidor);
-      } else setEstado((atual) => ({ fase: 'entrar', url: servidor, convite: codigo, voltar: atual }));
+        return;
+      }
+      // Convite de outro servidor de uma instalação em que já tenho conta: entra com ela, sem novo cadastro.
+      const token = await tokenDaInstalacao(servidor);
+      if (token) {
+        try {
+          const c = await criarApi(servidor, token).entrarComunidade(codigo);
+          const url = `${separarComunidade(servidor).base}${caminhoComunidade(c.id)}`;
+          await ponte().sessao.gravar({ servidorUrl: url, token });
+          await ponte().config.gravar({ servidorUrl: url });
+          lembrarServidor(url, c.nome);
+          await retomar(url);
+          return;
+        } catch (e) {
+          setEstado({ fase: 'sem-conexao', url: servidor, mensagem: e instanceof Error ? e.message : 'Não foi possível entrar no servidor.', convite });
+          return;
+        }
+      }
+      setEstado((atual) => ({ fase: 'entrar', url: servidor, convite: codigo, voltar: atual }));
     },
-    [retomar],
+    [retomar, tokenDaInstalacao, lembrarServidor],
   );
 
   useEffect(() => {
@@ -145,8 +194,30 @@ export function App() {
     setEstado({ fase: 'entrar', url });
   }
 
+  /** Tira um servidor da coluna (saí, fui tirado ou ele foi excluído) e vai para outro da lista. */
+  const esquecerServidor = useCallback(
+    async (url: string) => {
+      await ponte()
+        .sessao.apagar(url)
+        .catch(() => undefined);
+      const resto = servidoresRef.current.filter((s) => s.url !== url);
+      setServidores(resto);
+      const proximo = resto.find((s) => s.url === separarComunidade(url).base) ?? resto[0];
+      await ponte()
+        .config.gravar({ servidores: resto, servidorUrl: proximo?.url ?? null })
+        .catch(() => undefined);
+      if (proximo) await retomar(proximo.url);
+      else setEstado({ fase: 'escolher-servidor', voltar: null });
+    },
+    [retomar],
+  );
+
   const sessaoRevogada = useCallback((motivo: MotivoRevogacao) => {
     const atual = estadoRef.current;
+    if (motivo === 'fora_do_servidor' && atual.fase === 'principal') {
+      void esquecerServidor(atual.url);
+      return;
+    }
     if (atual.fase === 'principal')
       void ponte()
         .sessao.apagar(atual.url)
@@ -154,7 +225,7 @@ export function App() {
     setEstado((atual) =>
       atual.fase === 'principal' ? { fase: 'entrar', url: atual.url, aviso: avisoDeRevogacao(motivo) } : atual,
     );
-  }, []);
+  }, [esquecerServidor]);
 
   const trocarServidor = () => setEstado((atual) => ({ fase: 'escolher-servidor', voltar: atual }));
 
@@ -168,6 +239,63 @@ export function App() {
   }
 
   const urlAtiva = estado.fase === 'principal' || estado.fase === 'entrar' || estado.fase === 'sem-conexao' ? estado.url : null;
+
+  // Servidores da mesma instalação: a coluna mostra todos os meus (o administrador vê todos) e tira os que saíram.
+  const [podeCriar, setPodeCriar] = useState<string | null>(null);
+  const principalUrl = estado.fase === 'principal' ? estado.url : null;
+  const principalToken = estado.fase === 'principal' ? estado.token : null;
+  useEffect(() => {
+    if (!principalUrl || !principalToken) return;
+    const { base } = separarComunidade(principalUrl);
+    let vivo = true;
+    void (async () => {
+      const lista = await criarApi(principalUrl, principalToken)
+        .comunidades()
+        .catch(() => null);
+      if (!lista || !vivo) return;
+      const daqui = lista.map((c) => ({ url: `${base}${caminhoComunidade(c.id)}`, nome: c.nome }));
+      for (const c of daqui) {
+        await ponte()
+          .sessao.gravar({ servidorUrl: c.url, token: principalToken })
+          .catch(() => undefined);
+      }
+      if (!vivo) return;
+      setServidores((atual) => {
+        const urls = new Set(daqui.map((c) => c.url));
+        const mantidos = atual.filter((s) => separarComunidade(s.url).base !== base || urls.has(s.url)).map((s) => daqui.find((c) => c.url === s.url) ?? s);
+        const novos = daqui.filter((c) => !mantidos.some((s) => s.url === c.url));
+        const proximo = [...mantidos, ...novos];
+        if (JSON.stringify(proximo) === JSON.stringify(atual)) return atual;
+        void ponte()
+          .config.gravar({ servidores: proximo })
+          .catch(() => undefined);
+        return proximo;
+      });
+      // Só o administrador do principal cria servidores (o botão "Criar servidor" aparece para ele).
+      const eu = await criarApi(base, principalToken)
+        .eu()
+        .catch(() => null);
+      if (vivo) setPodeCriar(eu?.cargo === 'admin' ? base : null);
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [principalUrl, principalToken]);
+
+  async function criarServidor(nome: string): Promise<string | null> {
+    const atual = estadoRef.current;
+    if (atual.fase !== 'principal') return 'Entre num servidor primeiro.';
+    try {
+      const c = await criarApi(atual.url, atual.token).criarComunidade(nome);
+      const url = `${separarComunidade(atual.url).base}${caminhoComunidade(c.id)}`;
+      await ponte().sessao.gravar({ servidorUrl: url, token: atual.token });
+      lembrarServidor(url, c.nome);
+      await irParaServidor(url);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Não foi possível criar o servidor.';
+    }
+  }
 
   // Backlog v2: número de não lidas no ícone dos outros servidores (consulta a cada minuto e ao trocar de servidor).
   const [naoLidasOutros, setNaoLidasOutros] = useState<Record<string, number>>({});
@@ -196,7 +324,14 @@ export function App() {
       tela
     ) : (
       <div className="app-com-servidores">
-        <ColunaServidores servidores={servidores} ativo={urlAtiva} naoLidas={naoLidasOutros} aoEscolher={(url) => void irParaServidor(url)} aoAdicionar={trocarServidor} />
+        <ColunaServidores
+          servidores={servidores}
+          ativo={urlAtiva}
+          naoLidas={naoLidasOutros}
+          aoEscolher={(url) => void irParaServidor(url)}
+          aoAdicionar={trocarServidor}
+          aoCriar={podeCriar && urlAtiva && separarComunidade(urlAtiva).base === podeCriar ? criarServidor : undefined}
+        />
         <div className="app-tela">{tela}</div>
       </div>
     );
@@ -246,6 +381,7 @@ export function App() {
           aoSair={() => void sair(estado.url, estado.token)}
           aoTrocarServidor={trocarServidor}
           aoSessaoRevogada={sessaoRevogada}
+          aoSairDoServidor={() => void esquecerServidor(estado.url)}
         />,
       );
   }

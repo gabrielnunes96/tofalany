@@ -35,6 +35,16 @@ function montar() {
 }
 
 describe('conectarTempoReal', () => {
+  it('servidor criado na mesma instalação: conecta na raiz e diz o servidor no handshake', () => {
+    const s = socketFalso();
+    const fabrica = vi.fn(() => s as unknown as SocketTofalando);
+    conectarTempoReal('https://x.io/c/7', 'tok', montar().ouvintes, fabrica, { aoMudar: () => () => undefined });
+    expect((fabrica.mock.calls as unknown as unknown[][])[0]![0]).toBe('https://x.io');
+    const enviado = vi.fn();
+    ((fabrica.mock.calls as unknown as unknown[][])[0]![1] as { auth: (cb: (d: unknown) => void) => void }).auth(enviado);
+    expect(enviado).toHaveBeenCalledWith(expect.objectContaining({ comunidade: 7 }));
+  });
+
   it('conecta com o token e reconexão automática', () => {
     const { fabrica, ouvintes, s } = montar();
     expect(fabrica).toHaveBeenCalledWith('http://s', expect.objectContaining({ reconnection: true }));
@@ -42,7 +52,7 @@ describe('conectarTempoReal', () => {
     const auth = ((fabrica.mock.calls as unknown as unknown[][])[0]![1] as { auth: (cb: (d: unknown) => void) => void }).auth;
     const enviado = vi.fn();
     auth(enviado);
-    expect(enviado).toHaveBeenCalledWith({ token: 'tok', ausente: false, status: 'auto' });
+    expect(enviado).toHaveBeenCalledWith({ token: 'tok', ausente: false, status: 'auto', comunidade: 1 });
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('conectando');
     s.disparar('connect');
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('conectado');

@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import { ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto, type EstadoMusica } from '@tofalando/shared';
+import { separarComunidade, ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto, type EstadoMusica } from '@tofalando/shared';
 import { chaveDe, type Chave } from '../estado/chaves';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
@@ -99,9 +99,12 @@ export function conectarTempoReal(
   let encerrada = false;
   let ausente = false;
   let escolha: EscolhaStatus = 'auto';
-  const socket = fabrica(url, {
+  // Servidor criado na mesma instalação (https://x/c/<id>): a conexão vai para a raiz e diz o servidor
+  // (o caminho no endereço do Socket.IO seria lido como namespace).
+  const { base, comunidade } = separarComunidade(url);
+  const socket = fabrica(base, {
     // O 'ausente' vai junto no handshake de cada (re)conexão (RN-25).
-    auth: (enviar) => enviar({ token, ausente, status: escolha }),
+    auth: (enviar) => enviar({ token, ausente, status: escolha, comunidade }),
     transports: ['websocket'],
     reconnection: true,
     reconnectionDelay: 500,
@@ -149,6 +152,7 @@ export function conectarTempoReal(
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');
+    else if (erro.message === 'nao_membro') revogar('fora_do_servidor');
     else if (!encerrada) ouvintes.aoEstado('reconectando');
   });
   socket.on('disconnect', (motivo) => {

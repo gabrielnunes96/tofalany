@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas, ComunidadeDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -27,6 +27,12 @@ export interface ClienteApi {
   eu(): Promise<UsuarioDto>;
   /** Backlog v2: total de não lidas neste servidor (número no ícone da coluna de servidores). */
   naoLidas(): Promise<ResumoNaoLidas>;
+  /** Vários servidores na mesma instalação: os meus, criar (administrador do principal), entrar com convite, sair e excluir. */
+  comunidades(): Promise<ComunidadeDto[]>;
+  criarComunidade(nome: string): Promise<ComunidadeDto>;
+  entrarComunidade(codigo: string): Promise<ComunidadeDto>;
+  sairComunidade(): Promise<void>;
+  excluirComunidade(): Promise<void>;
   auditoria(filtro: FiltroAuditoria): Promise<PaginaAuditoria>;
   atualizarPerfil(dados: AtualizarPerfilRequest): Promise<UsuarioDto>;
   enviarAvatar(arquivo: Blob, nome: string): Promise<{ avatarUrl: string }>;
@@ -106,6 +112,11 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     sair: () => chamar('POST', '/api/auth/sair'),
     eu: () => chamar('GET', '/api/eu'),
     naoLidas: () => chamar('GET', '/api/nao-lidas'),
+    comunidades: () => chamar('GET', '/api/comunidades'),
+    criarComunidade: (nome) => chamar('POST', '/api/comunidades', { nome }),
+    entrarComunidade: (codigo) => chamar('POST', '/api/comunidades/entrar', { codigo }),
+    sairComunidade: () => chamar('POST', '/api/comunidade/sair'),
+    excluirComunidade: () => chamar('DELETE', '/api/comunidade'),
     auditoria: (filtro) => chamar('GET', `/api/admin/auditoria${consulta(filtro)}`),
     atualizarPerfil: (dados) => chamar('PATCH', '/api/eu', dados),
     usuariosAdmin: () => chamar('GET', '/api/admin/usuarios'),

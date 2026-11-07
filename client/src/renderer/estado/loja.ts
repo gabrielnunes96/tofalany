@@ -10,6 +10,9 @@ export { chaveCanal, chaveDe, chaveDm, type Chave } from './chaves';
 interface Loja {
   conexao: EstadoConexao;
   nomeServidor: string | null;
+  /** Servidor desta conexão (1 = principal) e quem o criou (só quem criou exclui). */
+  servidorId: number | null;
+  donoServidor: number | null;
   linkConvite: string | null;
   eu: UsuarioDto | null;
   usuarios: UsuarioDto[];
@@ -105,6 +108,8 @@ let proximaGeracao = 1;
 const inicial = {
   conexao: 'conectando' as EstadoConexao,
   nomeServidor: null,
+  servidorId: null,
+  donoServidor: null,
   linkConvite: null,
   eu: null,
   usuarios: [] as UsuarioDto[],
@@ -161,6 +166,8 @@ export const useLoja = create<Loja>((set) => ({
       const ordenados = ordenarCanais(canais);
       return {
         nomeServidor: servidor.nome,
+        servidorId: servidor.id ?? null,
+        donoServidor: servidor.donoId ?? null,
         linkConvite: convite.link,
         eu,
         usuarios,
