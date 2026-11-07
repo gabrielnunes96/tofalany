@@ -1,6 +1,6 @@
 {
   "name": "@tofalando/server",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@fastify/cors": "^11.4.0",
     "@fastify/multipart": "^10.1.7",
-    "@tofalando/shared": "0.7.0",
+    "@tofalando/shared": "0.8.0",
     "better-sqlite3": "^13.0.3",
     "fastify": "^5.12.8",
     "livekit-server-sdk": "^2.19.2",
