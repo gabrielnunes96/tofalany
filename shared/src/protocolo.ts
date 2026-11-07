@@ -128,6 +128,7 @@ export interface SessaoResponse {
 export type CodigoErro =
   | 'dados_invalidos'
   | 'voz_indisponivel'
+  | 'musica_indisponivel'
   | 'assinatura_invalida'
   | 'convite_invalido'
   | 'codigo_invalido'
@@ -420,6 +421,8 @@ export interface OlaPayload {
   presencas: Record<string, StatusVisivel>;
   /** RF-12: mensagens não lidas por conversa ("c:<id>" / "d:<id>"), só as que têm alguma. */
   naoLidas: Record<string, number>;
+  /** Backlog v2, item 14: o que o bot de música toca em cada canal de voz (servidor antigo não manda). */
+  musica?: EstadoMusica[];
 }
 
 /** Eventos servidor → cliente. */
@@ -461,6 +464,8 @@ export interface EventosServidor {
   'usuario:removido': (payload: { id: number }) => void;
   /** Backlog v2, item 10c: a lista de cargos personalizados mudou. */
   'funcoes:atualizadas': (funcoes: FuncaoDto[]) => void;
+  /** Backlog v2, item 14: o bot de música mudou num canal de voz (sem tocando e fila vazia = parou). */
+  'musica:estado': (estado: EstadoMusica) => void;
 }
 
 /** Eventos cliente → servidor, sempre com resposta (ack). */
@@ -494,6 +499,8 @@ export interface EventosCliente {
   'presenca:ausente': (dados: { ausente: boolean }) => void;
   /** Backlog v2, item 2: status escolhido (vale até trocar; o app reenvia ao reconectar). */
   'presenca:escolher': (dados: { status: EscolhaStatus }) => void;
+  /** Backlog v2, item 14: bot de música no canal de voz em que estou (/tocar, /pular, /parar). */
+  'musica:comando': (dados: ComandoMusica, ack: Ack<EstadoMusica>) => void;
 }
 
 /**
@@ -509,4 +516,46 @@ export const ERRO_HANDSHAKE_NAO_AUTENTICADO = 'nao_autenticado';
 /** Backlog v2: total de não lidas da pessoa neste servidor, para o número no ícone da coluna de servidores. */
 export interface ResumoNaoLidas {
   total: number;
+}
+
+/** Backlog v2, item 14: uma música da fila do bot. */
+export interface MusicaDto {
+  titulo: string;
+  /** Endereço da página (YouTube). */
+  url: string;
+  /** Duração em segundos (0 = desconhecida, ex.: ao vivo). */
+  duracao: number;
+  pedidoPor: number;
+}
+
+/** O bot num canal de voz: o que toca agora e o que vem depois. */
+export interface EstadoMusica {
+  canalVozId: number;
+  tocando: MusicaDto | null;
+  /** Quando a música atual começou (ms desde a época), para mostrar o tempo. */
+  desde: number | null;
+  fila: MusicaDto[];
+}
+
+export type ComandoMusica = { comando: 'tocar'; busca: string } | { comando: 'pular' } | { comando: 'parar' };
+
+/** Até quantas músicas esperam na fila de um canal, e a duração máxima de cada uma. */
+export const LIMITE_FILA_MUSICA = 50;
+export const DURACAO_MAXIMA_MUSICA_S = 3 * 60 * 60;
+
+/**
+ * Lê um comando de música digitado no chat: "/tocar <link ou busca>", "/pular", "/parar".
+ * Devolve undefined se o texto não é comando de música (vai como mensagem normal).
+ */
+export function lerComandoMusica(texto: string): ComandoMusica | { erro: string } | undefined {
+  const m = /^\/(tocar|play|p|pular|skip|parar|stop)(?:\s+([\s\S]*))?$/i.exec(texto.trim());
+  if (!m) return undefined;
+  const nome = m[1]!.toLowerCase();
+  const resto = (m[2] ?? '').trim();
+  if (nome === 'tocar' || nome === 'play' || nome === 'p') {
+    if (!resto) return { erro: 'Use /tocar <link do YouTube ou nome da música>.' };
+    if (resto.length > 300) return { erro: 'Busca longa demais.' };
+    return { comando: 'tocar', busca: resto };
+  }
+  return { comando: nome === 'pular' || nome === 'skip' ? 'pular' : 'parar' };
 }

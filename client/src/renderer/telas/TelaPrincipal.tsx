@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao } from '@tofalando/shared';
+import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -12,6 +12,7 @@ import { PainelSoundboard } from '../componentes/PainelSoundboard';
 import { GradeVideos } from '../componentes/GradeVideos';
 import { SeletorTela, type FonteTela } from '../componentes/SeletorTela';
 import { PainelTransmissao } from '../componentes/PainelTransmissao';
+import { PainelMusica } from '../componentes/PainelMusica';
 import { ponte } from '../servicos/ponte';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
@@ -66,11 +67,12 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor }: Props) {
-  const { conexao, eu, usuarios, funcoes, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes } = useLoja(
+  const { conexao, eu, usuarios, funcoes, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
       transmissoes: s.transmissoes,
+      musica: s.musica,
       presencas: s.presencas,
       naoLidas: s.naoLidas,
       sons: s.sons,
@@ -107,6 +109,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       definirVoz: s.definirVoz,
       iniciarTransmissao: s.iniciarTransmissao,
       pararTransmissao: s.pararTransmissao,
+      definirMusica: s.definirMusica,
       definirPresenca: s.definirPresenca,
       definirFalando: s.definirFalando,
       salvarSom: s.salvarSom,
@@ -674,6 +677,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       },
       aoTelaIniciada: acoes.iniciarTransmissao,
       aoTelaParada: acoes.pararTransmissao,
+      aoMusica: acoes.definirMusica,
       aoPresenca: (id, status) => {
         // RF-41: alguém entrou ou saiu do servidor.
         avisarEntradaSaida(id, useLoja.getState().presencas[id], status);
@@ -835,6 +839,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const renomearCanal = (id: number, nome: string) => pedir((c) => c.pedir('canal:renomear', { id, nome }), acoes.salvarCanal);
   const enviarMensagem = (destino: Destino, texto: string, anexos: string[]) =>
     pedir((c) => c.pedir('mensagem:enviar', { destino, texto, anexos }), acoes.adicionarMensagem);
+  /** Backlog v2, item 14: /tocar, /pular e /parar no chat viram comando do bot (não vão como mensagem). */
+  const comandoMusica = (comando: ComandoMusica) => pedir((c) => c.pedir('musica:comando', comando), acoes.definirMusica);
+  const enviarNoCanal = (canalId: number, texto: string, anexos: string[]) => {
+    const comando = anexos.length === 0 ? lerComandoMusica(texto) : undefined;
+    if (!comando) return enviarMensagem({ canalId }, texto, anexos);
+    if ('erro' in comando) return Promise.resolve(comando.erro);
+    return comandoMusica(comando);
+  };
   /** RF-12a: abre a DM com alguém da lista de membros. */
   const conversarCom = (usuarioId: number) =>
     void pedir(
@@ -1065,6 +1077,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   avisoVoz
                 )}
               </p>
+              {minhaVoz !== null && <PainelMusica estado={musica.find((m) => m.canalVozId === minhaVoz)} usuarios={usuarios} aoComando={comandoMusica} />}
               {minhaVoz !== null && !entrandoVoz && (
                 <>
                   <span
@@ -1352,7 +1365,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               usuarios={usuarios}
               servidorUrl={servidorUrl}
               api={api}
-              aoEnviar={(canalId, texto, anexos) => enviarMensagem({ canalId }, texto, anexos)}
+              aoEnviar={enviarNoCanal}
               euId={usuario.id}
               aoEditarMensagem={editarMensagem}
               aoApagarMensagem={apagarMensagem}

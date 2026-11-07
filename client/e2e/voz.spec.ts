@@ -63,6 +63,8 @@ test.beforeEach(async () => {
       LIVEKIT_API_SECRET: 'secret',
       // Offline/saída da voz em 1,5 s (o padrão de 30 s deixaria os testes lentos).
       CARENCIA_OFFLINE_MS: '1500',
+      // Backlog v2, item 14: yt-dlp falso (sem internet: um tom de 440 Hz).
+      MUSICA_YTDLP: join(__dirname, 'falsos/yt-dlp'),
     }),
   );
   await servidor.listen({ port: 0, host: '127.0.0.1' });
@@ -523,6 +525,69 @@ test('CA-56, CA-57: status online, ausente e offline na lista de membros', async
 
   await dono.app.close();
   await ana3.app.close();
+});
+
+test('backlog v2, item 14: /tocar no chat põe o bot no canal de voz; todos ouvem e veem; pular e parar', async () => {
+  test.setTimeout(90_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  const chat = dono.janela.getByLabel('Mensagem para #geral');
+
+  // Fora da voz: o bot recusa.
+  await chat.fill('/tocar tom de teste');
+  await chat.press('Enter');
+  await expect(dono.janela.getByRole('alert').filter({ hasText: 'Entre num canal de voz para usar o bot de música.' })).toBeVisible();
+
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Sala 1' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+  await chat.fill('/tocar tom de teste');
+  await chat.press('Enter');
+  const painelAna = ana.janela.getByRole('region', { name: 'Música no canal' });
+  await expect(painelAna).toContainText('Tom de teste (ytsearch1:tom de teste)', { timeout: 15_000 });
+  await dono.janela.waitForTimeout(1100);
+  await chat.fill('/p segunda');
+  await chat.press('Enter');
+  // O comando não vira mensagem no chat.
+  await expect(ana.janela.getByText('/tocar tom de teste')).toHaveCount(0);
+
+  await expect(painelAna).toContainText('pedido por dono');
+  await expect(painelAna).toContainText('Depois: Tom de teste (ytsearch1:segunda)');
+  // A ana ouve o bot: o áudio dele chega pelo LiveKit e tem som (não é silêncio).
+  const audioBot = ana.janela.locator('[data-testid="audios-voz"] audio[data-participante="bot-musica"]');
+  await expect(audioBot).toHaveCount(1, { timeout: 15_000 });
+  await expect
+    .poll(
+      () =>
+        audioBot.evaluate(async (el: HTMLAudioElement) => {
+          const faixa = (el.srcObject as MediaStream | null)?.getAudioTracks()[0];
+          if (!faixa) return 0;
+          const ctx = new AudioContext();
+          const analisador = ctx.createAnalyser();
+          ctx.createMediaStreamSource(new MediaStream([faixa])).connect(analisador);
+          await new Promise((r) => setTimeout(r, 300));
+          const dados = new Float32Array(analisador.fftSize);
+          analisador.getFloatTimeDomainData(dados);
+          void ctx.close();
+          return Math.max(...dados.map(Math.abs));
+        }),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThan(0.01);
+  await ana.janela.screenshot({ path: join(__dirname, '../../docs/demandas/to-falando-v2/prints/bot-musica.png') });
+
+  // Pular: vai para a segunda. Parar: o bot sai.
+  await painelAna.getByRole('button', { name: '⏭ Pular' }).click();
+  await expect(painelAna).toContainText('Tom de teste (ytsearch1:segunda)', { timeout: 15_000 });
+  await expect(painelAna).not.toContainText('Depois:');
+  await dono.janela.getByRole('region', { name: 'Música no canal' }).getByRole('button', { name: '⏹ Parar' }).click();
+  await expect(painelAna).toHaveCount(0, { timeout: 15_000 });
+  await expect(audioBot).toHaveCount(0, { timeout: 15_000 });
+
+  await dono.app.close();
+  await ana.app.close();
 });
 
 test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () => {

@@ -205,8 +205,24 @@ Fora do Docker (servidor de desenvolvimento): `npm run build` e depois `npm run 
 | `AUDITORIA_DIAS` | 30 | por quantos dias a auditoria (entradas, saídas, voz, tela) fica guardada |
 | `PORTA_SERVIDOR` | 3000 | porta do servidor no host (lembre de ajustar `URL_PUBLICA`) |
 | `VERSAO` | local | tag da imagem do servidor (veja abaixo) |
+| `MUSICA` | ligada | `false` desliga o bot de música |
+| `MUSICA_YTDLP_ARGS` | `--js-runtimes node` (na imagem) | argumentos a mais do yt-dlp, por exemplo `--cookies /data/cookies.txt` se o YouTube pedir login para o IP da VPS |
 
 O código de convite pode ser trocado pelo app (administrador, em **Convite**). O `CODIGO_CONVITE` do `.env` só vale na primeira subida.
+
+### Bot de música
+
+Quem está num canal de voz pede música pelo chat de qualquer canal de texto:
+
+| Comando | O que faz |
+| --- | --- |
+| `/tocar <link do YouTube ou nome da música>` (ou `/play`, `/p`) | põe na fila; se nada toca, o bot entra no canal de voz e começa |
+| `/pular` (ou `/skip`) | passa para a próxima |
+| `/parar` (ou `/stop`) | limpa a fila e o bot sai |
+
+O painel de voz mostra o que toca, quem pediu e o que vem depois, com **Pular** e **Parar**. O bot sai sozinho quando a fila acaba ou quando o último sai do canal. Cada pessoa ajusta o volume do bot como o de qualquer outra (ele entra no canal como "Música").
+
+O áudio vem do YouTube pelo [yt-dlp](https://github.com/yt-dlp/yt-dlp), que o servidor atualiza sozinho uma vez por dia. Fila de até 50 músicas, cada uma com até 3 horas. Só links do YouTube; texto vira a primeira busca do YouTube. Fora do Docker, o bot precisa do `yt-dlp` e do `ffmpeg` instalados no servidor; sem eles, o comando avisa que o bot não está disponível.
 
 ### Onde ficam os dados
 
@@ -312,7 +328,8 @@ Referências: a internet residencial costuma ter upload bem menor que o download
 
 - **Atalhos globais no Wayland (Linux)**: os atalhos (push-to-talk, mudo, deafen) usam um gancho de teclado do X11. Numa sessão Wayland (padrão no GNOME e no KDE recentes), o gancho só recebe as teclas enviadas a janelas X11 (XWayland): com uma janela nativa do Wayland em foco, os atalhos não disparam. Jogos pelo Steam/Proton costumam rodar no XWayland. Se os atalhos não funcionarem, entre numa sessão "X11/Xorg" na tela de login ou use o modo de voz por sensibilidade.
 - **Status ausente no Wayland**: o "ausente" automático (10 minutos sem usar o computador) depende de o sistema informar o tempo ocioso. Em algumas sessões Wayland, esse tempo fica sempre zerado e a pessoa aparece como online.
-- **Áudio do sistema na transmissão**: só no Windows. No Linux, a transmissão de tela vai sem o som do computador (a voz continua normal).
+- **Áudio do sistema na transmissão**: no Windows e no Linux com PipeWire (o som do próprio ToFalany fica de fora, sem eco). Linux só com PulseAudio vai sem o som do computador.
+- **Bot de música e o YouTube**: o YouTube às vezes recusa servidores de datacenter ("confirme que você não é um robô"). Se o `/tocar` começar a falhar na VPS, exporte os cookies de uma conta do navegador para `cookies.txt`, copie para o volume (`/data/cookies.txt`) e defina `MUSICA_YTDLP_ARGS=--js-runtimes node --cookies /data/cookies.txt`.
 - **Instalador do Windows sem assinatura**: o SmartScreen avisa na primeira instalação (veja acima).
 - **Mesmo host para servidor e LiveKit**: por privacidade, o app bloqueia qualquer endereço que não seja o do servidor. `LIVEKIT_URL` precisa usar o mesmo IP ou domínio de `URL_PUBLICA`.
 - **Uma transmissão de tela por canal de voz** por vez. Para outra pessoa transmitir, quem está transmitindo para antes.

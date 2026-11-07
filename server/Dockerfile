@@ -31,6 +31,14 @@ COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/server/node_modules server/node_modules
 # Banco, backups, arquivos enviados e instaladores oferecidos no convite ficam no volume /data.
 RUN mkdir -p /data && chown node:node /data
+# Backlog v2, item 14: bot de música. ffmpeg converte o áudio; o yt-dlp (binário oficial, sem Python) busca no
+# YouTube e usa o Node da imagem como runtime de JavaScript. Fica do usuário node: o servidor o atualiza sozinho
+# (yt-dlp -U) ao ligar e uma vez por dia, porque o YouTube muda e quebra versões antigas.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl && rm -rf /var/lib/apt/lists/* \
+  && case "$(dpkg --print-architecture)" in arm64) arquivo=yt-dlp_linux_aarch64 ;; *) arquivo=yt-dlp_linux ;; esac \
+  && mkdir -p /opt/yt-dlp && curl -fsSL -o /opt/yt-dlp/yt-dlp "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${arquivo}" \
+  && chmod 755 /opt/yt-dlp/yt-dlp && chown -R node:node /opt/yt-dlp
+ENV MUSICA_YTDLP=/opt/yt-dlp/yt-dlp MUSICA_YTDLP_ARGS="--js-runtimes node"
 VOLUME /data
 USER node
 EXPOSE 3000

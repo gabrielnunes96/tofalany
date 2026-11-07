@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -43,6 +43,9 @@ interface Loja {
   transmissoes: TransmissaoDto[];
   iniciarTransmissao(t: TransmissaoDto): void;
   pararTransmissao(canalVozId: number): void;
+  /** Backlog v2, item 14: o bot de música em cada canal de voz (só os que têm algo tocando). */
+  musica: EstadoMusica[];
+  definirMusica(estado: EstadoMusica): void;
   definirVoz(estados: VozEstadoDto[]): void;
   definirFalando(ids: number[]): void;
   definirSons(sons: SomDto[]): void;
@@ -118,6 +121,7 @@ const inicial = {
   voz: [] as VozEstadoDto[],
   presencas: {} as Partial<Record<number, StatusVisivel>>,
   transmissoes: [] as TransmissaoDto[],
+  musica: [] as EstadoMusica[],
   falando: [] as number[],
 };
 
@@ -140,6 +144,8 @@ export const useLoja = create<Loja>((set) => ({
   definirVoz: (voz) => set({ voz }),
   iniciarTransmissao: (t) => set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => x.canalVozId !== t.canalVozId), t] })),
   pararTransmissao: (canalVozId) => set((s) => ({ transmissoes: s.transmissoes.filter((x) => x.canalVozId !== canalVozId) })),
+  definirMusica: (estado) =>
+    set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length ? [estado] : [])] })),
   definirPresenca: (id, status) =>
     set((s) => {
       const presencas = { ...s.presencas };
@@ -150,7 +156,7 @@ export const useLoja = create<Loja>((set) => ({
   definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
   salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
   tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
-  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes }) =>
+  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -165,6 +171,7 @@ export const useLoja = create<Loja>((set) => ({
         sons,
         voz,
         transmissoes: transmissoes ?? [],
+        musica: (musica ?? []).filter((m) => m.tocando || m.fila.length),
         presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
         dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
         // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.

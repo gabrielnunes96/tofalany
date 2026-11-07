@@ -15,8 +15,8 @@ Pedidos do usuário de 06/11/2026, depois de fechar a to-falando-v1. Ainda não 
 | v0.6.0 | 10c (cargos: Moderador de fábrica e cargos personalizados com cor e permissões); 0c resolvido (Enter durante um envio era ignorado) | publicada |
 | v0.7.0 | 11 e 11b (câmera em tela cheia e janelinha flutuante arrastável), 12 (prévia da própria transmissão) | publicada |
 | v0.8.0 | .deb se atualiza sozinho (pede a senha do sistema); 15 (`./vm.sh consulta`, `./vm.sh copia-banco` e `npm run banco -w server`); não lidas dos outros servidores no ícone da coluna | publicada (tag enviada) |
-| próxima | 13 (som do sistema na transmissão no Linux, pela venmic e PipeWire) | commitado; falta testar a transmissão com som entre dois computadores |
-| depois | 14 (bot de música: decidir o risco dos termos do YouTube) | a fazer |
+| próxima | 13 (som do sistema na transmissão no Linux, pela venmic e PipeWire); 14 (bot de música: /tocar, /pular, /parar, fila por canal, yt-dlp e ffmpeg no servidor); VM se atualiza sozinha (./vm.sh automatico) | commitado; falta testar com o grupo |
+| depois | imagem do servidor pronta no CI (a VM só baixa) | a fazer |
 
 ## Prioridades
 

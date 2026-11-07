@@ -482,3 +482,9 @@ button.previa-assistir:hover:not(:disabled) { background: #e00; box-shadow: none
 
 /* Backlog v2: não lidas dos outros servidores, no canto do ícone. */
 .servidor-naolidas { position: absolute; right: -4px; bottom: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--erro); color: #fff; font-size: 0.7rem; font-weight: 700; line-height: 18px; text-align: center; border: 2px solid var(--fundo); }
+
+/* Backlog v2, item 14: bot de música no painel de voz. */
+.painel-musica { flex: 1 1 100%; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; margin: 6px 0; padding: 8px 10px; border-radius: var(--raio); background: color-mix(in srgb, var(--destaque) 10%, transparent); border: 1px solid color-mix(in srgb, var(--destaque) 35%, transparent); }
+.painel-musica p { margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.musica-botoes { display: flex; gap: 6px; }
+.musica-botoes button { padding: 2px 10px; font-size: 0.85rem; }

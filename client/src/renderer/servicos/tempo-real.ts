@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import { ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto } from '@tofalando/shared';
+import { ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto, type EstadoMusica } from '@tofalando/shared';
 import { chaveDe, type Chave } from '../estado/chaves';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
@@ -33,6 +33,8 @@ export interface OuvintesTempoReal {
   /** RN-10: transmissão de tela começou/parou em algum canal. */
   aoTelaIniciada(t: TransmissaoDto): void;
   aoTelaParada(canalVozId: number): void;
+  /** Backlog v2, item 14: o bot de música mudou num canal (servidor antigo nunca manda). */
+  aoMusica?(estado: EstadoMusica): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao): void;
 }
@@ -143,6 +145,7 @@ export function conectarTempoReal(
   socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
   socket.on('tela:iniciada', (t) => ouvintes.aoTelaIniciada(t));
   socket.on('tela:parada', ({ canalVozId }) => ouvintes.aoTelaParada(canalVozId));
+  socket.on('musica:estado', (estado) => ouvintes.aoMusica?.(estado));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');

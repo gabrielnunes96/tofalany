@@ -36,6 +36,11 @@ export interface Config {
    * segredo, a voz fica indisponível (503 voz_indisponivel) e o resto do servidor funciona.
    */
   livekit: { url: string; urlInterna: string; chave: string; segredo: string } | undefined;
+  /**
+   * Backlog v2, item 14: bot de música (precisa do LiveKit, do yt-dlp e do ffmpeg). MUSICA=false desliga;
+   * MUSICA_YTDLP_ARGS são argumentos a mais do yt-dlp (na imagem: o runtime de JavaScript).
+   */
+  musica: { ligada: boolean; ytdlp: string; ffmpeg: string; extras: string[] };
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -74,6 +79,12 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     pastaDownloads: ambiente.DOWNLOADS || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
     livekit: lerLivekit(ambiente),
+    musica: {
+      ligada: ambiente.MUSICA !== 'false',
+      ytdlp: ambiente.MUSICA_YTDLP || 'yt-dlp',
+      ffmpeg: ambiente.MUSICA_FFMPEG || 'ffmpeg',
+      extras: (ambiente.MUSICA_YTDLP_ARGS ?? '').split(/\s+/).filter(Boolean),
+    },
   };
 }
 

@@ -33,6 +33,7 @@ import { RoomServiceClient } from 'livekit-server-sdk';
 import { salaLivekit } from '@tofalando/shared';
 import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
 import { criarSoundboard } from './soundboard.js';
+import { criarMusica } from './musica.js';
 import { criarTela } from './tela.js';
 
 interface DadosSocket {
@@ -181,9 +182,17 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   // A tela é criada depois da voz, mas a voz avisa quem saiu (libera a trava de transmissão).
   // (o callback só roda depois, quando alguém sai; a essa altura `tela` já existe)
   const silenciarFaixa = salas ? (sala: string, identidade: string, sid: string) => salas.mutePublishedTrack(sala, identidade, sid, true).then(() => undefined) : undefined;
-  const voz = criarVoz(io, banco, (e) => app.log.error(e), { carenciaMs: config.carenciaOfflineMs, removerDaMidia, aoSair: (u, c) => tela.saiuDaVoz(u, c) });
+  const voz = criarVoz(io, banco, (e) => app.log.error(e), {
+    carenciaMs: config.carenciaOfflineMs,
+    removerDaMidia,
+    aoSair: (u, c) => {
+      tela.saiuDaVoz(u, c);
+      musica.saiuDaVoz(c);
+    },
+  });
   const tela = criarTela(io, banco, voz, (e) => app.log.error(e));
   const soundboard = criarSoundboard(io, banco, voz, (e) => app.log.error(e));
+  const musica = criarMusica(io, config, voz, (e) => app.log.error(e));
 
   io.use((socket, next) => {
     const token: unknown = socket.handshake.auth?.token;
@@ -231,10 +240,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       voz: voz.estados(),
       presencas: {},
       transmissoes: tela.transmissoes(),
+      musica: musica.estados(),
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
     soundboard.registrar(socket);
+    musica.registrar(socket);
     tela.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));
     presenca.entrou(eu.id);
