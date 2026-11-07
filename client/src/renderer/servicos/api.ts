@@ -2,6 +2,9 @@ import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteD
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
+/** Erros 5xx cuja mensagem é para a pessoa ler (não é detalhe interno). */
+const ERROS_5XX_COM_MENSAGEM = new Set<string>(['voz_indisponivel']);
+
 /** Erro de chamada à API, com a mensagem do servidor (4xx) ou uma genérica (rede / 5xx). */
 export class ErroApiCliente extends Error {
   constructor(
@@ -74,7 +77,8 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     }
     if (!resposta.ok) {
       const erro = dados as Partial<ErroApi> | undefined;
-      if (resposta.status < 500 && erro?.mensagem) throw new ErroApiCliente(resposta.status, erro.erro ?? 'erro', erro.mensagem);
+      // 5xx esconde o detalhe interno, exceto os avisos que o servidor dá de propósito (ex.: voz sem LiveKit configurado).
+      if ((resposta.status < 500 || (erro?.erro !== undefined && ERROS_5XX_COM_MENSAGEM.has(erro.erro))) && erro?.mensagem) throw new ErroApiCliente(resposta.status, erro.erro ?? 'erro', erro.mensagem);
       throw new ErroApiCliente(resposta.status, erro?.erro ?? 'erro', 'O servidor teve um problema. Tente de novo em instantes.');
     }
     return dados as T;

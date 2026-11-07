@@ -30,6 +30,11 @@ describe('criarApi', () => {
     expect((erro as ErroApiCliente).semConexao).toBe(true);
   });
 
+  it('mostra o aviso de voz não configurada mesmo sendo 503', async () => {
+    const api = criarApi('http://s', 't', () => resposta({ erro: 'voz_indisponivel', mensagem: 'A voz não está configurada neste servidor.' }, 503));
+    await expect(api.tokenVoz(1)).rejects.toMatchObject({ status: 503, codigo: 'voz_indisponivel', message: 'A voz não está configurada neste servidor.' });
+  });
+
   it('monta a consulta da auditoria só com os filtros preenchidos', async () => {
     const buscar = vi.fn((_url: string, _init?: RequestInit) => resposta({ registros: [], fim: true }));
     await criarApi('http://s', 't', buscar).auditoria({ pessoa: 2, tipo: 'login', de: undefined, antes: 10 });
