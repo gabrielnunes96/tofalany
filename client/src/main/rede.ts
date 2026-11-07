@@ -63,4 +63,12 @@ export function filtrarRede(
     if (!ok) console.warn('Bloqueado (fora do servidor configurado):', new URL(detalhe.url).origin);
     responder({ cancel: !ok });
   });
+  // Backlog v2, item 10b: o YouTube recusa player embutido sem Referer ("erro 153"); a janela carrega de um
+  // arquivo local, que não manda. Só no player sem cookies, a referência é o endereço do servidor do grupo.
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*'] }, (detalhe, responder) => {
+    const servidor = servidorUrl();
+    const cabecalhos = { ...detalhe.requestHeaders };
+    if (servidor && !cabecalhos.Referer) cabecalhos.Referer = `${new URL(servidor).origin}/`;
+    responder({ requestHeaders: cabecalhos });
+  });
 }

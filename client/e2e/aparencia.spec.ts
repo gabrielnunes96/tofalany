@@ -109,3 +109,29 @@ test('backlog v2, item 10: esconder canais (Ctrl+B) e membros (botão); a escolh
   await expect(de_novo.janela.getByRole('list', { name: 'Canais de texto' })).toBeVisible();
   await expect(de_novo.janela.getByRole('list', { name: 'Membros' })).toBeVisible();
 });
+
+test('backlog v2, item 10b: link vira clicável, com cartão de prévia; no YouTube, "Assistir" abre o player', async () => {
+  const dono = await cadastrarDono();
+  const j = dono.janela;
+  // A prévia vem do servidor (que buscaria o YouTube); aqui ela é respondida sem internet.
+  const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  await j.route('**/api/previa?*', (rota) =>
+    rota.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=TDmH-2Zs9_8', tipo: 'youtube', videoId: 'TDmH-2Zs9_8', site: 'YouTube', titulo: 'Jogo de terror', descricao: 'Hollow', imagem: pixel }),
+    }),
+  );
+  await j.getByLabel('Mensagem para #geral').fill('olha esse https://www.youtube.com/watch?v=TDmH-2Zs9_8.');
+  await j.getByLabel('Mensagem para #geral').press('Enter');
+  const lista = j.getByRole('list', { name: 'Mensagens de #geral' });
+  await expect(lista.getByRole('link', { name: 'https://www.youtube.com/watch?v=TDmH-2Zs9_8', exact: true })).toBeVisible();
+  const cartao = lista.getByRole('article', { name: 'Prévia: Jogo de terror' });
+  await expect(cartao).toContainText('YouTube');
+  await expect(cartao).toContainText('Hollow');
+  await cartao.getByRole('button', { name: 'Assistir Jogo de terror aqui' }).click();
+  await expect(cartao.locator('iframe')).toHaveAttribute('src', /^https:\/\/www\.youtube-nocookie\.com\/embed\/TDmH-2Zs9_8\?/);
+  await j.screenshot({ path: join(PRINTS, 'previa-youtube.png') });
+  await cartao.getByRole('button', { name: 'Fechar vídeo' }).click();
+  await expect(cartao.locator('iframe')).toHaveCount(0);
+});
