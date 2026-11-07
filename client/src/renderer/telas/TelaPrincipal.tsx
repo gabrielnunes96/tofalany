@@ -970,8 +970,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         return;
       }
       try {
-        await ponte().captura.escolher(fonte.id, audioSistema);
-        ok = await sala.transmitir(qualidade, audioSistema, telaRef.current.codec);
+        // Linux (backlog v2, item 13): true quando o som vai pelo microfone virtual, publicado à parte.
+        const somVirtual = (await ponte().captura.escolher(fonte.id, audioSistema)) === true;
+        ok = await sala.transmitir(qualidade, audioSistema && !somVirtual, telaRef.current.codec, somVirtual);
+        if (!ok && somVirtual) void ponte().captura.pararSom().catch(() => undefined);
         if (ok) {
           qualidadeAtualRef.current = qualidade;
           setPreviaMinhaTela(sala.faixaMinhaTela());
@@ -989,6 +991,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   async function pararTela() {
     const canal = minhaVozRef.current;
     await salaVozRef.current?.pararTela();
+    void ponte().captura.pararSom?.().catch(() => undefined);
     if (canal !== null) await conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
   }
 
@@ -997,6 +1000,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     if (minhaVozRef.current !== null) tocar('sair');
     setMinhaVoz(null);
     await salaVozRef.current?.sair();
+    void ponte().captura.pararSom?.().catch(() => undefined);
     await conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
   }
 

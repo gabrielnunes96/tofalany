@@ -50,7 +50,8 @@ const api: ApiTofalando = {
   captura: {
     fontes: () => ipcRenderer.invoke('captura:fontes'),
     escolher: (fonteId, audio) => ipcRenderer.invoke('captura:escolher', { fonteId, audio }),
-    audioDisponivel: process.platform === 'win32',
+    audioDisponivel: ipcRenderer.sendSync('captura:som-disponivel') === true,
+    pararSom: () => ipcRenderer.invoke('captura:som-parar'),
   },
   rede: {
     servidorPendente: (url) => ipcRenderer.invoke('rede:pendente', url),

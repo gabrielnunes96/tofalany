@@ -40,5 +40,8 @@
   },
   "author": "ToFalany",
   "desktopName": "tofalany.desktop",
-  "homepage": "https://tofalany.invalid"
+  "homepage": "https://tofalany.invalid",
+  "optionalDependencies": {
+    "@vencord/venmic": "^7.2.5"
+  }
 }

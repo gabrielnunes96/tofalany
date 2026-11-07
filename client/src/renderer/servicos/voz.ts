@@ -69,7 +69,8 @@ export interface SalaVoz {
   /** RF-25: liga ou desliga a minha câmera (simulcast); devolve se ficou ligada. */
   camera(ligar: boolean): Promise<boolean>;
   /** RF-26: começa a transmitir a fonte já escolhida (sem simulcast, "motion"); devolve se começou. */
-  transmitir(qualidade: QualidadeTela, audio: boolean, codec?: 'h264' | 'vp9'): Promise<boolean>;
+  /** somVirtual: no Linux, o som do sistema vem do microfone virtual (backlog v2, item 13) e é publicado à parte. */
+  transmitir(qualidade: QualidadeTela, audio: boolean, codec?: 'h264' | 'vp9', somVirtual?: boolean): Promise<boolean>;
   pararTela(): Promise<void>;
   /** Estou transmitindo a tela agora (para conferir trava "minha" vinda do servidor). */
   transmitindoTela(): boolean;
@@ -96,6 +97,7 @@ export interface SalaLivekit {
       faixa: MediaStreamTrack,
       opcoes: { source: Track.Source; name: string; audioPreset?: { maxBitrate: number }; dtx?: boolean; red?: boolean },
     ): Promise<{ track?: { replaceTrack(f: MediaStreamTrack, doUsuario?: boolean): Promise<unknown>; mute(): Promise<unknown>; unmute(): Promise<unknown> } }>;
+    unpublishTrack?(faixa: MediaStreamTrack, parar?: boolean): Promise<unknown>;
   };
   switchActiveDevice(tipo: MediaDeviceKind, id: string): Promise<unknown>;
 }
@@ -154,6 +156,15 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
   const telas = new Map<string, FaixaVideo>();
   let transmitindoTela = false;
   let minhaFaixaTela: MediaStreamTrack | undefined;
+  /** Backlog v2, item 13: som do sistema no Linux, publicado como áudio da tela. */
+  let somTela: MediaStreamTrack | undefined;
+  const pararSomTela = (atual: SalaLivekit | undefined) => {
+    const f = somTela;
+    somTela = undefined;
+    if (!f) return;
+    void atual?.localParticipant.unpublishTrack?.(f, true)?.catch(() => undefined);
+    f.stop();
+  };
   /** Cada pedido de transmitir/parar ganha um número: um "parar" no meio do início cancela a captura que terminar depois. */
   let pedidoTela = 0;
   const emitirTelas = () => ouvintes.aoTelas?.([...telas].map(([id, faixa]) => ({ usuarioId: Number(id), faixa, meu: false })));
@@ -419,7 +430,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     microfone: () => mic,
-    async transmitir(qualidade, audio, codec = 'h264') {
+    async transmitir(qualidade, audio, codec = 'h264', somVirtual = false) {
       const atual = sala;
       if (!atual || !conectada) return false;
       const meu = ++pedidoTela;
@@ -454,6 +465,20 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         }
         transmitindoTela = !!pub?.track;
         minhaFaixaTela = (pub?.track as { mediaStreamTrack?: MediaStreamTrack } | undefined)?.mediaStreamTrack;
+        if (transmitindoTela && somVirtual) {
+          const faixa = await abrirMicrofoneVirtual();
+          if (!faixa) ouvintes.aoAviso('A tela está indo, mas sem o som do computador (o microfone virtual não apareceu).');
+          else if (sala !== atual || meu !== pedidoTela) faixa.stop();
+          else {
+            somTela = faixa;
+            await atual.localParticipant
+              .publishTrack(faixa, { source: Track.Source.ScreenShareAudio, name: 'tela-audio', audioPreset: { maxBitrate: 128_000 }, dtx: false, red: false })
+              .catch(() => {
+                pararSomTela(atual);
+                ouvintes.aoAviso('A tela está indo, mas sem o som do computador.');
+              });
+          }
+        }
         return transmitindoTela;
       } catch {
         ouvintes.aoAviso('Não foi possível transmitir a tela.');
@@ -465,6 +490,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     async pararTela() {
       const atual = sala;
       pedidoTela++;
+      pararSomTela(atual);
       transmitindoTela = false;
       minhaFaixaTela = undefined;
       if (!atual) return;
@@ -510,6 +536,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       conectada = false;
       // Sair no meio de uma reconexão: o aviso não pode ficar preso para a próxima entrada.
       ouvintes.aoReconectando?.(false);
+      pararSomTela(atual);
       limpar();
       limparVideos();
       pararMic();
@@ -525,4 +552,25 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     },
   };
   return api;
+}
+
+/** Nome do microfone virtual criado no processo principal (main/som-sistema.ts). */
+const MICROFONE_VIRTUAL = 'vencord-screen-share';
+
+/**
+ * Backlog v2, item 13: captura o microfone virtual com o som do sistema (sem o som do app), sem nenhum
+ * tratamento de voz: eco, ruído e ganho desligados e em estéreo. Ele leva um instante para aparecer.
+ */
+export async function abrirMicrofoneVirtual(dispositivos: MediaDevices = navigator.mediaDevices, tentativas = 15): Promise<MediaStreamTrack | undefined> {
+  for (let i = 0; i < tentativas; i++) {
+    const d = (await dispositivos.enumerateDevices()).find((x) => x.kind === 'audioinput' && x.label.includes(MICROFONE_VIRTUAL));
+    if (d) {
+      const fluxo = await dispositivos
+        .getUserMedia({ audio: { deviceId: { exact: d.deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 } })
+        .catch(() => undefined);
+      return fluxo?.getAudioTracks()[0];
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return undefined;
 }

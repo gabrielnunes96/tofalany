@@ -17,6 +17,8 @@ extraResources:
 # O gancho de teclado (uiohook-napi) é nativo: fica fora do asar. Os binários de cada plataforma já vêm no pacote.
 asarUnpack:
   - '**/node_modules/uiohook-napi/**'
+  # Backlog v2, item 13: som do sistema no Linux (PipeWire), binário pronto da venmic.
+  - '**/node_modules/@vencord/venmic/**'
 npmRebuild: false
 # Backlog v2, 1d: a atualização automática lê as releases deste repositório (latest*.yml publicados pelo CI).
 publish:

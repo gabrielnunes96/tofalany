@@ -111,7 +111,7 @@ export function SeletorTela({ listar, audioDisponivel, qualidades = ['720p30'], 
         <label className="opcao-audio">
           <input type="checkbox" checked={audio} disabled={!audioDisponivel} onChange={(e) => setAudio(e.target.checked)} /> Incluir o áudio do sistema
         </label>
-        {!audioDisponivel && <p className="suave">Neste sistema (Linux) o áudio do computador não pode ir junto na transmissão; só no Windows.</p>}
+        {!audioDisponivel && <p className="suave">Neste computador o som não pode ir junto: no Linux, precisa do PipeWire.</p>}
         {erro && (
           <p className="erro" role="alert">
             {erro}

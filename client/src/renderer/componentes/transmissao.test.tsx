@@ -12,7 +12,7 @@ const fontes = [
 ];
 
 describe('SeletorTela (RF-26, RF-29)', () => {
-  it('mostra telas e janelas, escolhe com o áudio; no Linux o áudio fica desabilitado com o motivo; Esc cancela', async () => {
+  it('mostra telas e janelas, escolhe com o áudio; sem PipeWire o áudio fica desabilitado com o motivo; Esc cancela', async () => {
     const aoEscolher = vi.fn();
     const aoCancelar = vi.fn();
     render(<SeletorTela listar={async () => fontes} audioDisponivel={false} aoEscolher={aoEscolher} aoCancelar={aoCancelar} />);
@@ -20,7 +20,7 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     const janela = await screen.findByRole('button', { name: 'Jogo' });
     expect(screen.getByRole('region', { name: 'Telas' })).toBeTruthy();
     expect((screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByText(/só no Windows/)).toBeTruthy();
+    expect(screen.getByText(/precisa do PipeWire/)).toBeTruthy();
     fireEvent.click(janela);
     expect(aoEscolher).toHaveBeenCalledWith(fontes[1], false, '720p30');
     // CA-39a: membro só tem 720p30 (já selecionado).

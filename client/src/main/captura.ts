@@ -1,4 +1,5 @@
 import { desktopCapturer, ipcMain, session, webContents, type DesktopCapturerSource } from 'electron';
+import { criarSomSistema } from './som-sistema';
 
 /** A escolha do seletor vale só para a captura logo em seguida. */
 const VALIDADE_ESCOLHA_MS = 15_000;
@@ -15,9 +16,13 @@ export interface FonteCaptura {
 /**
  * RF-26: o renderer lista as fontes com miniaturas, a pessoa escolhe, e o pedido de captura
  * (getDisplayMedia, feito pelo LiveKit) recebe exatamente a fonte escolhida.
- * RF-29: áudio do sistema só no Windows (loopback); no Linux não há.
+ * RF-29: áudio do sistema no Windows pelo loopback do Chromium; no Linux (backlog v2, item 13) por um microfone
+ * virtual do PipeWire sem o som do próprio app (som-sistema.ts), que a janela captura e publica junto da tela.
  */
-export function registrarCaptura(listar: typeof desktopCapturer.getSources = (o) => desktopCapturer.getSources(o)) {
+export function registrarCaptura(
+  listar: typeof desktopCapturer.getSources = (o) => desktopCapturer.getSources(o),
+  som: Pick<ReturnType<typeof criarSomSistema>, 'disponivel' | 'ligar' | 'desligar'> = criarSomSistema(),
+) {
   let escolhida: { fonteId: string; audio: boolean; janelaId: number; em: number } | undefined;
   let ultimas: DesktopCapturerSource[] = [];
 
@@ -26,11 +31,21 @@ export function registrarCaptura(listar: typeof desktopCapturer.getSources = (o)
     return ultimas.map((f) => ({ id: f.id, nome: f.name, tipo: f.id.startsWith('screen:') ? 'tela' : 'janela', miniatura: f.thumbnail.toDataURL() }));
   });
 
+  // Lido uma vez pela ponte, ao abrir a janela: a opção "Incluir o áudio do sistema" aparece ou não.
+  ipcMain.on('captura:som-disponivel', (e) => {
+    e.returnValue = process.platform === 'win32' || som.disponivel();
+  });
+  ipcMain.handle('captura:som-parar', () => som.desligar());
+
   ipcMain.handle('captura:escolher', (e, pedido: unknown) => {
     const p = pedido as { fonteId?: unknown; audio?: unknown } | null;
     // Só uma fonte que o seletor acabou de mostrar.
     if (!p || typeof p.fonteId !== 'string' || !ultimas.some((f) => f.id === p.fonteId)) throw new Error('Fonte inválida.');
     escolhida = { fonteId: p.fonteId, audio: p.audio === true && process.platform === 'win32', janelaId: e.sender.id, em: Date.now() };
+    // Linux: o som vai pelo microfone virtual; a janela o captura se a resposta for true.
+    if (p.audio === true && process.platform === 'linux') return som.ligar();
+    som.desligar();
+    return false;
   });
 
   session.defaultSession.setDisplayMediaRequestHandler(
