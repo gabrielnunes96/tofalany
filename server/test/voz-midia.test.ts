@@ -7,7 +7,7 @@ import type { ServidorTempoReal, SocketTofalando } from '../src/realtime/tempo-r
 /** Socket falso: guarda os tratadores para disparar à mão. */
 function socketFalso(id: string, usuarioId: number) {
   const tratadores = new Map<string, (...a: unknown[]) => void>();
-  const socket = { id, data: { usuarioId }, on: (e: string, fn: (...a: unknown[]) => void) => tratadores.set(e, fn) };
+  const socket = { id, data: { usuarioId, comunidadeId: 1 }, on: (e: string, fn: (...a: unknown[]) => void) => tratadores.set(e, fn) };
   const pedir = (dados: unknown) => new Promise((r) => tratadores.get('voz:estado')!(dados, r));
   return { socket: socket as unknown as SocketTofalando, pedir, cair: () => tratadores.get('disconnect')!() };
 }
@@ -21,6 +21,7 @@ function preparar() {
   const io = {
     emit: (e: string, p: unknown) => emitidos.push(['todos', e, p]),
     to: (sala: string) => ({ emit: (e: string, p: unknown) => emitidos.push([sala, e, p]) }),
+    of: () => ({ adapter: { rooms: new Map([['comunidade:1', new Set()]]) } }),
   } as unknown as ServidorTempoReal;
   const removerDaMidia = vi.fn(async () => undefined);
   const voz = criarVoz(io, banco, (e) => {

@@ -1,4 +1,4 @@
-import type { FiltroAuditoria, PaginaAuditoria, RegistroAuditoriaDto, TipoAuditoria } from '@tofalando/shared';
+import { COMUNIDADE_PRINCIPAL, type FiltroAuditoria, type PaginaAuditoria, type RegistroAuditoriaDto, type TipoAuditoria } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 
 export interface NovoRegistro {
@@ -8,6 +8,11 @@ export interface NovoRegistro {
   alvoUsuarioId?: number | null;
   canal?: { id: number; nome: string } | null;
   detalhes?: Record<string, string | number>;
+  /**
+   * Servidor do evento. Sem ele, vale o do canal (se houver); sem canal, é da conta (entrar, sair, online),
+   * e aparece na auditoria do servidor principal.
+   */
+  comunidadeId?: number | null;
 }
 
 interface Linha {
@@ -37,9 +42,15 @@ export function registrarAuditoria(banco: Banco, r: NovoRegistro, agora: number 
   if (atorNome) detalhes.atorNome = atorNome;
   if (alvoNome) detalhes.alvoNome = alvoNome;
   if (r.canal) detalhes.canalNome = r.canal.nome;
+  const comunidade =
+    r.comunidadeId !== undefined
+      ? r.comunidadeId
+      : r.canal
+        ? ((banco.prepare('SELECT comunidade_id FROM canais WHERE id = ?').get(r.canal.id) as { comunidade_id: number } | undefined)?.comunidade_id ?? null)
+        : null;
   banco
-    .prepare('INSERT INTO auditoria (quando, tipo, ator_id, alvo_usuario_id, canal_id, detalhes) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(agora, r.tipo, r.atorId, r.alvoUsuarioId ?? null, r.canal?.id ?? null, JSON.stringify(detalhes));
+    .prepare('INSERT INTO auditoria (quando, tipo, ator_id, alvo_usuario_id, canal_id, detalhes, comunidade_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(agora, r.tipo, r.atorId, r.alvoUsuarioId ?? null, r.canal?.id ?? null, JSON.stringify(detalhes), comunidade);
 }
 
 function paraDto(l: Linha): RegistroAuditoriaDto {
@@ -58,9 +69,10 @@ function paraDto(l: Linha): RegistroAuditoriaDto {
 export const LIMITE_PAGINA_AUDITORIA = 100;
 
 /** Mais recente primeiro; "pessoa" casa com quem fez ou com o alvo. Paginação por id (antes). */
-export function listarAuditoria(banco: Banco, filtro: FiltroAuditoria = {}): PaginaAuditoria {
-  const condicoes: string[] = [];
-  const valores: (string | number)[] = [];
+export function listarAuditoria(banco: Banco, filtro: FiltroAuditoria = {}, comunidadeId: number = COMUNIDADE_PRINCIPAL): PaginaAuditoria {
+  // O principal também vê os eventos da conta (entrar, sair, online); os outros, só os deles.
+  const condicoes: string[] = [comunidadeId === COMUNIDADE_PRINCIPAL ? '(comunidade_id IS NULL OR comunidade_id = ?)' : 'comunidade_id = ?'];
+  const valores: (string | number)[] = [comunidadeId];
   if (filtro.pessoa !== undefined) {
     condicoes.push('(ator_id = ? OR alvo_usuario_id = ?)');
     valores.push(filtro.pessoa, filtro.pessoa);

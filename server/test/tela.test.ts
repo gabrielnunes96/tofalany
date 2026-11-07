@@ -130,6 +130,7 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
 
     // RN-17: o dono perde o cargo transmitindo em 1440p60 — a transmissão acaba (motivo cargo_alterado).
     app!.banco.prepare("UPDATE usuarios SET cargo = 'membro' WHERE id = 1").run();
+    app!.banco.prepare("UPDATE membros SET cargo = 'membro' WHERE usuario_id = 1").run();
     const parada = new Promise((r) => b.s.once('tela:parada', r));
     app!.tempoReal.cargoMudou(1);
     expect(await parada).toEqual({ canalVozId: papo, usuarioId: 1 });

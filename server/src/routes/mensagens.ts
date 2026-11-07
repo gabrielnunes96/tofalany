@@ -3,7 +3,7 @@ import type { PaginaMensagens } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { exigirSessao } from '../auth/sessao-http.js';
-import { buscarCanal } from '../dominio/canais.js';
+import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 import { listarMensagens } from '../dominio/mensagens.js';
 import { exigirParticipante } from '../dominio/dms.js';
 
@@ -25,7 +25,7 @@ export function registrarRotasMensagens(app: FastifyInstance, banco: Banco): voi
     async (req): Promise<PaginaMensagens> => {
       const { id } = req.params as { id: number };
       const { antes, limite } = req.query as { antes?: number; limite?: number };
-      const canal = buscarCanal(banco, id);
+      const canal = comunidadeDoCanal(banco, id) === req.comunidadeId ? buscarCanal(banco, id) : undefined;
       if (!canal || canal.tipo !== 'texto') throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
       return listarMensagens(banco, { canalId: id }, antes, limite);
     },

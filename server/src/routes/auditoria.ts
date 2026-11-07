@@ -24,6 +24,6 @@ export function registrarRotasAuditoria(app: FastifyInstance, banco: Banco): voi
   app.get(
     '/api/admin/auditoria',
     { schema: { querystring: consulta }, preHandler: [exigirSessao(banco), exigirPermissao(banco, 'ver_auditoria')] },
-    async (req): Promise<PaginaAuditoria> => listarAuditoria(banco, req.query as FiltroAuditoria),
+    async (req): Promise<PaginaAuditoria> => listarAuditoria(banco, req.query as FiltroAuditoria, req.comunidadeId),
   );
 }

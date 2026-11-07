@@ -1,8 +1,7 @@
-import { CORES_PERFIL, normalizarUsuario, type Cargo, type UsuarioDto } from '@tofalando/shared';
+import { COMUNIDADE_PRINCIPAL, CORES_PERFIL, normalizarUsuario, type Cargo, type UsuarioDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { iguaisSeguro } from '../auth/tokens.js';
-import { CHAVE_CONVITE, lerConfiguracao } from './configuracoes.js';
+import { adicionarMembro, comunidadeDoConvite } from './comunidades.js';
 import { registrarAuditoria } from './auditoria.js';
 
 export interface LinhaUsuario {
@@ -30,6 +29,26 @@ export function paraDto(u: LinhaUsuario): UsuarioDto {
 
 export function listarAtivos(banco: Banco): LinhaUsuario[] {
   return banco.prepare('SELECT * FROM usuarios WHERE removido_em IS NULL ORDER BY nome_exibicao COLLATE NOCASE, id').all() as LinhaUsuario[];
+}
+
+/** Membros ativos de um servidor, com o cargo e o cargo personalizado de lá (no lugar dos da conta). */
+export function listarMembros(banco: Banco, comunidadeId: number): LinhaUsuario[] {
+  return banco
+    .prepare(
+      `SELECT u.*, m.cargo AS cargo, m.funcao_id AS funcao_id FROM usuarios u JOIN membros m ON m.usuario_id = u.id
+       WHERE m.comunidade_id = ? AND u.removido_em IS NULL ORDER BY u.nome_exibicao COLLATE NOCASE, u.id`,
+    )
+    .all(comunidadeId) as LinhaUsuario[];
+}
+
+/** A conta vista de dentro de um servidor: cargo e cargo personalizado de lá; undefined se não é membro. */
+export function buscarNa(banco: Banco, id: number, comunidadeId: number): LinhaUsuario | undefined {
+  return banco
+    .prepare(
+      `SELECT u.*, m.cargo AS cargo, m.funcao_id AS funcao_id FROM usuarios u JOIN membros m ON m.usuario_id = u.id
+       WHERE u.id = ? AND m.comunidade_id = ? AND u.removido_em IS NULL`,
+    )
+    .get(id, comunidadeId) as LinhaUsuario | undefined;
 }
 
 /**
@@ -67,15 +86,16 @@ export function buscarPorId(banco: Banco, id: number): LinhaUsuario | undefined 
 
 interface NovoUsuario {
   convite: string;
+  /** Servidor do convite (o principal, se não vier). */
+  comunidadeId?: number;
   usuario: string;
   senhaHash: string;
   limiteContas: number;
 }
 
-/** RN-1: compara com o código vigente; sem código configurado, nada passa. */
-export function conferirConvite(banco: Banco, convite: string): void {
-  const vigente = lerConfiguracao(banco, CHAVE_CONVITE);
-  if (!vigente || !iguaisSeguro(convite.trim(), vigente)) {
+/** RN-1: o código precisa ser o convite vigente do servidor em que a pessoa está entrando. */
+export function conferirConvite(banco: Banco, convite: string, comunidadeId: number = COMUNIDADE_PRINCIPAL): void {
+  if (comunidadeDoConvite(banco, convite) !== comunidadeId) {
     throw new ErroHttp(403, 'convite_invalido', 'Código de convite inválido.');
   }
 }
@@ -84,7 +104,8 @@ export function conferirConvite(banco: Banco, convite: string): void {
 export function cadastrarUsuario(banco: Banco, novo: NovoUsuario, agora: number = Date.now()): LinhaUsuario {
   return banco.transaction(() => {
     // De novo dentro da transação: o administrador pode ter trocado o código no meio (T6).
-    conferirConvite(banco, novo.convite);
+    const comunidadeId = novo.comunidadeId ?? COMUNIDADE_PRINCIPAL;
+    conferirConvite(banco, novo.convite, comunidadeId);
     if (contarContasAtivas(banco) >= novo.limiteContas) {
       throw new ErroHttp(409, 'limite_contas', 'Limite de contas atingido neste servidor.');
     }
@@ -101,7 +122,9 @@ export function cadastrarUsuario(banco: Banco, novo: NovoUsuario, agora: number 
       )
       .run(novo.usuario, normalizarUsuario(novo.usuario), novo.senhaHash, novo.usuario, cor, cargo, agora);
     const id = Number(resultado.lastInsertRowid);
-    registrarAuditoria(banco, { tipo: 'conta_criada', atorId: id }, agora);
+    // A primeira conta da instalação administra o principal; as outras entram como membro do servidor do convite.
+    adicionarMembro(banco, comunidadeId, id, primeira && comunidadeId === COMUNIDADE_PRINCIPAL ? 'admin' : 'membro', agora);
+    registrarAuditoria(banco, { tipo: 'conta_criada', atorId: id, comunidadeId }, agora);
     return buscarPorId(banco, id)!;
   })();
 }

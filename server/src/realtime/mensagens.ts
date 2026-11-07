@@ -2,7 +2,9 @@ import { temPermissao } from '../dominio/funcoes.js';
 import { ANEXOS_POR_MENSAGEM, validarTextoMensagem, type Destino, type EventosServidor } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { buscarCanal } from '../dominio/canais.js';
+import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
+import { membroDe } from '../dominio/comunidades.js';
+import { salaComunidade } from './salas.js';
 import { apagarMensagem, buscarMensagem, editarMensagem, inserirMensagem } from '../dominio/mensagens.js';
 import { buscarPorId } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
@@ -45,10 +47,11 @@ interface DestinoConferido {
   participantes: [number, number] | null;
 }
 
-function lerDestino(banco: Banco, dados: unknown, usuarioId: number): DestinoConferido {
+function lerDestino(banco: Banco, dados: unknown, usuarioId: number, comunidadeId: number): DestinoConferido {
   const d = ehObjeto(dados) && ehObjeto(dados.destino) ? dados.destino : undefined;
   if (d && ehId(d.canalId)) {
-    const canal = buscarCanal(banco, d.canalId);
+    // Só canais do servidor desta conexão.
+    const canal = comunidadeDoCanal(banco, d.canalId) === comunidadeId ? buscarCanal(banco, d.canalId) : undefined;
     if (!canal || canal.tipo !== 'texto') throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
     return { destino: { canalId: d.canalId }, participantes: null };
   }
@@ -71,26 +74,45 @@ export function registrarEventosMensagens(
   registrarErro: (e: unknown) => void,
 ) {
   const usuarioId = socket.data.usuarioId;
+  const comunidadeId = socket.data.comunidadeId;
   /** Último sinal de "digitando" aceito deste socket (ver o tratador no fim). */
   let ultimoDigitando = 0;
 
-  /** Canal: todos. DM: só a sala de cada participante (RN-18). */
+  /**
+   * Conexões de um participante da DM em que ela aparece: as dos servidores de que o outro também participa
+   * (a conversa fica na aba Diretas de cada servidor em comum).
+   */
+  function conexoesDaConversa(participantes: [number, number]) {
+    return [...io.of('/').sockets.values()].filter((s) => {
+      const i = participantes.indexOf(s.data.usuarioId);
+      if (i < 0) return false;
+      const outro = participantes[1 - i]!;
+      return outro === s.data.usuarioId || !!membroDe(banco, s.data.comunidadeId, outro);
+    });
+  }
+
+  /** Canal: quem está no servidor dele. DM: só os participantes (RN-18). */
   function emitir<E extends keyof EventosServidor>(participantes: [number, number] | null, evento: E, ...args: Parameters<EventosServidor[E]>) {
-    const alvo = participantes ? io.to(participantes.map(salaUsuario)) : io;
-    (alvo.emit as (e: E, ...a: Parameters<EventosServidor[E]>) => void)(evento, ...args);
+    const alvos = participantes ? conexoesDaConversa(participantes) : [io.to(salaComunidade(comunidadeId))];
+    for (const alvo of alvos) (alvo.emit as (e: E, ...a: Parameters<EventosServidor[E]>) => void)(evento, ...args);
   }
 
   /** Cada participante recebe a DM vista do seu lado (o "outro" de cada um). */
   function avisarDm(participantes: [number, number], dmId: number) {
-    for (const p of participantes) io.to(salaUsuario(p)).emit('dm:atualizada', dmPara(banco, dmId, p));
+    for (const s of conexoesDaConversa(participantes)) s.emit('dm:atualizada', dmPara(banco, dmId, s.data.usuarioId));
   }
+
+  /** Mensagem de canal de outro servidor é como se não existisse para esta conexão. */
+  const doServidor = (m: { canalId: number | null }) => {
+    if (m.canalId !== null && comunidadeDoCanal(banco, m.canalId) !== comunidadeId) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
+  };
 
   const participantesDa = (m: { dmId: number | null }) => (m.dmId === null ? null : exigirParticipante(banco, m.dmId, usuarioId));
 
   socket.on(
     'mensagem:enviar',
     comAck(registrarErro, (dados: unknown) => {
-      const { destino, participantes } = lerDestino(banco, dados, usuarioId);
+      const { destino, participantes } = lerDestino(banco, dados, usuarioId, comunidadeId);
       const anexos = lerAnexos(dados);
       // Só com anexos, o texto pode ficar vazio.
       const bruto = ehObjeto(dados) && typeof dados.texto === 'string' ? dados.texto : '';
@@ -117,6 +139,7 @@ export function registrarEventosMensagens(
       const editada = banco.transaction(() => {
         const atual = buscarMensagem(banco, id);
         if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
+        doServidor(atual);
         participantes = participantesDa(atual);
         if (atual.autorId !== usuarioId) throw new ErroHttp(403, 'sem_permissao', 'Só quem escreveu pode editar a mensagem.');
         if (atual.texto === texto) return atual;
@@ -142,12 +165,13 @@ export function registrarEventosMensagens(
       const apagada = banco.transaction(() => {
         const atual = buscarMensagem(banco, id);
         if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
+        doServidor(atual);
         // Em DM, quem não participa nem fica sabendo que a mensagem existe.
         participantes = participantesDa(atual);
         const ehAutor = atual.autorId === usuarioId;
         // RN-9 / RN-18: administrador apaga mensagem alheia só em canal; nas DMs, nunca.
         // Backlog v2, item 10c: administrador ou quem tem "Apagar mensagens".
-        const ehAdminEmCanal = atual.canalId !== null && temPermissao(banco, usuarioId, 'apagar_mensagens');
+        const ehAdminEmCanal = atual.canalId !== null && temPermissao(banco, usuarioId, 'apagar_mensagens', comunidadeId);
         if (!ehAutor && !ehAdminEmCanal) throw new ErroHttp(403, 'sem_permissao', 'Você só pode apagar as suas mensagens.');
         arquivos = arquivosDaMensagem(banco, id);
         apagarMensagem(banco, id);
@@ -179,7 +203,7 @@ export function registrarEventosMensagens(
       if (d && ehId(d.dmId)) {
         exigirParticipante(banco, d.dmId, usuarioId);
         destino = { dmId: d.dmId };
-      } else destino = lerDestino(banco, dados, usuarioId).destino;
+      } else destino = lerDestino(banco, dados, usuarioId, comunidadeId).destino;
       const ultimaMensagemId = marcarLido(banco, usuarioId, destino, ultima);
       if (ultimaMensagemId !== undefined) io.to(salaUsuario(usuarioId)).emit('lido:atualizado', { chave: chaveDoDestino(destino), ultimaMensagemId });
     } catch {
@@ -192,6 +216,8 @@ export function registrarEventosMensagens(
     comAck(registrarErro, (dados: unknown) => {
       const outro = ehObjeto(dados) ? dados.usuarioId : undefined;
       if (!ehId(outro)) throw new ErroHttp(400, 'dados_invalidos', 'Pessoa inválida.');
+      // Conversa direta com quem também está neste servidor.
+      if (outro !== usuarioId && !membroDe(banco, comunidadeId, outro)) throw new ErroHttp(404, 'nao_encontrado', 'Pessoa não encontrada.');
       const id = abrirDm(banco, usuarioId, outro);
       // Só quem abriu: a outra pessoa fica sabendo na primeira mensagem (mensagem:enviar avisa os dois).
       io.to(salaUsuario(usuarioId)).emit('dm:atualizada', dmPara(banco, id, usuarioId));
@@ -205,13 +231,12 @@ export function registrarEventosMensagens(
     const agora = Date.now();
     if (agora - ultimoDigitando < 1000) return;
     try {
-      const { destino, participantes } = lerDestino(banco, dados, usuarioId);
+      const { destino, participantes } = lerDestino(banco, dados, usuarioId, comunidadeId);
       ultimoDigitando = agora;
       const payload = 'canalId' in destino ? { canalId: destino.canalId, dmId: null, usuarioId } : { canalId: null, dmId: destino.dmId, usuarioId };
       if (participantes) {
-        const outro = participantes[0] === usuarioId ? participantes[1] : participantes[0];
-        io.to(salaUsuario(outro)).emit('digitando', payload);
-      } else socket.broadcast.emit('digitando', payload);
+        for (const s of conexoesDaConversa(participantes)) if (s.data.usuarioId !== usuarioId) s.emit('digitando', payload);
+      } else socket.to(salaComunidade(comunidadeId)).emit('digitando', payload);
     } catch {
       /* ignora */
     }

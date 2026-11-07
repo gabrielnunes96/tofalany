@@ -64,6 +64,7 @@ describe('POST /api/auth/cadastro', () => {
   it('sem código vigente no banco, nenhum convite passa (nem vazio)', async () => {
     app = await appTeste();
     app.banco.prepare("DELETE FROM configuracoes WHERE chave = 'codigo_convite'").run();
+    app.banco.prepare('UPDATE comunidades SET convite = NULL').run();
     expect((await cadastrar(app, 'ana', 'Senha-forte-1', '')).statusCode).toBe(403);
     expect((await cadastrar(app, 'ana', 'Senha-forte-1', CONVITE)).statusCode).toBe(403);
   });

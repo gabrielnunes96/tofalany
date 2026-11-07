@@ -1,4 +1,7 @@
 import { temPermissao } from '../dominio/funcoes.js';
+import { comunidadeDoCanal } from '../dominio/canais.js';
+import { membroDe } from '../dominio/comunidades.js';
+import { salaComunidade } from './salas.js';
 import { DIMENSOES_TELA, QUALIDADES_TELA, qualidadesPermitidas, type QualidadeTela, type TransmissaoDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
@@ -30,12 +33,24 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
     }
   }
 
+  /** Cargo e permissão de transmitir em alta no servidor do canal (cada servidor tem os seus cargos). */
+  function papel(usuarioId: number, canalVozId: number) {
+    const c = comunidadeDoCanal(banco, canalVozId) ?? 1;
+    return { cargo: membroDe(banco, c, usuarioId)?.cargo ?? 'membro', alta: temPermissao(banco, usuarioId, 'transmitir_alta', c), c };
+  }
+  const paraCanal = (canalVozId: number) => io.to(salaComunidade(comunidadeDoCanal(banco, canalVozId) ?? 1));
+
   function liberar(canalVozId: number, motivo?: string) {
     const t = ativas.get(canalVozId);
     if (!t) return;
+    // Servidor fechando: nada a gravar nem a avisar.
+    if (!banco.open) {
+      ativas.delete(canalVozId);
+      return;
+    }
     ativas.delete(canalVozId);
     auditar('tela_parou', t, motivo);
-    io.emit('tela:parada', { canalVozId, usuarioId: t.usuarioId });
+    paraCanal(canalVozId).emit('tela:parada', { canalVozId, usuarioId: t.usuarioId });
   }
 
   return {
@@ -50,8 +65,8 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           if (!QUALIDADES_TELA.includes(qualidade as QualidadeTela)) throw new ErroHttp(400, 'dados_invalidos', 'Qualidade inválida.');
           if (voz.presenca(usuarioId)?.canalVozId !== canalVozId) throw new ErroHttp(403, 'sem_permissao', 'Entre no canal de voz para transmitir.');
           // RN-17: membro transmite só em 720p30 (o servidor aplica, não só a tela).
-          const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
-          if (!qualidadesPermitidas(cargo, temPermissao(banco, usuarioId, 'transmitir_alta')).includes(qualidade as QualidadeTela)) {
+          const { cargo, alta } = papel(usuarioId, canalVozId);
+          if (!qualidadesPermitidas(cargo, alta).includes(qualidade as QualidadeTela)) {
             throw new ErroHttp(403, 'sem_permissao', 'Seu cargo só transmite em 720p30.');
           }
           const atual = ativas.get(canalVozId);
@@ -63,7 +78,7 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           const t: TransmissaoDto = { canalVozId, usuarioId, qualidade: qualidade as QualidadeTela };
           ativas.set(canalVozId, t);
           auditar('tela_iniciou', t);
-          io.emit('tela:iniciada', t);
+          paraCanal(canalVozId).emit('tela:iniciada', t);
           return t;
         }),
       );
@@ -87,9 +102,8 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
       if (!t || t.usuarioId !== usuarioId) return true;
       // Áudio da tela: basta ter a trava.
       if (soAudio) return false;
-      const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
       // Sem dimensões (o livekit-client sempre manda em vídeo): de membro, é suspeito.
-      const alta = temPermissao(banco, usuarioId, 'transmitir_alta');
+      const { cargo, alta } = papel(usuarioId, canalVozId);
       if (largura <= 0 || altura <= 0) return !alta;
       const qualidade = qualidadesPermitidas(cargo, alta).includes(t.qualidade) ? t.qualidade : '720p30';
       const max = DIMENSOES_TELA[qualidade];
@@ -98,9 +112,11 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
     },
     /** RN-17: quem perdeu o cargo transmitindo acima de 720p30 deixa de transmitir. */
     cargoMudou(usuarioId: number) {
-      const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
-      const alta = temPermissao(banco, usuarioId, 'transmitir_alta');
-      for (const t of [...ativas.values()]) if (t.usuarioId === usuarioId && !qualidadesPermitidas(cargo, alta).includes(t.qualidade)) liberar(t.canalVozId, 'cargo_alterado');
+      for (const t of [...ativas.values()]) {
+        if (t.usuarioId !== usuarioId) continue;
+        const { cargo, alta } = papel(usuarioId, t.canalVozId);
+        if (!qualidadesPermitidas(cargo, alta).includes(t.qualidade)) liberar(t.canalVozId, 'cargo_alterado');
+      }
     },
     /** Quem saiu da voz (por qualquer motivo) deixa de transmitir. */
     saiuDaVoz(usuarioId: number, canalVozId: number) {

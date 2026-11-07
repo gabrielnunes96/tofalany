@@ -5,8 +5,8 @@ import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
 import { exigirSessao } from '../auth/sessao-http.js';
-import { buscarCanal } from '../dominio/canais.js';
-import { buscarPorId } from '../dominio/usuarios.js';
+import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
+import { buscarNa } from '../dominio/usuarios.js';
 import type { Voz } from '../realtime/voz.js';
 
 /** Validade do token de mídia: o app pede outro ao reentrar. */
@@ -34,10 +34,11 @@ export async function registrarRotasLivekit(
     async (req): Promise<TokenVozResponse> => {
       if (!livekit) throw new ErroHttp(503, 'voz_indisponivel', 'A voz não está configurada neste servidor.');
       const { canalVozId } = req.body as { canalVozId: number };
-      const canal = buscarCanal(banco, canalVozId);
+      // Só canais do servidor do endereço (a pessoa já foi conferida como membro de lá).
+      const canal = comunidadeDoCanal(banco, canalVozId) === req.comunidadeId ? buscarCanal(banco, canalVozId) : undefined;
       if (!canal) throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
       if (canal.tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Esse canal não é de voz.');
-      const usuario = buscarPorId(banco, req.usuarioId!)!;
+      const usuario = buscarNa(banco, req.usuarioId!, req.comunidadeId)!;
       const token = new AccessToken(livekit.chave, livekit.segredo, {
         identity: String(usuario.id),
         name: usuario.nome_exibicao,

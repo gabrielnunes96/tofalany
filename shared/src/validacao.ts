@@ -21,7 +21,9 @@ export function normalizarUrlServidor(texto: string): Resultado<string> {
     return { ok: false, erro: 'Use um endereço http:// ou https://.' };
   }
   if (!url.hostname) return { ok: false, erro: 'Endereço inválido.' };
-  return { ok: true, valor: url.origin };
+  // Vários servidores na mesma instalação: o caminho /c/<id> faz parte do endereço; o resto é descartado.
+  const comunidade = /^\/c\/(\d{1,9})(?:\/|$)/.exec(url.pathname);
+  return { ok: true, valor: comunidade && comunidade[1] !== '1' ? `${url.origin}/c/${comunidade[1]}` : url.origin };
 }
 
 const PADRAO_USUARIO = /^[a-zA-Z0-9_.-]+$/;
@@ -131,7 +133,13 @@ export function lerQualquerConvite(texto: string): ConviteLink | undefined {
     return undefined;
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
-  const partes = url.pathname.split('/').filter(Boolean);
+  // https://servidor/convite/<código> ou, num servidor criado depois, https://servidor/c/<id>/convite/<código>.
+  let partes = url.pathname.split('/').filter(Boolean);
+  let prefixo = '';
+  if (partes[0] === 'c' && partes[1] && /^\d{1,9}$/.test(partes[1])) {
+    prefixo = `/c/${partes[1]}`;
+    partes = partes.slice(2);
+  }
   if (partes.length !== 2 || partes[0] !== 'convite') return undefined;
   let bruto: string;
   try {
@@ -139,7 +147,7 @@ export function lerQualquerConvite(texto: string): ConviteLink | undefined {
   } catch {
     return undefined;
   }
-  const servidor = normalizarUrlServidor(url.origin);
+  const servidor = normalizarUrlServidor(`${url.origin}${prefixo}`);
   const codigo = validarCodigoConvite(bruto);
   if (!servidor.ok || !codigo.ok) return undefined;
   return { servidor: servidor.valor, codigo: codigo.valor };

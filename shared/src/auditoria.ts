@@ -23,6 +23,10 @@ export const TIPOS_AUDITORIA = [
   'mensagem_apagada',
   'senha_redefinida',
   'redefinicao_gerada',
+  'servidor_criado',
+  'entrou_no_servidor',
+  'saiu_do_servidor',
+  'tirado_do_servidor',
 ] as const;
 
 export type TipoAuditoria = (typeof TIPOS_AUDITORIA)[number];
@@ -52,6 +56,10 @@ export const ROTULOS_AUDITORIA: Record<TipoAuditoria, string> = {
   mensagem_apagada: 'apagou uma mensagem',
   senha_redefinida: 'redefiniu a senha de',
   redefinicao_gerada: 'gerou um código de redefinição de senha para',
+  servidor_criado: 'criou o servidor',
+  entrou_no_servidor: 'entrou no servidor',
+  saiu_do_servidor: 'saiu do servidor',
+  tirado_do_servidor: 'tirou do servidor',
 };
 
 export const PRAZO_AUDITORIA_DIAS_PADRAO = 30;

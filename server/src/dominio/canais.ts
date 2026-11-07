@@ -1,4 +1,4 @@
-import type { CanalDto, TipoCanal } from '@tofalando/shared';
+import { COMUNIDADE_PRINCIPAL, type CanalDto, type TipoCanal } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 
 interface LinhaCanal {
@@ -10,8 +10,13 @@ interface LinhaCanal {
 
 const paraDto = (c: LinhaCanal): CanalDto => ({ id: c.id, tipo: c.tipo, nome: c.nome, posicao: c.posicao });
 
-export function listarCanais(banco: Banco): CanalDto[] {
-  return (banco.prepare('SELECT id, tipo, nome, posicao FROM canais ORDER BY tipo, posicao, id').all() as LinhaCanal[]).map(paraDto);
+export function listarCanais(banco: Banco, comunidadeId: number = COMUNIDADE_PRINCIPAL): CanalDto[] {
+  return (banco.prepare('SELECT id, tipo, nome, posicao FROM canais WHERE comunidade_id = ? ORDER BY tipo, posicao, id').all(comunidadeId) as LinhaCanal[]).map(paraDto);
+}
+
+/** De qual servidor é o canal (undefined se não existe). */
+export function comunidadeDoCanal(banco: Banco, id: number): number | undefined {
+  return (banco.prepare('SELECT comunidade_id FROM canais WHERE id = ?').get(id) as { comunidade_id: number } | undefined)?.comunidade_id;
 }
 
 export function buscarCanal(banco: Banco, id: number): CanalDto | undefined {
@@ -20,13 +25,13 @@ export function buscarCanal(banco: Banco, id: number): CanalDto | undefined {
 }
 
 /** Novo canal no fim da lista do seu tipo. */
-export function criarCanal(banco: Banco, tipo: TipoCanal, nome: string, criadoPor: number, agora: number = Date.now()): CanalDto {
-  const { proxima } = banco.prepare('SELECT COALESCE(MAX(posicao), 0) + 1 AS proxima FROM canais WHERE tipo = ?').get(tipo) as {
+export function criarCanal(banco: Banco, tipo: TipoCanal, nome: string, criadoPor: number, agora: number = Date.now(), comunidadeId: number = COMUNIDADE_PRINCIPAL): CanalDto {
+  const { proxima } = banco.prepare('SELECT COALESCE(MAX(posicao), 0) + 1 AS proxima FROM canais WHERE tipo = ? AND comunidade_id = ?').get(tipo, comunidadeId) as {
     proxima: number;
   };
   const r = banco
-    .prepare('INSERT INTO canais (tipo, nome, posicao, criado_por, criado_em) VALUES (?, ?, ?, ?, ?)')
-    .run(tipo, nome, proxima, criadoPor, agora);
+    .prepare('INSERT INTO canais (tipo, nome, posicao, criado_por, criado_em, comunidade_id) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(tipo, nome, proxima, criadoPor, agora, comunidadeId);
   return buscarCanal(banco, Number(r.lastInsertRowid))!;
 }
 

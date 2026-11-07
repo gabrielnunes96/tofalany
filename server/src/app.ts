@@ -25,6 +25,10 @@ import { criarTempoReal, type TempoReal } from './realtime/tempo-real.js';
 import { registrarRotasAuditoria } from './routes/auditoria.js';
 import { registrarRotasPrevia } from './routes/previa.js';
 import { fecharOnlinesPendentes, limparAuditoria } from './dominio/auditoria.js';
+import { separarComunidadeDaUrl } from './auth/sessao-http.js';
+import { existeComunidade } from './dominio/comunidades.js';
+import { registrarRotasComunidades } from './routes/comunidades.js';
+import type { IncomingMessage } from 'node:http';
 
 const LIMPEZA_AUDITORIA_MS = 6 * 60 * 60 * 1000;
 /**
@@ -53,8 +57,22 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
     throw erro;
   }
 
-  const app = Fastify({ logger: config.log ? { redact: ['req.headers.authorization'] } : false, trustProxy: config.atrasDeProxy ? PROXIES_CONFIAVEIS : false });
+  const app = Fastify({
+    logger: config.log ? { redact: ['req.headers.authorization'] } : false,
+    trustProxy: config.atrasDeProxy ? PROXIES_CONFIAVEIS : false,
+    // Vários servidores na mesma instalação: /c/<id>/... é o mesmo app, no servidor <id>.
+    rewriteUrl: (req) => {
+      const { comunidadeId, url } = separarComunidadeDaUrl(req.url ?? '/');
+      (req as IncomingMessage & { comunidadeId?: number }).comunidadeId = comunidadeId;
+      return url;
+    },
+  });
   app.decorate('banco', banco);
+  app.decorateRequest('comunidadeId', 1);
+  app.addHook('onRequest', async (req) => {
+    req.comunidadeId = (req.raw as IncomingMessage & { comunidadeId?: number }).comunidadeId ?? 1;
+    if (!existeComunidade(banco, req.comunidadeId)) throw new ErroHttp(404, 'nao_encontrado', 'Servidor não encontrado.');
+  });
   const limpeza = setInterval(() => {
     try {
       limparAuditoria(banco, config.prazoAuditoriaDias);
@@ -113,6 +131,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   app.addHook('onClose', async () => clearInterval(limpezaOrfaos));
   app.decorate('tempoReal', tempoReal);
   registrarRotasServidor(app, banco, config);
+  registrarRotasComunidades(app, banco, config, tempoReal, armazem);
   registrarRotasPrevia(app, banco);
   registrarRotasAuth(app, banco, config, tempoReal);
   registrarRotasAuditoria(app, banco);

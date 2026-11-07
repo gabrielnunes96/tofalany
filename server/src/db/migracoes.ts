@@ -143,5 +143,35 @@ export const MIGRACOES: readonly string[] = [
   INSERT INTO funcoes (nome, cor, permissoes, criado_em)
     VALUES ('Moderador', '#7c8cff', '["gerenciar_canais","apagar_mensagens","gerenciar_convite"]', CAST(strftime('%s','now') AS INTEGER) * 1000);
   `,
+  // 011 — vários servidores na mesma instalação (comunidades). O grupo que já existe vira o servidor 1, com todo
+  // mundo dentro e os mesmos cargos; canais, sons, cargos personalizados e o convite passam a ser de um servidor.
+  // (ADD COLUMN com REFERENCES não aceita DEFAULT com chaves estrangeiras ligadas: a limpeza ao excluir é no código.)
+  `
+  CREATE TABLE comunidades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT,
+    dono_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    convite TEXT UNIQUE,
+    criado_em INTEGER NOT NULL
+  );
+  INSERT INTO comunidades (id, nome, dono_id, convite, criado_em)
+    VALUES (1, NULL, NULL, (SELECT valor FROM configuracoes WHERE chave = 'codigo_convite'), CAST(strftime('%s','now') AS INTEGER) * 1000);
+  CREATE TABLE membros (
+    comunidade_id INTEGER NOT NULL REFERENCES comunidades(id) ON DELETE CASCADE,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    cargo TEXT NOT NULL CHECK (cargo IN ('admin', 'membro')),
+    funcao_id INTEGER REFERENCES funcoes(id) ON DELETE SET NULL,
+    entrou_em INTEGER NOT NULL,
+    PRIMARY KEY (comunidade_id, usuario_id)
+  );
+  CREATE INDEX membros_usuario ON membros(usuario_id);
+  INSERT INTO membros (comunidade_id, usuario_id, cargo, funcao_id, entrou_em)
+    SELECT 1, id, cargo, funcao_id, criado_em FROM usuarios WHERE removido_em IS NULL;
+  ALTER TABLE canais ADD COLUMN comunidade_id INTEGER NOT NULL DEFAULT 1;
+  CREATE INDEX canais_comunidade ON canais(comunidade_id, tipo, posicao);
+  ALTER TABLE sons ADD COLUMN comunidade_id INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE funcoes ADD COLUMN comunidade_id INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE auditoria ADD COLUMN comunidade_id INTEGER;
+  `,
 ];
 

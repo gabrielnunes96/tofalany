@@ -13,14 +13,16 @@ import {
   type EscolhaStatus,
   type StatusPessoa,
   type StatusVisivel,
+  COMUNIDADE_PRINCIPAL,
+  caminhoComunidade,
 } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
-import { buscarPorId, listarAtivos, paraDto } from '../dominio/usuarios.js';
+import { buscarPorId, listarMembros, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
-import { CHAVE_CONVITE, lerConfiguracao } from '../dominio/configuracoes.js';
+import { conviteDa, existeComunidade, membroNaComunidade, nomeComunidade } from '../dominio/comunidades.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
 import { listarDms } from '../dominio/dms.js';
@@ -33,15 +35,20 @@ import { RoomServiceClient } from 'livekit-server-sdk';
 import { salaLivekit } from '@tofalando/shared';
 import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
 import { criarSoundboard } from './soundboard.js';
+import { salaComunidade } from './salas.js';
 import { criarMusica } from './musica.js';
 import { criarTela } from './tela.js';
 
 interface DadosSocket {
   usuarioId: number;
   tokenHash: string;
-  /** Endereço do servidor como esta pessoa o vê (URL_PUBLICA ou o host do handshake). */
+  /** Endereço do servidor como esta pessoa o vê (URL_PUBLICA ou o host do handshake), com o /c/<id> do servidor. */
   baseServidor: string;
+  /** Servidor (comunidade) desta conexão: o app abre uma conexão por servidor. */
+  comunidadeId: number;
 }
+
+export { salaComunidade } from './salas.js';
 
 export type SocketTofalando = Socket<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
 export type ServidorTempoReal = Server<EventosCliente, EventosServidor, Record<string, never>, DadosSocket>;
@@ -64,7 +71,11 @@ export interface TempoReal {
     silenciar?: (sala: string, identidade: string, sid: string) => Promise<void>,
   ): Promise<boolean>;
   /** RN-17: o cargo de alguém mudou (transmissão acima de 720p30 de quem não é mais admin para). */
-  cargoMudou(usuarioId: number): void;
+  cargoMudou(usuarioId: number, comunidadeId?: number): void;
+  /** Derruba as conexões de alguém num servidor (saiu ou foi tirado de lá). */
+  tirarDaComunidade(usuarioId: number, comunidadeId: number): void;
+  /** Derruba todas as conexões de um servidor (excluído). */
+  fecharComunidade(comunidadeId: number): void;
 }
 
 export const salaUsuario = (id: number) => `usuario:${id}`;
@@ -192,7 +203,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   });
   const tela = criarTela(io, banco, voz, (e) => app.log.error(e));
   const soundboard = criarSoundboard(io, banco, voz, (e) => app.log.error(e));
-  const musica = criarMusica(io, config, voz, (e) => app.log.error(e));
+  const musica = criarMusica(io, config, voz, (e) => app.log.error(e), banco);
 
   io.use((socket, next) => {
     const token: unknown = socket.handshake.auth?.token;
@@ -207,7 +218,17 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     if (usuarioId === undefined) return next(new Error(ERRO_HANDSHAKE_NAO_AUTENTICADO));
     socket.data.usuarioId = usuarioId;
     socket.data.tokenHash = hashToken(token as string);
-    socket.data.baseServidor = baseDoServidor(config, socket.handshake.headers, socket.handshake.secure);
+    // Uma conexão por servidor: o app manda qual (o principal, se não mandar); só quem participa entra.
+    const pedido = Number(socket.handshake.auth?.comunidade ?? COMUNIDADE_PRINCIPAL);
+    const comunidadeId = Number.isInteger(pedido) && pedido > 0 ? pedido : COMUNIDADE_PRINCIPAL;
+    try {
+      if (!existeComunidade(banco, comunidadeId) || !membroNaComunidade(banco, comunidadeId, usuarioId)) return next(new Error('nao_membro'));
+    } catch (erro) {
+      app.log.error(erro);
+      return next(new Error('erro_interno'));
+    }
+    socket.data.comunidadeId = comunidadeId;
+    socket.data.baseServidor = baseDoServidor(config, socket.handshake.headers, socket.handshake.secure) + caminhoComunidade(comunidadeId);
     next();
   });
 
@@ -221,26 +242,34 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   });
 
   function aoConectar(socket: SocketTofalando) {
+    const comunidadeId = socket.data.comunidadeId;
     const eu = buscarPorId(banco, socket.data.usuarioId);
     if (!eu) {
       derrubar(socket, 'sessao_invalida');
       return;
     }
-    void socket.join(salaUsuario(eu.id));
+    void socket.join([salaUsuario(eu.id), salaComunidade(comunidadeId)]);
+    // Tudo do servidor desta conexão: canais, membros (com o cargo de lá), cargos, sons, voz e telas dos canais de lá.
+    const membros = listarMembros(banco, comunidadeId);
+    const ids = new Set(membros.map((m) => m.id));
+    const canais = listarCanais(banco, comunidadeId);
+    const daqui = new Set(canais.map((c) => c.id));
+    const dms = listarDms(banco, eu.id).filter((d) => ids.has(d.outroId));
+    const chaves = new Set([...canais.map((c) => `c:${c.id}`), ...dms.map((d) => `d:${d.id}`)]);
     const ola: OlaPayload = {
-      servidor: { nome: config.nomeServidor },
-      convite: { link: montarLinkConvite(socket.data.baseServidor, lerConfiguracao(banco, CHAVE_CONVITE) ?? '') },
-      eu: paraDto(eu),
-      usuarios: listarAtivos(banco).map(paraDto),
-      funcoes: listarFuncoes(banco),
-      canais: listarCanais(banco),
-      dms: listarDms(banco, eu.id),
-      naoLidas: contarNaoLidas(banco, eu.id),
-      sons: listarSons(banco),
-      voz: voz.estados(),
+      servidor: { nome: nomeComunidade(banco, comunidadeId, config.nomeServidor) ?? config.nomeServidor },
+      convite: { link: montarLinkConvite(socket.data.baseServidor, conviteDa(banco, comunidadeId) ?? '') },
+      eu: paraDto(membros.find((m) => m.id === eu.id) ?? eu),
+      usuarios: membros.map(paraDto),
+      funcoes: listarFuncoes(banco, comunidadeId),
+      canais,
+      dms,
+      naoLidas: Object.fromEntries(Object.entries(contarNaoLidas(banco, eu.id)).filter(([k]) => chaves.has(k))),
+      sons: listarSons(banco, comunidadeId),
+      voz: voz.estados().filter((e) => daqui.has(e.canalVozId)),
       presencas: {},
-      transmissoes: tela.transmissoes(),
-      musica: musica.estados(),
+      transmissoes: tela.transmissoes().filter((t) => daqui.has(t.canalVozId)),
+      musica: musica.estados().filter((m) => daqui.has(m.canalVozId)),
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
@@ -255,7 +284,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     const escolhaInicial = lerEscolha(socket.handshake.auth?.status);
     if (escolhaInicial) escolhas.set(eu.id, escolhaInicial);
     recalcularStatus(eu.id);
-    ola.presencas = Object.fromEntries(status);
+    ola.presencas = Object.fromEntries([...status].filter(([id]) => ids.has(id)));
     socket.emit('ola', ola);
     socket.on('presenca:ausente', (dados) => {
       const ausente = typeof dados === 'object' && dados !== null && (dados as { ausente?: unknown }).ausente === true;
@@ -294,6 +323,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       return true;
     },
     cargoMudou: (usuarioId) => tela.cargoMudou(usuarioId),
+    tirarDaComunidade(usuarioId, comunidadeId) {
+      for (const s of io.of('/').sockets.values()) if (s.data.usuarioId === usuarioId && s.data.comunidadeId === comunidadeId) derrubar(s, 'fora_do_servidor');
+    },
+    fecharComunidade(comunidadeId) {
+      for (const s of io.of('/').sockets.values()) if (s.data.comunidadeId === comunidadeId) derrubar(s, 'fora_do_servidor');
+    },
     revogarToken(tokenHash, motivo) {
       for (const s of io.of('/').sockets.values()) if (s.data.tokenHash === tokenHash) derrubar(s, motivo);
     },

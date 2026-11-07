@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { lerQualquerConvite, validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
+  it('mantém o /c/<id> de um servidor criado na mesma instalação (e trata /c/1 como o principal)', () => {
+    expect(normalizarUrlServidor('https://x.io/c/7/')).toEqual({ ok: true, valor: 'https://x.io/c/7' });
+    expect(normalizarUrlServidor('https://x.io/c/7/api/eu')).toEqual({ ok: true, valor: 'https://x.io/c/7' });
+    expect(normalizarUrlServidor('https://x.io/c/1')).toEqual({ ok: true, valor: 'https://x.io' });
+    expect(normalizarUrlServidor('https://x.io/c/abc')).toEqual({ ok: true, valor: 'https://x.io' });
+    expect(lerQualquerConvite('https://x.io/c/7/convite/abc123')).toEqual({ servidor: 'https://x.io/c/7', codigo: 'abc123' });
+  });
+
   it('assume http quando não há esquema', () => {
     expect(normalizarUrlServidor('100.64.0.1:3000')).toEqual({ ok: true, valor: 'http://100.64.0.1:3000' });
   });

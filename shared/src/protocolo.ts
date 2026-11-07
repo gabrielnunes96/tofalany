@@ -142,6 +142,8 @@ export type CodigoErro =
   | 'ultimo_admin'
   | 'limite_sons'
   | 'limite_cargos'
+  | 'nao_membro'
+  | 'limite_servidores'
   | 'som_longo'
   | 'arquivo_grande'
   | 'formato_invalido'
@@ -271,7 +273,7 @@ export type Tema = 'neon' | 'breu' | 'aurora';
 export const TEMAS: Tema[] = ['neon', 'breu', 'aurora'];
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */
-export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida';
+export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida' | 'fora_do_servidor';
 
 /** Esquema do link que abre o app (RF-1a): tofalany://convite?servidor=<url>&codigo=<código>. */
 export const ESQUEMA_LINK = 'tofalany';
@@ -570,4 +572,32 @@ export function acaoAoFechar(c: { aoFechar?: AcaoFechar; fecharParaBandeja?: boo
   if (c.aoFechar === 'perguntar' || c.aoFechar === 'bandeja' || c.aoFechar === 'sair') return c.aoFechar;
   if (c.fecharParaBandeja === false) return 'sair';
   return 'perguntar';
+}
+
+/**
+ * Servidores (comunidades) na mesma instalação, como no Discord: uma conta, vários servidores. O principal (id 1)
+ * fica no endereço raiz; os outros em <endereço>/c/<id>. Cada um tem canais, cargos, sons e convite próprios.
+ */
+export const COMUNIDADE_PRINCIPAL = 1;
+/** Quantos servidores cada pessoa pode criar. */
+export const LIMITE_SERVIDORES_POR_PESSOA = 5;
+
+export interface ComunidadeDto {
+  id: number;
+  nome: string;
+  /** Endereço do servidor para o app (raiz para o principal, /c/<id> para os outros). */
+  url: string;
+}
+
+export interface CriarComunidadeRequest {
+  nome: string;
+}
+
+/** Caminho do servidor dentro da instalação ('' no principal). */
+export const caminhoComunidade = (id: number) => (id === COMUNIDADE_PRINCIPAL ? '' : `/c/${id}`);
+
+/** "https://x.io/c/3" → { base: "https://x.io", comunidade: 3 }; sem /c/<id>, o principal. */
+export function separarComunidade(url: string): { base: string; comunidade: number } {
+  const m = /^(.*?)\/c\/(\d{1,9})\/?$/.exec(url);
+  return m ? { base: m[1]!, comunidade: Number(m[2]) } : { base: url.replace(/\/+$/, ''), comunidade: COMUNIDADE_PRINCIPAL };
 }

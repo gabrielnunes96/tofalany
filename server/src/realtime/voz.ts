@@ -1,7 +1,7 @@
 import type { VozEstadoDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { buscarCanal } from '../dominio/canais.js';
+import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { comAck } from './acoes.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
@@ -63,7 +63,21 @@ export function criarVoz(
   const presentes = new Map<number, Presente>();
 
   const estados = () => [...presentes.values()].map((p) => p.estado).sort((a, b) => a.usuarioId - b.usuarioId);
-  const avisar = () => io.emit('voz:estados', estados());
+  /** Cada servidor recebe só quem está nos canais de voz dele. */
+  const avisar = () => {
+    // Servidor fechando (carência que venceu depois do fechamento): não há a quem avisar.
+    if (!banco.open) return;
+    const todos = estados();
+    const porComunidade = new Map<number, VozEstadoDto[]>();
+    for (const e of todos) {
+      const c = comunidadeDoCanal(banco, e.canalVozId);
+      if (c !== undefined) porComunidade.set(c, [...(porComunidade.get(c) ?? []), e]);
+    }
+    for (const sala of io.of('/').adapter.rooms.keys()) {
+      const m = /^comunidade:(\d+)$/.exec(sala);
+      if (m) io.to(sala).emit('voz:estados', porComunidade.get(Number(m[1])) ?? []);
+    }
+  };
   const removerDaMidia = (usuarioId: number, canalVozId: number) => {
     opcoes.removerDaMidia?.(usuarioId, canalVozId).catch(registrarErro);
   };
@@ -110,7 +124,8 @@ export function criarVoz(
             }
             return undefined;
           }
-          const canal = buscarCanal(banco, pedido.canalVozId);
+          // Só canais de voz do servidor desta conexão.
+          const canal = comunidadeDoCanal(banco, pedido.canalVozId) === socket.data.comunidadeId ? buscarCanal(banco, pedido.canalVozId) : undefined;
           if (!canal) throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
           if (canal.tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Esse canal não é de voz.');
           if (atual) {

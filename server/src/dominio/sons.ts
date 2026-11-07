@@ -1,5 +1,5 @@
 import { parseBuffer } from 'music-metadata';
-import { SOM_DURACAO_MAX_MS, SONS_MAX, type SomDto } from '@tofalando/shared';
+import { COMUNIDADE_PRINCIPAL, SOM_DURACAO_MAX_MS, SONS_MAX, type SomDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 
@@ -12,8 +12,12 @@ interface LinhaSom {
 
 const paraDto = (s: LinhaSom): SomDto => ({ id: s.id, nome: s.nome, url: `/files/${s.arquivo}`, duracaoMs: s.duracao_ms });
 
-export function listarSons(banco: Banco): SomDto[] {
-  return (banco.prepare('SELECT * FROM sons ORDER BY id').all() as LinhaSom[]).map(paraDto);
+export function listarSons(banco: Banco, comunidadeId: number = COMUNIDADE_PRINCIPAL): SomDto[] {
+  return (banco.prepare('SELECT * FROM sons WHERE comunidade_id = ? ORDER BY id').all(comunidadeId) as LinhaSom[]).map(paraDto);
+}
+
+export function comunidadeDoSom(banco: Banco, id: number): number | undefined {
+  return (banco.prepare('SELECT comunidade_id FROM sons WHERE id = ?').get(id) as { comunidade_id: number } | undefined)?.comunidade_id;
 }
 
 export function buscarSom(banco: Banco, id: number): (SomDto & { arquivo: string }) | undefined {
@@ -49,9 +53,9 @@ export async function conferirAudio(dados: Buffer): Promise<{ ext: 'mp3' | 'ogg'
   return { ext: formato.ext, duracaoMs };
 }
 
-export function inserirSom(banco: Banco, nome: string, arquivo: string, duracaoMs: number, criadoPor: number, agora: number = Date.now()): SomDto {
-  const total = (banco.prepare('SELECT COUNT(*) AS n FROM sons').get() as { n: number }).n;
+export function inserirSom(banco: Banco, nome: string, arquivo: string, duracaoMs: number, criadoPor: number, agora: number = Date.now(), comunidadeId: number = COMUNIDADE_PRINCIPAL): SomDto {
+  const total = (banco.prepare('SELECT COUNT(*) AS n FROM sons WHERE comunidade_id = ?').get(comunidadeId) as { n: number }).n;
   if (total >= SONS_MAX) throw new ErroHttp(409, 'limite_sons', `O soundboard já tem ${SONS_MAX} sons. Remova um para cadastrar outro.`);
-  const r = banco.prepare('INSERT INTO sons (nome, arquivo, duracao_ms, criado_por, criado_em) VALUES (?, ?, ?, ?, ?)').run(nome, arquivo, duracaoMs, criadoPor, agora);
+  const r = banco.prepare('INSERT INTO sons (nome, arquivo, duracao_ms, criado_por, criado_em, comunidade_id) VALUES (?, ?, ?, ?, ?, ?)').run(nome, arquivo, duracaoMs, criadoPor, agora, comunidadeId);
   return paraDto(banco.prepare('SELECT * FROM sons WHERE id = ?').get(Number(r.lastInsertRowid)) as LinhaSom);
 }

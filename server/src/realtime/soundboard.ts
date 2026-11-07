@@ -1,7 +1,7 @@
 import { SOM_INTERVALO_MS } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { buscarSom } from '../dominio/sons.js';
+import { buscarSom, comunidadeDoSom } from '../dominio/sons.js';
 import { comAck } from './acoes.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
 import type { Voz } from './voz.js';
@@ -24,7 +24,7 @@ export function criarSoundboard(io: ServidorTempoReal, banco: Banco, voz: Pick<V
           if (!onde) throw new ErroHttp(403, 'sem_permissao', 'Entre num canal de voz para tocar sons.');
           const falta = (ultimo.get(usuarioId) ?? -Infinity) + SOM_INTERVALO_MS - agora();
           if (falta > 0) throw new ErroHttp(429, 'muitas_tentativas', `Aguarde ${Math.ceil(falta / 1000)} s para tocar outro som.`);
-          if (!buscarSom(banco, somId)) throw new ErroHttp(404, 'nao_encontrado', 'Som não encontrado.');
+          if (comunidadeDoSom(banco, somId) !== socket.data.comunidadeId || !buscarSom(banco, somId)) throw new ErroHttp(404, 'nao_encontrado', 'Som não encontrado.');
           ultimo.set(usuarioId, agora());
           const aviso = { somId, porUsuarioId: usuarioId, canalVozId: onde.canalVozId };
           for (const id of voz.conexoesNoCanal(onde.canalVozId)) io.to(id).emit('som:tocado', aviso);

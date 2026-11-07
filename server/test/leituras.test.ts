@@ -92,6 +92,7 @@ describe('não lidas (RF-12)', () => {
     const { ana, bia } = await preparar();
     const dono = (await cadastrar(app!, 'dono')).json();
     app!.banco.prepare("UPDATE usuarios SET cargo = 'admin' WHERE id = ?").run(dono.usuario.id);
+    app!.banco.prepare("UPDATE membros SET cargo = 'admin' WHERE usuario_id = ?").run(dono.usuario.id);
     const url = `http://127.0.0.1:${(app!.server.address() as AddressInfo).port}`;
     const sd: Cliente = conectar(url, { auth: { token: dono.token }, transports: ['websocket'], reconnection: false, forceNew: true });
     sockets.push(sd);

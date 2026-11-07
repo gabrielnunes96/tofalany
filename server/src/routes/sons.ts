@@ -6,7 +6,8 @@ import { exigirPermissao, exigirSessao } from '../auth/sessao-http.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
-import { buscarSom, conferirAudio, inserirSom, listarSons } from '../dominio/sons.js';
+import { buscarSom, conferirAudio, inserirSom, listarSons, comunidadeDoSom } from '../dominio/sons.js';
+import { salaComunidade } from '../realtime/salas.js';
 
 const paramId = { type: 'object', required: ['id'], properties: { id: { type: 'integer', minimum: 1 } } } as const;
 
@@ -32,13 +33,13 @@ async function lerFormulario(req: FastifyRequest): Promise<{ nome?: string; dado
 export function registrarRotasSons(app: FastifyInstance, banco: Banco, armazem: Armazem, tempoReal: TempoReal): void {
   // Backlog v2, item 10c: quem tem "Gerenciar sons" (administrador sempre).
   const soAdmin = [exigirSessao(banco), exigirPermissao(banco, 'gerenciar_sons')];
-  const avisar = () => tempoReal.io.emit('sons:atualizados', listarSons(banco));
+  const avisar = (c: number) => tempoReal.io.to(salaComunidade(c)).emit('sons:atualizados', listarSons(banco, c));
 
-  app.get('/api/sons', { preHandler: exigirSessao(banco) }, async (): Promise<SomDto[]> => listarSons(banco));
+  app.get('/api/sons', { preHandler: exigirSessao(banco) }, async (req): Promise<SomDto[]> => listarSons(banco, req.comunidadeId));
 
   app.post('/api/admin/sons', { preHandler: soAdmin }, async (req, reply): Promise<SomDto> => {
     // Já cheio: recusa antes de ler o upload (a checagem definitiva fica na transação).
-    if (listarSons(banco).length >= SONS_MAX) throw new ErroHttp(409, 'limite_sons', `O soundboard já tem ${SONS_MAX} sons. Remova um para cadastrar outro.`);
+    if (listarSons(banco, req.comunidadeId).length >= SONS_MAX) throw new ErroHttp(409, 'limite_sons', `O soundboard já tem ${SONS_MAX} sons. Remova um para cadastrar outro.`);
     const { nome, dados } = await lerFormulario(req);
     const n = validarNomeSom(nome ?? '');
     if (!n.ok) throw new ErroHttp(400, 'dados_invalidos', n.erro);
@@ -48,15 +49,15 @@ export function registrarRotasSons(app: FastifyInstance, banco: Banco, armazem: 
     let som: SomDto;
     try {
       som = banco.transaction(() => {
-        const novo = inserirSom(banco, n.valor, arquivo, duracaoMs, req.usuarioId!);
-        registrarAuditoria(banco, { tipo: 'som_cadastrado', atorId: req.usuarioId!, detalhes: { som: n.valor } });
+        const novo = inserirSom(banco, n.valor, arquivo, duracaoMs, req.usuarioId!, Date.now(), req.comunidadeId);
+        registrarAuditoria(banco, { tipo: 'som_cadastrado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { som: n.valor } });
         return novo;
       })();
     } catch (erro) {
       armazem.apagar(arquivo);
       throw erro;
     }
-    avisar();
+    avisar(req.comunidadeId);
     reply.code(201);
     return som;
   });
@@ -73,14 +74,14 @@ export function registrarRotasSons(app: FastifyInstance, banco: Banco, armazem: 
     let som: SomDto;
     try {
       som = banco.transaction(() => {
-        const atual = buscarSom(banco, id);
+        const atual = comunidadeDoSom(banco, id) === req.comunidadeId ? buscarSom(banco, id) : undefined;
         if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Som não encontrado.');
         const nomeFinal = novoNome?.ok ? novoNome.valor : atual.nome;
         if (arquivoNovo && audio) {
           anterior = atual.arquivo;
           banco.prepare('UPDATE sons SET nome = ?, arquivo = ?, duracao_ms = ? WHERE id = ?').run(nomeFinal, arquivoNovo, audio.duracaoMs, id);
         } else banco.prepare('UPDATE sons SET nome = ? WHERE id = ?').run(nomeFinal, id);
-        registrarAuditoria(banco, { tipo: 'som_trocado', atorId: req.usuarioId!, detalhes: { som: nomeFinal } });
+        registrarAuditoria(banco, { tipo: 'som_trocado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { som: nomeFinal } });
         return buscarSom(banco, id)!;
       })();
     } catch (erro) {
@@ -88,21 +89,21 @@ export function registrarRotasSons(app: FastifyInstance, banco: Banco, armazem: 
       throw erro;
     }
     armazem.apagar(anterior);
-    avisar();
+    avisar(req.comunidadeId);
     return { id: som.id, nome: som.nome, url: som.url, duracaoMs: som.duracaoMs };
   });
 
   app.delete('/api/admin/sons/:id', { preHandler: soAdmin, schema: { params: paramId } }, async (req, reply) => {
     const { id } = req.params as { id: number };
     const arquivo = banco.transaction(() => {
-      const atual = buscarSom(banco, id);
+      const atual = comunidadeDoSom(banco, id) === req.comunidadeId ? buscarSom(banco, id) : undefined;
       if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Som não encontrado.');
       banco.prepare('DELETE FROM sons WHERE id = ?').run(id);
-      registrarAuditoria(banco, { tipo: 'som_removido', atorId: req.usuarioId!, detalhes: { som: atual.nome } });
+      registrarAuditoria(banco, { tipo: 'som_removido', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { som: atual.nome } });
       return atual.arquivo;
     })();
     armazem.apagar(arquivo);
-    avisar();
+    avisar(req.comunidadeId);
     reply.code(204);
   });
 }

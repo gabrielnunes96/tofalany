@@ -13,7 +13,9 @@ import {
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { exigirSessao } from '../auth/sessao-http.js';
-import { buscarPorId, paraDto } from '../dominio/usuarios.js';
+import { buscarPorId, paraDto, buscarNa } from '../dominio/usuarios.js';
+import { comunidadesDe } from '../dominio/comunidades.js';
+import { salaComunidade } from '../realtime/salas.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 
@@ -47,10 +49,13 @@ export async function processarAvatar(dados: Buffer): Promise<Buffer> {
 }
 
 export function registrarRotasPerfil(app: FastifyInstance, banco: Banco, armazem: Armazem, tempoReal: TempoReal): void {
+  /** Cada servidor da pessoa recebe o perfil com o cargo de lá. */
   const avisar = (id: number): UsuarioDto => {
-    const dto = paraDto(buscarPorId(banco, id)!);
-    tempoReal.io.emit('usuario:atualizado', dto);
-    return dto;
+    for (const c of comunidadesDe(banco, id)) {
+      const linha = buscarNa(banco, id, c);
+      if (linha) tempoReal.io.to(salaComunidade(c)).emit('usuario:atualizado', paraDto(linha));
+    }
+    return paraDto(buscarPorId(banco, id)!);
   };
 
   app.patch('/api/eu', { schema: { body: corpoPerfil }, preHandler: exigirSessao(banco) }, async (req): Promise<UsuarioDto> => {

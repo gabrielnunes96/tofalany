@@ -16,7 +16,10 @@ export function gravarConfiguracao(banco: Banco, chave: string, valor: string): 
  * depois disso o banco vence (o administrador troca pelo app, T6).
  */
 export function garantirCodigoConvite(banco: Banco, codigoAmbiente: string | undefined): void {
-  if (lerConfiguracao(banco, CHAVE_CONVITE)) return;
-  if (!codigoAmbiente) throw new Error('Defina CODIGO_CONVITE na configuração do servidor antes da primeira subida.');
-  gravarConfiguracao(banco, CHAVE_CONVITE, codigoAmbiente);
+  // O convite do servidor principal mora na tabela de servidores (a migração 011 copiou o de antes).
+  const atual = banco.prepare('SELECT convite FROM comunidades WHERE id = 1').get() as { convite: string | null } | undefined;
+  if (atual?.convite) return;
+  const antigo = lerConfiguracao(banco, CHAVE_CONVITE) ?? codigoAmbiente;
+  if (!antigo) throw new Error('Defina CODIGO_CONVITE na configuração do servidor antes da primeira subida.');
+  banco.prepare('UPDATE comunidades SET convite = ? WHERE id = 1').run(antigo);
 }

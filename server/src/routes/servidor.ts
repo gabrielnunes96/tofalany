@@ -3,11 +3,13 @@ import { APP_ID, type SaudeInfo, type ServidorInfo } from '@tofalando/shared';
 import type { Config } from '../config.js';
 import type { Banco } from '../db/banco.js';
 import { contarContasAtivas } from '../dominio/usuarios.js';
+import { nomeComunidade } from '../dominio/comunidades.js';
 
 export function registrarRotasServidor(app: FastifyInstance, banco: Banco, config: Config): void {
-  app.get('/api/servidor', async (): Promise<ServidorInfo> => ({
+  app.get('/api/servidor', async (req): Promise<ServidorInfo> => ({
     app: APP_ID,
-    nome: config.nomeServidor,
+    // O nome do servidor do endereço (/c/<id> para os criados depois).
+    nome: nomeComunidade(banco, req.comunidadeId, config.nomeServidor) ?? config.nomeServidor,
     versao: config.versao,
     contas: contarContasAtivas(banco),
     limiteContas: config.limiteContas,

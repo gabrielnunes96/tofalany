@@ -1,12 +1,11 @@
 import { readdirSync, statSync, createReadStream } from 'node:fs';
 import { join } from 'node:path';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { montarLinkApp } from '@tofalando/shared';
+import { caminhoComunidade, montarLinkApp } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
-import { iguaisSeguro } from '../auth/tokens.js';
-import { CHAVE_CONVITE, lerConfiguracao } from '../dominio/configuracoes.js';
+import { comunidadeDoConvite, nomeComunidade } from '../dominio/comunidades.js';
 import { baseDoServidor } from '../dominio/convite.js';
 import { criarLimitador } from '../auth/limitador.js';
 
@@ -87,12 +86,13 @@ export function registrarRotasConvite(app: FastifyInstance, banco: Banco, config
       reply.code(429);
       return pagina('Muitas tentativas', '<h1>Muitas tentativas</h1><p>Aguarde um minuto e abra o link de novo.</p>');
     }
-    const vigente = lerConfiguracao(banco, CHAVE_CONVITE);
-    if (!vigente || !iguaisSeguro(codigo, vigente)) {
+    // O código vale no servidor do endereço (https://x/c/<id>/convite/<código> para os criados depois).
+    if (comunidadeDoConvite(banco, codigo) !== req.comunidadeId) {
       reply.code(404);
       return pagina('Convite inválido', '<h1>Convite inválido</h1><p>Este link de convite não vale mais. Peça um link novo para quem te convidou.</p>');
     }
-    const base = baseServidor(config, req);
+    const base = baseServidor(config, req) + caminhoComunidade(req.comunidadeId);
+    const nomeServidor = nomeComunidade(banco, req.comunidadeId, config.nomeServidor) ?? config.nomeServidor;
     const linkApp = montarLinkApp(base, codigo);
     const instaladores = listarInstaladores(pastaDownloads);
     const downloads = instaladores.length
@@ -101,8 +101,8 @@ export function registrarRotasConvite(app: FastifyInstance, banco: Banco, config
           .join('')}</ul>`
       : '<p>Os instaladores ainda não estão neste servidor. Peça o instalador para quem te convidou.</p>';
     return pagina(
-      `Convite para ${config.nomeServidor}`,
-      `<h1>Você foi convidado para ${escapar(config.nomeServidor)}</h1>
+      `Convite para ${nomeServidor}`,
+      `<h1>Você foi convidado para ${escapar(nomeServidor)}</h1>
 <p>1. Instale o ToFalany:</p>
 ${downloads}
 <p>2. Com o app instalado, abra o convite:</p>

@@ -6,7 +6,8 @@ import { ErroHttp } from '../erros.js';
 import { conferirSenha, gerarHashSenha } from '../auth/senha.js';
 import { criarLimitador, type Limitador } from '../auth/limitador.js';
 import { exigirSessao } from '../auth/sessao-http.js';
-import { buscarPorId, buscarPorLogin, cadastrarUsuario, conferirConvite, paraDto } from '../dominio/usuarios.js';
+import { buscarNa, buscarPorLogin, cadastrarUsuario, conferirConvite, paraDto } from '../dominio/usuarios.js';
+import { salaComunidade } from '../realtime/salas.js';
 import { criarSessao, revogarSessao, revogarSessoesDoUsuario } from '../dominio/sessoes.js';
 import { contarNaoLidas } from '../dominio/leituras.js';
 import { usarRedefinicao } from '../dominio/redefinicoes.js';
@@ -47,16 +48,17 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
     limitar(limiteCadastro, req);
     const corpo = req.body as CadastroRequest;
     // Convite primeiro: sem ele não há validação nem hash (CA-2 e custo do scrypt).
-    conferirConvite(banco, corpo.convite);
+    conferirConvite(banco, corpo.convite, req.comunidadeId);
     const usuario = validarUsuario(corpo.usuario);
     if (!usuario.ok) throw new ErroHttp(400, 'dados_invalidos', usuario.erro);
     const senha = validarSenha(corpo.senha);
     if (!senha.ok) throw new ErroHttp(400, 'dados_invalidos', senha.erro);
     const senhaHash = await gerarHashSenha(senha.valor);
-    const linha = cadastrarUsuario(banco, { convite: corpo.convite, usuario: usuario.valor, senhaHash, limiteContas: config.limiteContas });
+    const criada = cadastrarUsuario(banco, { convite: corpo.convite, comunidadeId: req.comunidadeId, usuario: usuario.valor, senhaHash, limiteContas: config.limiteContas });
+    const linha = buscarNa(banco, criada.id, req.comunidadeId) ?? criada;
     const token = criarSessao(banco, linha.id);
-    // Só depois de a conta (e o registro conta_criada, na mesma transação) estar gravada.
-    tempoReal.io.emit('usuario:criado', paraDto(linha));
+    // Só depois de a conta (e o registro conta_criada, na mesma transação) estar gravada; só o servidor do convite vê.
+    tempoReal.io.to(salaComunidade(req.comunidadeId)).emit('usuario:criado', paraDto(linha));
     reply.code(201);
     return { token, usuario: paraDto(linha) };
   });
@@ -105,7 +107,7 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
   });
 
   app.get('/api/eu', { preHandler: exigirSessao(banco) }, async (req): Promise<UsuarioDto> => {
-    const linha = buscarPorId(banco, req.usuarioId!);
+    const linha = buscarNa(banco, req.usuarioId!, req.comunidadeId);
     if (!linha) throw new ErroHttp(401, 'nao_autenticado', 'Sessão inválida ou encerrada. Entre de novo.');
     return paraDto(linha);
   });

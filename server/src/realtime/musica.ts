@@ -5,6 +5,9 @@ import { criarBotMusica, type BotMusica, type SaidaAudio } from '../musica/bot.j
 import { atualizarYtDlp, criarFonteYtDlp, fonteDisponivel, type FonteMusica } from '../musica/fonte.js';
 import { criarConectorLivekit } from '../musica/saida-livekit.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
+import { salaComunidade } from './salas.js';
+import { comunidadeDoCanal } from '../dominio/canais.js';
+import type { Banco } from '../db/banco.js';
 import type { Voz } from './voz.js';
 
 /** O yt-dlp se atualiza uma vez por dia (e ao primeiro uso). */
@@ -29,6 +32,7 @@ export function criarMusica(
   config: Config,
   voz: Pick<Voz, 'presenca' | 'conexoesNoCanal'>,
   registrarErro: (e: unknown) => void,
+  banco?: Banco,
   deps: { fonte?: FonteMusica; conectar?: (canalVozId: number) => Promise<SaidaAudio>; disponivel?: () => Promise<boolean>; agora?: () => number } = {},
 ) {
   const agora = deps.agora ?? (() => Date.now());
@@ -54,7 +58,7 @@ export function criarMusica(
   };
 
   const bot: BotMusica | undefined = conectar
-    ? criarBotMusica({ fonte, conectar, registrarErro, agora, aoMudar: (estado) => io.emit('musica:estado', estado) })
+    ? criarBotMusica({ fonte, conectar, registrarErro, agora, aoMudar: (estado) => io.to(salaComunidade((banco && comunidadeDoCanal(banco, estado.canalVozId)) ?? 1)).emit('musica:estado', estado) })
     : undefined;
   const ultimoPedido = new Map<number, number>();
 

@@ -2,7 +2,8 @@ import { temPermissao } from '../dominio/funcoes.js';
 import { validarNomeCanal, type TipoCanal } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { buscarCanal, criarCanal, removerCanal, renomearCanal } from '../dominio/canais.js';
+import { buscarCanal, comunidadeDoCanal, criarCanal, removerCanal, renomearCanal } from '../dominio/canais.js';
+import { salaComunidade } from './salas.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { comAck } from './acoes.js';
 import { arquivosDoCanal } from '../dominio/anexos.js';
@@ -34,6 +35,10 @@ export function registrarEventosCanais(
   registrarErro: (e: unknown) => void,
 ) {
   const usuarioId = socket.data.usuarioId;
+  const comunidadeId = socket.data.comunidadeId;
+  const daqui = () => io.to(salaComunidade(comunidadeId));
+  /** Só canais deste servidor (um id de outro servidor é como se não existisse). */
+  const canalDaqui = (id: number) => (comunidadeDoCanal(banco, id) === comunidadeId ? buscarCanal(banco, id) : undefined);
 
   socket.on(
     'canal:criar',
@@ -42,11 +47,11 @@ export function registrarEventosCanais(
       if (tipo !== 'texto' && tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Tipo de canal inválido.');
       const nome = lerNome(dados);
       const canal = banco.transaction(() => {
-        const novo = criarCanal(banco, tipo as TipoCanal, nome, usuarioId);
+        const novo = criarCanal(banco, tipo as TipoCanal, nome, usuarioId, Date.now(), comunidadeId);
         registrarAuditoria(banco, { tipo: 'canal_criado', atorId: usuarioId, canal: novo, detalhes: { tipoCanal: tipo } });
         return novo;
       })();
-      io.emit('canal:criado', canal);
+      daqui().emit('canal:criado', canal);
       return canal;
     }),
   );
@@ -57,7 +62,7 @@ export function registrarEventosCanais(
       const id = lerId(dados);
       const nome = lerNome(dados);
       const canal = banco.transaction(() => {
-        const antes = buscarCanal(banco, id);
+        const antes = canalDaqui(id);
         if (!antes) throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
         const depois = renomearCanal(banco, id, nome)!;
         if (antes.nome !== depois.nome) {
@@ -65,7 +70,7 @@ export function registrarEventosCanais(
         }
         return depois;
       })();
-      io.emit('canal:renomeado', canal);
+      daqui().emit('canal:renomeado', canal);
       return canal;
     }),
   );
@@ -76,10 +81,10 @@ export function registrarEventosCanais(
       const id = lerId(dados);
       let arquivos: string[] = [];
       const removido = banco.transaction(() => {
-        if (!temPermissao(banco, usuarioId, 'gerenciar_canais')) {
+        if (!temPermissao(banco, usuarioId, 'gerenciar_canais', comunidadeId)) {
           throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite remover canais.');
         }
-        const canal = buscarCanal(banco, id);
+        const canal = canalDaqui(id);
         if (!canal) throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
         registrarAuditoria(banco, { tipo: 'canal_removido', atorId: usuarioId, canal, detalhes: { tipoCanal: canal.tipo } });
         // RN-8: mensagens e anexos saem em cascata; os arquivos são apagados depois do commit.
@@ -88,7 +93,7 @@ export function registrarEventosCanais(
         return canal;
       })();
       for (const a of arquivos) armazem.apagar(a);
-      io.emit('canal:removido', { id });
+      daqui().emit('canal:removido', { id });
       if (removido.tipo === 'voz') voz.canalRemovido(removido);
       return undefined;
     }),
