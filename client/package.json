@@ -1,6 +1,6 @@
 {
   "name": "@tofalando/client",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "ToFalany: voz, chat e tela para o seu grupo",
   "main": "./out/main/index.js",
@@ -17,7 +17,7 @@
     "@playwright/test": "^1.64.1",
     "@sapphi-red/web-noise-suppressor": "^0.4.1",
     "@testing-library/react": "^16.3.3",
-    "@tofalando/shared": "0.8.0",
+    "@tofalando/shared": "0.9.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
