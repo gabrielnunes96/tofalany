@@ -100,14 +100,18 @@ A resposta esperada é `{"ok":true,"sqlite":true,"livekit":"ok"}`. Se travar ou 
 
 ## 6. Dia a dia
 
+**Atualização automática (recomendado, uma vez só):** `ssh -t tofalany 'cd ~/tofalany/deploy && ./vm.sh automatico'`. A partir daí, a VM confere o GitHub a cada 10 minutos e, quando sai uma release nova, atualiza o servidor e os instaladores do convite sozinha. Durante o build o servidor antigo continua no ar; a troca derruba a conexão por alguns segundos e o app reconecta. O servidor fica sempre na versão da última release (não no que estiver no `main` sem release).
+
 | Tarefa | Comando (no seu PC) |
 | --- | --- |
-| Atualizar o servidor (código novo e instaladores da última release) | `ssh -t tofalany 'cd ~/tofalany && git pull && cd deploy && ./vm.sh atualizar'` |
+| Atualizar agora, sem esperar a conferência automática | `ssh -t tofalany 'cd ~/tofalany/deploy && ./vm.sh atualizar'` |
+| Ver o que a atualização automática fez | `ssh tofalany 'journalctl -u tofalany-atualizar -n 50'` |
+| Desligar a atualização automática | `ssh -t tofalany 'cd ~/tofalany/deploy && ./vm.sh manual'` |
 | Ver se está tudo no ar | `ssh tofalany 'cd ~/tofalany/deploy && ./vm.sh status'` |
 | Ver os registros do servidor | `ssh tofalany 'cd ~/tofalany/deploy && docker compose --profile vps logs --tail 50 server'` |
 | Backup | veja "Atualizar e voltar" no [README](../README.md#atualizar-e-voltar) |
 
-O app se atualiza sozinho a cada release no Windows e no AppImage. No .deb, ele avisa e abre a página para baixar.
+O app se atualiza sozinho a cada release no Windows, no AppImage e no .deb (no .deb, a partir da v0.8.0; o sistema pede a senha para instalar).
 
 ## 7. Trocar para um domínio próprio (opcional)
 

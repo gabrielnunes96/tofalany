@@ -3,8 +3,11 @@
 #
 #   ./vm.sh instalar    Docker + compose, swap (se a memória for pouca), .env gerado (IP público, domínio
 #                       sslip.io, código de convite e segredo do LiveKit), instaladores da última release e sobe.
-#   ./vm.sh atualizar   git pull, instaladores da última release, reconstrói e sobe; confere a saúde.
-#   ./vm.sh status      contêineres, saúde e versão.
+#   ./vm.sh atualizar   código e instaladores da última release do GitHub, reconstrói e sobe; confere a saúde.
+#   ./vm.sh status      contêineres, saúde, versão e a atualização automática.
+#   ./vm.sh automatico  liga a atualização automática: a cada 10 min a VM confere se saiu release nova e,
+#                       se saiu, faz o "atualizar" sozinha (log: journalctl -u tofalany-atualizar).
+#   ./vm.sh manual      desliga a atualização automática.
 #   ./vm.sh consulta "SELECT …"   consulta só de leitura no banco (senhas e tokens aparecem mascarados).
 #   ./vm.sh copia-banco           cópia do banco sem senhas e sessões em deploy/copia-banco-<data>.db,
 #                                 para baixar (scp) e abrir no DB Browser for SQLite.
@@ -14,6 +17,9 @@ set -euo pipefail
 
 REPO="gabrielnunes96/tofalany"
 PASTA="$(cd "$(dirname "$0")" && pwd)"
+# Versão (tag) que está no ar, gravada depois de cada atualização que deu certo.
+INSTALADA="$PASTA/.versao-instalada"
+UNIDADE="tofalany-atualizar"
 cd "$PASTA"
 
 ok() { printf '\033[1;32m✔ %s\033[0m\n' "$*"; }
@@ -81,10 +87,9 @@ EOF
   ok "Configuração criada para https://${dominio}"
 }
 
-baixar_instaladores() {
-  info "Baixando os instaladores da última release"
-  local lista
-  lista=$(curl -fsS -m 20 "https://api.github.com/repos/${REPO}/releases/latest" | python3 -c '
+# Última release do GitHub: a primeira linha é a tag; as outras, "arquivo url" dos instaladores.
+ultima_release() {
+  curl -fsS -m 20 "https://api.github.com/repos/${REPO}/releases/latest" | python3 -c '
 import json, sys
 r = json.load(sys.stdin)
 print(r["tag_name"])
@@ -92,9 +97,21 @@ for a in r["assets"]:
     n = a["name"]
     if n.endswith((".exe", ".AppImage", ".deb")):
         print(n, a["browser_download_url"])
-') || erro "Não consegui ler as releases do GitHub."
-  local tag
+'
+}
+
+# O servidor fica preso à release (não ao que estiver no main): o código vai para a tag dela.
+codigo_da_release() {
+  local tag="$1"
+  info "Código de ${tag}"
+  git -C "$PASTA/.." fetch --quiet --tags --force origin
+  git -C "$PASTA/.." -c advice.detachedHead=false checkout --quiet --detach "refs/tags/${tag}"
+}
+
+baixar_instaladores() {
+  local lista="$1" tag
   tag=$(echo "$lista" | head -1)
+  info "Baixando os instaladores de ${tag}"
   mkdir -p downloads
   local novos=()
   while read -r nome url; do
@@ -134,6 +151,84 @@ status() {
   curl -fsS -m 5 http://127.0.0.1:3000/api/saude && echo
   curl -fsS -m 5 http://127.0.0.1:3000/api/servidor && echo
   grep -E '^(URL_PUBLICA|DOMINIO)=' .env 2> /dev/null || true
+  echo "Versão instalada: $(cat "$INSTALADA" 2> /dev/null || echo '?')"
+  if systemctl is-active --quiet "${UNIDADE}.timer" 2> /dev/null; then
+    echo "Atualização automática: ligada (próxima conferência: $(systemctl show "${UNIDADE}.timer" -p NextElapseUSecRealtime --value 2> /dev/null))"
+  else
+    echo "Atualização automática: desligada (./vm.sh automatico)"
+  fi
+}
+
+atualizar() {
+  local lista tag
+  lista=$(ultima_release) || erro "Não consegui ler as releases do GitHub."
+  tag=$(echo "$lista" | head -1)
+  [ -n "$tag" ] || erro "O GitHub não devolveu a última release."
+  codigo_da_release "$tag"
+  baixar_instaladores "$lista"
+  subir
+  echo "$tag" > "$INSTALADA"
+  ok "${tag} no ar"
+}
+
+# Chamado pelo timer: só atualiza quando a última release muda. Sem internet ou GitHub fora, tenta na próxima.
+verificar() {
+  exec 9> "$PASTA/.atualizando.lock"
+  flock -n 9 || { echo "Já há uma atualização em andamento."; return 0; }
+  local lista tag
+  lista=$(ultima_release 2> /dev/null) || { echo "GitHub indisponível; confiro de novo depois."; return 0; }
+  tag=$(echo "$lista" | head -1)
+  [ -n "$tag" ] || return 0
+  if [ "$tag" = "$(cat "$INSTALADA" 2> /dev/null)" ]; then
+    echo "Em dia: ${tag}"
+    return 0
+  fi
+  info "Release nova: ${tag} (no ar: $(cat "$INSTALADA" 2> /dev/null || echo '?'))"
+  atualizar
+}
+
+automatico() {
+  # Primeira vez: a versão no ar é a que o servidor informa (assim não reconstrói à toa).
+  if [ ! -f "$INSTALADA" ]; then
+    local versao
+    versao=$(curl -fsS -m 5 http://127.0.0.1:3000/api/servidor | python3 -c 'import json,sys; print(json.load(sys.stdin)["versao"])' 2> /dev/null || true)
+    if [ -n "$versao" ]; then echo "v${versao}" > "$INSTALADA"; fi
+  fi
+  sudo tee "/etc/systemd/system/${UNIDADE}.service" > /dev/null << EOF
+[Unit]
+Description=ToFalany: atualiza o servidor quando sai release nova no GitHub
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=${USER}
+WorkingDirectory=${PASTA}
+ExecStart=${PASTA}/vm.sh verificar
+TimeoutStartSec=45min
+EOF
+  sudo tee "/etc/systemd/system/${UNIDADE}.timer" > /dev/null << EOF
+[Unit]
+Description=ToFalany: confere releases novas a cada 10 minutos
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now "${UNIDADE}.timer" > /dev/null
+  ok "Atualização automática ligada: a cada 10 min a VM confere o GitHub (no ar: $(cat "$INSTALADA" 2> /dev/null || echo '?'))"
+  echo "   Acompanhar: journalctl -u ${UNIDADE} -f    Desligar: ./vm.sh manual"
+}
+
+manual() {
+  sudo systemctl disable --now "${UNIDADE}.timer" > /dev/null 2>&1 || true
+  ok "Atualização automática desligada (atualize com ./vm.sh atualizar)"
 }
 
 banco_cli() {
@@ -151,23 +246,23 @@ copia_banco() {
   echo "   No seu PC: scp tofalany:$PASTA/$nome .   (depois apague a da VM: rm $PASTA/$nome)"
 }
 
+# Tudo dentro de uma função: o bash lê o arquivo inteiro antes de rodar, então trocar o código da VM no meio
+# da atualização (checkout da tag nova, que pode mudar este script) não mistura a versão velha com a nova.
+main() {
 case "${1:-}" in
   instalar)
     instalar_docker
     garantir_swap
     gerar_configuracao
-    baixar_instaladores
-    subir
+    atualizar
     echo
     ok "Pronto. Código de convite: $(grep '^CODIGO_CONVITE=' .env | cut -d= -f2)"
     echo "   Libere na Security List da Oracle: TCP 80, 443, 7881 e UDP 443, 7882 (origem 0.0.0.0/0)."
     ;;
-  atualizar)
-    info "Atualizando o código"
-    git -C "$PASTA/.." pull --ff-only
-    baixar_instaladores
-    subir
-    ;;
+  atualizar) atualizar ;;
+  verificar) verificar ;;
+  automatico) automatico ;;
+  manual) manual ;;
   status) status ;;
   tabelas) banco_cli tabelas ;;
   consulta)
@@ -176,7 +271,11 @@ case "${1:-}" in
     ;;
   copia-banco) copia_banco ;;
   *)
-    echo "Uso: ./vm.sh instalar | atualizar | status | tabelas | consulta \"SELECT …\" | copia-banco"
+    echo "Uso: ./vm.sh instalar | atualizar | automatico | manual | status | tabelas | consulta \"SELECT …\" | copia-banco"
     exit 1
     ;;
 esac
+}
+
+main "$@"
+exit $?

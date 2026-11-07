@@ -95,7 +95,7 @@ Wants=tailscaled.service
 
 ## Servidor numa VPS com HTTPS
 
-> **Atalho:** na VM (Ubuntu), com o repositório clonado, `cd tofalany/deploy && ./vm.sh instalar` faz os passos abaixo sozinho: instala o Docker, cria swap se a memória for pouca, gera o `.env` com o IP público e o domínio sslip.io, baixa os instaladores da última release e sobe tudo. Depois, para atualizar, use `./vm.sh atualizar`, e para ver como está, `./vm.sh status`. Liberar as portas na Oracle (Security List) continua sendo com você.
+> **Atalho:** na VM (Ubuntu), com o repositório clonado, `cd tofalany/deploy && ./vm.sh instalar` faz os passos abaixo sozinho: instala o Docker, cria swap se a memória for pouca, gera o `.env` com o IP público e o domínio sslip.io, baixa os instaladores da última release e sobe tudo. Depois, `./vm.sh automatico` liga a atualização automática (a VM confere o GitHub a cada 10 minutos e se atualiza quando sai release nova); `./vm.sh atualizar` atualiza na hora, e `./vm.sh status` mostra como está. Liberar as portas na Oracle (Security List) continua sendo com você.
 
 Use este cenário para o servidor numa VPS (por exemplo, a camada gratuita da Oracle Cloud, com arm64), acessível pela internet com HTTPS automático (Let's Encrypt, pelo Caddy).
 
