@@ -5,7 +5,7 @@ type Estado = { versao: string; modo: 'reiniciar' | 'pagina' };
 
 /**
  * Backlog v2, 1d: aviso de versão nova, num canto da tela (não mexe no layout).
- * Windows e AppImage: a versão já foi baixada, e "Reiniciar e atualizar" instala. .deb: abre a página da versão.
+ * Windows, AppImage e .deb: a versão já foi baixada, e "Reiniciar e atualizar" instala (no .deb o sistema pede a senha). Outros: abre a página da versão.
  */
 export function AvisoAtualizacao({ atualizacao }: { atualizacao: ApiTofalando['atualizacao'] }) {
   const [estado, setEstado] = useState<Estado | null>(null);

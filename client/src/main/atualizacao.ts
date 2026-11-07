@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { app, ipcMain, shell, type BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
-/** Página das versões, para quem não se atualiza sozinho (.deb). */
+/** Página das versões, para quem não se atualiza sozinho (ex.: .rpm ou sem permissão). */
 export const PAGINA_VERSOES = 'https://github.com/gabrielnunes96/tofalany/releases/latest';
 const INTERVALO_MS = 4 * 60 * 60 * 1000;
 
@@ -14,11 +16,21 @@ export interface EstadoAtualizacao {
 /**
  * Backlog v2, item 1d: o app confere as releases do GitHub ao abrir e a cada 4 h.
  * - Windows (NSIS) e AppImage: baixa em segundo plano e avisa "reiniciar para atualizar".
- * - .deb: o pacote do sistema não se troca sozinho; só avisa e abre a página da versão.
+ * - .deb: baixa em segundo plano; ao reiniciar, o sistema pede a senha (pkexec) e instala com dpkg.
+ * - Outro pacote do sistema: só avisa e abre a página da versão.
  * Só no app empacotado (em desenvolvimento e nos testes não há o que atualizar).
  */
-export function podeAtualizarSozinho(plataforma: NodeJS.Platform, appImage: string | undefined): boolean {
-  return plataforma === 'win32' || (plataforma === 'linux' && !!appImage);
+export function podeAtualizarSozinho(plataforma: NodeJS.Platform, appImage: string | undefined, tipoPacote?: string): boolean {
+  return plataforma === 'win32' || (plataforma === 'linux' && (!!appImage || tipoPacote === 'deb'));
+}
+
+/** O electron-builder grava "deb" em resources/package-type no pacote .deb. */
+function lerTipoPacote(): string | undefined {
+  try {
+    return readFileSync(join(process.resourcesPath, 'package-type'), 'utf8').trim();
+  } catch {
+    return undefined;
+  }
 }
 
 export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined) {
@@ -36,7 +48,7 @@ export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined)
   });
 
   if (!app.isPackaged) return;
-  const sozinho = podeAtualizarSozinho(process.platform, process.env.APPIMAGE);
+  const sozinho = podeAtualizarSozinho(process.platform, process.env.APPIMAGE, lerTipoPacote());
   autoUpdater.autoDownload = sozinho;
   autoUpdater.autoInstallOnAppQuit = sozinho;
   autoUpdater.logger = null;
