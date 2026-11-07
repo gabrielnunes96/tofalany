@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { SOM_MAX_BYTES, SONS_MAX, validarNomeSom, type SomDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { exigirAdmin, exigirSessao } from '../auth/sessao-http.js';
+import { exigirPermissao, exigirSessao } from '../auth/sessao-http.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
@@ -30,7 +30,8 @@ async function lerFormulario(req: FastifyRequest): Promise<{ nome?: string; dado
 
 /** RF-22, RN-6, RN-11: soundboard do servidor; só administrador cadastra, troca e remove. */
 export function registrarRotasSons(app: FastifyInstance, banco: Banco, armazem: Armazem, tempoReal: TempoReal): void {
-  const soAdmin = [exigirSessao(banco), exigirAdmin(banco)];
+  // Backlog v2, item 10c: quem tem "Gerenciar sons" (administrador sempre).
+  const soAdmin = [exigirSessao(banco), exigirPermissao(banco, 'gerenciar_sons')];
   const avisar = () => tempoReal.io.emit('sons:atualizados', listarSons(banco));
 
   app.get('/api/sons', { preHandler: exigirSessao(banco) }, async (): Promise<SomDto[]> => listarSons(banco));

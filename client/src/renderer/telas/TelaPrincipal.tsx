@@ -1,32 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import {
-  SOM_INTERVALO_MS,
-  ATALHOS_PADRAO,
-  AUDIO_PADRAO,
-  DIGITANDO_DURACAO_MS,
-  type AcaoAtalho,
-  type StatusPessoa,
-  type StatusVisivel,
-  type EscolhaStatus,
-  type Tema,
-  type PartesOcultas,
-  type Atalhos,
-  type PreferenciasAudio,
-  type PreferenciasPessoas,
-  type PreferenciasSons,
-  type PreferenciasNotificacoes,
-  type PreferenciasTela,
-  type QualidadeTela,
-  TELA_PADRAO,
-  qualidadesPermitidas,
-  NOTIFICACOES_PADRAO,
-  SONS_PADRAO,
-  type Destino,
-  type MensagemDto,
-  type MotivoRevogacao,
-  type TipoCanal,
-  type UsuarioDto,
-} from '@tofalando/shared';
+import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -93,7 +66,7 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor }: Props) {
-  const { conexao, eu, usuarios, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes } = useLoja(
+  const { conexao, eu, usuarios, funcoes, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
@@ -106,6 +79,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       conexao: s.conexao,
       eu: s.eu,
       usuarios: s.usuarios,
+      funcoes: s.funcoes,
       nomeServidor: s.nomeServidor,
       canais: s.canais,
       canalAtivo: s.canalAtivo,
@@ -125,6 +99,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       abrirCanal: s.abrirCanal,
       salvarDm: s.salvarDm,
       contarNaoLida: s.contarNaoLida,
+      definirFuncoes: s.definirFuncoes,
       zerarNaoLidas: s.zerarNaoLidas,
       aplicarLeitura: s.aplicarLeitura,
       descontarApagada: s.descontarApagada,
@@ -637,17 +612,18 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoUsuarioCriado: acoes.adicionarUsuario,
       aoUsuarioAtualizado: (u) => {
         acoes.atualizarUsuario(u);
-        // Perdeu o cargo: sai da tela de administração (e não volta sozinho se for promovido de novo).
-        if (u.id === useLoja.getState().eu?.id && u.cargo !== 'admin') {
-          setVista('canal');
-          // RN-17: transmitindo acima de 720p30 sem ser mais administrador — para (o servidor também libera).
-          if (salaVozRef.current?.transmitindoTela() && !qualidadesPermitidas(u.cargo).includes(qualidadeAtualRef.current)) {
+        // Perdeu a permissão: as telas de administração somem sozinhas (podeVer).
+        if (u.id === useLoja.getState().eu?.id) {
+          const alta = permissoesDe(u, useLoja.getState().funcoes).has('transmitir_alta');
+          // RN-17: transmitindo acima de 720p30 sem permissão — para (o servidor também libera).
+          if (salaVozRef.current?.transmitindoTela() && !qualidadesPermitidas(u.cargo, alta).includes(qualidadeAtualRef.current)) {
             void salaVozRef.current.pararTela();
             setAvisoVoz('Sua transmissão parou: acima de 720p30 só administradores transmitem.');
           }
         }
       },
       aoUsuarioRemovido: acoes.removerUsuario,
+      aoFuncoes: acoes.definirFuncoes,
       aoConviteAtualizado: (link) => {
         acoes.definirLinkConvite(link);
         setCopiado(null);
@@ -788,7 +764,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   // Backlog v2, item 10b: prévias de links, guardadas enquanto a tela estiver aberta.
   const buscarPrevia = useMemo(() => criarBuscaPrevia((url) => api.previa(url)), [api]);
   const ehAdmin = usuario.cargo === 'admin';
-  const vistaAtual: Vista = !ehAdmin && (vista === 'auditoria' || vista === 'membros' || vista === 'convite' || vista === 'sons') ? 'canal' : vista;
+  // Backlog v2, item 10c: o que o cargo personalizado libera (administrador: tudo).
+  const permissoes = useMemo(() => permissoesDe(usuario, funcoes), [usuario, funcoes]);
+  const podeVer = (v: Vista) =>
+    v === 'membros' ? ehAdmin : v === 'auditoria' ? permissoes.has('ver_auditoria') : v === 'convite' ? permissoes.has('gerenciar_convite') : v === 'sons' ? permissoes.has('gerenciar_sons') : true;
+  const vistaAtual: Vista = !podeVer(vista) ? 'canal' : vista;
 
   /** Conversa na tela agora (null em perfil/administração). */
   const chaveAberta: Chave | null = vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
@@ -1174,7 +1154,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   Olá, {usuario.nomeExibicao}
                 </p>
                 <p className="suave">
-                  {ehAdmin ? 'Administrador' : 'Membro'} · {nomeServidor ?? servidorUrl}
+                  {ehAdmin ? 'Administrador' : (funcoes.find((f) => f.id === usuario.funcaoId)?.nome ?? 'Membro')} · {nomeServidor ?? servidorUrl}
                 </p>
                 <label className="so-leitor" htmlFor="meu-status">
                   Meu status
@@ -1224,21 +1204,29 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     Copiar link de convite
                   </button>
                 )}
-                {ehAdmin && (
+                {(ehAdmin || ['gerenciar_convite', 'gerenciar_sons', 'ver_auditoria'].some((p) => permissoes.has(p as Permissao))) && (
                   <>
                     <p className="menu-grupo">Administração</p>
-                    <button type="button" onClick={() => setVista('membros')}>
-                      Membros
-                    </button>
-                    <button type="button" onClick={() => setVista('convite')}>
-                      Convite
-                    </button>
-                    <button type="button" onClick={() => setVista('sons')}>
-                      Soundboard
-                    </button>
-                    <button type="button" onClick={abrirAuditoria}>
-                      Auditoria
-                    </button>
+                    {ehAdmin && (
+                      <button type="button" onClick={() => setVista('membros')}>
+                        Membros
+                      </button>
+                    )}
+                    {permissoes.has('gerenciar_convite') && (
+                      <button type="button" onClick={() => setVista('convite')}>
+                        Convite
+                      </button>
+                    )}
+                    {permissoes.has('gerenciar_sons') && (
+                      <button type="button" onClick={() => setVista('sons')}>
+                        Soundboard
+                      </button>
+                    )}
+                    {permissoes.has('ver_auditoria') && (
+                      <button type="button" onClick={abrirAuditoria}>
+                        Auditoria
+                      </button>
+                    )}
                   </>
                 )}
                 <hr />
@@ -1290,6 +1278,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoRemover={acoes.removerUsuario}
               aoVoltar={voltar}
               copiar={(texto) => ponte().areaTransferencia.copiar(texto)}
+              funcoes={funcoes}
             />
           ) : vistaAtual === 'configuracoes' ? (
             <TelaConfiguracoes
@@ -1309,7 +1298,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoMudarBandeja={mudarBandeja}
               tela={telaPrefs}
               aoMudarTela={mudarTela}
-              qualidadesTela={qualidadesPermitidas(usuario.cargo)}
+              qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes.has('transmitir_alta'))}
               aoVoltar={voltar}
             />
           ) : vistaAtual === 'sons' ? (
@@ -1362,7 +1351,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           <SeletorTela
             listar={ponte().captura.fontes}
             audioDisponivel={ponte().captura.audioDisponivel}
-            qualidades={qualidadesPermitidas(usuario.cargo)}
+            qualidades={qualidadesPermitidas(usuario.cargo, permissoes.has('transmitir_alta'))}
             qualidadePadrao={telaPrefs.qualidade}
             aoEscolher={(f, a, q) => void transmitirTela(f, a, q)}
             aoCancelar={fecharSeletorTela}
@@ -1383,8 +1372,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
                     <StatusPonto status={item.status} />
                   </span>
-                  <span>{item.u.nomeExibicao}</span>
+                  <span style={funcoes.find((f) => f.id === item.u.funcaoId) ? { color: funcoes.find((f) => f.id === item.u.funcaoId)!.cor } : undefined}>
+                    {item.u.nomeExibicao}
+                  </span>
                   {item.u.cargo === 'admin' && <span className="selo">admin</span>}
+                  {funcoes.find((f) => f.id === item.u.funcaoId) && (
+                    <span className="selo selo-funcao" style={{ color: funcoes.find((f) => f.id === item.u.funcaoId)!.cor, borderColor: funcoes.find((f) => f.id === item.u.funcaoId)!.cor }}>
+                      {funcoes.find((f) => f.id === item.u.funcaoId)!.nome}
+                    </span>
+                  )}
                   {item.u.id !== usuario.id && (
                     <button
                       type="button"

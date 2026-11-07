@@ -1,3 +1,4 @@
+import { listarFuncoes } from '../dominio/funcoes.js';
 import type { FastifyInstance } from 'fastify';
 import { Server, type Socket } from 'socket.io';
 import {
@@ -222,6 +223,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       convite: { link: montarLinkConvite(socket.data.baseServidor, lerConfiguracao(banco, CHAVE_CONVITE) ?? '') },
       eu: paraDto(eu),
       usuarios: listarAtivos(banco).map(paraDto),
+      funcoes: listarFuncoes(banco),
       canais: listarCanais(banco),
       dms: listarDms(banco, eu.id),
       naoLidas: contarNaoLidas(banco, eu.id),

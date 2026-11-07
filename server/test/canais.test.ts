@@ -60,7 +60,7 @@ describe('canais (RF-7)', () => {
     await new Promise((r) => dono.s.emit('mensagem:enviar', { destino: { canalId: id }, texto: 'vai sumir' }, r as never));
     const contarMensagens = () => (app!.banco.prepare('SELECT COUNT(*) AS n FROM mensagens WHERE canal_id = ?').get(id) as { n: number }).n;
     expect(contarMensagens()).toBe(1);
-    expect(await pedir(ana.s, 'canal:remover', { id })).toEqual({ ok: false, erro: 'Só administradores removem canais.' });
+    expect(await pedir(ana.s, 'canal:remover', { id })).toEqual({ ok: false, erro: 'Seu cargo não permite remover canais.' });
     const removidoNaAna = new Promise<{ id: number }>((r) => ana.s.once('canal:removido', r));
     expect(await pedir(dono.s, 'canal:remover', { id })).toEqual({ ok: true, valor: undefined });
     expect(await removidoNaAna).toEqual({ id });

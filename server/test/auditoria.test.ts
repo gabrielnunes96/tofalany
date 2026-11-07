@@ -125,7 +125,7 @@ describe('auditoria — permissão (CA-52, RN-22)', () => {
     const membro = (await cadastrar(app, 'ana')).json().token;
     const r = await app.inject({ method: 'GET', url: '/api/admin/auditoria', headers: { authorization: `Bearer ${membro}` } });
     expect(r.statusCode).toBe(403);
-    expect(r.json()).toEqual({ erro: 'sem_permissao', mensagem: 'Só administradores podem fazer isso.' });
+    expect(r.json()).toEqual({ erro: 'sem_permissao', mensagem: 'Seu cargo não permite fazer isso.' });
     expect((await app.inject({ method: 'GET', url: '/api/admin/auditoria' })).statusCode).toBe(401);
   });
 

@@ -1,19 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import {
-  ERRO_HANDSHAKE_NAO_AUTENTICADO,
-  type EventosCliente,
-  type EventosServidor,
-  type MotivoRevogacao,
-  type CanalDto,
-  type DmDto,
-  type MensagemDto,
-  type OlaPayload,
-  type SomDto,
-  type VozEstadoDto,
-  type StatusPessoa,
-  type TransmissaoDto,
-  type UsuarioDto,
-  type Destino, type EscolhaStatus } from '@tofalando/shared';
+import { ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto } from '@tofalando/shared';
 import { chaveDe, type Chave } from '../estado/chaves';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
@@ -24,6 +10,8 @@ export interface OuvintesTempoReal {
   aoUsuarioCriado(usuario: UsuarioDto): void;
   aoUsuarioAtualizado(usuario: UsuarioDto): void;
   aoUsuarioRemovido(id: number): void;
+  /** Backlog v2, item 10c: os cargos personalizados mudaram. */
+  aoFuncoes?(funcoes: FuncaoDto[]): void;
   aoConviteAtualizado(link: string): void;
   aoCanalCriado(canal: CanalDto): void;
   aoCanalRenomeado(canal: CanalDto): void;
@@ -132,6 +120,7 @@ export function conectarTempoReal(
   socket.on('usuario:criado', (usuario) => ouvintes.aoUsuarioCriado(usuario));
   socket.on('usuario:atualizado', (usuario) => ouvintes.aoUsuarioAtualizado(usuario));
   socket.on('usuario:removido', ({ id }) => ouvintes.aoUsuarioRemovido(id));
+  socket.on('funcoes:atualizadas', (funcoes) => ouvintes.aoFuncoes?.(funcoes));
   socket.on('convite:atualizado', ({ link }) => ouvintes.aoConviteAtualizado(link));
   socket.on('canal:criado', (canal) => ouvintes.aoCanalCriado(canal));
   socket.on('canal:renomeado', (canal) => ouvintes.aoCanalRenomeado(canal));

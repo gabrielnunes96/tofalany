@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import type { Cargo, RedefinicaoDto, UsuarioDto } from '@tofalando/shared';
+import type { Cargo, FuncaoDto, RedefinicaoDto, UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { Avatar } from '../componentes/Avatar';
+import { GerenciarCargos } from '../componentes/GerenciarCargos';
 
 interface Props {
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
   servidorUrl: string;
-  api: Pick<ClienteApi, 'mudarCargo' | 'removerConta' | 'gerarRedefinicao'>;
+  api: Pick<ClienteApi, 'mudarCargo' | 'removerConta' | 'gerarRedefinicao'> & Partial<Pick<ClienteApi, 'definirFuncao' | 'criarFuncao' | 'editarFuncao' | 'removerFuncao'>>;
+  /** Backlog v2, item 10c: cargos personalizados (sem eles, a tela fica como antes). */
+  funcoes?: FuncaoDto[];
   /** Copia o código para a área de transferência (padrão: a do navegador). */
   copiar?: (texto: string) => Promise<void>;
   /** Aplica na hora o resultado (o evento do servidor também chega, mas pode atrasar com a conexão caída). */
@@ -17,7 +20,7 @@ interface Props {
 }
 
 /** RF-6 (administrador): promover, rebaixar e remover contas. O servidor confere tudo (RN-5, RN-16). */
-export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRemover, aoVoltar, copiar = (t) => navigator.clipboard.writeText(t) }: Props) {
+export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualizar, aoRemover, aoVoltar, copiar = (t) => navigator.clipboard.writeText(t) }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [confirmando, setConfirmando] = useState<number | null>(null);
@@ -91,6 +94,26 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRem
               {u.id === eu.id && <span className="suave"> (você)</span>}
             </span>
             <span className="selo">{u.cargo === 'admin' ? 'Administrador' : 'Membro'}</span>
+            {funcoes && api.definirFuncao && u.cargo !== 'admin' && (
+              <>
+                <label className="so-leitor" htmlFor={`funcao-${u.id}`}>
+                  Cargo de {u.nomeExibicao}
+                </label>
+                <select
+                  id={`funcao-${u.id}`}
+                  value={u.funcaoId ?? ''}
+                  disabled={ocupado !== null}
+                  onChange={(e) => void agir(u.id, async () => aoAtualizar(await api.definirFuncao!(u.id, e.target.value ? Number(e.target.value) : null)))}
+                >
+                  <option value="">Sem cargo</option>
+                  {funcoes.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.nome}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             {u.cargo === 'membro' ? (
               <button type="button" disabled={ocupado !== null} onClick={() => void mudarCargo(u, 'admin')}>
                 Tornar administrador
@@ -120,6 +143,9 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, aoAtualizar, aoRem
           </li>
         ))}
       </ul>
+      {funcoes && api.criarFuncao && api.editarFuncao && api.removerFuncao && (
+        <GerenciarCargos funcoes={funcoes} api={{ criarFuncao: api.criarFuncao, editarFuncao: api.editarFuncao, removerFuncao: api.removerFuncao }} />
+      )}
       <p className="suave">
         Remover uma conta desconecta a pessoa na hora e libera a vaga. As mensagens dela continuam, com o autor "conta removida".
       </p>

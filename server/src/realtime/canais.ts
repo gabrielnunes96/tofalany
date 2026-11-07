@@ -1,7 +1,7 @@
+import { temPermissao } from '../dominio/funcoes.js';
 import { validarNomeCanal, type TipoCanal } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { buscarPorId } from '../dominio/usuarios.js';
 import { buscarCanal, criarCanal, removerCanal, renomearCanal } from '../dominio/canais.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { comAck } from './acoes.js';
@@ -76,8 +76,8 @@ export function registrarEventosCanais(
       const id = lerId(dados);
       let arquivos: string[] = [];
       const removido = banco.transaction(() => {
-        if (buscarPorId(banco, usuarioId)?.cargo !== 'admin') {
-          throw new ErroHttp(403, 'sem_permissao', 'Só administradores removem canais.');
+        if (!temPermissao(banco, usuarioId, 'gerenciar_canais')) {
+          throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite remover canais.');
         }
         const canal = buscarCanal(banco, id);
         if (!canal) throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');

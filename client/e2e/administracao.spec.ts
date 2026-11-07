@@ -127,3 +127,33 @@ test('backlog v2, item 3: o administrador gera o código e a pessoa troca a senh
   await ana.app.close();
   await dono.app.close();
 });
+
+test('backlog v2, item 10c: o administrador dá o cargo Moderador; a ana ganha o convite, não a auditoria; cargo novo', async () => {
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  expect(await itensDoMenu(ana.janela)).not.toContain('Convite');
+
+  await noMenu(dono.janela, 'Membros');
+  await dono.janela.getByLabel('Cargo de ana').selectOption({ label: 'Moderador' });
+  // A ana recebe na hora: selo na lista, cargo no painel, convite no menu, auditoria não.
+  await expect(ana.janela.getByRole('list', { name: 'Membros' }).getByText('Moderador')).toBeVisible();
+  await expect(ana.janela.getByText(/^Moderador · /)).toBeVisible();
+  await expect.poll(() => itensDoMenu(ana.janela)).toContain('Convite');
+  expect(await itensDoMenu(ana.janela)).not.toContain('Auditoria');
+  expect(await itensDoMenu(ana.janela)).not.toContain('Membros');
+
+  // Cargo novo com cor e permissão.
+  await dono.janela.getByRole('button', { name: 'Novo cargo' }).click();
+  await dono.janela.getByLabel('Nome do cargo').fill('DJ');
+  await dono.janela.getByRole('checkbox', { name: /Gerenciar sons/ }).check();
+  await dono.janela.getByRole('button', { name: 'Salvar cargo' }).click();
+  await expect(dono.janela.getByRole('list', { name: 'Cargos do servidor' })).toContainText('DJ');
+  await dono.janela.getByLabel('Cargo de ana').selectOption({ label: 'DJ' });
+  await expect.poll(() => itensDoMenu(ana.janela)).toContain('Soundboard');
+  expect(await itensDoMenu(ana.janela)).not.toContain('Convite');
+  await dono.janela.screenshot({ path: join(__dirname, '../../docs/demandas/to-falando-v2/prints/cargos.png') });
+
+  await ana.app.close();
+  await dono.app.close();
+});

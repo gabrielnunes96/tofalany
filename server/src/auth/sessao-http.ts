@@ -1,3 +1,5 @@
+import type { Permissao } from '@tofalando/shared';
+import { temPermissao } from '../dominio/funcoes.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
@@ -24,6 +26,13 @@ export function exigirSessao(banco: Banco) {
     if (!token || usuarioId === undefined) throw new ErroHttp(401, 'nao_autenticado', 'Sessão inválida ou encerrada. Entre de novo.');
     req.usuarioId = usuarioId;
     req.tokenSessao = token;
+  };
+}
+
+/** Backlog v2, item 10c: preHandler (depois de exigirSessao) por permissão (administrador sempre pode). */
+export function exigirPermissao(banco: Banco, permissao: Permissao, mensagem = 'Seu cargo não permite fazer isso.') {
+  return async (req: FastifyRequest, _reply: FastifyReply): Promise<void> => {
+    if (req.usuarioId === undefined || !temPermissao(banco, req.usuarioId, permissao)) throw new ErroHttp(403, 'sem_permissao', mensagem);
   };
 }
 

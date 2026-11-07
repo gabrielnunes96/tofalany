@@ -1,3 +1,4 @@
+import { temPermissao } from '../dominio/funcoes.js';
 import { DIMENSOES_TELA, QUALIDADES_TELA, qualidadesPermitidas, type QualidadeTela, type TransmissaoDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
@@ -50,8 +51,8 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           if (voz.presenca(usuarioId)?.canalVozId !== canalVozId) throw new ErroHttp(403, 'sem_permissao', 'Entre no canal de voz para transmitir.');
           // RN-17: membro transmite só em 720p30 (o servidor aplica, não só a tela).
           const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
-          if (!qualidadesPermitidas(cargo).includes(qualidade as QualidadeTela)) {
-            throw new ErroHttp(403, 'sem_permissao', 'Só administradores transmitem acima de 720p30.');
+          if (!qualidadesPermitidas(cargo, temPermissao(banco, usuarioId, 'transmitir_alta')).includes(qualidade as QualidadeTela)) {
+            throw new ErroHttp(403, 'sem_permissao', 'Seu cargo só transmite em 720p30.');
           }
           const atual = ativas.get(canalVozId);
           if (atual && atual.usuarioId !== usuarioId) {
@@ -88,8 +89,9 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
       if (soAudio) return false;
       const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
       // Sem dimensões (o livekit-client sempre manda em vídeo): de membro, é suspeito.
-      if (largura <= 0 || altura <= 0) return cargo !== 'admin';
-      const qualidade = qualidadesPermitidas(cargo).includes(t.qualidade) ? t.qualidade : '720p30';
+      const alta = temPermissao(banco, usuarioId, 'transmitir_alta');
+      if (largura <= 0 || altura <= 0) return !alta;
+      const qualidade = qualidadesPermitidas(cargo, alta).includes(t.qualidade) ? t.qualidade : '720p30';
       const max = DIMENSOES_TELA[qualidade];
       // Retrato (tela em pé) também vale: compara o lado maior e o menor.
       return Math.max(largura, altura) > max.largura || Math.min(largura, altura) > max.altura;
@@ -97,7 +99,8 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
     /** RN-17: quem perdeu o cargo transmitindo acima de 720p30 deixa de transmitir. */
     cargoMudou(usuarioId: number) {
       const cargo = buscarPorId(banco, usuarioId)?.cargo ?? 'membro';
-      for (const t of [...ativas.values()]) if (t.usuarioId === usuarioId && !qualidadesPermitidas(cargo).includes(t.qualidade)) liberar(t.canalVozId, 'cargo_alterado');
+      const alta = temPermissao(banco, usuarioId, 'transmitir_alta');
+      for (const t of [...ativas.values()]) if (t.usuarioId === usuarioId && !qualidadesPermitidas(cargo, alta).includes(t.qualidade)) liberar(t.canalVozId, 'cargo_alterado');
     },
     /** Quem saiu da voz (por qualquer motivo) deixa de transmitir. */
     saiuDaVoz(usuarioId: number, canalVozId: number) {

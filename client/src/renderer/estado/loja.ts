@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -13,6 +13,9 @@ interface Loja {
   linkConvite: string | null;
   eu: UsuarioDto | null;
   usuarios: UsuarioDto[];
+  /** Backlog v2, item 10c: cargos personalizados do servidor. */
+  funcoes: FuncaoDto[];
+  definirFuncoes(funcoes: FuncaoDto[]): void;
   canais: CanalDto[];
   /** Canal de texto escolhido (fica guardado mesmo com uma DM aberta). */
   canalAtivo: number | null;
@@ -102,6 +105,7 @@ const inicial = {
   linkConvite: null,
   eu: null,
   usuarios: [] as UsuarioDto[],
+  funcoes: [] as FuncaoDto[],
   canais: [] as CanalDto[],
   canalAtivo: null as number | null,
   dms: [] as DmDto[],
@@ -132,6 +136,7 @@ export const useLoja = create<Loja>((set) => ({
   ...inicial,
   definirConexao: (conexao) => set({ conexao }),
   definirSons: (sons) => set({ sons }),
+  definirFuncoes: (funcoes) => set({ funcoes }),
   definirVoz: (voz) => set({ voz }),
   iniciarTransmissao: (t) => set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => x.canalVozId !== t.canalVozId), t] })),
   pararTransmissao: (canalVozId) => set((s) => ({ transmissoes: s.transmissoes.filter((x) => x.canalVozId !== canalVozId) })),
@@ -145,7 +150,7 @@ export const useLoja = create<Loja>((set) => ({
   definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
   salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
   tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
-  aplicarOla: ({ servidor, convite, eu, usuarios, canais, dms, naoLidas, sons, voz, presencas, transmissoes }) =>
+  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -153,6 +158,7 @@ export const useLoja = create<Loja>((set) => ({
         linkConvite: convite.link,
         eu,
         usuarios,
+        funcoes: funcoes ?? [],
         canais: ordenados,
         canalAtivo: canalValido(ordenados, s.canalAtivo),
         dms: ordenarDms(dms),

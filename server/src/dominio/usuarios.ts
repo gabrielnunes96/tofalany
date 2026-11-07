@@ -13,6 +13,7 @@ export interface LinhaUsuario {
   cor: string;
   avatar_arquivo: string | null;
   cargo: Cargo;
+  funcao_id: number | null;
 }
 
 export function paraDto(u: LinhaUsuario): UsuarioDto {
@@ -23,6 +24,7 @@ export function paraDto(u: LinhaUsuario): UsuarioDto {
     cor: u.cor,
     avatarUrl: u.avatar_arquivo ? `/files/${u.avatar_arquivo}` : null,
     cargo: u.cargo,
+    funcaoId: u.funcao_id ?? null,
   };
 }
 

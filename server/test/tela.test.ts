@@ -106,7 +106,7 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
     await naVoz(a.s, papo);
     await naVoz(b.s, jogo);
     // ana (membro) pedindo 1440p60 direto ao servidor.
-    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1440p60' })).toEqual({ ok: false, erro: 'Só administradores transmitem acima de 720p30.' });
+    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1440p60' })).toEqual({ ok: false, erro: 'Seu cargo só transmite em 720p30.' });
     expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '720p30' })).ok).toBe(true);
     // dono (admin) em 1440p60.
     expect(await pedir(a.s, 'tela:pedir', { canalVozId: papo, qualidade: '1440p60' })).toMatchObject({ ok: true, valor: { qualidade: '1440p60' } });

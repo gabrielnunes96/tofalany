@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { TIPOS_AUDITORIA, type FiltroAuditoria, type PaginaAuditoria } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
-import { exigirAdmin, exigirSessao } from '../auth/sessao-http.js';
+import { exigirPermissao, exigirSessao } from '../auth/sessao-http.js';
 import { listarAuditoria } from '../dominio/auditoria.js';
 
 const inteiro = { type: 'integer', minimum: 0 } as const;
@@ -23,7 +23,7 @@ const consulta = {
 export function registrarRotasAuditoria(app: FastifyInstance, banco: Banco): void {
   app.get(
     '/api/admin/auditoria',
-    { schema: { querystring: consulta }, preHandler: [exigirSessao(banco), exigirAdmin(banco)] },
+    { schema: { querystring: consulta }, preHandler: [exigirSessao(banco), exigirPermissao(banco, 'ver_auditoria')] },
     async (req): Promise<PaginaAuditoria> => listarAuditoria(banco, req.query as FiltroAuditoria),
   );
 }

@@ -32,6 +32,38 @@ export interface UsuarioDto {
   cor: string;
   avatarUrl: string | null;
   cargo: Cargo;
+  /** Backlog v2, item 10c: cargo personalizado (ex.: Moderador), com nome, cor e permissões; null/ausente = nenhum. */
+  funcaoId?: number | null;
+}
+
+/**
+ * Backlog v2, item 10c: o que um cargo personalizado libera. O administrador tem tudo, e só ele mexe em
+ * contas e cargos.
+ */
+export type Permissao = 'gerenciar_canais' | 'apagar_mensagens' | 'gerenciar_convite' | 'gerenciar_sons' | 'transmitir_alta' | 'ver_auditoria';
+export const PERMISSOES: { id: Permissao; nome: string; descricao: string }[] = [
+  { id: 'gerenciar_canais', nome: 'Gerenciar canais', descricao: 'remover canais de texto e de voz' },
+  { id: 'apagar_mensagens', nome: 'Apagar mensagens', descricao: 'apagar mensagens dos outros nos canais' },
+  { id: 'gerenciar_convite', nome: 'Gerenciar convite', descricao: 'ver e trocar o código de convite' },
+  { id: 'gerenciar_sons', nome: 'Gerenciar sons', descricao: 'cadastrar, trocar e remover sons do soundboard' },
+  { id: 'transmitir_alta', nome: 'Transmitir em alta', descricao: 'transmitir a tela em 1080p60 e 1440p60' },
+  { id: 'ver_auditoria', nome: 'Ver auditoria', descricao: 'ver o registro de entradas, saídas e ações' },
+];
+
+/** Backlog v2, item 10c: cargo personalizado. */
+export interface FuncaoDto {
+  id: number;
+  nome: string;
+  /** Cor do nome de quem tem o cargo (#rrggbb). */
+  cor: string;
+  permissoes: Permissao[];
+}
+
+/** O que alguém pode fazer: administrador tudo; os outros, o que o cargo personalizado libera. */
+export function permissoesDe(usuario: Pick<UsuarioDto, 'cargo' | 'funcaoId'> | undefined, funcoes: FuncaoDto[]): Set<Permissao> {
+  if (!usuario) return new Set();
+  if (usuario.cargo === 'admin') return new Set(PERMISSOES.map((p) => p.id));
+  return new Set(funcoes.find((f) => f.id === usuario.funcaoId)?.permissoes ?? []);
 }
 
 /** Visão do administrador: inclui contas removidas (para a auditoria). */
@@ -108,6 +140,7 @@ export type CodigoErro =
   | 'sem_permissao'
   | 'ultimo_admin'
   | 'limite_sons'
+  | 'limite_cargos'
   | 'som_longo'
   | 'arquivo_grande'
   | 'formato_invalido'
@@ -346,7 +379,7 @@ export const DIMENSOES_TELA: Record<QualidadeTela, { largura: number; altura: nu
 };
 
 /** RN-17: o que cada cargo pode escolher. */
-export const qualidadesPermitidas = (cargo: Cargo): QualidadeTela[] => (cargo === 'admin' ? QUALIDADES_TELA : ['720p30']);
+export const qualidadesPermitidas = (cargo: Cargo, altaLiberada = false): QualidadeTela[] => (cargo === 'admin' || altaLiberada ? QUALIDADES_TELA : ['720p30']);
 
 /** RN-10: quem transmite em cada canal de voz. */
 export interface TransmissaoDto {
@@ -374,6 +407,8 @@ export interface OlaPayload {
   convite: { link: string };
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
+  /** Backlog v2, item 10c: cargos personalizados do servidor (servidor antigo não manda). */
+  funcoes?: FuncaoDto[];
   canais: CanalDto[];
   dms: DmDto[];
   sons: SomDto[];
@@ -424,6 +459,8 @@ export interface EventosServidor {
   'presenca:atualizada': (payload: { id: number; status: StatusPessoa }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
+  /** Backlog v2, item 10c: a lista de cargos personalizados mudou. */
+  'funcoes:atualizadas': (funcoes: FuncaoDto[]) => void;
 }
 
 /** Eventos cliente → servidor, sempre com resposta (ack). */

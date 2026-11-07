@@ -1,9 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { validarCodigoConvite, type Cargo, type ConviteDto, type RedefinicaoDto, type UsuarioAdminDto, type UsuarioDto } from '@tofalando/shared';
+import { validarCodigoConvite, type Cargo, type ConviteDto, type FuncaoDto, type RedefinicaoDto, type UsuarioAdminDto, type UsuarioDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
-import { exigirAdmin, exigirSessao } from '../auth/sessao-http.js';
+import { exigirAdmin, exigirPermissao, exigirSessao } from '../auth/sessao-http.js';
 import { buscarPorId, contarAdminsAtivos, listarParaAdmin, paraDto } from '../dominio/usuarios.js';
 import { revogarSessoesDoUsuario } from '../dominio/sessoes.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
@@ -13,6 +13,7 @@ import type { Armazem } from '../arquivos/armazem.js';
 import { baseServidor } from './convite.js';
 import { montarLinkConvite } from '../dominio/convite.js';
 import { gerarRedefinicao } from '../dominio/redefinicoes.js';
+import { buscarFuncao, criarFuncao, editarFuncao, listarFuncoes, removerFuncao, validarFuncao } from '../dominio/funcoes.js';
 
 const paramId = { type: 'object', required: ['id'], properties: { id: { type: 'integer', minimum: 1 } } } as const;
 
@@ -88,7 +89,71 @@ export function registrarRotasAdmin(app: FastifyInstance, banco: Banco, config: 
     })();
   });
 
-  app.get('/api/admin/convite', { preHandler: soAdmin }, async (req): Promise<ConviteDto> => {
+  // Backlog v2, item 10c: cargos personalizados (só administrador cria, edita, remove e atribui).
+  const avisarFuncoes = (afetados: number[] = []) => {
+    tempoReal.io.emit('funcoes:atualizadas', listarFuncoes(banco));
+    for (const id of afetados) {
+      const u = buscarPorId(banco, id);
+      if (u) tempoReal.io.emit('usuario:atualizado', paraDto(u));
+      tempoReal.cargoMudou(id);
+    }
+  };
+  const usuariosDaFuncao = (id: number) => (banco.prepare('SELECT id FROM usuarios WHERE funcao_id = ? AND removido_em IS NULL').all(id) as { id: number }[]).map((u) => u.id);
+
+  app.post('/api/admin/funcoes', { preHandler: soAdmin }, async (req, reply): Promise<FuncaoDto> => {
+    const dados = validarFuncao(req.body);
+    if ('erro' in dados) throw new ErroHttp(400, 'dados_invalidos', dados.erro);
+    if (listarFuncoes(banco).length >= 20) throw new ErroHttp(409, 'limite_cargos', 'O servidor já tem 20 cargos.');
+    const funcao = criarFuncao(banco, dados);
+    avisarFuncoes();
+    reply.code(201);
+    return funcao;
+  });
+
+  app.put('/api/admin/funcoes/:id', { preHandler: soAdmin, schema: { params: paramId } }, async (req): Promise<FuncaoDto> => {
+    const { id } = req.params as { id: number };
+    const dados = validarFuncao(req.body);
+    if ('erro' in dados) throw new ErroHttp(400, 'dados_invalidos', dados.erro);
+    const funcao = editarFuncao(banco, id, dados);
+    if (!funcao) throw new ErroHttp(404, 'nao_encontrado', 'Cargo não encontrado.');
+    // Quem tinha o cargo pode ter perdido permissões (ex.: transmitir em alta): a regra vale na hora.
+    avisarFuncoes(usuariosDaFuncao(id));
+    return funcao;
+  });
+
+  app.delete('/api/admin/funcoes/:id', { preHandler: soAdmin, schema: { params: paramId } }, async (req, reply) => {
+    const { id } = req.params as { id: number };
+    const afetados = banco.transaction(() => removerFuncao(banco, id))();
+    if (!afetados) throw new ErroHttp(404, 'nao_encontrado', 'Cargo não encontrado.');
+    avisarFuncoes(afetados);
+    reply.code(204);
+  });
+
+  app.patch(
+    '/api/admin/usuarios/:id/funcao',
+    {
+      preHandler: soAdmin,
+      schema: { params: paramId, body: { type: 'object', required: ['funcaoId'], additionalProperties: false, properties: { funcaoId: { type: ['integer', 'null'] } } } },
+    },
+    async (req): Promise<UsuarioDto> => {
+      const { id } = req.params as { id: number };
+      const { funcaoId } = req.body as { funcaoId: number | null };
+      const dto = banco.transaction(() => {
+        if (!buscarPorId(banco, id)) throw new ErroHttp(404, 'nao_encontrado', 'Conta não encontrada.');
+        if (funcaoId !== null && !buscarFuncao(banco, funcaoId)) throw new ErroHttp(404, 'nao_encontrado', 'Cargo não encontrado.');
+        banco.prepare('UPDATE usuarios SET funcao_id = ? WHERE id = ?').run(funcaoId, id);
+        registrarAuditoria(banco, { tipo: 'cargo_alterado', atorId: req.usuarioId!, alvoUsuarioId: id, detalhes: { cargo: funcaoId === null ? 'sem cargo' : buscarFuncao(banco, funcaoId)!.nome } });
+        return paraDto(buscarPorId(banco, id)!);
+      })();
+      tempoReal.io.emit('usuario:atualizado', dto);
+      tempoReal.cargoMudou(id);
+      return dto;
+    },
+  );
+
+  // Backlog v2, item 10c: o convite fica com quem tem "Gerenciar convite".
+  const podeConvite = [exigirSessao(banco), exigirPermissao(banco, 'gerenciar_convite')];
+  app.get('/api/admin/convite', { preHandler: podeConvite }, async (req): Promise<ConviteDto> => {
     const codigo = lerConfiguracao(banco, CHAVE_CONVITE) ?? '';
     return { codigo, link: linkConvite(config, req, codigo) };
   });
@@ -96,7 +161,7 @@ export function registrarRotasAdmin(app: FastifyInstance, banco: Banco, config: 
   app.put(
     '/api/admin/convite',
     {
-      preHandler: soAdmin,
+      preHandler: podeConvite,
       schema: { body: { type: 'object', required: ['codigo'], additionalProperties: false, properties: { codigo: { type: 'string', maxLength: 256 } } } },
     },
     async (req): Promise<ConviteDto> => {

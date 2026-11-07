@@ -130,5 +130,18 @@ export const MIGRACOES: readonly string[] = [
     criado_em INTEGER NOT NULL
   );
   `,
+  // 010 — cargos personalizados (backlog v2, item 10c), com o Moderador de fábrica.
+  `
+  CREATE TABLE funcoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    cor TEXT NOT NULL,
+    permissoes TEXT NOT NULL,
+    criado_em INTEGER NOT NULL
+  );
+  ALTER TABLE usuarios ADD COLUMN funcao_id INTEGER REFERENCES funcoes(id) ON DELETE SET NULL;
+  INSERT INTO funcoes (nome, cor, permissoes, criado_em)
+    VALUES ('Moderador', '#7c8cff', '["gerenciar_canais","apagar_mensagens","gerenciar_convite"]', CAST(strftime('%s','now') AS INTEGER) * 1000);
+  `,
 ];
 

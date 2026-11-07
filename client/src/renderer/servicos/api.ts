@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -31,6 +31,11 @@ export interface ClienteApi {
   usuariosAdmin(): Promise<UsuarioAdminDto[]>;
   mudarCargo(id: number, cargo: Cargo): Promise<UsuarioDto>;
   removerConta(id: number): Promise<void>;
+  /** Backlog v2, item 10c: cargos personalizados (só administrador). */
+  criarFuncao(f: Omit<FuncaoDto, 'id'>): Promise<FuncaoDto>;
+  editarFuncao(id: number, f: Omit<FuncaoDto, 'id'>): Promise<FuncaoDto>;
+  removerFuncao(id: number): Promise<void>;
+  definirFuncao(usuarioId: number, funcaoId: number | null): Promise<UsuarioDto>;
   /** Backlog v2, item 10b: prévia de um link (undefined quando não há). */
   previa(url: string): Promise<PreviaLink | undefined>;
   /** Backlog v2, item 3: código de redefinição de senha (só administrador). */
@@ -102,6 +107,10 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     removerConta: (id) => chamar('DELETE', `/api/admin/usuarios/${id}`),
     gerarRedefinicao: (id) => chamar('POST', `/api/admin/usuarios/${id}/redefinicao`),
     previa: (url) => chamar('GET', `/api/previa?url=${encodeURIComponent(url)}`),
+    criarFuncao: (f) => chamar('POST', '/api/admin/funcoes', f),
+    editarFuncao: (id, f) => chamar('PUT', `/api/admin/funcoes/${id}`, f),
+    removerFuncao: (id) => chamar('DELETE', `/api/admin/funcoes/${id}`),
+    definirFuncao: (usuarioId, funcaoId) => chamar('PATCH', `/api/admin/usuarios/${usuarioId}/funcao`, { funcaoId }),
     redefinirSenha: (dados) => chamar('POST', '/api/auth/redefinir', dados),
     lerConvite: () => chamar('GET', '/api/admin/convite'),
     trocarConvite: (codigo) => chamar('PUT', '/api/admin/convite', { codigo }),

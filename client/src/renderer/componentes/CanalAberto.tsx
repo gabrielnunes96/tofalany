@@ -9,7 +9,10 @@ interface Props {
   /** Backlog v2, item 10: botões de mostrar/ocultar partes da tela, no fim do cabeçalho. */
   extras?: ReactNode;
   canal: CanalDto | undefined;
+  /** Pode remover o canal (administrador ou "Gerenciar canais"). */
   ehAdmin: boolean;
+  /** Backlog v2, item 10c: pode apagar mensagens dos outros (padrão: o mesmo de ehAdmin). */
+  podeApagarAlheias?: boolean;
   aoRenomear: (id: number, nome: string) => Promise<string | null>;
   aoRemover: (id: number) => Promise<string | null>;
   usuarios: UsuarioDto[];
@@ -29,6 +32,7 @@ interface Props {
 export function CanalAberto({
   canal,
   ehAdmin,
+  podeApagarAlheias,
   aoRenomear,
   aoRemover,
   usuarios,
@@ -125,7 +129,7 @@ export function CanalAberto({
         api={api}
         aoEnviar={(texto, anexos) => aoEnviar(canal.id, texto, anexos)}
         euId={euId}
-        ehAdmin={ehAdmin}
+        ehAdmin={podeApagarAlheias ?? ehAdmin}
         aoEditar={aoEditarMensagem}
         aoApagar={aoApagarMensagem}
         aoDigitar={() => aoDigitar(canal.id)}

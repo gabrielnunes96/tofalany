@@ -1,3 +1,4 @@
+import { temPermissao } from '../dominio/funcoes.js';
 import { ANEXOS_POR_MENSAGEM, validarTextoMensagem, type Destino, type EventosServidor } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
@@ -145,7 +146,8 @@ export function registrarEventosMensagens(
         participantes = participantesDa(atual);
         const ehAutor = atual.autorId === usuarioId;
         // RN-9 / RN-18: administrador apaga mensagem alheia só em canal; nas DMs, nunca.
-        const ehAdminEmCanal = atual.canalId !== null && buscarPorId(banco, usuarioId)?.cargo === 'admin';
+        // Backlog v2, item 10c: administrador ou quem tem "Apagar mensagens".
+        const ehAdminEmCanal = atual.canalId !== null && temPermissao(banco, usuarioId, 'apagar_mensagens');
         if (!ehAutor && !ehAdminEmCanal) throw new ErroHttp(403, 'sem_permissao', 'Você só pode apagar as suas mensagens.');
         arquivos = arquivosDaMensagem(banco, id);
         apagarMensagem(banco, id);

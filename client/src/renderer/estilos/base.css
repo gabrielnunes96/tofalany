@@ -452,3 +452,11 @@ button.previa-assistir { position: absolute; inset: 0; margin: auto; width: 64px
 button.previa-assistir:hover:not(:disabled) { background: #e00; box-shadow: none; }
 .previa-player iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: var(--raio); background: #000; }
 .previa-player button { margin: 6px 0 0; padding: 4px 10px; }
+
+/* Backlog v2, item 10c: cargos. */
+.selo.selo-funcao { background: transparent; border: 1px solid currentColor; }
+.cargos { margin: 20px 0; }
+.cargos h2 { font-size: 1.1rem; margin: 0 0 4px; }
+.form-cargo { margin-top: 10px; padding: 12px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); max-width: 560px; }
+.form-cargo input[type='color'] { width: 64px; height: 32px; padding: 2px; }
+.linha-botoes { display: flex; gap: 8px; }
