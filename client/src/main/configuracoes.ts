@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, normalizarUrlServidor, type ConfiguracoesLocais } from '@tofalando/shared';
+import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, normalizarUrlServidor, ESCOLHAS_STATUS, type ConfiguracoesLocais, type EscolhaStatus } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
   ler(): ConfiguracoesLocais;
@@ -30,6 +30,13 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
   if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
   if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
+  if (obj.statusEscolhido && typeof obj.statusEscolhido === 'object') {
+    const validos: Record<string, EscolhaStatus> = {};
+    for (const [url, valor] of Object.entries(obj.statusEscolhido as Record<string, unknown>)) {
+      if (typeof valor === 'string' && (ESCOLHAS_STATUS as string[]).includes(valor)) validos[url] = valor as EscolhaStatus;
+    }
+    resultado.statusEscolhido = validos;
+  }
   return resultado;
 }
 

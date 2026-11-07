@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
 import { Avatar } from './Avatar';
 import { StatusPonto } from './StatusPonto';
 import { FormNome } from './FormNome';
@@ -31,7 +31,7 @@ interface Props {
   aoVolumePessoa?: (usuarioId: number, volume: number) => void;
   aoSilenciarPessoa?: (usuarioId: number, silenciar: boolean) => void;
   /** RF-37: status de quem não está offline. */
-  presencas?: Partial<Record<number, 'online' | 'ausente'>>;
+  presencas?: Partial<Record<number, StatusVisivel>>;
   /** RF-40: conversas com notificações silenciadas ("c:<id>"/"d:<id>"). */
   silenciadas?: string[];
   /** RN-10: quem transmite a tela em cada canal de voz. */

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -34,7 +34,7 @@ interface Loja {
   voz: VozEstadoDto[];
   falando: number[];
   /** RF-37: status de quem não está offline (ausência na lista = offline). */
-  presencas: Partial<Record<number, 'online' | 'ausente'>>;
+  presencas: Partial<Record<number, StatusVisivel>>;
   definirPresenca(id: number, status: StatusPessoa): void;
   /** RN-10: transmissões de tela ativas (uma por canal). */
   transmissoes: TransmissaoDto[];
@@ -112,7 +112,7 @@ const inicial = {
   digitando: {} as Partial<Record<Chave, Record<number, number>>>,
   sons: [] as SomDto[],
   voz: [] as VozEstadoDto[],
-  presencas: {} as Partial<Record<number, 'online' | 'ausente'>>,
+  presencas: {} as Partial<Record<number, StatusVisivel>>,
   transmissoes: [] as TransmissaoDto[],
   falando: [] as number[],
 };

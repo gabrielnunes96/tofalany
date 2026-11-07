@@ -23,6 +23,10 @@ describe('decidirMensagemNova (RF-12)', () => {
     });
   });
 
+  it('backlog v2, item 2: em "não incomodar", conta mas não notifica', () => {
+    expect(decidirMensagemNova(msg({}), ctx({ naoIncomodar: true }))).toEqual({ chave: 'c:5', acao: 'contar', notificacao: undefined });
+  });
+
   it('conversa aberta com foco: marca como lida; aberta sem foco: conta (e o main notifica)', () => {
     expect(decidirMensagemNova(msg({}), ctx({ chaveAberta: 'c:5' }))?.acao).toBe('lido');
     const semFoco = decidirMensagemNova(msg({}), ctx({ chaveAberta: 'c:5', focado: false }))!;

@@ -8,6 +8,10 @@ import {
   type EventosServidor,
   type MotivoRevogacao,
   type OlaPayload,
+  ESCOLHAS_STATUS,
+  type EscolhaStatus,
+  type StatusPessoa,
+  type StatusVisivel,
 } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
@@ -125,18 +129,35 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     pingTimeout: PING_TOLERANCIA_MS,
   });
 
-  // RF-37/RN-25: status visível (online/ausente). Offline só depois da carência (mesma regra da auditoria).
-  const status = new Map<number, 'online' | 'ausente'>();
+  // RF-37/RN-25: status visível (online/ausente/não incomodar). Offline só depois da carência (mesma regra da
+  // auditoria). Backlog v2, item 2: a escolha da pessoa vence a ociosidade; "invisível" fica fora do mapa.
+  const status = new Map<number, StatusVisivel>();
   const ausentes = new Set<string>();
+  const escolhas = new Map<number, EscolhaStatus>();
   function recalcularStatus(usuarioId: number) {
     const conexoes = [...io.of('/').sockets.values()].filter((s) => s.data.usuarioId === usuarioId);
     if (conexoes.length === 0) return;
-    const novo = conexoes.some((s) => !ausentes.has(s.id)) ? 'online' : 'ausente';
-    if (status.get(usuarioId) === novo) return;
-    status.set(usuarioId, novo);
+    const escolha = escolhas.get(usuarioId) ?? 'auto';
+    const novo: StatusPessoa =
+      escolha === 'invisivel'
+        ? 'offline'
+        : escolha === 'naoIncomodar'
+          ? 'naoIncomodar'
+          : escolha === 'ausente'
+            ? 'ausente'
+            : conexoes.some((s) => !ausentes.has(s.id))
+              ? 'online'
+              : 'ausente';
+    const antes = status.get(usuarioId) ?? 'offline';
+    if (antes === novo) return;
+    if (novo === 'offline') status.delete(usuarioId);
+    else status.set(usuarioId, novo);
     io.emit('presenca:atualizada', { id: usuarioId, status: novo });
   }
+  const lerEscolha = (valor: unknown): EscolhaStatus | undefined =>
+    typeof valor === 'string' && (ESCOLHAS_STATUS as string[]).includes(valor) ? (valor as EscolhaStatus) : undefined;
   const presenca = criarPresenca((tipo, usuarioId, motivo) => {
+    if (tipo === 'offline') escolhas.delete(usuarioId);
     if (tipo === 'offline' && status.delete(usuarioId)) io.emit('presenca:atualizada', { id: usuarioId, status: 'offline' });
     try {
       registrarAuditoria(banco, { tipo, atorId: usuarioId, detalhes: motivo ? { motivo } : undefined });
@@ -217,6 +238,9 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     presenca.entrou(eu.id);
     // RN-25: quem reconecta já ausente avisa no handshake (sem piscar "online" para os outros).
     if (socket.handshake.auth?.ausente === true) ausentes.add(socket.id);
+    // Backlog v2, item 2: o status escolhido também vem no handshake (quem está invisível não pisca online).
+    const escolhaInicial = lerEscolha(socket.handshake.auth?.status);
+    if (escolhaInicial) escolhas.set(eu.id, escolhaInicial);
     recalcularStatus(eu.id);
     ola.presencas = Object.fromEntries(status);
     socket.emit('ola', ola);
@@ -226,6 +250,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       if (ausente === ausentes.has(socket.id)) return;
       if (ausente) ausentes.add(socket.id);
       else ausentes.delete(socket.id);
+      recalcularStatus(eu.id);
+    });
+    socket.on('presenca:escolher', (dados) => {
+      const escolha = lerEscolha(typeof dados === 'object' && dados !== null ? (dados as { status?: unknown }).status : undefined);
+      if (!escolha) return;
+      escolhas.set(eu.id, escolha);
       recalcularStatus(eu.id);
     });
     socket.on('disconnect', () => {

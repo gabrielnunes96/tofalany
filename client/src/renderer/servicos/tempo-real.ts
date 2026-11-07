@@ -13,8 +13,7 @@ import {
   type StatusPessoa,
   type TransmissaoDto,
   type UsuarioDto,
-  type Destino,
-} from '@tofalando/shared';
+  type Destino, type EscolhaStatus } from '@tofalando/shared';
 import { chaveDe, type Chave } from '../estado/chaves';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
@@ -82,12 +81,14 @@ export interface ConexaoTempoReal {
   avisarLido(destino: Destino, ultimaMensagemId: number): void;
   /** RN-25: o computador ficou ocioso (ou voltou). */
   avisarAusente(ausente: boolean): void;
+  /** Backlog v2, item 2: status escolhido (vai também no handshake das reconexões). */
+  escolherStatus(status: EscolhaStatus): void;
   /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
   pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
 }
 
 /** Eventos que esperam resposta (ack); "digitando" é só um sinal. */
-type EventoComResposta = Exclude<keyof EventosCliente, 'digitando' | 'lido:marcar' | 'presenca:ausente'>;
+type EventoComResposta = Exclude<keyof EventosCliente, 'digitando' | 'lido:marcar' | 'presenca:ausente' | 'presenca:escolher'>;
 
 type AckValor<K extends EventoComResposta> = Parameters<Parameters<EventosCliente[K]>[1]>[0] extends infer R
   ? R extends { ok: true; valor: infer V }
@@ -107,9 +108,10 @@ export function conectarTempoReal(
 ): ConexaoTempoReal {
   let encerrada = false;
   let ausente = false;
+  let escolha: EscolhaStatus = 'auto';
   const socket = fabrica(url, {
     // O 'ausente' vai junto no handshake de cada (re)conexão (RN-25).
-    auth: (enviar) => enviar({ token, ausente }),
+    auth: (enviar) => enviar({ token, ausente, status: escolha }),
     transports: ['websocket'],
     reconnection: true,
     reconnectionDelay: 500,
@@ -180,6 +182,11 @@ export function conectarTempoReal(
     },
     avisarLido(destino, ultimaMensagemId) {
       if (socket.connected) socket.emit('lido:marcar', { destino, ultimaMensagemId });
+    },
+    escolherStatus(valor) {
+      if (valor === escolha) return;
+      escolha = valor;
+      if (socket.connected) socket.emit('presenca:escolher', { status: valor });
     },
     avisarAusente(valor) {
       ausente = valor;

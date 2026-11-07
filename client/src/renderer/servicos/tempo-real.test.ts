@@ -42,7 +42,7 @@ describe('conectarTempoReal', () => {
     const auth = ((fabrica.mock.calls as unknown as unknown[][])[0]![1] as { auth: (cb: (d: unknown) => void) => void }).auth;
     const enviado = vi.fn();
     auth(enviado);
-    expect(enviado).toHaveBeenCalledWith({ token: 'tok', ausente: false });
+    expect(enviado).toHaveBeenCalledWith({ token: 'tok', ausente: false, status: 'auto' });
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('conectando');
     s.disparar('connect');
     expect(ouvintes.aoEstado).toHaveBeenLastCalledWith('conectado');

@@ -133,6 +133,8 @@ export interface ConfiguracoesLocais {
   tela: PreferenciasTela;
   /** Backlog v2, 1e: fechar a janela deixa o app na bandeja (padrão: sim). */
   fecharParaBandeja?: boolean;
+  /** Backlog v2, item 2: status escolhido em cada servidor (chave = URL do servidor). */
+  statusEscolhido?: Record<string, EscolhaStatus>;
 }
 
 export interface PreferenciasTela {
@@ -249,7 +251,15 @@ export interface SomDto {
 }
 
 /** RF-37, RN-25: status calculado de cada pessoa. */
-export type StatusPessoa = 'online' | 'ausente' | 'offline';
+export type StatusPessoa = 'online' | 'ausente' | 'naoIncomodar' | 'offline';
+/** Status visível de quem está conectado (offline é a ausência dele). */
+export type StatusVisivel = Exclude<StatusPessoa, 'offline'>;
+/**
+ * Backlog v2, item 2: o que a pessoa escolhe. "auto" segue a ociosidade (online/ausente); "invisivel" aparece
+ * como offline para os outros; "naoIncomodar" silencia as notificações dela.
+ */
+export type EscolhaStatus = 'auto' | 'ausente' | 'naoIncomodar' | 'invisivel';
+export const ESCOLHAS_STATUS: EscolhaStatus[] = ['auto', 'ausente', 'naoIncomodar', 'invisivel'];
 
 /** RN-25: sem mexer no computador por este tempo, a pessoa fica ausente. */
 export const AUSENTE_APOS_S = 600;
@@ -321,7 +331,7 @@ export interface OlaPayload {
   /** RN-10: transmissões de tela ativas. */
   transmissoes: TransmissaoDto[];
   /** RF-37: quem não está offline (id → online/ausente). */
-  presencas: Record<string, 'online' | 'ausente'>;
+  presencas: Record<string, StatusVisivel>;
   /** RF-12: mensagens não lidas por conversa ("c:<id>" / "d:<id>"), só as que têm alguma. */
   naoLidas: Record<string, number>;
 }
@@ -394,6 +404,8 @@ export interface EventosCliente {
   'tela:parar': (dados: { canalVozId: number }, ack: Ack) => void;
   /** RN-25: o computador ficou ocioso (ou voltou), sem resposta. */
   'presenca:ausente': (dados: { ausente: boolean }) => void;
+  /** Backlog v2, item 2: status escolhido (vale até trocar; o app reenvia ao reconectar). */
+  'presenca:escolher': (dados: { status: EscolhaStatus }) => void;
 }
 
 /**

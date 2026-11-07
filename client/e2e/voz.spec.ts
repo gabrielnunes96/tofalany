@@ -505,8 +505,23 @@ test('CA-56, CA-57: status online, ausente e offline na lista de membros', async
   const ana2 = await abrirApp('ana');
   await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible({ timeout: 15_000 });
 
-  await dono.app.close();
+  // Backlog v2, item 2: status escolhido pela ana, visto pelo dono; o invisível fica guardado ao reabrir.
+  const meuStatus = ana2.janela.getByLabel('Meu status');
+  await meuStatus.selectOption('naoIncomodar');
+  await expect(membros.getByRole('listitem', { name: 'ana, não incomodar' })).toBeVisible();
+  await meuStatus.selectOption('invisivel');
+  await expect(membros.getByRole('listitem', { name: 'ana, offline' })).toBeVisible();
   await ana2.app.close();
+  const ana3 = await abrirApp('ana');
+  await expect(ana3.janela.getByLabel('Meu status')).toHaveValue('invisivel');
+  // Reabriu invisível: segue offline para o dono (depois de a carência passar sem ela voltar).
+  await ana3.janela.waitForTimeout(2500);
+  await expect(membros.getByRole('listitem', { name: 'ana, offline' })).toBeVisible();
+  await ana3.janela.getByLabel('Meu status').selectOption('auto');
+  await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible();
+
+  await dono.app.close();
+  await ana3.app.close();
 });
 
 test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () => {

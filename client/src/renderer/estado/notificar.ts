@@ -1,4 +1,4 @@
-import type { CanalDto, MensagemDto, UsuarioDto } from '@tofalando/shared';
+import type { CanalDto, MensagemDto, UsuarioDto, StatusPessoa, StatusVisivel } from '@tofalando/shared';
 import { chaveDe, type Chave } from './chaves';
 
 export interface DecisaoMensagemNova {
@@ -25,6 +25,8 @@ export function decidirMensagemNova(
     notificar?: boolean;
     /** RF-40: conversas silenciadas. */
     silenciadas?: string[];
+    /** Backlog v2, item 2: "não incomodar" escolhido: sem notificação (o contador continua). */
+    naoIncomodar?: boolean;
   },
 ): DecisaoMensagemNova | undefined {
   const chave = chaveDe(m);
@@ -34,7 +36,7 @@ export function decidirMensagemNova(
   const canal = m.canalId !== null ? contexto.canais.find((c) => c.id === m.canalId) : undefined;
   const titulo = canal ? `#${canal.nome} — ${autor}` : autor;
   const anexos = m.anexos.length === 0 ? '' : `📎 ${m.anexos.length === 1 ? m.anexos[0]!.nome : `${m.anexos.length} anexos`}`;
-  const notificar = contexto.notificar !== false && !contexto.silenciadas?.includes(chave);
+  const notificar = contexto.notificar !== false && !contexto.naoIncomodar && !contexto.silenciadas?.includes(chave);
   return {
     chave,
     acao: aberta && contexto.focado ? 'lido' : 'contar',
@@ -49,8 +51,8 @@ export function decidirMensagemNova(
  * (o retrato inicial e as reconexões dos outros após um reinício do servidor não são novidade).
  */
 export function decidirAvisoPresenca(
-  antes: 'online' | 'ausente' | undefined,
-  status: 'online' | 'ausente' | 'offline',
+  antes: StatusVisivel | undefined,
+  status: StatusPessoa,
   contexto: { id: number; euId: number | undefined; calado: boolean; som: boolean; aviso: boolean; surdo: boolean },
 ): { tipo: 'entrou' | 'saiu'; som: boolean; aviso: boolean } | undefined {
   if (contexto.id === contexto.euId || contexto.calado) return undefined;

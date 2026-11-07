@@ -6,6 +6,8 @@ import {
   DIGITANDO_DURACAO_MS,
   type AcaoAtalho,
   type StatusPessoa,
+  type StatusVisivel,
+  type EscolhaStatus,
   type Atalhos,
   type PreferenciasAudio,
   type PreferenciasPessoas,
@@ -43,7 +45,7 @@ import { TelaConvite } from './TelaConvite';
 import { TelaSons } from './TelaSons';
 import { TelaConfiguracoes } from './TelaConfiguracoes';
 import { Avatar } from '../componentes/Avatar';
-import { StatusPonto } from '../componentes/StatusPonto';
+import { StatusPonto, TEXTO_STATUS } from '../componentes/StatusPonto';
 import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
 import { DmAberta } from '../componentes/DmAberta';
@@ -167,6 +169,18 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       .config.gravar({ tela: novo })
       .catch(() => undefined);
   }
+  // Backlog v2, item 2: status escolhido neste servidor (guardado no computador; o servidor recebe ao conectar).
+  const [escolhaStatus, setEscolhaStatus] = useState<EscolhaStatus>('auto');
+  const escolhaRef = useRef<EscolhaStatus>('auto');
+  function mudarStatus(novo: EscolhaStatus) {
+    escolhaRef.current = novo;
+    setEscolhaStatus(novo);
+    conexaoRef.current?.escolherStatus(novo);
+    void ponte()
+      .config.ler()
+      .then((c) => ponte().config.gravar({ statusEscolhido: { ...(c.statusEscolhido ?? {}), [servidorUrl]: novo } }))
+      .catch(() => undefined);
+  }
   // Backlog v2, 1e: fechar a janela deixa o app na bandeja (padrão: sim).
   const [fecharParaBandeja, setFecharParaBandeja] = useState(true);
   function mudarBandeja(sim: boolean) {
@@ -219,6 +233,12 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         notifRef.current = c.notificacoes ?? NOTIFICACOES_PADRAO;
         telaRef.current = c.tela ?? TELA_PADRAO;
         setFecharParaBandeja(c.fecharParaBandeja !== false);
+        const escolhida = c.statusEscolhido?.[servidorUrl];
+        if (escolhida && escolhaRef.current === 'auto') {
+          escolhaRef.current = escolhida;
+          setEscolhaStatus(escolhida);
+          conexaoRef.current?.escolherStatus(escolhida);
+        }
         setTelaPrefs(telaRef.current);
         setNotif(notifRef.current);
         sonsRef.current = c.sons ?? SONS_PADRAO;
@@ -294,15 +314,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     const atuais = (notifRef.current.silenciadas[servidorUrl] ?? []).filter((c) => c !== chave);
     mudarNotificacoes({ ...notifRef.current, silenciadas: { ...notifRef.current.silenciadas, [servidorUrl]: sim ? [...atuais, chave] : atuais } });
   };
-  const avisarEntradaSaida = (id: number, antes: 'online' | 'ausente' | undefined, status: StatusPessoa) => {
+  const avisarEntradaSaida = (id: number, antes: StatusVisivel | undefined, status: StatusPessoa) => {
     const nome = useLoja.getState().usuarios.find((u) => u.id === id)?.nomeExibicao;
     if (!nome) return;
     const d = decidirAvisoPresenca(antes, status, {
       id,
       euId: useLoja.getState().eu?.id,
       calado: Date.now() - olaEmRef.current < 5000 || useLoja.getState().conexao !== 'conectado',
-      som: notifRef.current.entradaSaidaSom,
-      aviso: notifRef.current.entradaSaidaAviso,
+      som: notifRef.current.entradaSaidaSom && escolhaRef.current !== 'naoIncomodar',
+      aviso: notifRef.current.entradaSaidaAviso && escolhaRef.current !== 'naoIncomodar',
       surdo: controlesRef.current.surdo,
     });
     if (!d) return;
@@ -524,6 +544,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         canais: estado.canais,
         notificar: notifRef.current.mensagens,
         silenciadas: notifRef.current.silenciadas[servidorUrl] ?? [],
+        naoIncomodar: escolhaRef.current === 'naoIncomodar',
       });
       if (!d) return;
       if (d.acao === 'lido') conexaoRef.current?.avisarLido(destinoDe(d.chave), m.id);
@@ -652,6 +673,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoRevogada: aoSessaoRevogada,
     });
     conexaoRef.current = conexao;
+    conexao.escolherStatus(escolhaRef.current);
     return () => {
       conexaoRef.current = null;
       conexao.desconectar();
@@ -1050,6 +1072,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 <p className="suave">
                   {ehAdmin ? 'Administrador' : 'Membro'} · {nomeServidor ?? servidorUrl}
                 </p>
+                <label className="so-leitor" htmlFor="meu-status">
+                  Meu status
+                </label>
+                <select id="meu-status" className="meu-status" value={escolhaStatus} onChange={(e) => mudarStatus(e.target.value as EscolhaStatus)}>
+                  <option value="auto">🟢 Online (ausente quando parado)</option>
+                  <option value="ausente">🟡 Ausente</option>
+                  <option value="naoIncomodar">⛔ Não incomodar</option>
+                  <option value="invisivel">⚪ Invisível</option>
+                </select>
               </div>
             </div>
             <div className="painel-usuario-botoes">
@@ -1221,7 +1252,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   {item.grupo}
                 </li>
               ) : (
-                <li key={item.u.id} aria-label={`${item.u.nomeExibicao}, ${item.status}`}>
+                <li key={item.u.id} aria-label={`${item.u.nomeExibicao}, ${TEXTO_STATUS[item.status]}`}>
                   <span className="avatar-com-status">
                     <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
                     <StatusPonto status={item.status} />
