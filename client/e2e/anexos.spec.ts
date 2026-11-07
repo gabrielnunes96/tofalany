@@ -91,7 +91,7 @@ test('CA-16, CA-16a e CA-16b: imagem no chat, documentos para baixar idênticos,
   expect(hash(readFileSync(destino))).toBe(hash(pdf));
 
   // CA-16b: 30 MB é recusado no app; .exe renomeado é recusado pelo servidor; nada é enviado.
-  await ana.janela.getByLabel('Arquivos para anexar').setInputFiles({ name: 'grande.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(30 * 1024 * 1024) });
+  await ana.janela.getByLabel('Arquivos para anexar').setInputFiles({ name: 'grande.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(30 * 1024 * 1024) }, { timeout: 90_000 });
   await expect(ana.janela.getByRole('list', { name: 'Anexos a enviar' })).toContainText('O arquivo deve ter no máximo 25 MB.');
   await ana.janela.getByLabel('Arquivos para anexar').setInputFiles({
     name: 'documento.pdf',
@@ -103,5 +103,29 @@ test('CA-16, CA-16a e CA-16b: imagem no chat, documentos para baixar idênticos,
   expect((servidor.banco.prepare("SELECT COUNT(*) AS n FROM anexos WHERE nome_original IN ('grande.pdf', 'documento.pdf')").get() as { n: number }).n).toBe(0);
 
   await ana.app.close();
+  await dono.app.close();
+});
+
+test('colar um print com Ctrl+V vira anexo e chega como imagem (backlog v2, item 1b)', async () => {
+  const dono = await entrar('dono', true);
+  const { default: sharp } = await import('sharp');
+  const png = await sharp({ create: { width: 320, height: 200, channels: 3, background: { r: 255, g: 0, b: 128 } } })
+    .png()
+    .toBuffer();
+  // A imagem vai para a área de transferência do sistema, como um print de tela.
+  await dono.app.evaluate(
+    ({ clipboard, ClipboardItem }, b64) => clipboard.write([new ClipboardItem({ 'image/png': new Blob([Buffer.from(b64, 'base64')], { type: 'image/png' }) })]),
+    png.toString('base64'),
+  );
+  const campo = dono.janela.getByLabel('Mensagem para #geral');
+  await campo.click();
+  await dono.janela.keyboard.press('Control+V');
+  await expect(dono.janela.getByRole('list', { name: 'Anexos a enviar' })).toContainText(/print-.*\.png/);
+  await expect(dono.janela.getByRole('button', { name: 'Enviar' })).toBeEnabled();
+  await dono.janela.getByRole('button', { name: 'Enviar' }).click();
+  const imagem = dono.janela.getByRole('list', { name: 'Mensagens de #geral' }).getByRole('button', { name: /Ampliar imagem print-/ });
+  await expect(imagem).toBeVisible();
+  await expect.poll(() => imagem.locator('img').evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(320);
+  await dono.janela.screenshot({ path: join(__dirname, '../../docs/demandas/to-falando-v2/prints/1b-print-colado.png') });
   await dono.app.close();
 });

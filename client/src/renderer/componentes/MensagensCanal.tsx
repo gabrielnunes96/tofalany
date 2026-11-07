@@ -44,6 +44,12 @@ interface Props {
   somenteLeitura?: string;
 }
 
+/** Extensão de um arquivo colado: a do nome ou a do tipo (image/png → png). */
+function extensaoDe(f: File): string {
+  const doNome = /\.(\w+)$/.exec(f.name)?.[1];
+  return (doNome ?? f.type.split('/')[1] ?? 'png').toLowerCase();
+}
+
 interface Pendente {
   chave: number;
   nome: string;
@@ -130,6 +136,16 @@ export function Conversa({
           );
         });
     }
+  }
+
+  /** Colar (Ctrl+V): arquivos da área de transferência (ex.: um print) viram anexos; texto cola normalmente. */
+  function colar(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const arquivos = [...e.clipboardData.files];
+    if (!arquivos.length) return;
+    e.preventDefault();
+    const carimbo = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+    // Prints chegam como "image.png": dá um nome que não se repete entre colagens.
+    anexar(arquivos.map((f, i) => (/^image\.\w+$/i.test(f.name) || !f.name ? new File([f], `print-${carimbo}${i ? `-${i + 1}` : ''}.${extensaoDe(f)}`, { type: f.type }) : f)));
   }
 
   const carregar = useCallback(
@@ -346,6 +362,7 @@ export function Conversa({
           value={texto}
           onChange={(e) => mudarTexto(e.target.value)}
           onKeyDown={teclas}
+          onPaste={colar}
           rows={1}
           maxLength={4000}
         />

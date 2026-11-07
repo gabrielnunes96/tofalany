@@ -38,6 +38,6 @@ export function registrarIpc(
   });
   ipcMain.handle('area:copiar', (_evento, texto: unknown) => {
     if (typeof texto !== 'string' || texto.length > 2048) throw new Error('Texto inválido.');
-    clipboard.writeText(texto);
+    return clipboard.writeText(texto);
   });
 }

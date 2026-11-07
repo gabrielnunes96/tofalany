@@ -49,6 +49,18 @@ describe('compositor com anexos', () => {
     await waitFor(() => expect(screen.queryByRole('list', { name: 'Anexos a enviar' })).toBeNull());
   });
 
+  it('colar um print (Ctrl+V) vira anexo com nome próprio; colar texto não anexa', async () => {
+    const { sobe } = montar(async () => anexo(1));
+    const campo = screen.getByLabelText('Mensagem para #geral');
+    const print = new File([new Uint8Array(10)], 'image.png', { type: 'image/png' });
+    fireEvent.paste(campo, { clipboardData: { files: [print], getData: () => '' } });
+    expect(sobe).toHaveBeenCalledTimes(1);
+    expect(sobe.mock.calls[0]![1]).toMatch(/^print-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.png$/);
+    expect(await screen.findByRole('list', { name: 'Anexos a enviar' })).toBeTruthy();
+    fireEvent.paste(campo, { clipboardData: { files: [], getData: () => 'oi' } });
+    expect(sobe).toHaveBeenCalledTimes(1);
+  });
+
   it('erro de envio aparece no item; tirar o item libera a vaga; formato errado nem sobe', async () => {
     const { sobe, escolher } = montar(async () => {
       throw new Error('Formato não aceito. Envie JPEG, PNG, GIF, WebP, PDF ou ZIP.');
