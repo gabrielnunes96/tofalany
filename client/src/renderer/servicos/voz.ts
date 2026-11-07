@@ -23,6 +23,12 @@ export interface OuvintesVoz {
   aoReconectando?(reconectando: boolean): void;
 }
 
+/**
+ * Backlog v2, 1c: voz em Opus a 64 kbps (o padrão do LiveKit é menor), DTX (silêncio quase não gasta banda) e RED
+ * (redundância: um pacote perdido não vira falha no áudio). Cerca de 64 kbps por pessoa falando.
+ */
+export const PUBLICACAO_VOZ = { audioPreset: { maxBitrate: 64_000 }, dtx: true, red: true };
+
 /** Taxa máxima por qualidade (bits/s): a banda que cada espectador recebe (R-10). */
 export const TAXAS_TELA: Record<QualidadeTela, number> = { '720p30': 2_500_000, '1080p60': 6_000_000, '1440p60': 10_000_000 };
 
@@ -86,7 +92,7 @@ export interface SalaLivekit {
     identity?: string;
     publishTrack(
       faixa: MediaStreamTrack,
-      opcoes: { source: Track.Source; name: string },
+      opcoes: { source: Track.Source; name: string; audioPreset?: { maxBitrate: number }; dtx?: boolean; red?: boolean },
     ): Promise<{ track?: { replaceTrack(f: MediaStreamTrack, doUsuario?: boolean): Promise<unknown>; mute(): Promise<unknown>; unmute(): Promise<unknown> } }>;
   };
   switchActiveDevice(tipo: MediaDeviceKind, id: string): Promise<unknown>;
@@ -258,7 +264,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         // Troca a quente: a mesma publicação passa a mandar a faixa nova (RF-17).
         await publicacao.track.replaceTrack(novo.faixa, true);
       } else {
-        publicacao = await atual.localParticipant.publishTrack(novo.faixa, { source: Track.Source.Microphone, name: 'microfone' });
+        publicacao = await atual.localParticipant.publishTrack(novo.faixa, { source: Track.Source.Microphone, name: 'microfone', ...PUBLICACAO_VOZ });
       }
     } catch {
       novo.parar();

@@ -62,7 +62,7 @@ describe('sala de voz (RF-13)', () => {
     await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
     expect(sala.connect).toHaveBeenCalledWith('ws://lk', 'tok');
     expect(abrir).toHaveBeenCalledWith(AUDIO_PADRAO);
-    expect(sala.localParticipant.publishTrack).toHaveBeenCalledWith(mic.faixa, { source: 'microphone', name: 'microfone' });
+    expect(sala.localParticipant.publishTrack).toHaveBeenCalledWith(mic.faixa, { source: 'microphone', name: 'microfone', audioPreset: { maxBitrate: 64_000 }, dtx: true, red: true });
     expect(voz.microfone()).toBe(mic);
     expect(voz.sid()).toBe('PA_1');
 

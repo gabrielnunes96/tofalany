@@ -39,4 +39,22 @@ describe('portão de voz (RF-14, RF-16)', () => {
     p.definir({ mudo: true });
     expect(rodar(p, 0.1, 50)).toEqual({ aberto: false, saida: 0 });
   });
+
+  it('olhar à frente: o começo da palavra sai inteiro (a saída vem 20 ms atrasada e o portão já está aberto)', () => {
+    const p = new LogicaPortao(TAXA);
+    rodar(p, 0, 100);
+    // Uma palavra que começa forte já no primeiro bloco: com o atraso, a primeira amostra dela sai com ganho alto.
+    const saida = new Float32Array(128);
+    const atrasoAmostras = Math.round(0.02 * TAXA);
+    const fala = new Float32Array(128).fill(0.1);
+    const blocos: number[] = [];
+    for (let i = 0; i < Math.ceil(atrasoAmostras / 128) + 1; i++) {
+      p.processar(fala, saida);
+      blocos.push(...saida);
+    }
+    const primeira = blocos.findIndex((v) => v !== 0);
+    expect(primeira).toBe(atrasoAmostras);
+    // Sem o atraso, a primeira amostra sairia com ganho ~1/480 (rampa começando); agora sai quase inteira.
+    expect(blocos[primeira]!).toBeGreaterThan(0.09);
+  });
 });

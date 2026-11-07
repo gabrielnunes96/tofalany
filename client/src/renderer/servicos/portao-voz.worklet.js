@@ -20,6 +20,12 @@ export class LogicaPortao {
     this.ganho = 0;
     /** Rampa de ~10 ms entre fechado e aberto. */
     this.passo = 1 / Math.max(1, Math.round(0.01 * taxa));
+    /**
+     * Olhar à frente (backlog v2, 1c): a decisão usa o som atual e a saída sai 20 ms atrasada, para o portão já
+     * estar aberto quando a palavra começa (antes, consoantes suaves do começo eram cortadas).
+     */
+    this.atraso = new Float32Array(Math.max(1, Math.round(0.02 * taxa)));
+    this.posicao = 0;
   }
 
   /** @param {{ limiarDb?: number, modo?: 'deteccao' | 'ptt', ptt?: boolean, mudo?: boolean }} p */
@@ -49,10 +55,14 @@ export class LogicaPortao {
       else this.restante = Math.max(0, this.restante - entrada.length);
       alvo = this.restante > 0 ? 1 : 0;
     }
+    const atraso = this.atraso;
     for (let i = 0; i < entrada.length; i++) {
       const d = alvo - this.ganho;
       this.ganho += d > this.passo ? this.passo : d < -this.passo ? -this.passo : d;
-      saida[i] = entrada[i] * this.ganho;
+      const atrasada = atraso[this.posicao];
+      atraso[this.posicao] = entrada[i];
+      this.posicao = this.posicao + 1 === atraso.length ? 0 : this.posicao + 1;
+      saida[i] = atrasada * this.ganho;
     }
     return alvo === 1;
   }
