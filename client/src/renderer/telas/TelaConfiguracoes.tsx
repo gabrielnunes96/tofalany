@@ -36,6 +36,9 @@ interface Props {
   /** RF-39, RF-41: notificações. */
   notificacoes?: PreferenciasNotificacoes;
   aoMudarNotificacoes?: (n: PreferenciasNotificacoes) => void;
+  /** Backlog v2, 1e: fechar a janela deixa o app na bandeja. */
+  fecharParaBandeja?: boolean;
+  aoMudarBandeja?: (sim: boolean) => void;
   /** RF-28, R-3: qualidade padrão (só o que o cargo permite) e codec da transmissão de tela. */
   tela?: PreferenciasTela;
   aoMudarTela?: (t: PreferenciasTela) => void;
@@ -54,7 +57,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, fecharParaBandeja, aoMudarBandeja, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -253,6 +256,17 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
             Notificação quando alguém entra ou sai do servidor
           </label>
           <p className="suave">Desligar não zera os contadores de não lidas. Para silenciar um canal ou conversa, use o 🔔 no topo dela.</p>
+        </fieldset>
+      )}
+
+      {fecharParaBandeja !== undefined && aoMudarBandeja && (
+        <fieldset className="opcoes">
+          <legend>Janela</legend>
+          <label>
+            <input type="checkbox" checked={fecharParaBandeja} onChange={(e) => aoMudarBandeja(e.target.checked)} /> Ao fechar a janela, deixar o ToFalany na bandeja do
+            sistema (a voz e as notificações continuam)
+          </label>
+          <p className="suave">Para sair de vez, use “Sair” no menu do ícone da bandeja.</p>
         </fieldset>
       )}
 

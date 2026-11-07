@@ -10,6 +10,10 @@ directories:
 files:
   - out/**/*
   - package.json
+# Backlog v2, 1e: ícone da bandeja do sistema.
+extraResources:
+  - from: build/icon.png
+    to: icone.png
 # O gancho de teclado (uiohook-napi) é nativo: fica fora do asar. Os binários de cada plataforma já vêm no pacote.
 asarUnpack:
   - '**/node_modules/uiohook-napi/**'

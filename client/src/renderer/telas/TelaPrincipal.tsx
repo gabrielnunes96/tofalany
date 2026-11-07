@@ -167,6 +167,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       .config.gravar({ tela: novo })
       .catch(() => undefined);
   }
+  // Backlog v2, 1e: fechar a janela deixa o app na bandeja (padrão: sim).
+  const [fecharParaBandeja, setFecharParaBandeja] = useState(true);
+  function mudarBandeja(sim: boolean) {
+    setFecharParaBandeja(sim);
+    void ponte()
+      .config.gravar({ fecharParaBandeja: sim })
+      .catch(() => undefined);
+  }
   // RF-39 a RF-41: notificações deste computador (declaradas antes da leitura do disco, que as preenche).
   const [notif, setNotif] = useState<PreferenciasNotificacoes>(NOTIFICACOES_PADRAO);
   const notifRef = useRef(notif);
@@ -210,6 +218,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         }
         notifRef.current = c.notificacoes ?? NOTIFICACOES_PADRAO;
         telaRef.current = c.tela ?? TELA_PADRAO;
+        setFecharParaBandeja(c.fecharParaBandeja !== false);
         setTelaPrefs(telaRef.current);
         setNotif(notifRef.current);
         sonsRef.current = c.sons ?? SONS_PADRAO;
@@ -1142,6 +1151,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoMudarSons={mudarSons}
               notificacoes={notif}
               aoMudarNotificacoes={mudarNotificacoes}
+              fecharParaBandeja={fecharParaBandeja}
+              aoMudarBandeja={mudarBandeja}
               tela={telaPrefs}
               aoMudarTela={mudarTela}
               qualidadesTela={qualidadesPermitidas(usuario.cargo)}

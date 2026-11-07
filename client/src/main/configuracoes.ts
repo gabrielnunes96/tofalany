@@ -29,6 +29,7 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('sons' in obj) resultado.sons = mesclarSons(base.sons, obj.sons);
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
   if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
+  if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
   return resultado;
 }
 

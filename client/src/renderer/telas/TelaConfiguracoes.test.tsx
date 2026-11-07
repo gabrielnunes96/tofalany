@@ -133,4 +133,13 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Testar microfone' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Não foi possível abrir o microfone');
   });
+
+  it('backlog v2, 1e: opção de fechar para a bandeja', () => {
+    const aoMudarBandeja = vi.fn();
+    montar(AUDIO_PADRAO, 'forte', { fecharParaBandeja: true, aoMudarBandeja });
+    const caixa = screen.getByLabelText(/deixar o ToFalany na bandeja/);
+    expect(caixa).toHaveProperty('checked', true);
+    fireEvent.click(caixa);
+    expect(aoMudarBandeja).toHaveBeenCalledWith(false);
+  });
 });

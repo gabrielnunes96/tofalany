@@ -131,6 +131,8 @@ export interface ConfiguracoesLocais {
   notificacoes: PreferenciasNotificacoes;
   /** RF-28, R-3: qualidade padrão da transmissão (admin escolhe a própria) e codec. */
   tela: PreferenciasTela;
+  /** Backlog v2, 1e: fechar a janela deixa o app na bandeja (padrão: sim). */
+  fecharParaBandeja?: boolean;
 }
 
 export interface PreferenciasTela {

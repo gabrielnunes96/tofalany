@@ -12,6 +12,7 @@ import { registrarCaptura } from './captura';
 import { filtrarRede } from './rede';
 import { integrarSistema } from './integracao';
 import { iniciarAtualizacao } from './atualizacao';
+import { criarBandeja } from './bandeja';
 import { normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
@@ -32,13 +33,20 @@ if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
 const testeDiscreto = process.env.TOFALANDO_E2E === '1' && !app.isPackaged;
 
 let janelaPrincipal: BrowserWindow | undefined;
+/** Backlog v2, 1e: com a bandeja ativa e a opção ligada, fechar a janela só a esconde. */
+let saindo = false;
+let fecharParaBandeja = (): boolean => false;
+app.on('before-quit', () => (saindo = true));
+
+function mostrarJanela() {
+  if (!janelaPrincipal || janelaPrincipal.isDestroyed()) return;
+  if (janelaPrincipal.isMinimized()) janelaPrincipal.restore();
+  janelaPrincipal.show();
+  janelaPrincipal.focus();
+}
 
 const links = prepararLinks(
-  () => {
-    if (!janelaPrincipal) return;
-    if (janelaPrincipal.isMinimized()) janelaPrincipal.restore();
-    janelaPrincipal.focus();
-  },
+  () => mostrarJanela(),
   (convite) => {
     if (!janelaPrincipal || janelaPrincipal.isDestroyed()) return false;
     janelaPrincipal.webContents.send('deeplink:convite', convite);
@@ -67,6 +75,11 @@ function criarJanela(): BrowserWindow {
   });
 
   janela.once('ready-to-show', () => (testeDiscreto ? janela.showInactive() : janela.show()));
+  janela.on('close', (evento) => {
+    if (saindo || !fecharParaBandeja()) return;
+    evento.preventDefault();
+    janela.hide();
+  });
   janela.on('closed', () => {
     if (janelaPrincipal === janela) janelaPrincipal = undefined;
     links.rendererSaiu();
@@ -159,6 +172,20 @@ if (links.principal) {
       (c) => atalhos.definir(c.atalhos),
     );
     criarJanela();
+
+    // Backlog v2, 1e: bandeja (fora dos testes, que não podem deixar ícone no desktop de quem roda).
+    if (!testeDiscreto) {
+      const bandeja = criarBandeja({
+        abrir: mostrarJanela,
+        mutar: () => {
+          if (!janelaPrincipal || janelaPrincipal.isDestroyed()) return;
+          janelaPrincipal.webContents.send('atalhos:evento', { acao: 'mudo', pressionado: true });
+          janelaPrincipal.webContents.send('atalhos:evento', { acao: 'mudo', pressionado: false });
+        },
+        sair: () => app.quit(),
+      });
+      if (bandeja) fecharParaBandeja = () => configuracoes.ler().fecharParaBandeja !== false;
+    }
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) criarJanela();
