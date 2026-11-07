@@ -548,6 +548,23 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
   await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('câmera ligada')).toBeVisible();
   await print(ana.janela, 'T20-ana-ve-camera-do-dono');
 
+  // Backlog v2, itens 11 e 11b: botão de tela cheia em cada câmera; a grade vira janelinha flutuante e arrastável.
+  const cameras = ana.janela.getByRole('region', { name: 'Câmeras' });
+  await expect(cameras.getByRole('button', { name: 'Tela cheia: dono' })).toBeAttached();
+  await cameras.getByRole('button', { name: 'Câmeras flutuantes' }).click();
+  await expect(cameras).toHaveClass(/flutuante/);
+  const antes = (await cameras.boundingBox())!;
+  await ana.janela.mouse.move(antes.x + 20, antes.y + 10);
+  await ana.janela.mouse.down();
+  await ana.janela.mouse.move(antes.x + 220, antes.y + 160, { steps: 8 });
+  await ana.janela.mouse.up();
+  const depois = (await cameras.boundingBox())!;
+  expect(depois.x - antes.x).toBeGreaterThan(150);
+  expect(depois.y - antes.y).toBeGreaterThan(100);
+  await ana.janela.screenshot({ path: join(__dirname, '../../docs/demandas/to-falando-v2/prints/cameras-flutuantes.png') });
+  await cameras.getByRole('button', { name: 'Prender as câmeras no topo' }).click();
+  await expect(cameras).not.toHaveClass(/flutuante/);
+
   await dono.janela.getByRole('button', { name: 'Câmera', exact: true }).click();
   await expect(videoNaAna).toHaveCount(0, { timeout: 15_000 });
   await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('câmera ligada')).toHaveCount(0);

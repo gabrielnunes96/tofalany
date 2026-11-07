@@ -464,3 +464,18 @@ button.previa-assistir:hover:not(:disabled) { background: #e00; box-shadow: none
 /* Backlog v2, item 12: prévia da minha transmissão. */
 .aviso-transmissao { flex-wrap: wrap; }
 .previa-minha-tela { flex: 1 1 100%; max-width: 360px; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: var(--raio); border: 1px solid var(--borda); }
+
+/* Backlog v2, itens 11 e 11b: câmeras em tela cheia e flutuantes. */
+.grade-videos { position: relative; }
+.grade-videos-barra { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-bottom: -4px; }
+.grade-videos-barra button.icone { padding: 2px 6px; }
+.grade-videos.flutuante {
+  position: fixed; z-index: 40; width: min(360px, 40vw); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  padding: 6px; border: 1px solid var(--borda); border-radius: 10px; background: var(--superficie);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); cursor: grab; touch-action: none; user-select: none;
+}
+.grade-videos.flutuante:active { cursor: grabbing; }
+.quadro-video button.quadro-tela-cheia { position: absolute; right: 6px; bottom: 6px; padding: 2px 6px; background: rgba(10, 10, 18, 0.7); color: #fff; opacity: 0; transition: opacity 0.15s; }
+.quadro-video:hover button.quadro-tela-cheia, .quadro-video button.quadro-tela-cheia:focus-visible { opacity: 1; }
+.quadro-video:fullscreen { border: 0; border-radius: 0; }
+.quadro-video:fullscreen video { object-fit: contain; }
