@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { lerQualquerConvite, validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
 
 describe('normalizarUrlServidor', () => {
   it('assume http quando não há esquema', () => {
@@ -163,5 +163,21 @@ describe('mesclarTela (RF-28)', () => {
   it('aceita qualidade e codec conhecidos', () => {
     expect(mesclarTela(undefined, { qualidade: '1440p60', codec: 'vp9' })).toEqual({ qualidade: '1440p60', codec: 'vp9' });
     expect(mesclarTela(undefined, { qualidade: '4k', codec: 'av1' })).toEqual({ qualidade: '720p30', codec: 'h264' });
+  });
+});
+
+describe('lerQualquerConvite (backlog v2, item 4)', () => {
+  it('aceita o link da página de convite e o link do app', () => {
+    expect(lerQualquerConvite('  https://167-234-225-58.sslip.io/convite/ed00909b61f7 ')).toEqual({ servidor: 'https://167-234-225-58.sslip.io', codigo: 'ed00909b61f7' });
+    expect(lerQualquerConvite('http://100.64.0.1:3000/convite/turma-2026')).toEqual({ servidor: 'http://100.64.0.1:3000', codigo: 'turma-2026' });
+    expect(lerQualquerConvite('tofalany://convite?servidor=https%3A%2F%2Ffala.io&codigo=abc123')).toEqual({ servidor: 'https://fala.io', codigo: 'abc123' });
+  });
+
+  it('endereço comum, outro caminho ou lixo não é convite', () => {
+    expect(lerQualquerConvite('https://fala.io')).toBeUndefined();
+    expect(lerQualquerConvite('fala.io:3000')).toBeUndefined();
+    expect(lerQualquerConvite('https://fala.io/outra/abc')).toBeUndefined();
+    expect(lerQualquerConvite('https://fala.io/convite/')).toBeUndefined();
+    expect(lerQualquerConvite('ftp://fala.io/convite/abc')).toBeUndefined();
   });
 });

@@ -132,7 +132,7 @@ export function App() {
       return null;
     case 'escolher-servidor': {
       const { voltar } = estado;
-      return <TelaServidor aoConectar={guardarServidor} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />;
+      return <TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />;
     }
     case 'sem-conexao':
       return (

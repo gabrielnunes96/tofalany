@@ -53,6 +53,13 @@ test('CA-1a: membro copia o link; a página tem o download e o botão; o app abr
   const link = await dono.app.evaluate(({ clipboard }) => clipboard.readText());
   expect(link).toBe(`${url}/convite/${CONVITE}`);
 
+  // Backlog v2, item 4: quem instalou pelo GitHub cola o link na primeira tela e cai no cadastro preenchido.
+  const bia = await abrir('bia');
+  await bia.janela.getByLabel('Endereço do servidor').fill(link);
+  await bia.janela.getByRole('button', { name: 'Conectar' }).click();
+  await expect(bia.janela.getByLabel('Código de convite')).toHaveValue(CONVITE);
+  await bia.app.close();
+
   // A pessoa abre o link no navegador: página com download e o botão "Abrir no ToFalany".
   const pagina = await fetch(link);
   expect(pagina.status).toBe(200);

@@ -1,16 +1,18 @@
 import { useState, type FormEvent } from 'react';
-import { normalizarUrlServidor, type Resultado } from '@tofalando/shared';
+import { lerQualquerConvite, normalizarUrlServidor, type ConviteLink, type Resultado } from '@tofalando/shared';
 import { testarServidor, type ServidorTestado } from '../servicos/servidor';
 
 interface Props {
   aoConectar: (url: string) => void | Promise<void>;
+  /** Backlog v2, item 4: colou o link de convite: o app segue com o servidor e o código dele. */
+  aoConvite?: (convite: ConviteLink) => void;
   /** Presente quando já há um servidor guardado: volta para ele sem alterar nada. */
   aoCancelar?: () => void;
   testar?: (url: string) => Promise<Resultado<ServidorTestado>>;
 }
 
 /** Primeira execução: pede o endereço do servidor e confere antes de guardar (RF-1, CA-1). */
-export function TelaServidor({ aoConectar, aoCancelar, testar = testarServidor }: Props) {
+export function TelaServidor({ aoConectar, aoConvite, aoCancelar, testar = testarServidor }: Props) {
   const [texto, setTexto] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [testando, setTestando] = useState(false);
@@ -18,6 +20,11 @@ export function TelaServidor({ aoConectar, aoCancelar, testar = testarServidor }
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setErro(null);
+    const convite = aoConvite ? lerQualquerConvite(texto) : undefined;
+    if (convite) {
+      aoConvite!(convite);
+      return;
+    }
     const url = normalizarUrlServidor(texto);
     if (!url.ok) {
       setErro(url.erro);
@@ -49,7 +56,7 @@ export function TelaServidor({ aoConectar, aoCancelar, testar = testarServidor }
     <main className="tela-centro">
       <form className="cartao" onSubmit={enviar} noValidate>
         <h1>ToFalany</h1>
-        <p className="suave">Informe o endereço do servidor do seu grupo.</p>
+        <p className="suave">Cole o link de convite que você recebeu, ou o endereço do servidor do seu grupo.</p>
         <label htmlFor="servidor-url">Endereço do servidor</label>
         <input
           id="servidor-url"
@@ -57,7 +64,7 @@ export function TelaServidor({ aoConectar, aoCancelar, testar = testarServidor }
           type="text"
           inputMode="url"
           autoComplete="url"
-          placeholder="ex.: https://fala.exemplo.com ou 100.64.0.1:3000"
+          placeholder="ex.: https://fala.exemplo.com/convite/abc123 ou 100.64.0.1:3000"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           aria-invalid={erro ? true : undefined}

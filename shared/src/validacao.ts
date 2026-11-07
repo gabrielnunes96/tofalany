@@ -106,6 +106,35 @@ export function lerLinkConvite(texto: string): ConviteLink | undefined {
   return { servidor: servidor.valor, codigo: codigo.valor };
 }
 
+/**
+ * Backlog v2, item 4: o que a pessoa cola na primeira tela pode ser o link de convite da página
+ * (https://servidor/convite/<código>, o que o "Copiar link de convite" gera) ou o link do app (tofalany://).
+ */
+export function lerQualquerConvite(texto: string): ConviteLink | undefined {
+  const limpo = texto.trim();
+  const doApp = lerLinkConvite(limpo);
+  if (doApp) return doApp;
+  let url: URL;
+  try {
+    url = new URL(limpo);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+  const partes = url.pathname.split('/').filter(Boolean);
+  if (partes.length !== 2 || partes[0] !== 'convite') return undefined;
+  let bruto: string;
+  try {
+    bruto = decodeURIComponent(partes[1]!);
+  } catch {
+    return undefined;
+  }
+  const servidor = normalizarUrlServidor(url.origin);
+  const codigo = validarCodigoConvite(bruto);
+  if (!servidor.ok || !codigo.ok) return undefined;
+  return { servidor: servidor.valor, codigo: codigo.valor };
+}
+
 /** Monta o link que abre o app a partir do servidor e do código. */
 export function montarLinkApp(servidor: string, codigo: string): string {
   return `tofalany://convite?servidor=${encodeURIComponent(servidor)}&codigo=${encodeURIComponent(codigo)}`;
