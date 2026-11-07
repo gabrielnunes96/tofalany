@@ -232,13 +232,16 @@ export function Conversa({
     if (!v.ok && prontos.length === 0) return;
     setEnviando(true);
     setErroEnvio(null);
+    // Limpa só o que foi enviado: o que a pessoa digitou ou anexou durante o envio fica no compositor.
+    const textoEnviado = texto;
+    const enviados = new Set(pendentes.filter((p) => p.estado === 'pronto').map((p) => p.chave));
     const falha = await aoEnviar(v.ok ? v.valor : '', prontos);
     setEnviando(false);
     if (falha) setErroEnvio(falha);
     else {
-      setTexto('');
-      setPendentes([]);
-      ativos.current = 0;
+      setTexto((atual) => (atual === textoEnviado ? '' : atual));
+      setPendentes((lista) => lista.filter((p) => !enviados.has(p.chave)));
+      ativos.current = Math.max(0, ativos.current - enviados.size);
       ultimoSinal.current = 0;
       estavaNoFim.current = true;
     }
