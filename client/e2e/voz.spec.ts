@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -105,7 +106,7 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
   await dono.janela.getByLabel('Nome do novo canal de voz').fill('Papo');
   await dono.janela.getByRole('button', { name: 'Criar', exact: true }).click();
   // O microfone falso é um apito: o RNNoise o abafa e a detecção de voz quase não abre. Sem supressão, ele passa.
-  await dono.janela.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(dono.janela, 'Configurações');
   await dono.janela.getByLabel('Supressão de ruído').uncheck();
   await dono.janela.getByRole('button', { name: 'Voltar' }).click();
 
@@ -159,7 +160,7 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   const j = dono.janela;
 
   // CA-28: o medidor se mexe com o microfone (falso, que apita) e a supressão forte carrega no app empacotado.
-  await j.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(j, 'Configurações');
   // O apito do microfone falso é baixo: sem o ganho automático (desligado por padrão desde 07/11), o RNNoise o apaga.
   await j.getByLabel('Controle automático de ganho').check();
   await j.getByRole('button', { name: 'Testar microfone' }).click();
@@ -208,7 +209,7 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   // CA-30: reabrir o app mantém as escolhas.
   await dono.app.close();
   const reaberto = await abrirApp('dono');
-  await reaberto.janela.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(reaberto.janela, 'Configurações');
   await expect(reaberto.janela.getByLabel('Microfone', { exact: true })).toHaveValue(voltar);
   await expect(reaberto.janela.getByLabel('Cancelamento de eco')).not.toBeChecked();
   await expect(reaberto.janela.getByLabel('Supressão de ruído')).not.toBeChecked();
@@ -240,7 +241,7 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
   };
 
   // O apito do microfone falso é abafado pelo RNNoise: desliga a supressão para medir o portão.
-  await j.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(j, 'Configurações');
   await j.getByLabel('Supressão de ruído').uncheck();
   await j.getByRole('button', { name: 'Criar canal de voz' }).click();
   await j.getByLabel('Nome do novo canal de voz').fill('Papo');
@@ -315,7 +316,7 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
 
   await dono.app.close();
   const reaberto = await abrirApp('dono');
-  await reaberto.janela.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(reaberto.janela, 'Configurações');
   await expect(reaberto.janela.getByTestId('atalho-mudo')).toHaveText('F8');
   await expect(reaberto.janela.getByTestId('atalho-ptt')).toHaveText('`');
   await expect(reaberto.janela.getByRole('radio', { name: /Push-to-talk/ })).toBeChecked();
@@ -382,7 +383,7 @@ test('CA-27, CA-29, CA-58: volume por pessoa só para quem ajustou, sons de entr
   await print(ana2.janela, 'T17-silenciar-lembrado-apos-reabrir');
 
   // Sons desligados nas Configurações: o dono sai e a ana não ouve nada.
-  await ana2.janela.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(ana2.janela, 'Configurações');
   await ana2.janela.getByLabel('Sons de entrar e sair da voz e de mute').uncheck();
   const semSom = await somDa(ana2.janela);
   await dono.janela.getByRole('button', { name: 'Sair da voz' }).click();
@@ -423,17 +424,16 @@ test('CA-32, CA-33, CA-34, CA-35: soundboard no canal de voz', async () => {
   const tocouNa = (p: Page) => p.evaluate(() => document.documentElement.dataset.somSoundboard ?? '');
 
   // O dono (admin) cadastra um som pela tela.
-  await j.getByRole('button', { name: 'Soundboard' }).click();
+  await noMenu(j, 'Soundboard');
   await j.getByLabel('Nome do som').fill('Grilo');
   await j.getByLabel('Arquivo de áudio').setInputFiles({ name: 'grilo.wav', mimeType: 'audio/wav', buffer: wavTom(1) });
   await j.getByRole('button', { name: 'Cadastrar som' }).click();
   await expect(j.getByRole('status')).toContainText('cadastrado');
   await j.getByRole('button', { name: 'Voltar' }).click();
 
-  // CA-33: fora da voz, os botões ficam desabilitados.
-  await j.getByRole('button', { name: 'Tocar sons' }).click();
+  // CA-33: fora da voz não dá para tocar (desde o painel compacto, o botão do soundboard fica na barra da voz).
+  await expect(j.getByRole('button', { name: 'Tocar sons' })).toHaveCount(0);
   const painel = j.getByRole('region', { name: 'Soundboard' });
-  await expect(painel.getByRole('button', { name: 'Grilo' })).toBeDisabled();
 
   await j.getByRole('button', { name: 'Criar canal de voz' }).click();
   await j.getByLabel('Nome do novo canal de voz').fill('Papo');
@@ -444,6 +444,7 @@ test('CA-32, CA-33, CA-34, CA-35: soundboard no canal de voz', async () => {
   }
 
   // CA-32: o dono toca; a ana ouve e vê quem tocou.
+  await j.getByRole('button', { name: 'Tocar sons' }).click();
   await painel.getByRole('button', { name: 'Grilo' }).click();
   await expect(ana.janela.locator('.aviso-som')).toHaveText('🔊 dono tocou Grilo');
   await expect.poll(() => tocouNa(ana.janela)).toMatch(/^\d+:/);
@@ -635,7 +636,7 @@ test('CA-39a, RF-28: membro só 720p30; administrador escolhe 1080p60 (e VP9) e 
   const ana = await entrar('ana', false);
   const d = dono.janela;
   const a = ana.janela;
-  await d.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(d, 'Configurações');
   await d.getByLabel('Codec').selectOption('vp9');
   await d.getByLabel('Qualidade padrão').selectOption('1080p60');
   await d.getByRole('button', { name: 'Voltar' }).click();

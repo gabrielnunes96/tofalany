@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -52,7 +53,7 @@ test('CA-8: avatar 1000×800 vira 256×256; nome e cor mudam; o outro membro vê
   const { default: sharp } = await import('sharp');
   const png = await sharp({ create: { width: 1000, height: 800, channels: 3, background: '#22aa66' } }).png().toBuffer();
 
-  await dono.janela.getByRole('button', { name: 'Meu perfil' }).click();
+  await noMenu(dono.janela, 'Meu perfil');
   await dono.janela.getByLabel('Arquivo da foto').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png });
   await expect(dono.janela.getByRole('status')).toHaveText('Foto atualizada.');
   await dono.janela.getByLabel('Nome de exibição').fill('Dono do Grupo');
@@ -74,7 +75,7 @@ test('CA-8: avatar 1000×800 vira 256×256; nome e cor mudam; o outro membro vê
   await expect.poll(() => foto.evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight])).toEqual([256, 256]);
 
   // Formato errado é recusado na tela.
-  await dono.janela.getByRole('button', { name: 'Meu perfil' }).click();
+  await noMenu(dono.janela, 'Meu perfil');
   await dono.janela.getByLabel('Arquivo da foto').setInputFiles({ name: 'doc.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7') });
   await expect(dono.janela.getByRole('alert')).toHaveText('Use uma imagem PNG, JPEG, GIF ou WebP.');
 

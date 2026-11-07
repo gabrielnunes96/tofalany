@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -48,7 +49,7 @@ test('CA-1a: membro copia o link; a página tem o download e o botão; o app abr
   await dono.janela.getByLabel('Nome de usuário').fill('dono');
   await dono.janela.getByLabel('Senha').fill('senha-forte-1');
   await dono.janela.getByRole('button', { name: 'Criar conta' }).click();
-  await dono.janela.getByRole('button', { name: 'Copiar link de convite' }).click();
+  await noMenu(dono.janela, 'Copiar link de convite');
   await expect(dono.janela.getByRole('status')).toHaveText('Link de convite copiado.');
   const link = await dono.app.evaluate(({ clipboard }) => clipboard.readText());
   expect(link).toBe(`${url}/convite/${CONVITE}`);

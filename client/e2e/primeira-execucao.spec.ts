@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -99,7 +100,7 @@ test('CA-2, CA-5 e CA-6: cadastro com convite, primeira conta admin, reabrir ent
   await expect(janela.getByTestId('usuario-logado')).toHaveText('Olá, dono');
 
   // Sair volta ao login; entrar de novo funciona; reabrir depois de sair pede login.
-  await janela.getByRole('button', { name: 'Sair' }).click();
+  await noMenu(janela, 'Sair');
   await expect(janela.getByRole('heading', { name: 'Entrar' })).toBeVisible();
   await janela.getByLabel('Nome de usuário').fill('DONO');
   await janela.getByLabel('Senha').fill('senha-errada');
@@ -108,7 +109,7 @@ test('CA-2, CA-5 e CA-6: cadastro com convite, primeira conta admin, reabrir ent
   await janela.getByLabel('Senha').fill('senha-forte-1');
   await janela.getByRole('button', { name: 'Entrar' }).click();
   await expect(janela.getByTestId('usuario-logado')).toHaveText('Olá, dono');
-  await janela.getByRole('button', { name: 'Sair' }).click();
+  await noMenu(janela, 'Sair');
   await app.close();
 
   ({ app, janela } = await abrirApp(pastaDados));

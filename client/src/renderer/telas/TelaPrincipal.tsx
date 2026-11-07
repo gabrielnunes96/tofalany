@@ -170,6 +170,19 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       .config.gravar({ tela: novo })
       .catch(() => undefined);
   }
+  // Backlog v2, item 8: menu do usuário (fecha ao clicar fora ou com Esc).
+  const [menuAberto, setMenuAberto] = useState(false);
+  useEffect(() => {
+    if (!menuAberto) return;
+    const fechar = () => setMenuAberto(false);
+    const tecla = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && setMenuAberto(false);
+    document.addEventListener('click', fechar);
+    document.addEventListener('keydown', tecla);
+    return () => {
+      document.removeEventListener('click', fechar);
+      document.removeEventListener('keydown', tecla);
+    };
+  }, [menuAberto]);
   // Backlog v2, item 9: tema (aplicado no <html>; main.tsx já aplica o guardado ao abrir).
   const [tema, setTema] = useState<Tema>((document.documentElement.dataset.tema as Tema | undefined) ?? 'neon');
   function mudarTema(novo: Tema) {
@@ -1041,8 +1054,18 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   >
                     🖥️
                   </button>
-                  <button type="button" className="perigo" onClick={() => void sairVoz()}>
-                    Sair da voz
+                  <button
+                    type="button"
+                    className={`icone controle${soundboardAberto ? ' ligado' : ''}`}
+                    aria-expanded={soundboardAberto}
+                    aria-label="Tocar sons"
+                    title="Soundboard: tocar sons para o canal"
+                    onClick={() => setSoundboardAberto(!soundboardAberto)}
+                  >
+                    🔔
+                  </button>
+                  <button type="button" className="icone controle sair-voz" aria-label="Sair da voz" title="Sair da voz" onClick={() => void sairVoz()}>
+                    ⏻
                   </button>
                 </>
               )}
@@ -1075,8 +1098,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           )}
           <section className="painel-usuario" aria-label="Você">
             <div className="painel-usuario-topo">
-              <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={36} />
-              <div>
+              <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={34} />
+              <div className="painel-usuario-nomes">
                 <p className="nome" data-testid="usuario-logado">
                   Olá, {usuario.nomeExibicao}
                 </p>
@@ -1087,61 +1110,76 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   Meu status
                 </label>
                 <select id="meu-status" className="meu-status" value={escolhaStatus} onChange={(e) => mudarStatus(e.target.value as EscolhaStatus)}>
-                  <option value="auto">🟢 Online (ausente quando parado)</option>
+                  <option value="auto">🟢 Online</option>
                   <option value="ausente">🟡 Ausente</option>
                   <option value="naoIncomodar">⛔ Não incomodar</option>
                   <option value="invisivel">⚪ Invisível</option>
                 </select>
               </div>
+              <button
+                type="button"
+                className="icone abrir-menu"
+                aria-label="Menu"
+                title="Perfil, configurações, convite, administração…"
+                aria-expanded={menuAberto}
+                aria-controls="menu-usuario"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuAberto(!menuAberto);
+                }}
+              >
+                ⚙️
+              </button>
             </div>
-            <div className="painel-usuario-botoes">
-              <button type="button" className="secundario" onClick={() => setVista('perfil')}>
-                Meu perfil
-              </button>
-              <button type="button" className="secundario" onClick={() => setVista('configuracoes')}>
-                Configurações
-              </button>
-              <button type="button" className="secundario" aria-expanded={soundboardAberto} onClick={() => setSoundboardAberto(!soundboardAberto)}>
-                Tocar sons
-              </button>
-              {linkConvite && (
-                <button
-                  type="button"
-                  className="secundario"
-                  onClick={() =>
-                    void ponte()
-                      .areaTransferencia.copiar(linkConvite)
-                      .then(() => setCopiado('Link de convite copiado.'))
-                      .catch(() => setCopiado('Não foi possível copiar o link.'))
-                      .finally(() => setTimeout(() => setCopiado(null), 4000))
-                  }
-                >
-                  Copiar link de convite
+            {/* Backlog v2, item 8: as opções saíram do canto (eram 10 botões soltos) para este menu. */}
+            {menuAberto && (
+              <div id="menu-usuario" className="menu-usuario" onClick={() => setMenuAberto(false)}>
+                <button type="button" onClick={() => setVista('perfil')}>
+                  Meu perfil
                 </button>
-              )}
-              {ehAdmin && (
-                <>
-                  <button type="button" className="secundario" onClick={() => setVista('membros')}>
-                    Membros
+                <button type="button" onClick={() => setVista('configuracoes')}>
+                  Configurações
+                </button>
+                {linkConvite && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void ponte()
+                        .areaTransferencia.copiar(linkConvite)
+                        .then(() => setCopiado('Link de convite copiado.'))
+                        .catch(() => setCopiado('Não foi possível copiar o link.'))
+                        .finally(() => setTimeout(() => setCopiado(null), 4000))
+                    }
+                  >
+                    Copiar link de convite
                   </button>
-                  <button type="button" className="secundario" onClick={() => setVista('convite')}>
-                    Convite
-                  </button>
-                  <button type="button" className="secundario" onClick={() => setVista('sons')}>
-                    Soundboard
-                  </button>
-                  <button type="button" className="secundario" onClick={abrirAuditoria}>
-                    Auditoria
-                  </button>
-                </>
-              )}
-              <button type="button" className="secundario" onClick={aoSair}>
-                Sair
-              </button>
-              <button type="button" className="link" onClick={aoTrocarServidor}>
-                Trocar servidor
-              </button>
-            </div>
+                )}
+                {ehAdmin && (
+                  <>
+                    <p className="menu-grupo">Administração</p>
+                    <button type="button" onClick={() => setVista('membros')}>
+                      Membros
+                    </button>
+                    <button type="button" onClick={() => setVista('convite')}>
+                      Convite
+                    </button>
+                    <button type="button" onClick={() => setVista('sons')}>
+                      Soundboard
+                    </button>
+                    <button type="button" onClick={abrirAuditoria}>
+                      Auditoria
+                    </button>
+                  </>
+                )}
+                <hr />
+                <button type="button" onClick={aoTrocarServidor}>
+                  Trocar servidor
+                </button>
+                <button type="button" className="sair" onClick={aoSair}>
+                  Sair
+                </button>
+              </div>
+            )}
             {copiado && (
               <p className="aviso-ok" role="status">
                 {copiado}

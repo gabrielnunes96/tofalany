@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -90,7 +91,7 @@ test('CA-12 e CA-13: membro cria e renomeia (o outro vê em menos de 2 s); só a
   await expect(ana.janela.getByRole('heading', { name: 'geral', exact: true })).toBeVisible();
 
   // Auditoria por canal (CA-50 da T8): o dono filtra pela Sala "Squad".
-  await dono.janela.getByRole('button', { name: 'Auditoria' }).click();
+  await noMenu(dono.janela, 'Auditoria');
   await dono.janela.getByRole('combobox', { name: 'Canal' }).selectOption({ label: '🔊 Squad' });
   await expect(dono.janela.getByRole('list', { name: 'Registros da auditoria' })).toContainText('ana criou o canal "Squad"');
 

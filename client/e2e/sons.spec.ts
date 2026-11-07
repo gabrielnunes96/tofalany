@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { itensDoMenu, noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -66,10 +67,10 @@ test('CA-31: administrador cadastra, ouve, renomeia e remove sons; 15 s é recus
   const dono = await entrar('dono', true);
   await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
   const ana = await entrar('ana', false);
-  await expect(ana.janela.getByRole('button', { name: 'Soundboard' })).toHaveCount(0);
+  expect(await itensDoMenu(ana.janela)).not.toContain('Soundboard');
 
   const j = dono.janela;
-  await j.getByRole('button', { name: 'Soundboard' }).click();
+  await noMenu(j, 'Soundboard');
   await expect(j.getByText('Nenhum som cadastrado ainda.')).toBeVisible();
 
   await j.getByLabel('Nome do som').fill('Grilo');

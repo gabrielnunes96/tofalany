@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { noMenu } from './menu';
 
 /** Backlog v2 (P2): temas, painel compacto e ocultar partes da tela. */
 const principal = join(__dirname, '../out/main/index.js');
@@ -55,15 +56,22 @@ test('backlog v2, item 9: trocar o tema em Configurações vale na hora e fica g
   const fundo = () => j.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const neon = await fundo();
   await j.screenshot({ path: join(PRINTS, 'tema-neon.png') });
+  // Backlog v2, item 8: painel compacto; as opções ficam no menu ⚙️.
+  await j.getByRole('button', { name: 'Menu', exact: true }).click();
+  await expect(j.locator('#menu-usuario')).toContainText('Auditoria');
+  await j.waitForTimeout(300);
+  await j.screenshot({ path: join(PRINTS, 'painel-menu-aberto.png') });
+  await j.keyboard.press('Escape');
+  await expect(j.locator('#menu-usuario')).toHaveCount(0);
 
-  await j.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(j, 'Configurações');
   await j.getByRole('radio', { name: /Aurora/ }).check();
   await expect.poll(() => j.evaluate(() => document.documentElement.dataset.tema)).toBe('aurora');
   expect(await fundo()).not.toBe(neon);
   await j.getByRole('button', { name: 'Voltar' }).first().click();
   await j.screenshot({ path: join(PRINTS, 'tema-aurora.png') });
 
-  await j.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(j, 'Configurações');
   await j.getByRole('radio', { name: /Breu/ }).check();
   await j.getByRole('button', { name: 'Voltar' }).first().click();
   await j.screenshot({ path: join(PRINTS, 'tema-breu.png') });

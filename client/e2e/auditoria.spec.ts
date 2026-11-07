@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { itensDoMenu, noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -54,7 +55,7 @@ test('CA-48 e CA-52: administrador vê a auditoria com entradas e saídas; membr
   await ana.janela.getByRole('button', { name: 'Entrar' }).click();
   await expect(ana.janela.getByTestId('usuario-logado')).toHaveText('Olá, ana');
   await expect(ana.janela.getByText(/^Membro · /)).toBeVisible();
-  await expect(ana.janela.getByRole('button', { name: 'Auditoria' })).toHaveCount(0);
+  expect(await itensDoMenu(ana.janela)).not.toContain('Auditoria');
   // A conexão em tempo real da ana chegou (senão fechar antes não gera online/offline).
   await expect(dono.janela.getByRole('list', { name: 'Membros' }).getByRole('listitem', { name: 'ana, online' })).toBeVisible();
   await ana.app.close();
@@ -62,7 +63,7 @@ test('CA-48 e CA-52: administrador vê a auditoria com entradas e saídas; membr
   await expect(dono.janela.getByRole('list', { name: 'Membros' }).getByRole('listitem', { name: 'ana, offline' })).toBeVisible({ timeout: 10_000 });
 
   // Administrador abre a auditoria e filtra pela ana.
-  await dono.janela.getByRole('button', { name: 'Auditoria' }).click();
+  await noMenu(dono.janela, 'Auditoria');
   const lista = dono.janela.getByRole('list', { name: 'Registros da auditoria' });
   await expect(lista).toContainText('dono criou a conta');
   await expect(lista).toContainText('dono ficou online');

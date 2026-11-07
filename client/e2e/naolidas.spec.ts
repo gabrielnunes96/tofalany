@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { noMenu } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const PRINTS = join(__dirname, '../../docs/demandas/to-falando-v1/prints');
@@ -156,7 +157,7 @@ test('CA-59, CA-60, CA-61: conversa silenciada, notificações desligadas e avis
   await a.screenshot({ path: join(PRINTS, 'T29-jogos-silenciado.png') });
 
   // CA-59: notificações de mensagem desligadas — só conta.
-  await a.getByRole('button', { name: 'Configurações' }).click();
+  await noMenu(a, 'Configurações');
   await a.getByLabel('Notificações de mensagens').uncheck();
   await escrever('ruido', 'de novo');
   await expect(canal(a, 'ruido')).toContainText('2');
