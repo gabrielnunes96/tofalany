@@ -38,7 +38,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByLabel('Mensagem para #geral')).toBeVisible();
   return { app, janela };
@@ -47,7 +48,7 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
 test('CA-16, CA-16a e CA-16b: imagem no chat, documentos para baixar idênticos, recusas', async () => {
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const listaDono = dono.janela.getByRole('list', { name: 'Mensagens de #geral' });
 

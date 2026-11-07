@@ -56,7 +56,7 @@ describe('código de convite (RN-1)', () => {
     await primeira.close();
     const segunda = await construirApp(config('codigo-b'));
     const cadastrar = (convite: string, usuario: string) =>
-      segunda.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite, usuario, senha: 'senha-forte-1' } });
+      segunda.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite, usuario, senha: 'Senha-forte-1' } });
     expect((await cadastrar('codigo-b', 'ana')).statusCode).toBe(403);
     expect((await cadastrar('codigo-a', 'ana')).statusCode).toBe(201);
     await segunda.close();

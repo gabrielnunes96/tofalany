@@ -9,6 +9,8 @@ import { Conversa } from './MensagensCanal';
 interface Props {
   /** Backlog v2, item 10: botões de mostrar/ocultar partes da tela, no fim do cabeçalho. */
   extras?: ReactNode;
+  /** Antes do título (ex.: botão de mostrar a barra de canais, quando escondida). */
+  antes?: ReactNode;
   dm: DmDto;
   /** A outra pessoa (undefined se a conta foi removida). */
   outro: UsuarioDto | undefined;
@@ -40,12 +42,14 @@ export function DmAberta({
   silenciada = false,
   aoSilenciar,
   extras,
+  antes,
 }: Props) {
   const nome = outro?.nomeExibicao ?? 'conta removida';
   const carregarPagina = useCallback((antes?: number) => api.mensagensDm(dm.id, antes), [api, dm.id]);
   return (
     <section className="canal-aberto" aria-labelledby="titulo-dm">
       <header className="canal-topo">
+        {antes}
         <h2 id="titulo-dm" className="titulo-dm">
           {outro && <Avatar usuario={outro} servidorUrl={servidorUrl} tamanho={28} />}
           {nome}

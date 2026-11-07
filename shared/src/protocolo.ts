@@ -193,8 +193,10 @@ export interface ConfiguracoesLocais {
   notificacoes: PreferenciasNotificacoes;
   /** RF-28, R-3: qualidade padrão da transmissão (admin escolhe a própria) e codec. */
   tela: PreferenciasTela;
-  /** Backlog v2, 1e: fechar a janela deixa o app na bandeja (padrão: sim). */
+  /** Backlog v2, 1e: versão antiga da escolha (true = bandeja, false = sair); vale enquanto não houver `aoFechar`. */
   fecharParaBandeja?: boolean;
+  /** O que fazer ao fechar a janela: perguntar (padrão), ir para a bandeja ou fechar o app. */
+  aoFechar?: AcaoFechar;
   /** Backlog v2, item 7: servidores em que a pessoa entrou (a coluna à esquerda). */
   servidores?: ServidorConhecido[];
   /** Backlog v2, item 10: partes da tela escondidas. */
@@ -558,4 +560,14 @@ export function lerComandoMusica(texto: string): ComandoMusica | { erro: string 
     return { comando: 'tocar', busca: resto };
   }
   return { comando: nome === 'pular' || nome === 'skip' ? 'pular' : 'parar' };
+}
+
+/** O que fazer ao fechar a janela do app. */
+export type AcaoFechar = 'perguntar' | 'bandeja' | 'sair';
+
+/** A escolha valendo: a nova, senão a antiga (só se a pessoa tinha mexido), senão perguntar. */
+export function acaoAoFechar(c: { aoFechar?: AcaoFechar; fecharParaBandeja?: boolean }): AcaoFechar {
+  if (c.aoFechar === 'perguntar' || c.aoFechar === 'bandeja' || c.aoFechar === 'sair') return c.aoFechar;
+  if (c.fecharParaBandeja === false) return 'sair';
+  return 'perguntar';
 }

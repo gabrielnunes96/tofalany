@@ -44,7 +44,8 @@ test('CA-43: o app empacotado abre, cadastra pelo convite e entra no servidor', 
     await janela.getByRole('button', { name: 'Tenho um convite' }).click();
     await janela.getByLabel('Código de convite').fill(CONVITE);
     await janela.getByLabel('Nome de usuário').fill('dono');
-    await janela.getByLabel('Senha').fill('senha-forte-1');
+    await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+    if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
     await janela.getByRole('button', { name: 'Criar conta' }).click();
     await expect(janela.getByRole('list', { name: 'Membros' })).toBeVisible();
     await janela.screenshot({ path: test.info().outputPath('app-empacotado.png') });

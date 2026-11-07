@@ -42,7 +42,8 @@ async function cadastrarPorLink(j: Page, link: string) {
   await j.getByLabel('Endereço do servidor').fill(link);
   await j.getByRole('button', { name: 'Conectar' }).click();
   await j.getByLabel('Nome de usuário').fill('ana');
-  await j.getByLabel('Senha').fill('senha-forte-1');
+  await j.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await j.getByLabel('Confirmar senha').count()) await j.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await j.getByRole('button', { name: 'Criar conta' }).click();
   await expect(j.getByRole('list', { name: 'Membros' })).toBeVisible();
 }
@@ -73,7 +74,7 @@ test('backlog v2, item 7: entra em dois servidores e troca entre eles pela colun
   const bia = await fetch(`${b}/api/auth/cadastro`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ usuario: 'bia', senha: 'senha-forte-1', convite: 'convite-familia' }),
+    body: JSON.stringify({ usuario: 'bia', senha: 'Senha-forte-1', convite: 'convite-familia' }),
   }).then((r) => r.json() as Promise<{ token: string }>);
   const socket = conectar(b, { auth: { token: bia.token }, transports: ['websocket'], reconnection: false, forceNew: true });
   const ola = await new Promise<{ canais: { id: number; tipo: string }[] }>((r) => socket.once('ola', r));

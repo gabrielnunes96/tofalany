@@ -37,7 +37,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByRole('list', { name: 'Membros' })).toBeVisible();
   return { app, janela };
@@ -45,7 +46,7 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
 
 test('CA-8: avatar 1000×800 vira 256×256; nome e cor mudam; o outro membro vê sem reiniciar', async () => {
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const listaDaAna = ana.janela.getByRole('list', { name: 'Membros' });
   await expect(listaDaAna).toContainText('dono');
@@ -64,7 +65,7 @@ test('CA-8: avatar 1000×800 vira 256×256; nome e cor mudam; o outro membro vê
   await expect(dono.janela.getByTestId('usuario-logado')).toHaveText('Olá, Dono do Grupo');
 
   // A cor ficou gravada (ela aparece no avatar de quem não tem foto).
-  const lista = await servidor.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'dono', senha: 'senha-forte-1' } });
+  const lista = await servidor.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'dono', senha: 'Senha-forte-1' } });
   expect(lista.json().usuario.cor).toBe('#ff8800');
 
   // A ana vê o novo nome e a foto 256×256 sem reiniciar.

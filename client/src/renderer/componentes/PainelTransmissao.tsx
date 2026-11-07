@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FaixaVideo } from '../servicos/voz';
+import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
 
 /** RF-30: a transmissão de alguém do meu canal — aviso com "Assistir", e grande com tela cheia ao assistir. */
 export function PainelTransmissao({ nome, faixa }: { nome: string; faixa: FaixaVideo | undefined }) {
   const [assistindo, setAssistindo] = useState(false);
   const ref = useRef<HTMLVideoElement>(null);
+  const caixa = useRef<HTMLElement>(null);
+  const cheia = useEmTelaCheia(caixa);
   useEffect(() => {
     const el = ref.current;
     if (!assistindo || !el || !faixa) return;
@@ -27,12 +30,12 @@ export function PainelTransmissao({ nome, faixa }: { nome: string; faixa: FaixaV
     );
   }
   return (
-    <section className="transmissao-grande" aria-label={`Transmissão de ${nome}`}>
-      <video ref={ref} autoPlay playsInline muted aria-label={`Tela de ${nome}`} />
+    <section ref={caixa} className="transmissao-grande" aria-label={`Transmissão de ${nome}`}>
+      <video ref={ref} autoPlay playsInline muted aria-label={`Tela de ${nome}`} onDoubleClick={() => alternarTelaCheia(caixa.current)} />
       <div className="transmissao-acoes">
         <span>🖥️ {nome}</span>
-        <button type="button" className="secundario" onClick={() => void ref.current?.requestFullscreen?.().catch(() => undefined)}>
-          Tela cheia
+        <button type="button" className="secundario" onClick={() => alternarTelaCheia(caixa.current)}>
+          {cheia ? 'Sair da tela cheia' : 'Tela cheia'}
         </button>
         <button type="button" className="secundario" onClick={() => setAssistindo(false)}>
           Fechar

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
+import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -13,6 +13,9 @@ import { GradeVideos } from '../componentes/GradeVideos';
 import { SeletorTela, type FonteTela } from '../componentes/SeletorTela';
 import { PainelTransmissao } from '../componentes/PainelTransmissao';
 import { PainelMusica } from '../componentes/PainelMusica';
+import { Icone } from '../componentes/Icone';
+import { SeletorStatus } from '../componentes/SeletorStatus';
+import { alternarTelaCheia, useEmTelaCheia } from '../componentes/telaCheia';
 import { ponte } from '../servicos/ponte';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
 import { TelaPerfil } from './TelaPerfil';
@@ -23,7 +26,7 @@ import { TelaConfiguracoes } from './TelaConfiguracoes';
 import { Avatar } from '../componentes/Avatar';
 import { StatusPonto, TEXTO_STATUS } from '../componentes/StatusPonto';
 import { ContextoPrevia, criarBuscaPrevia } from '../componentes/Previa';
-import { BarraLateral } from '../componentes/BarraLateral';
+import { BarraLateral, type AbaBarra } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
 import { DmAberta } from '../componentes/DmAberta';
 import { chaveCanal, chaveDm, type Chave, type Historico } from '../estado/loja';
@@ -175,6 +178,19 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
   }, [alternarParte]);
+  // Barra lateral: canais ou conversas diretas (abrir uma DM, por notificação ou pelo envelope, troca para Diretas).
+  const [abaBarra, setAbaBarra] = useState<AbaBarra>('canais');
+  // Ping até o servidor de voz, atualizado a cada 2 s enquanto estou num canal.
+  const [ping, setPing] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (minhaVoz === null) return;
+    const medir = () => setPing(salaVozRef.current?.latencia());
+    const relogio = setInterval(medir, 2000);
+    return () => {
+      clearInterval(relogio);
+      setPing(undefined);
+    };
+  }, [minhaVoz]);
   // Backlog v2, item 12: prévia da minha transmissão (a faixa local; não gasta banda).
   const [previaMinhaTela, setPreviaMinhaTela] = useState<MediaStreamTrack | undefined>(undefined);
   const [verPrevia, setVerPrevia] = useState(true);
@@ -212,12 +228,12 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       .then((c) => ponte().config.gravar({ statusEscolhido: { ...(c.statusEscolhido ?? {}), [servidorUrl]: novo } }))
       .catch(() => undefined);
   }
-  // Backlog v2, 1e: fechar a janela deixa o app na bandeja (padrão: sim).
-  const [fecharParaBandeja, setFecharParaBandeja] = useState(true);
-  function mudarBandeja(sim: boolean) {
-    setFecharParaBandeja(sim);
+  // Backlog v2, 1e: o que fazer ao fechar a janela (padrão: perguntar).
+  const [aoFechar, setAoFechar] = useState<AcaoFechar>('perguntar');
+  function mudarAoFechar(acao: AcaoFechar) {
+    setAoFechar(acao);
     void ponte()
-      .config.gravar({ fecharParaBandeja: sim })
+      .config.gravar({ aoFechar: acao })
       .catch(() => undefined);
   }
   // RF-39 a RF-41: notificações deste computador (declaradas antes da leitura do disco, que as preenche).
@@ -263,7 +279,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         }
         notifRef.current = c.notificacoes ?? NOTIFICACOES_PADRAO;
         telaRef.current = c.tela ?? TELA_PADRAO;
-        setFecharParaBandeja(c.fecharParaBandeja !== false);
+        setAoFechar(acaoAoFechar(c));
         if (c.tema) setTema(c.tema);
         if (c.ocultos) setOcultos(c.ocultos);
         const escolhida = c.statusEscolhido?.[servidorUrl];
@@ -723,16 +739,6 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const usuario = eu ?? usuarioInicial;
   const barraVisao = (
     <span className="barra-visao" role="group" aria-label="Mostrar ou ocultar">
-      <button
-        type="button"
-        className="icone"
-        aria-pressed={!ocultos.canais}
-        aria-label="Mostrar canais"
-        title="Canais (Ctrl+B)"
-        onClick={() => alternarParte('canais')}
-      >
-        ⇤
-      </button>
       {videos.length > 0 && (
         <button
           type="button"
@@ -742,7 +748,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           title="Câmeras"
           onClick={() => alternarParte('cameras')}
         >
-          📷
+          <Icone nome="camera" />
         </button>
       )}
       <button
@@ -753,10 +759,16 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         title="Membros (Ctrl+M)"
         onClick={() => alternarParte('membros')}
       >
-        ⇥
+        <Icone nome="pessoas" />
       </button>
     </span>
   );
+  // Com a barra de canais escondida, o botão de trazê-la fica à esquerda, no topo da conversa.
+  const mostrarCanais = ocultos.canais ? (
+    <button type="button" className="icone mostrar-canais" aria-label="Mostrar canais" title="Mostrar a barra de canais (Ctrl+B)" onClick={() => alternarParte('canais')}>
+      <Icone nome="painelEsquerdoAbrir" />
+    </button>
+  ) : null;
   const minhaTela = minhaVoz !== null && transmissoes.some((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id);
   const faixaPrevia = minhaTela ? previaMinhaTela : undefined;
   const membrosPorStatus = useMemo(() => {
@@ -808,8 +820,13 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         const [tipo, id] = chave.split(':');
         // Aviso sobre uma pessoa (entrou/saiu): só traz a janela, sem trocar de tela.
         if (tipo === 'u') return;
-        if (tipo === 'c') acoes.abrirCanal(Number(id));
-        else if (tipo === 'd') acoes.abrirDm(Number(id));
+        if (tipo === 'c') {
+          acoes.abrirCanal(Number(id));
+          setAbaBarra('canais');
+        } else if (tipo === 'd') {
+          acoes.abrirDm(Number(id));
+          setAbaBarra('diretas');
+        }
         setVista('canal');
       }),
     [acoes],
@@ -854,6 +871,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       (dm) => {
         acoes.salvarDm(dm);
         acoes.abrirDm(dm.id);
+        setAbaBarra('diretas');
         setVista('canal');
       },
     );
@@ -1026,6 +1044,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
         <aside className="coluna-esquerda">
           <BarraLateral
+            aoEsconder={() => alternarParte('canais')}
+            aba={abaBarra}
+            aoMudarAba={setAbaBarra}
+            aoConversarCom={conversarCom}
             nomeServidor={nomeServidor ?? servidorUrl}
             canais={canais}
             canalAtivo={vistaAtual === 'canal' && dmAtiva === null ? canalAtivo : null}
@@ -1070,7 +1092,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   </>
                 ) : minhaVoz !== null ? (
                   <>
-                    <strong>Voz conectada</strong>
+                    <strong>
+                      Voz conectada
+                      {ping !== undefined && (
+                        <span className={`ping ${ping < 100 ? 'bom' : ping < 200 ? 'medio' : 'ruim'}`} title="Ida e volta até o servidor de voz" aria-label={`Ping ${ping} milissegundos`}>
+                          {ping} ms
+                        </span>
+                      )}
+                    </strong>
                     {canais.find((c) => c.id === minhaVoz)?.nome}
                   </>
                 ) : (
@@ -1084,7 +1113,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     className={`transmitindo${transmitindo && !controles.mudo && !controles.surdo ? ' ativo' : ''}`}
                     role="img"
                     aria-label={transmitindo ? 'Transmitindo' : 'Microfone em silêncio'}
-                    title={transmitindo ? 'Transmitindo' : 'Em silêncio'}
+                    title={`${transmitindo ? 'Transmitindo' : 'Em silêncio'}${ping !== undefined ? ` · ping ${ping} ms` : ''}`}
                   />
                   <button
                     type="button"
@@ -1094,7 +1123,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     title="Mutar microfone (mute)"
                     onClick={alternarMudo}
                   >
-                    🎙️
+                    <Icone nome={controles.mudo || controles.surdo ? 'microfoneDesligado' : 'microfone'} />
                   </button>
                   <button
                     type="button"
@@ -1104,7 +1133,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     title="Desligar áudio (deafen)"
                     onClick={alternarSurdo}
                   >
-                    🎧
+                    <Icone nome={controles.surdo ? 'foneDesligado' : 'fone'} />
                   </button>
                   <button
                     type="button"
@@ -1114,7 +1143,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     title={controles.camera ? 'Desligar câmera' : 'Ligar câmera'}
                     onClick={() => void alternarCamera()}
                   >
-                    📹
+                    <Icone nome="camera" />
                   </button>
                   <button
                     type="button"
@@ -1126,7 +1155,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     title={iniciandoTela ? 'Iniciando a transmissão…' : minhaTela ? 'Parar transmissão' : 'Transmitir tela'}
                     onClick={() => (minhaTela ? void pararTela() : abrirSeletorTela())}
                   >
-                    🖥️
+                    <Icone nome="tela" />
                   </button>
                   <button
                     type="button"
@@ -1136,10 +1165,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     title="Soundboard: tocar sons para o canal"
                     onClick={() => setSoundboardAberto(!soundboardAberto)}
                   >
-                    🔔
+                    <Icone nome="sons" />
                   </button>
                   <button type="button" className="icone controle sair-voz" aria-label="Sair da voz" title="Sair da voz" onClick={() => void sairVoz()}>
-                    ⏻
+                    <Icone nome="desligar" />
                   </button>
                 </>
               )}
@@ -1180,15 +1209,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 <p className="suave">
                   {ehAdmin ? 'Administrador' : (funcoes.find((f) => f.id === usuario.funcaoId)?.nome ?? 'Membro')} · {nomeServidor ?? servidorUrl}
                 </p>
-                <label className="so-leitor" htmlFor="meu-status">
-                  Meu status
-                </label>
-                <select id="meu-status" className="meu-status" value={escolhaStatus} onChange={(e) => mudarStatus(e.target.value as EscolhaStatus)}>
-                  <option value="auto">🟢 Online</option>
-                  <option value="ausente">🟡 Ausente</option>
-                  <option value="naoIncomodar">⛔ Não incomodar</option>
-                  <option value="invisivel">⚪ Invisível</option>
-                </select>
+                <SeletorStatus valor={escolhaStatus} aoMudar={mudarStatus} />
               </div>
               <button
                 type="button"
@@ -1202,7 +1223,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   setMenuAberto(!menuAberto);
                 }}
               >
-                ⚙️
+                <Icone nome="engrenagem" tamanho={20} />
               </button>
             </div>
             {/* Backlog v2, item 8: as opções saíram do canto (eram 10 botões soltos) para este menu. */}
@@ -1324,8 +1345,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoMudarNotificacoes={mudarNotificacoes}
               tema={tema}
               aoMudarTema={mudarTema}
-              fecharParaBandeja={fecharParaBandeja}
-              aoMudarBandeja={mudarBandeja}
+              aoFechar={aoFechar}
+              aoMudarAoFechar={mudarAoFechar}
               tela={telaPrefs}
               aoMudarTela={mudarTela}
               qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes.has('transmitir_alta'))}
@@ -1340,6 +1361,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           ) : dmAtiva !== null && dms.some((d) => d.id === dmAtiva) ? (
             <DmAberta
               extras={barraVisao}
+              antes={mostrarCanais}
               key={`dm-${dmAtiva}`}
               dm={dms.find((d) => d.id === dmAtiva)!}
               outro={usuarios.find((u) => u.id === dms.find((d) => d.id === dmAtiva)!.outroId)}
@@ -1357,6 +1379,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           ) : (
             <CanalAberto
               extras={barraVisao}
+              antes={mostrarCanais}
               key={canalAtivo ?? 'nenhum'}
               canal={canais.find((c) => c.id === canalAtivo)}
               ehAdmin={ehAdmin}
@@ -1419,7 +1442,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                       title="Mensagem direta"
                       onClick={() => conversarCom(item.u.id)}
                     >
-                      ✉
+                      <Icone nome="carta" tamanho={16} />
                     </button>
                   )}
                 </li>
@@ -1432,9 +1455,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   );
 }
 
-/** Backlog v2, item 12: o que a minha tela está mandando, num quadro pequeno (mudo, sem rede). */
+/** Backlog v2, item 12: o que a minha tela está mandando, num quadro pequeno (mudo, sem rede), com tela cheia. */
 function PreviaLocal({ faixa }: { faixa: MediaStreamTrack }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const caixa = useRef<HTMLElement>(null);
+  const cheia = useEmTelaCheia(caixa);
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
@@ -1444,5 +1469,12 @@ function PreviaLocal({ faixa }: { faixa: MediaStreamTrack }) {
       v.srcObject = null;
     };
   }, [faixa]);
-  return <video ref={ref} className="previa-minha-tela" aria-label="Prévia da sua transmissão" muted playsInline />;
+  return (
+    <figure ref={caixa} className="previa-minha-tela" onDoubleClick={() => alternarTelaCheia(caixa.current)}>
+      <video ref={ref} aria-label="Prévia da sua transmissão" muted playsInline />
+      <button type="button" className="icone quadro-tela-cheia" aria-label={cheia ? 'Sair da tela cheia' : 'Prévia em tela cheia'} title={cheia ? 'Sair da tela cheia (ou Esc)' : 'Tela cheia (ou duplo clique)'} onClick={() => alternarTelaCheia(caixa.current)}>
+        {cheia ? '🗗' : '⛶'}
+      </button>
+    </figure>
+  );
 }

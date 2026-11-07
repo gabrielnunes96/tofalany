@@ -12,6 +12,6 @@ export function appTeste(extra: Record<string, string> = {}): Promise<FastifyIns
   return construirApp(configTeste(extra));
 }
 
-export async function cadastrar(app: FastifyInstance, usuario: string, senha = 'senha-forte-1', convite = CONVITE) {
+export async function cadastrar(app: FastifyInstance, usuario: string, senha = 'Senha-forte-1', convite = CONVITE) {
   return app.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite, usuario, senha } });
 }

@@ -47,7 +47,8 @@ test('CA-1a: membro copia o link; a página tem o download e o botão; o app abr
   await dono.janela.getByRole('button', { name: 'Tenho um convite' }).click();
   await dono.janela.getByLabel('Código de convite').fill(CONVITE);
   await dono.janela.getByLabel('Nome de usuário').fill('dono');
-  await dono.janela.getByLabel('Senha').fill('senha-forte-1');
+  await dono.janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await dono.janela.getByLabel('Confirmar senha').count()) await dono.janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await dono.janela.getByRole('button', { name: 'Criar conta' }).click();
   await noMenu(dono.janela, 'Copiar link de convite');
   await expect(dono.janela.getByRole('status')).toHaveText('Link de convite copiado.');
@@ -74,7 +75,8 @@ test('CA-1a: membro copia o link; a página tem o download e o botão; o app abr
   await expect(nova.janela.getByText(`Servidor: ${url}`)).toBeVisible();
   await expect(nova.janela.getByLabel('Código de convite')).toHaveValue(CONVITE);
   await nova.janela.getByLabel('Nome de usuário').fill('bia');
-  await nova.janela.getByLabel('Senha').fill('senha-forte-1');
+  await nova.janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await nova.janela.getByLabel('Confirmar senha').count()) await nova.janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await nova.janela.getByRole('button', { name: 'Criar conta' }).click();
   await expect(nova.janela.getByTestId('usuario-logado')).toHaveText('Olá, bia');
   await expect(dono.janela.getByRole('list', { name: 'Membros' })).toContainText('bia');

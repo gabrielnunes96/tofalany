@@ -44,7 +44,8 @@ async function cadastrarDono(): Promise<{ app: ElectronApplication; janela: Page
   await d.janela.getByRole('button', { name: 'Tenho um convite' }).click();
   await d.janela.getByLabel('Código de convite').fill(CONVITE);
   await d.janela.getByLabel('Nome de usuário').fill('dono');
-  await d.janela.getByLabel('Senha').fill('senha-forte-1');
+  await d.janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await d.janela.getByLabel('Confirmar senha').count()) await d.janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await d.janela.getByRole('button', { name: 'Criar conta' }).click();
   await expect(d.janela.getByRole('list', { name: 'Membros' })).toBeVisible();
   return d;

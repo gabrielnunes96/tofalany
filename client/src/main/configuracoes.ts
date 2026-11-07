@@ -30,6 +30,7 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
   if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
   if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
+  if (obj.aoFechar === 'perguntar' || obj.aoFechar === 'bandeja' || obj.aoFechar === 'sair') resultado.aoFechar = obj.aoFechar;
   if (Array.isArray(obj.servidores)) {
     const vistos = new Set<string>();
     const lista: ServidorConhecido[] = [];

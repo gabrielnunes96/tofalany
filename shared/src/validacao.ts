@@ -43,9 +43,19 @@ export function normalizarUsuario(usuario: string): string {
   return usuario.trim().toLowerCase();
 }
 
+/** Regras de senha nova (cadastro e troca), na ordem em que o app mostra a lista enquanto a pessoa digita. */
+export const REGRAS_SENHA: readonly { id: string; texto: string; cumpre: (senha: string) => boolean }[] = [
+  { id: 'tamanho', texto: `Pelo menos ${SENHA_MIN} caracteres`, cumpre: (s) => s.length >= SENHA_MIN },
+  { id: 'maiuscula', texto: 'Uma letra maiúscula', cumpre: (s) => /\p{Lu}/u.test(s) },
+  { id: 'minuscula', texto: 'Uma letra minúscula', cumpre: (s) => /\p{Ll}/u.test(s) },
+  { id: 'numero', texto: 'Um número', cumpre: (s) => /\d/.test(s) },
+];
+
+/** Senha nova. (O login não passa por aqui: contas antigas, de antes das regras, continuam entrando.) */
 export function validarSenha(senha: string): Resultado<string> {
-  if (senha.length < SENHA_MIN) return { ok: false, erro: `A senha deve ter pelo menos ${SENHA_MIN} caracteres.` };
   if (senha.length > SENHA_MAX) return { ok: false, erro: `A senha deve ter no máximo ${SENHA_MAX} caracteres.` };
+  const faltam = REGRAS_SENHA.filter((r) => !r.cumpre(senha));
+  if (faltam.length) return { ok: false, erro: `A senha precisa ter: ${faltam.map((r) => r.texto.toLowerCase()).join(', ')}.` };
   return { ok: true, valor: senha };
 }
 

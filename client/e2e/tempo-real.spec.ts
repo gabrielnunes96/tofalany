@@ -54,7 +54,8 @@ async function abrirLogado(url: string): Promise<{ app: ElectronApplication; jan
   await janela.getByRole('button', { name: 'Tenho um convite' }).click();
   await janela.getByLabel('Código de convite').fill(CONVITE);
   await janela.getByLabel('Nome de usuário').fill('dono');
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: 'Criar conta' }).click();
   await expect(janela.getByRole('list', { name: 'Membros' })).toContainText('dono');
   return { app, janela };

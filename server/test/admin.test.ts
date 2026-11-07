@@ -100,7 +100,7 @@ describe('remover conta (CA-11a, RN-16)', () => {
     expect(await revogada).toEqual({ motivo: 'conta_removida' });
     expect(await removido).toEqual({ id: ana.usuario.id });
 
-    const login = await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-forte-1' } });
+    const login = await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-forte-1' } });
     expect(login.statusCode).toBe(401);
     expect((await app!.inject({ method: 'GET', url: '/api/eu', headers: auth(ana.token) })).statusCode).toBe(401);
     // Vaga liberada (limite 2) e o mesmo nome pode ser usado por outra pessoa.
@@ -175,8 +175,8 @@ describe('código de convite (CA-11b, RF-6a)', () => {
     });
     const troca = await app!.inject({ method: 'PUT', url: '/api/admin/convite', headers: auth(dono.token), payload: { codigo: 'turma-nova-2026' } });
     expect(troca.json()).toEqual({ codigo: 'turma-nova-2026', link: 'https://fala.exemplo.com/convite/turma-nova-2026' });
-    expect((await cadastrar(app!, 'bia', 'senha-forte-1', CONVITE)).statusCode).toBe(403);
-    expect((await cadastrar(app!, 'bia', 'senha-forte-1', 'turma-nova-2026')).statusCode).toBe(201);
+    expect((await cadastrar(app!, 'bia', 'Senha-forte-1', CONVITE)).statusCode).toBe(403);
+    expect((await cadastrar(app!, 'bia', 'Senha-forte-1', 'turma-nova-2026')).statusCode).toBe(201);
     const ruim = await app!.inject({ method: 'PUT', url: '/api/admin/convite', headers: auth(dono.token), payload: { codigo: 'a b' } });
     expect(ruim.statusCode).toBe(400);
     const trocas = () => listarAuditoria(app!.banco, { tipo: 'convite_trocado' }).registros.length;

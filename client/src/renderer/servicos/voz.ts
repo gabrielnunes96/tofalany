@@ -64,6 +64,8 @@ export interface SalaVoz {
   aplicarAudio(audio: PreferenciasAudio): Promise<void>;
   /** Microfone publicado agora (para o medidor e para a supressão efetiva). */
   microfone(): Microfone | undefined;
+  /** Ida e volta até o servidor de mídia, em ms (undefined fora da voz ou antes da primeira medida). */
+  latencia(): number | undefined;
   /** RF-16: mute (fecha o microfone), deafen (zera quem está na sala e também muta) e PTT apertado. */
   controlar(c: Partial<ControlesVoz>): void;
   /** RF-25: liga ou desliga a minha câmera (simulcast); devolve se ficou ligada. */
@@ -100,6 +102,8 @@ export interface SalaLivekit {
     unpublishTrack?(faixa: MediaStreamTrack, parar?: boolean): Promise<unknown>;
   };
   switchActiveDevice(tipo: MediaDeviceKind, id: string): Promise<unknown>;
+  /** O livekit-client mede o RTT do canal de sinalização (ping/pong com o servidor de mídia). */
+  engine?: { client?: { rtt?: number } };
 }
 
 /** Só o que usamos da câmera do participante local (permite testar sem WebRTC). */
@@ -430,6 +434,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     microfone: () => mic,
+    latencia() {
+      const rtt = conectada ? sala?.engine?.client?.rtt : undefined;
+      return typeof rtt === 'number' && rtt > 0 ? Math.round(rtt) : undefined;
+    },
     async transmitir(qualidade, audio, codec = 'h264', somVirtual = false) {
       const atual = sala;
       if (!atual || !conectada) return false;

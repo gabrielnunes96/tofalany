@@ -49,7 +49,7 @@ describe('redefinir-senha (RF-4)', () => {
     const banco = bancoTemp();
     let app = await servidor(banco);
     const { token } = (
-      await app.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'Ana', senha: 'senha-antiga-1' } })
+      await app.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'Ana', senha: 'Senha-antiga-1' } })
     ).json();
     await app.close();
     apps.pop();
@@ -58,15 +58,15 @@ describe('redefinir-senha (RF-4)', () => {
     const cli = fileURLToPath(new URL('../src/cli/redefinir-senha.ts', import.meta.url));
     const saida = execFileSync(process.execPath, ['--import', 'tsx', cli, 'ana'], {
       cwd: fileURLToPath(new URL('..', import.meta.url)),
-      input: 'senha-nova-123\nsenha-nova-123\n',
+      input: 'Senha-nova-123\nSenha-nova-123\n',
       env: { ...process.env, BANCO: banco },
       encoding: 'utf8',
     });
     expect(saida).toContain('Senha de ana redefinida');
 
     app = await servidor(banco);
-    expect((await login(app, 'senha-nova-123')).statusCode).toBe(200);
-    expect((await login(app, 'senha-antiga-1')).statusCode).toBe(401);
+    expect((await login(app, 'Senha-nova-123')).statusCode).toBe(200);
+    expect((await login(app, 'Senha-antiga-1')).statusCode).toBe(401);
     expect((await app.inject({ method: 'GET', url: '/api/eu', headers: { authorization: `Bearer ${token}` } })).statusCode).toBe(401);
     // CA-50 (parte do host): a redefinição fica na auditoria, feita pelo host, com a conta como alvo.
     const registro = (app.banco.prepare("SELECT ator_id, alvo_usuario_id FROM auditoria WHERE tipo = 'senha_redefinida'").get()) as {
@@ -91,7 +91,7 @@ describe('redefinir-senha (RF-4)', () => {
     const curta = ioFalso(['123']);
     expect(await executar(['ana'], banco, curta)).toBe(SAIDA.uso);
     expect(curta.erros[0]).toContain('pelo menos 8');
-    const diferente = ioFalso(['senha-nova-123', 'outra-senha-1']);
+    const diferente = ioFalso(['Senha-nova-123', 'Outra-senha-1']);
     expect(await executar(['ana'], banco, diferente)).toBe(SAIDA.uso);
     expect(diferente.erros[0]).toBe('As senhas não conferem.');
     expect((banco.prepare('SELECT senha_hash FROM usuarios').get() as { senha_hash: string }).senha_hash).toBe('x');
@@ -114,7 +114,7 @@ describe('redefinir-senha (RF-4)', () => {
 
   it('conta removida no meio da operação não é dada como redefinida', async () => {
     const banco = abrirBanco(':memory:');
-    expect(await redefinirSenha(banco, 'ninguem', 'senha-nova-123')).toBeUndefined();
+    expect(await redefinirSenha(banco, 'ninguem', 'Senha-nova-123')).toBeUndefined();
     banco.close();
   });
 });

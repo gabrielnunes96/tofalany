@@ -37,7 +37,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByRole('list', { name: 'Membros' })).toBeVisible();
   return { app, janela };
@@ -45,7 +46,7 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
 
 test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', async () => {
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   expect(await itensDoMenu(ana.janela)).not.toContain('Membros');
 
@@ -68,7 +69,8 @@ test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', 
   await expect(ana.janela.getByRole('status')).toHaveText('Sua conta foi removida deste servidor.');
   await expect(dono.janela.getByRole('list', { name: 'Contas do servidor' }).getByRole('listitem', { name: 'ana', exact: true })).toHaveCount(0);
   await ana.janela.getByLabel('Nome de usuário').fill('ana');
-  await ana.janela.getByLabel('Senha').fill('senha-forte-1');
+  await ana.janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await ana.janela.getByLabel('Confirmar senha').count()) await ana.janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await ana.janela.getByRole('button', { name: 'Entrar' }).click();
   await expect(ana.janela.getByRole('alert')).toHaveText('Usuário ou senha incorretos.');
 
@@ -79,7 +81,7 @@ test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', 
   await dono.janela.getByLabel('Novo código').fill('turma-nova-2026');
   await dono.janela.getByRole('button', { name: 'Trocar código' }).click();
   await expect(dono.janela.getByTestId('link-convite')).toHaveText(`${url}/convite/turma-nova-2026`);
-  const antigo = await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'bia', senha: 'senha-forte-1' } });
+  const antigo = await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'bia', senha: 'Senha-forte-1' } });
   expect(antigo.statusCode).toBe(403);
 
   // Auditoria: a conta removida aparece no filtro e as ações estão lá.
@@ -96,7 +98,7 @@ test('CA-9, CA-11a, CA-11b: promover, remover conta e trocar convite pelo app', 
 
 test('backlog v2, item 3: o administrador gera o código e a pessoa troca a senha pelo app', async () => {
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
 
   await noMenu(dono.janela, 'Membros');
@@ -114,12 +116,16 @@ test('backlog v2, item 3: o administrador gera o código e a pessoa troca a senh
   await j.getByRole('button', { name: 'Esqueci a senha' }).click();
   await j.getByLabel('Nome de usuário').fill('ana');
   await j.getByLabel('Código de redefinição').fill(codigo.toLowerCase());
-  await j.getByLabel('Senha nova').fill('senha-nova-123');
+  await j.getByLabel('Senha nova').fill('Senha-nova-123');
+  await j.getByLabel('Confirmar senha').fill('Senha-nova-123');
   await j.getByRole('button', { name: 'Trocar a senha' }).click();
   await expect(j.getByRole('status')).toHaveText('Senha trocada. Entre com a senha nova.');
   await expect(ana.janela.getByRole('button', { name: 'Entrar' })).toBeVisible({ timeout: 10_000 });
 
-  await j.getByLabel('Senha').fill('senha-nova-123');
+  await j.getByLabel('Senha', { exact: true }).fill('Senha-nova-123');
+
+
+  if (await j.getByLabel('Confirmar senha').count()) await j.getByLabel('Confirmar senha').fill('Senha-nova-123');
   await j.getByRole('button', { name: 'Entrar' }).click();
   await expect(j.getByTestId('usuario-logado')).toHaveText('Olá, ana');
 
@@ -130,7 +136,7 @@ test('backlog v2, item 3: o administrador gera o código e a pessoa troca a senh
 
 test('backlog v2, item 10c: o administrador dá o cargo Moderador; a ana ganha o convite, não a auditoria; cargo novo', async () => {
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   expect(await itensDoMenu(ana.janela)).not.toContain('Convite');
 

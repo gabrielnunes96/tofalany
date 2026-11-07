@@ -92,7 +92,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByRole('list', { name: 'Membros' })).toBeVisible();
   return { app, janela };
@@ -101,7 +102,7 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
 test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de fala acende e a auditoria registra', async () => {
   test.setTimeout(90_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
 
   await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
@@ -157,7 +158,7 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
 test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na chamada e escolhas guardadas', async () => {
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const j = dono.janela;
 
@@ -230,7 +231,7 @@ const teclaGlobal = (app: ElectronApplication, tipo: 'down' | 'up', codigo: stri
 test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global, atalho trocado e deafen', async () => {
   test.setTimeout(150_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const j = dono.janela;
   const donoFalando = ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem', { name: 'dono, falando' });
@@ -330,7 +331,7 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
 test('CA-27, CA-29, CA-58: volume por pessoa só para quem ajustou, sons de entrar/sair e silenciar lembrado', async () => {
   test.setTimeout(150_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const somDa = (p: Page) => p.evaluate(() => document.documentElement.dataset.somVoz ?? '');
 
@@ -420,7 +421,7 @@ function wavTom(segundos: number): Buffer {
 test('CA-32, CA-33, CA-34, CA-35: soundboard no canal de voz', async () => {
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const j = dono.janela;
   const tocouNa = (p: Page) => p.evaluate(() => document.documentElement.dataset.somSoundboard ?? '');
@@ -486,7 +487,7 @@ const ocioso = (app: ElectronApplication, segundos: number | undefined) =>
 test('CA-56, CA-57: status online, ausente e offline na lista de membros', async () => {
   test.setTimeout(90_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const membros = dono.janela.getByRole('list', { name: 'Membros' });
 
@@ -509,18 +510,22 @@ test('CA-56, CA-57: status online, ausente e offline na lista de membros', async
   await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible({ timeout: 15_000 });
 
   // Backlog v2, item 2: status escolhido pela ana, visto pelo dono; o invisível fica guardado ao reabrir.
-  const meuStatus = ana2.janela.getByLabel('Meu status');
-  await meuStatus.selectOption('naoIncomodar');
+  // O menu do status (botão com a bolinha e a lista de opções).
+  const escolherStatus = async (j: Page, opcao: string) => {
+    await j.getByRole('button', { name: /^Meu status:/ }).click();
+    await j.getByRole('option', { name: new RegExp(`^${opcao}`) }).click();
+  };
+  await escolherStatus(ana2.janela, 'Não incomodar');
   await expect(membros.getByRole('listitem', { name: 'ana, não incomodar' })).toBeVisible();
-  await meuStatus.selectOption('invisivel');
+  await escolherStatus(ana2.janela, 'Invisível');
   await expect(membros.getByRole('listitem', { name: 'ana, offline' })).toBeVisible();
   await ana2.app.close();
   const ana3 = await abrirApp('ana');
-  await expect(ana3.janela.getByLabel('Meu status')).toHaveValue('invisivel');
+  await expect(ana3.janela.getByRole('button', { name: 'Meu status: Invisível' })).toBeVisible();
   // Reabriu invisível: segue offline para o dono (depois de a carência passar sem ela voltar).
   await ana3.janela.waitForTimeout(2500);
   await expect(membros.getByRole('listitem', { name: 'ana, offline' })).toBeVisible();
-  await ana3.janela.getByLabel('Meu status').selectOption('auto');
+  await escolherStatus(ana3.janela, 'Online');
   await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible();
 
   await dono.app.close();
@@ -530,7 +535,7 @@ test('CA-56, CA-57: status online, ausente e offline na lista de membros', async
 test('backlog v2, item 14: /tocar no chat põe o bot no canal de voz; todos ouvem e veem; pular e parar', async () => {
   test.setTimeout(90_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const chat = dono.janela.getByLabel('Mensagem para #geral');
 
@@ -593,7 +598,7 @@ test('backlog v2, item 14: /tocar no chat põe o bot no canal de voz; todos ouve
 test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () => {
   test.setTimeout(90_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
   await dono.janela.getByLabel('Nome do novo canal de voz').fill('Papo');
@@ -642,7 +647,7 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
   test.skip(!!globalThis.process['env'].TOFALANDO_E2E_ISOLADO, 'captura de tela: rode com npm run test:e2e:desktop');
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const d = dono.janela;
   const a = ana.janela;
@@ -730,7 +735,7 @@ test('CA-39a, RF-28: membro só 720p30; administrador escolhe 1080p60 (e VP9) e 
   test.skip(!!globalThis.process['env'].TOFALANDO_E2E_ISOLADO, 'captura de tela: rode com npm run test:e2e:desktop');
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const d = dono.janela;
   const a = ana.janela;
@@ -778,7 +783,7 @@ test('CA-39a, RF-28: membro só 720p30; administrador escolhe 1080p60 (e VP9) e 
 test('CA-42, CA-46: a voz volta sozinha depois de o servidor de mídia cair; só o servidor configurado na rede', async () => {
   test.setTimeout(150_000);
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
   await dono.janela.getByLabel('Nome do novo canal de voz').fill('Papo');

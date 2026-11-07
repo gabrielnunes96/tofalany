@@ -31,6 +31,7 @@ describe('BarraLateral — mensagens diretas', () => {
         usuarios={[bia]}
         dmAtiva={7}
         aoAbrirDm={aoAbrirDm}
+        aba="diretas"
       />,
     );
     const lista = screen.getByRole('list', { name: 'Mensagens diretas' });
@@ -39,6 +40,41 @@ describe('BarraLateral — mensagens diretas', () => {
     expect(screen.getByRole('button', { name: /Bia/ }).getAttribute('aria-current')).toBe('page');
     fireEvent.click(screen.getByRole('button', { name: /conta removida/ }));
     expect(aoAbrirDm).toHaveBeenCalledWith(8);
+  });
+});
+
+describe('BarraLateral — abas Canais e Diretas', () => {
+  it('as conversas diretas ficam numa aba própria, com o total de não lidas; + começa conversa nova', () => {
+    const aoConversarCom = vi.fn();
+    render(
+      <BarraLateral
+        nomeServidor="T"
+        canais={[{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }]}
+        canalAtivo={1}
+        ehAdmin={false}
+        aoAbrir={vi.fn()}
+        aoCriar={fn()}
+        aoRenomear={fn()}
+        aoRemover={fn()}
+        dms={[dm]}
+        usuarios={[bia, { ...bia, id: 3, usuario: 'caio', nomeExibicao: 'Caio' }]}
+        dmAtiva={null}
+        aoAbrirDm={vi.fn()}
+        naoLidas={{ 'd:7': 2 }}
+        euId={1}
+        aoConversarCom={aoConversarCom}
+      />,
+    );
+    expect(screen.queryByRole('list', { name: 'Mensagens diretas' })).toBeNull();
+    const diretas = screen.getByRole('tab', { name: /Diretas/ });
+    expect(diretas.textContent).toContain('2 não lidas');
+    fireEvent.click(diretas);
+    expect(screen.getByRole('tab', { name: /Diretas/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('list', { name: 'Mensagens diretas' }).textContent).toContain('Bia');
+    expect(screen.queryByRole('list', { name: 'Canais de texto' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conversa' }));
+    fireEvent.click(screen.getByRole('list', { name: 'Conversar com' }).querySelectorAll('button')[1]!);
+    expect(aoConversarCom).toHaveBeenCalledWith(3);
   });
 });
 

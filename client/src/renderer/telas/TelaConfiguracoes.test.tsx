@@ -134,12 +134,13 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('Não foi possível abrir o microfone');
   });
 
-  it('backlog v2, 1e: opção de fechar para a bandeja', () => {
-    const aoMudarBandeja = vi.fn();
-    montar(AUDIO_PADRAO, 'forte', { fecharParaBandeja: true, aoMudarBandeja });
-    const caixa = screen.getByLabelText(/deixar o ToFalany na bandeja/);
-    expect(caixa).toHaveProperty('checked', true);
-    fireEvent.click(caixa);
-    expect(aoMudarBandeja).toHaveBeenCalledWith(false);
+  it('backlog v2, 1e: ao fechar a janela, perguntar, bandeja ou sair', () => {
+    const aoMudarAoFechar = vi.fn();
+    montar(AUDIO_PADRAO, 'forte', { aoFechar: 'perguntar', aoMudarAoFechar });
+    expect(screen.getByLabelText('Perguntar o que fazer')).toHaveProperty('checked', true);
+    fireEvent.click(screen.getByLabelText(/Minimizar para a bandeja/));
+    expect(aoMudarAoFechar).toHaveBeenCalledWith('bandeja');
+    fireEvent.click(screen.getByLabelText('Fechar o ToFalany'));
+    expect(aoMudarAoFechar).toHaveBeenCalledWith('sair');
   });
 });

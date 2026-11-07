@@ -30,23 +30,23 @@ describe('redefinir senha pelo app (backlog v2, item 3)', () => {
     expect(expiraEm).toBeGreaterThan(Date.now() + VALIDADE_REDEFINICAO_MS - 60_000);
 
     // Código errado ou usuário errado: a mesma resposta.
-    const errado = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'ana', codigo: 'AAAA-AAAA', senha: 'senha-nova-123' } });
+    const errado = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'ana', codigo: 'AAAA-AAAA', senha: 'Senha-nova-123' } });
     expect(errado.statusCode).toBe(400);
     expect(errado.json().erro).toBe('codigo_invalido');
-    const outro = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'ninguem', codigo, senha: 'senha-nova-123' } });
+    const outro = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'ninguem', codigo, senha: 'Senha-nova-123' } });
     expect(outro.json().erro).toBe('codigo_invalido');
 
     // Digitado em minúsculas e sem hífen também vale.
-    const ok = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'Ana', codigo: codigo.replace('-', '').toLowerCase(), senha: 'senha-nova-123' } });
+    const ok = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'Ana', codigo: codigo.replace('-', '').toLowerCase(), senha: 'Senha-nova-123' } });
     expect(ok.statusCode).toBe(204);
 
     // A sessão antiga caiu; a senha nova entra; a antiga não.
     expect((await app.inject({ method: 'GET', url: '/api/eu', headers: auth(anaCadastro.token) })).statusCode).toBe(401);
-    expect((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-nova-123' } })).statusCode).toBe(200);
-    expect((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-forte-1' } })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-nova-123' } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-forte-1' } })).statusCode).toBe(401);
 
     // Uso único.
-    const repetido = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'ana', codigo, senha: 'outra-senha-456' } });
+    const repetido = await app.inject({ method: 'POST', url: '/api/auth/redefinir', payload: { usuario: 'ana', codigo, senha: 'Outra-senha-456' } });
     expect(repetido.statusCode).toBe(400);
   });
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as EventoPonteiro } from 'react';
 import type { UsuarioDto } from '@tofalando/shared';
 import type { FaixaVideo, VideoSala } from '../servicos/voz';
+import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
 
 /** Um vídeo: prende a faixa no <video> enquanto estiver na tela. Duplo clique (ou o botão) = tela cheia. */
 function Quadro({ faixa, nome, meu }: { faixa: FaixaVideo; nome: string; meu: boolean }) {
@@ -14,14 +15,21 @@ function Quadro({ faixa, nome, meu }: { faixa: FaixaVideo; nome: string; meu: bo
       faixa.detach(el);
     };
   }, [faixa]);
-  const telaCheia = () => void figura.current?.requestFullscreen?.().catch(() => undefined);
+  const cheia = useEmTelaCheia(figura);
+  const telaCheia = () => alternarTelaCheia(figura.current);
   const rotulo = meu ? `${nome} (você)` : nome;
   return (
     <figure ref={figura} className={`quadro-video${meu ? ' meu' : ''}`} onDoubleClick={telaCheia}>
       <video ref={ref} autoPlay playsInline muted aria-label={`Vídeo de ${nome}`} />
       <figcaption>{rotulo}</figcaption>
-      <button type="button" className="icone quadro-tela-cheia" aria-label={`Tela cheia: ${rotulo}`} title="Tela cheia (ou duplo clique)" onClick={telaCheia}>
-        ⛶
+      <button
+        type="button"
+        className="icone quadro-tela-cheia"
+        aria-label={cheia ? `Sair da tela cheia: ${rotulo}` : `Tela cheia: ${rotulo}`}
+        title={cheia ? 'Sair da tela cheia (ou Esc)' : 'Tela cheia (ou duplo clique)'}
+        onClick={telaCheia}
+      >
+        {cheia ? '🗗' : '⛶'}
       </button>
     </figure>
   );

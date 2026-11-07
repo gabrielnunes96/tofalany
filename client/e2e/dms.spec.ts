@@ -36,7 +36,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByLabel('Mensagem para #geral')).toBeVisible();
   return { app, janela };
@@ -46,7 +47,7 @@ test('CA-19a e CA-19b: DM com texto e imagem só para os dois; edição chega; o
   test.setTimeout(90_000);
   const dono = await entrar('dono', true);
   for (const nome of ['ana', 'bia']) {
-    await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: nome, senha: 'senha-forte-1' } });
+    await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: nome, senha: 'Senha-forte-1' } });
   }
   const ana = await entrar('ana', false);
   const bia = await entrar('bia', false);
@@ -64,6 +65,8 @@ test('CA-19a e CA-19b: DM com texto e imagem só para os dois; edição chega; o
   await ana.janela.getByRole('button', { name: 'Enviar' }).click();
 
   // A bia vê a DM aparecer na barra e lê texto e imagem.
+  // As conversas diretas ficam na aba Diretas da barra.
+  await bia.janela.getByRole('tab', { name: /Diretas/ }).click();
   const dmsDaBia = bia.janela.getByRole('list', { name: 'Mensagens diretas' });
   await expect(dmsDaBia).toContainText('ana');
   await dmsDaBia.getByRole('button', { name: /ana/ }).click();
@@ -81,9 +84,10 @@ test('CA-19a e CA-19b: DM com texto e imagem só para os dois; edição chega; o
   await expect(listaBia).toContainText('(editada)');
 
   // O dono (admin) não tem essa conversa e o servidor recusa ler o histórico.
+  await dono.janela.getByRole('tab', { name: /Diretas/ }).click();
   await expect(dono.janela.getByRole('list', { name: 'Mensagens diretas' })).not.toContainText('ana');
   const dmId = (servidor.banco.prepare('SELECT id FROM dms').get() as { id: number }).id;
-  const login = (await servidor.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'dono', senha: 'senha-forte-1' } })).json();
+  const login = (await servidor.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'dono', senha: 'Senha-forte-1' } })).json();
   const tentativa = await servidor.inject({ method: 'GET', url: `/api/dms/${dmId}/mensagens`, headers: { authorization: `Bearer ${login.token}` } });
   expect(tentativa.statusCode).toBe(403);
 

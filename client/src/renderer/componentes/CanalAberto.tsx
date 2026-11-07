@@ -8,6 +8,8 @@ import { MensagensCanal } from './MensagensCanal';
 interface Props {
   /** Backlog v2, item 10: botões de mostrar/ocultar partes da tela, no fim do cabeçalho. */
   extras?: ReactNode;
+  /** Antes do título (ex.: botão de mostrar a barra de canais, quando escondida). */
+  antes?: ReactNode;
   canal: CanalDto | undefined;
   /** Pode remover o canal (administrador ou "Gerenciar canais"). */
   ehAdmin: boolean;
@@ -46,6 +48,7 @@ export function CanalAberto({
   silenciada = false,
   aoSilenciar,
   extras,
+  antes,
 }: Props) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
@@ -62,6 +65,7 @@ export function CanalAberto({
   return (
     <section className="canal-aberto" aria-labelledby="titulo-canal">
       <header className="canal-topo">
+        {antes}
         {modo === 'renomear' ? (
           <FormNome
             key={canal.id}

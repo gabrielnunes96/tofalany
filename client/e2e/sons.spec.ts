@@ -38,7 +38,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByRole('list', { name: 'Membros' })).toBeVisible();
   return { app, janela };
@@ -65,7 +66,7 @@ function wav(segundos: number): Buffer {
 
 test('CA-31: administrador cadastra, ouve, renomeia e remove sons; 15 s é recusado', async () => {
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   expect(await itensDoMenu(ana.janela)).not.toContain('Soundboard');
 
@@ -102,7 +103,7 @@ test('CA-31: administrador cadastra, ouve, renomeia e remove sons; 15 s é recus
   await expect(renomeado).toBeVisible();
 
   // Lista pública (o aviso por socket aos membros é coberto no teste do servidor; tocar é da T19).
-  const lista = await servidor.inject({ method: 'GET', url: '/api/sons', headers: { authorization: `Bearer ${(await servidor.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-forte-1' } })).json().token}` } });
+  const lista = await servidor.inject({ method: 'GET', url: '/api/sons', headers: { authorization: `Bearer ${(await servidor.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-forte-1' } })).json().token}` } });
   expect(lista.json()).toMatchObject([{ nome: 'Grilo 2', duracaoMs: 8000 }]);
 
   await renomeado.getByRole('button', { name: 'Remover' }).click();

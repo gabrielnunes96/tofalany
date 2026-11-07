@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema } from '@tofalando/shared';
+import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema , type AcaoFechar } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -40,8 +40,8 @@ interface Props {
   tema?: Tema;
   aoMudarTema?: (tema: Tema) => void;
   /** Backlog v2, 1e: fechar a janela deixa o app na bandeja. */
-  fecharParaBandeja?: boolean;
-  aoMudarBandeja?: (sim: boolean) => void;
+  aoFechar?: AcaoFechar;
+  aoMudarAoFechar?: (acao: AcaoFechar) => void;
   /** RF-28, R-3: qualidade padrão (só o que o cargo permite) e codec da transmissão de tela. */
   tela?: PreferenciasTela;
   aoMudarTela?: (t: PreferenciasTela) => void;
@@ -60,7 +60,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, fecharParaBandeja, aoMudarBandeja, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -279,14 +279,21 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
         </fieldset>
       )}
 
-      {fecharParaBandeja !== undefined && aoMudarBandeja && (
+      {aoFechar !== undefined && aoMudarAoFechar && (
         <fieldset className="opcoes">
-          <legend>Janela</legend>
-          <label>
-            <input type="checkbox" checked={fecharParaBandeja} onChange={(e) => aoMudarBandeja(e.target.checked)} /> Ao fechar a janela, deixar o ToFalany na bandeja do
-            sistema (a voz e as notificações continuam)
-          </label>
-          <p className="suave">Para sair de vez, use “Sair” no menu do ícone da bandeja.</p>
+          <legend>Janela: ao fechar</legend>
+          {(
+            [
+              ['perguntar', 'Perguntar o que fazer'],
+              ['bandeja', 'Minimizar para a bandeja (a voz e as notificações continuam)'],
+              ['sair', 'Fechar o ToFalany'],
+            ] as const
+          ).map(([valor, texto]) => (
+            <label key={valor}>
+              <input type="radio" name="ao-fechar" checked={aoFechar === valor} onChange={() => aoMudarAoFechar(valor)} /> {texto}
+            </label>
+          ))}
+          <p className="suave">Na bandeja, para sair de vez: clique direito no ícone → Sair.</p>
         </fieldset>
       )}
 

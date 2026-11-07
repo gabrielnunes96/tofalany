@@ -63,7 +63,7 @@ describe('Socket.IO autenticado (T4)', () => {
   it('sair pela API derruba na hora as conexões daquela sessão, não as de outra', async () => {
     const url = await subir();
     const { token } = (await cadastrar(app!, 'ana')).json();
-    const outra = (await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-forte-1' } })).json().token;
+    const outra = (await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-forte-1' } })).json().token;
     const c1 = abrir(url, token);
     const c2 = abrir(url, outra);
     await Promise.all([proximo(c1, 'ola'), proximo(c2, 'ola')]);

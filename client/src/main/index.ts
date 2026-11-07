@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, Notification, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, shell } from 'electron';
+import { acaoAoFechar } from '@tofalando/shared';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
@@ -33,11 +34,12 @@ if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
 const testeDiscreto = process.env.TOFALANDO_E2E === '1' && !app.isPackaged;
 
 let janelaPrincipal: BrowserWindow | undefined;
-/** Backlog v2, 1e: com a bandeja ativa e a opção ligada, fechar a janela só a esconde. */
+/** Backlog v2, 1e: com a bandeja ativa, fechar a janela pergunta (ou faz o que a pessoa escolheu): bandeja ou sair. */
 let saindo = false;
-let fecharParaBandeja = (): boolean => false;
-/** Na primeira vez que a janela vai para a bandeja (por execução), avisa onde o app ficou e como sair. */
-let avisouBandeja = false;
+let comBandeja = false;
+let perguntando = false;
+/** Configurações deste computador (criadas quando o app fica pronto; a janela fecha depois disso). */
+let armazem: ReturnType<typeof criarArmazemConfiguracoes> | undefined;
 /** Conferir versão nova (a janela voltando da bandeja é um bom momento). */
 let conferirAtualizacao = (): void => undefined;
 app.on('before-quit', () => (saindo = true));
@@ -81,17 +83,37 @@ function criarJanela(): BrowserWindow {
 
   janela.once('ready-to-show', () => (testeDiscreto ? janela.showInactive() : janela.show()));
   janela.on('close', (evento) => {
-    if (saindo || !fecharParaBandeja()) return;
+    if (saindo || !comBandeja) return;
+    const acao = acaoAoFechar(armazem?.ler() ?? {});
+    if (acao === 'sair') return;
     evento.preventDefault();
-    janela.hide();
-    if (!avisouBandeja && !testeDiscreto && Notification.isSupported()) {
-      avisouBandeja = true;
-      new Notification({
-        title: 'O ToFalany continua aberto',
-        body: 'Ficou na bandeja (ícone perto do relógio), com a voz e as notificações. Para fechar de vez: clique direito no ícone → Sair, ou desligue em Configurações → Janela.',
-        silent: true,
-      }).show();
+    if (acao === 'bandeja') {
+      janela.hide();
+      return;
     }
+    if (perguntando) return;
+    perguntando = true;
+    void dialog
+      .showMessageBox(janela, {
+        type: 'question',
+        title: 'Fechar o ToFalany',
+        message: 'Minimizar para a bandeja ou fechar o ToFalany?',
+        detail: 'Na bandeja (ícone perto do relógio), a voz e as notificações continuam.',
+        buttons: ['Minimizar para a bandeja', 'Fechar o ToFalany', 'Cancelar'],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+        checkboxLabel: 'Não perguntar novamente (dá para mudar em Configurações → Janela)',
+      })
+      .then(({ response, checkboxChecked }) => {
+        perguntando = false;
+        if (response === 2) return;
+        const escolha = response === 0 ? 'bandeja' : 'sair';
+        if (checkboxChecked) armazem?.gravar({ aoFechar: escolha });
+        if (escolha === 'bandeja') janela.hide();
+        else app.quit();
+      })
+      .catch(() => (perguntando = false));
   });
   janela.on('closed', () => {
     if (janelaPrincipal === janela) janelaPrincipal = undefined;
@@ -125,6 +147,7 @@ if (links.principal) {
   void app.whenReady().then(() => {
     const dados = app.getPath('userData');
     const configuracoes = criarArmazemConfiguracoes(join(dados, 'configuracoes.json'));
+    armazem = configuracoes;
     // CA-46: a janela só fala com o servidor configurado.
     const redeVista: { url: string; ok: boolean }[] = [];
     const registrarRede = process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged ? (url: string, ok: boolean) => void redeVista.push({ url, ok }) : undefined;
@@ -202,7 +225,7 @@ if (links.principal) {
         },
         sair: () => app.quit(),
       });
-      if (bandeja) fecharParaBandeja = () => configuracoes.ler().fecharParaBandeja !== false;
+      comBandeja = !!bandeja;
     }
 
     app.on('activate', () => {

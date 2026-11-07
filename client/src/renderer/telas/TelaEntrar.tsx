@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { validarSenha, validarUsuario, type SessaoResponse } from '@tofalando/shared';
+import { REGRAS_SENHA, validarSenha, validarUsuario, type SessaoResponse } from '@tofalando/shared';
 import { criarApi, ErroApiCliente, type ClienteApi } from '../servicos/api';
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
 }
 
 type Modo = 'entrar' | 'cadastrar' | 'redefinir';
-type Campo = 'convite' | 'usuario' | 'senha' | 'codigo';
+type Campo = 'convite' | 'usuario' | 'senha' | 'confirmar' | 'codigo';
 
 /** Login e cadastro com código de convite (RF-2, RF-3). */
 export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTrocarServidor, aoCancelarConvite, api }: Props) {
@@ -24,6 +24,7 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
   const [convite, setConvite] = useState(conviteInicial ?? '');
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
+  const [confirmar, setConfirmar] = useState('');
   const [codigo, setCodigo] = useState('');
   const [avisoLocal, setAvisoLocal] = useState<string | null>(null);
   const [errosCampo, setErrosCampo] = useState<Partial<Record<Campo, string>>>({});
@@ -45,11 +46,13 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
       if (!u.ok) novos.usuario = u.erro;
       const s = validarSenha(senha);
       if (!s.ok) novos.senha = s.erro;
+      else if (confirmar !== senha) novos.confirmar = 'As senhas não são iguais.';
     } else if (modo === 'redefinir') {
       if (!usuario.trim()) novos.usuario = 'Informe o nome de usuário.';
       if (!codigo.trim()) novos.codigo = 'Informe o código que o administrador mandou.';
       const s = validarSenha(senha);
       if (!s.ok) novos.senha = s.erro;
+      else if (confirmar !== senha) novos.confirmar = 'As senhas não são iguais.';
     } else {
       if (!usuario.trim()) novos.usuario = 'Informe o nome de usuário.';
       if (!senha) novos.senha = 'Informe a senha.';
@@ -69,6 +72,7 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
         await cliente.redefinirSenha({ usuario: usuario.trim(), codigo: codigo.trim(), senha });
         setCodigo('');
         setSenha('');
+        setConfirmar('');
         trocarModo('entrar');
         setAvisoLocal('Senha trocada. Entre com a senha nova.');
         setEnviando(false);
@@ -127,6 +131,19 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
         {campo('usuario', 'Nome de usuário', usuario, setUsuario, { autoComplete: 'username' })}
         {modo === 'redefinir' && campo('codigo', 'Código de redefinição', codigo, setCodigo, { autoComplete: 'off' })}
         {campo('senha', modo === 'redefinir' ? 'Senha nova' : 'Senha', senha, setSenha, { type: 'password', autoComplete: modo === 'entrar' ? 'current-password' : 'new-password' })}
+        {modo !== 'entrar' && (
+          <>
+            {campo('confirmar', 'Confirmar senha', confirmar, setConfirmar, { type: 'password', autoComplete: 'new-password' })}
+            <ul className="regras-senha" aria-label="A senha precisa ter">
+              {[...REGRAS_SENHA.map((r) => ({ id: r.id, texto: r.texto, ok: r.cumpre(senha) })), { id: 'iguais', texto: 'As duas senhas iguais', ok: confirmar !== '' && confirmar === senha }].map((r) => (
+                <li key={r.id} className={r.ok ? 'ok' : undefined}>
+                  <span aria-hidden="true">{r.ok ? '✓' : '○'}</span> {r.texto}
+                  <span className="so-leitor">{r.ok ? ' (ok)' : ' (falta)'}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {erro && (
           <p className="erro" role="alert">
             {erro}

@@ -116,7 +116,7 @@ describe('presença em voz (RF-13, CA-49)', () => {
     expect((await aviso)[0]!.canalVozId).toBe(jogo.id);
 
     // Quem conecta depois recebe a presença no ola.
-    const c = await abrir((await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-forte-1' } })).json().token);
+    const c = await abrir((await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-forte-1' } })).json().token);
     expect(c.ola.voz).toEqual([{ usuarioId: 2, canalVozId: jogo.id, mudo: false, surdo: false, camera: false }]);
 
     // Outro computador da mesma pessoa que não está na voz não tira ninguém.

@@ -43,15 +43,17 @@ test('CA-48 e CA-52: administrador vê a auditoria com entradas e saídas; membr
   await dono.janela.getByRole('button', { name: 'Tenho um convite' }).click();
   await dono.janela.getByLabel('Código de convite').fill(CONVITE);
   await dono.janela.getByLabel('Nome de usuário').fill('dono');
-  await dono.janela.getByLabel('Senha').fill('senha-forte-1');
+  await dono.janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await dono.janela.getByLabel('Confirmar senha').count()) await dono.janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await dono.janela.getByRole('button', { name: 'Criar conta' }).click();
   await expect(dono.janela.getByRole('list', { name: 'Membros' })).toContainText('dono');
 
   // Membro: conta criada direto na API; entra pelo app, não vê "Auditoria" e depois fecha o app.
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await abrir('ana');
   await ana.janela.getByLabel('Nome de usuário').fill('ana');
-  await ana.janela.getByLabel('Senha').fill('senha-forte-1');
+  await ana.janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await ana.janela.getByLabel('Confirmar senha').count()) await ana.janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await ana.janela.getByRole('button', { name: 'Entrar' }).click();
   await expect(ana.janela.getByTestId('usuario-logado')).toHaveText('Olá, ana');
   await expect(ana.janela.getByText(/^Membro · /)).toBeVisible();

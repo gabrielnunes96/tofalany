@@ -92,7 +92,8 @@ describe('App — link de convite (RF-1a)', () => {
     await screen.findByRole('heading', { name: 'Criar conta' });
     expect(estado.servidorUrl).toBeNull();
     fireEvent.change(screen.getByLabelText('Nome de usuário'), { target: { value: 'ana' } });
-    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'senha-forte-1' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'Senha-forte-1' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: 'Senha-forte-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }));
     expect(await screen.findByText(`PRINCIPAL ${B}`)).toBeTruthy();
     expect(estado.servidorUrl).toBe(B);

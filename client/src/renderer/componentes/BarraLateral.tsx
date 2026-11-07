@@ -1,10 +1,26 @@
-import { useState } from 'react';
-import type { CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
-import { Avatar } from './Avatar';
-import { StatusPonto } from './StatusPonto';
-import { FormNome } from './FormNome';
+import { Icone } from "./Icone";
+import { useState } from "react";
+import type {
+  CanalDto,
+  DmDto,
+  TipoCanal,
+  TransmissaoDto,
+  UsuarioDto,
+  VozEstadoDto,
+  StatusVisivel,
+} from "@tofalando/shared";
+import { Avatar } from "./Avatar";
+import { StatusPonto } from "./StatusPonto";
+import { FormNome } from "./FormNome";
 
 interface Props {
+  /** Esconde a barra (o botão fica no topo dela; para mostrar de novo, o botão vai para o topo da conversa). */
+  aoEsconder?: () => void;
+  /** O que a barra mostra: canais (texto e voz) ou as conversas diretas. Sem `aoMudarAba`, a barra controla sozinha. */
+  aba?: AbaBarra;
+  aoMudarAba?: (aba: AbaBarra) => void;
+  /** Começar conversa direta com alguém (botão "Nova conversa" na aba Diretas). */
+  aoConversarCom?: (usuarioId: number) => void;
   nomeServidor: string;
   canais: CanalDto[];
   canalAtivo: number | null;
@@ -39,12 +55,14 @@ interface Props {
 }
 
 /** Bolinha com o número de não lidas (99+ acima disso). */
+export type AbaBarra = "canais" | "diretas";
+
 function Contador({ n }: { n: number | undefined }) {
   if (!n) return null;
   return (
     <span className="contador">
-      <span aria-hidden="true">{n > 99 ? '99+' : n}</span>
-      <span className="so-leitor">{`${n} não ${n === 1 ? 'lida' : 'lidas'}`}</span>
+      <span aria-hidden="true">{n > 99 ? "99+" : n}</span>
+      <span className="so-leitor">{`${n} não ${n === 1 ? "lida" : "lidas"}`}</span>
     </span>
   );
 }
@@ -53,7 +71,11 @@ function Contador({ n }: { n: number | undefined }) {
 function Silenciada() {
   return (
     <>
-      <span className="silenciada" title="Notificações silenciadas" aria-hidden="true">
+      <span
+        className="silenciada"
+        title="Notificações silenciadas"
+        aria-hidden="true"
+      >
         🔕
       </span>
       <span className="so-leitor">, silenciada</span>
@@ -62,17 +84,30 @@ function Silenciada() {
 }
 
 const TITULOS: Record<TipoCanal, string> = {
-  texto: 'Canais de texto',
-  voz: 'Canais de voz',
+  texto: "Canais de texto",
+  voz: "Canais de voz",
 };
 
 /** Canal de voz na barra: renomear (qualquer membro) e remover (só administrador, com confirmação). */
 interface PropsItemVoz extends Pick<
   Props,
-  'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa'
+  | "ehAdmin"
+  | "aoRenomear"
+  | "aoRemover"
+  | "aoEntrarVoz"
+  | "servidorUrl"
+  | "euId"
+  | "pessoasVoz"
+  | "aoVolumePessoa"
+  | "aoSilenciarPessoa"
 > {
   canal: CanalDto;
-  presentes: { usuario: UsuarioDto; estado: VozEstadoDto; falando: boolean; transmite: boolean }[];
+  presentes: {
+    usuario: UsuarioDto;
+    estado: VozEstadoDto;
+    falando: boolean;
+    transmite: boolean;
+  }[];
   aqui: boolean;
 }
 
@@ -94,9 +129,14 @@ function AjustesPessoa({
   const nome = usuario.nomeExibicao;
   const porcento = Math.round(volume * 100);
   return (
-    <div className="ajustes-pessoa" role="group" id={`ajustes-${usuario.id}`} aria-label={`Ajustes de voz de ${nome}`}>
+    <div
+      className="ajustes-pessoa"
+      role="group"
+      id={`ajustes-${usuario.id}`}
+      aria-label={`Ajustes de voz de ${nome}`}
+    >
       <label htmlFor={`volume-${usuario.id}`}>
-        Volume de {nome}{' '}
+        Volume de {nome}{" "}
         <span className="suave" aria-hidden="true">
           {porcento}%
         </span>
@@ -111,7 +151,12 @@ function AjustesPessoa({
         aria-valuetext={`${porcento}%`}
         onChange={(e) => aoVolume(Number(e.target.value) / 100)}
       />
-      <button type="button" className={silenciado ? 'perigo' : 'secundario'} aria-pressed={silenciado} onClick={() => aoSilenciar(!silenciado)}>
+      <button
+        type="button"
+        className={silenciado ? "perigo" : "secundario"}
+        aria-pressed={silenciado}
+        onClick={() => aoSilenciar(!silenciado)}
+      >
         Silenciar {nome}
       </button>
     </div>
@@ -127,7 +172,17 @@ function PresentesVoz({
   pessoasVoz,
   aoVolumePessoa,
   aoSilenciarPessoa,
-}: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl' | 'aqui' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa'>) {
+}: Pick<
+  PropsItemVoz,
+  | "canal"
+  | "presentes"
+  | "servidorUrl"
+  | "aqui"
+  | "euId"
+  | "pessoasVoz"
+  | "aoVolumePessoa"
+  | "aoSilenciarPessoa"
+>) {
   const [abertos, setAbertos] = useState<number | null>(null);
   if (presentes.length === 0) return null;
   return (
@@ -135,18 +190,39 @@ function PresentesVoz({
       {presentes.map(({ usuario, estado, falando, transmite }) => {
         const silenciado = !!pessoasVoz?.silenciados.includes(usuario.id);
         // Só ajusta quem eu ouço: gente do meu canal, menos eu.
-        const ajustavel = aqui && usuario.id !== euId && !!aoVolumePessoa && !!aoSilenciarPessoa;
+        const ajustavel =
+          aqui &&
+          usuario.id !== euId &&
+          !!aoVolumePessoa &&
+          !!aoSilenciarPessoa;
         return (
-          <li key={usuario.id} className={falando ? 'falando' : undefined} aria-label={`${usuario.nomeExibicao}${falando ? ', falando' : ''}`}>
-            <Avatar usuario={usuario} servidorUrl={servidorUrl ?? ''} tamanho={20} />
+          <li
+            key={usuario.id}
+            className={falando ? "falando" : undefined}
+            aria-label={`${usuario.nomeExibicao}${falando ? ", falando" : ""}`}
+          >
+            <Avatar
+              usuario={usuario}
+              servidorUrl={servidorUrl ?? ""}
+              tamanho={20}
+            />
             <span className="nome">{usuario.nomeExibicao}</span>
             {silenciado && aqui && (
-              <span role="img" title="Silenciado por você" aria-label="silenciado por você" className="silenciado">
+              <span
+                role="img"
+                title="Silenciado por você"
+                aria-label="silenciado por você"
+                className="silenciado"
+              >
                 🔕
               </span>
             )}
             {transmite && (
-              <span role="img" title="Transmitindo a tela" aria-label="transmitindo a tela">
+              <span
+                role="img"
+                title="Transmitindo a tela"
+                aria-label="transmitindo a tela"
+              >
                 🖥️
               </span>
             )}
@@ -161,7 +237,11 @@ function PresentesVoz({
               </span>
             ) : (
               estado.mudo && (
-                <span role="img" title="Microfone desligado" aria-label="microfone desligado">
+                <span
+                  role="img"
+                  title="Microfone desligado"
+                  aria-label="microfone desligado"
+                >
                   🎙️✕
                 </span>
               )
@@ -171,10 +251,14 @@ function PresentesVoz({
                 type="button"
                 className="icone"
                 aria-expanded={abertos === usuario.id}
-                aria-controls={abertos === usuario.id ? `ajustes-${usuario.id}` : undefined}
+                aria-controls={
+                  abertos === usuario.id ? `ajustes-${usuario.id}` : undefined
+                }
                 aria-label={`Ajustes de voz de ${usuario.nomeExibicao}`}
                 title="Volume e silenciar"
-                onClick={() => setAbertos(abertos === usuario.id ? null : usuario.id)}
+                onClick={() =>
+                  setAbertos(abertos === usuario.id ? null : usuario.id)
+                }
               >
                 ⋯
               </button>
@@ -195,21 +279,31 @@ function PresentesVoz({
   );
 }
 
-function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes, aqui, servidorUrl, ...pessoas }: PropsItemVoz) {
-  const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
+function ItemVoz({
+  canal,
+  ehAdmin,
+  aoRenomear,
+  aoRemover,
+  aoEntrarVoz,
+  presentes,
+  aqui,
+  servidorUrl,
+  ...pessoas
+}: PropsItemVoz) {
+  const [modo, setModo] = useState<"ver" | "renomear" | "remover">("ver");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  if (modo === 'renomear') {
+  if (modo === "renomear") {
     return (
       <FormNome
         rotulo={`Novo nome do canal de voz ${canal.nome}`}
         inicial={canal.nome}
         textoBotao="Salvar"
-        aoCancelar={() => setModo('ver')}
+        aoCancelar={() => setModo("ver")}
         aoEnviar={async (nome) => {
           const falha = await aoRenomear(canal.id, nome);
-          if (!falha) setModo('ver');
+          if (!falha) setModo("ver");
           return falha;
         }}
       />
@@ -220,29 +314,49 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes
     <div className="item-voz">
       <button
         type="button"
-        className={`canal voz${aqui ? ' ativo' : ''}`}
-        aria-current={aqui ? 'true' : undefined}
-        aria-label={aqui ? `${canal.nome}, você está aqui` : `Entrar no canal de voz ${canal.nome}`}
-        title={aqui ? 'Você está neste canal' : 'Entrar'}
+        className={`canal voz${aqui ? " ativo" : ""}`}
+        aria-current={aqui ? "true" : undefined}
+        aria-label={
+          aqui
+            ? `${canal.nome}, você está aqui`
+            : `Entrar no canal de voz ${canal.nome}`
+        }
+        title={aqui ? "Você está neste canal" : "Entrar"}
         onClick={() => {
           if (!aqui) aoEntrarVoz?.(canal.id);
         }}
       >
         <span aria-hidden="true">🔊</span> {canal.nome}
       </button>
-      {modo === 'ver' ? (
+      {modo === "ver" ? (
         <span className="item-acoes">
-          <button type="button" className="icone" aria-label={`Renomear canal de voz ${canal.nome}`} title="Renomear" onClick={() => setModo('renomear')}>
+          <button
+            type="button"
+            className="icone"
+            aria-label={`Renomear canal de voz ${canal.nome}`}
+            title="Renomear"
+            onClick={() => setModo("renomear")}
+          >
             ✎
           </button>
           {ehAdmin && (
-            <button type="button" className="icone" aria-label={`Remover canal de voz ${canal.nome}`} title="Remover" onClick={() => setModo('remover')}>
+            <button
+              type="button"
+              className="icone"
+              aria-label={`Remover canal de voz ${canal.nome}`}
+              title="Remover"
+              onClick={() => setModo("remover")}
+            >
               ×
             </button>
           )}
         </span>
       ) : (
-        <span className="confirmar" role="group" aria-label={`Confirmar remoção de ${canal.nome}`}>
+        <span
+          className="confirmar"
+          role="group"
+          aria-label={`Confirmar remoção de ${canal.nome}`}
+        >
           <button
             type="button"
             className="perigo"
@@ -252,12 +366,16 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes
               const falha = await aoRemover(canal.id);
               setEnviando(false);
               setErro(falha);
-              setModo('ver');
+              setModo("ver");
             }}
           >
             Confirmar remoção
           </button>
-          <button type="button" className="secundario" onClick={() => setModo('ver')}>
+          <button
+            type="button"
+            className="secundario"
+            onClick={() => setModo("ver")}
+          >
             Cancelar
           </button>
         </span>
@@ -267,7 +385,13 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes
           {erro}
         </p>
       )}
-      <PresentesVoz canal={canal} presentes={presentes} servidorUrl={servidorUrl} aqui={aqui} {...pessoas} />
+      <PresentesVoz
+        canal={canal}
+        presentes={presentes}
+        servidorUrl={servidorUrl}
+        aqui={aqui}
+        {...pessoas}
+      />
     </div>
   );
 }
@@ -299,7 +423,23 @@ export function BarraLateral({
   presencas = {},
   silenciadas = [],
   transmissoes = [],
+  aoEsconder,
+  aba: abaControlada,
+  aoMudarAba,
+  aoConversarCom,
 }: Props) {
+  const [abaLocal, setAbaLocal] = useState<AbaBarra>("canais");
+  const aba = abaControlada ?? abaLocal;
+  const mudarAba = (a: AbaBarra) =>
+    aoMudarAba ? aoMudarAba(a) : setAbaLocal(a);
+  const [escolhendo, setEscolhendo] = useState(false);
+  const soma = (prefixo: string) =>
+    Object.entries(naoLidas).reduce(
+      (t, [k, n]) => (k.startsWith(prefixo) ? t + (n ?? 0) : t),
+      0,
+    );
+  const naoLidasCanais = soma("c:");
+  const naoLidasDiretas = soma("d:");
   const [criando, setCriando] = useState<TipoCanal | null>(null);
   const presentesEm = (canalId: number) =>
     voz.flatMap((estado) => {
@@ -311,7 +451,9 @@ export function BarraLateral({
               usuario,
               estado,
               falando: falando.includes(usuario.id),
-              transmite: transmissoes.some((t) => t.canalVozId === canalId && t.usuarioId === usuario.id),
+              transmite: transmissoes.some(
+                (t) => t.canalVozId === canalId && t.usuarioId === usuario.id,
+              ),
             },
           ]
         : [];
@@ -319,92 +461,201 @@ export function BarraLateral({
 
   return (
     <nav className="barra-lateral" aria-label="Canais">
-      <h1 className="nome-servidor">{nomeServidor}</h1>
-      {(['texto', 'voz'] as const).map((tipo) => (
-        <section key={tipo} className="grupo-canais" aria-labelledby={`grupo-${tipo}`}>
+      <div className="topo-barra">
+        <h1 className="nome-servidor">{nomeServidor}</h1>
+        {aoEsconder && (
+          <button
+            type="button"
+            className="icone esconder-canais"
+            aria-label="Esconder canais"
+            title="Esconder a barra de canais (Ctrl+B)"
+            onClick={aoEsconder}
+          >
+            <Icone nome="painelEsquerdo" />
+          </button>
+        )}
+      </div>
+      <div className="abas-barra" role="tablist" aria-label="Ver na barra">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={aba === "canais"}
+          className={aba === "canais" ? "ativa" : undefined}
+          onClick={() => mudarAba("canais")}
+        >
+          <Icone nome="hashtag" tamanho={15} /> Canais
+          <Contador n={aba === "canais" ? undefined : naoLidasCanais} />
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={aba === "diretas"}
+          className={aba === "diretas" ? "ativa" : undefined}
+          onClick={() => mudarAba("diretas")}
+        >
+          <Icone nome="conversas" tamanho={15} /> Diretas
+          <Contador n={naoLidasDiretas} />
+        </button>
+      </div>
+      {aba === "canais" &&
+        (["texto", "voz"] as const).map((tipo) => (
+          <section
+            key={tipo}
+            className="grupo-canais"
+            aria-labelledby={`grupo-${tipo}`}
+          >
+            <div className="grupo-topo">
+              <h2 id={`grupo-${tipo}`}>{TITULOS[tipo]}</h2>
+              <button
+                type="button"
+                className="icone"
+                aria-label={`Criar canal de ${tipo}`}
+                title={`Criar canal de ${tipo}`}
+                onClick={() => setCriando(tipo)}
+              >
+                +
+              </button>
+            </div>
+            {criando === tipo && (
+              <FormNome
+                rotulo={`Nome do novo canal de ${tipo}`}
+                textoBotao="Criar"
+                aoCancelar={() => setCriando(null)}
+                aoEnviar={async (nome) => {
+                  const falha = await aoCriar(tipo, nome);
+                  if (!falha) setCriando(null);
+                  return falha;
+                }}
+              />
+            )}
+            <ul aria-label={TITULOS[tipo]}>
+              {canais
+                .filter((c) => c.tipo === tipo)
+                .map((c) => (
+                  <li key={c.id}>
+                    {tipo === "texto" ? (
+                      <button
+                        type="button"
+                        className={`canal${c.id === canalAtivo ? " ativo" : ""}`}
+                        aria-current={c.id === canalAtivo ? "page" : undefined}
+                        onClick={() => aoAbrir(c.id)}
+                      >
+                        <span aria-hidden="true">#</span> {c.nome}
+                        {silenciadas.includes(`c:${c.id}`) && <Silenciada />}
+                        <Contador n={naoLidas[`c:${c.id}`]} />
+                      </button>
+                    ) : (
+                      <ItemVoz
+                        canal={c}
+                        ehAdmin={ehAdmin}
+                        aoRenomear={aoRenomear}
+                        aoRemover={aoRemover}
+                        aoEntrarVoz={aoEntrarVoz}
+                        presentes={presentesEm(c.id)}
+                        euId={euId}
+                        pessoasVoz={pessoasVoz}
+                        aoVolumePessoa={aoVolumePessoa}
+                        aoSilenciarPessoa={aoSilenciarPessoa}
+                        aqui={minhaVoz === c.id}
+                        servidorUrl={servidorUrl}
+                      />
+                    )}
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ))}
+      {aba === "diretas" && (
+        <section className="grupo-canais grupo-dms" aria-labelledby="grupo-dms">
           <div className="grupo-topo">
-            <h2 id={`grupo-${tipo}`}>{TITULOS[tipo]}</h2>
-            <button type="button" className="icone" aria-label={`Criar canal de ${tipo}`} title={`Criar canal de ${tipo}`} onClick={() => setCriando(tipo)}>
-              +
-            </button>
+            <h2 id="grupo-dms">Mensagens diretas</h2>
+            {aoConversarCom && (
+              <button
+                type="button"
+                className="icone"
+                aria-expanded={escolhendo}
+                aria-label="Nova conversa"
+                title="Nova conversa direta"
+                onClick={() => setEscolhendo(!escolhendo)}
+              >
+                <Icone nome="mais" tamanho={16} />
+              </button>
+            )}
           </div>
-          {criando === tipo && (
-            <FormNome
-              rotulo={`Nome do novo canal de ${tipo}`}
-              textoBotao="Criar"
-              aoCancelar={() => setCriando(null)}
-              aoEnviar={async (nome) => {
-                const falha = await aoCriar(tipo, nome);
-                if (!falha) setCriando(null);
-                return falha;
-              }}
-            />
-          )}
-          <ul aria-label={TITULOS[tipo]}>
-            {canais
-              .filter((c) => c.tipo === tipo)
-              .map((c) => (
-                <li key={c.id}>
-                  {tipo === 'texto' ? (
+          {escolhendo && aoConversarCom && (
+            <ul className="escolher-pessoa" aria-label="Conversar com">
+              {usuarios
+                .filter((u) => u.id !== euId)
+                .map((u) => (
+                  <li key={u.id}>
                     <button
                       type="button"
-                      className={`canal${c.id === canalAtivo ? ' ativo' : ''}`}
-                      aria-current={c.id === canalAtivo ? 'page' : undefined}
-                      onClick={() => aoAbrir(c.id)}
+                      className="canal"
+                      onClick={() => {
+                        setEscolhendo(false);
+                        aoConversarCom(u.id);
+                      }}
                     >
-                      <span aria-hidden="true">#</span> {c.nome}
-                      {silenciadas.includes(`c:${c.id}`) && <Silenciada />}
-                      <Contador n={naoLidas[`c:${c.id}`]} />
+                      <Avatar
+                        usuario={u}
+                        servidorUrl={servidorUrl ?? ""}
+                        tamanho={22}
+                      />{" "}
+                      {u.nomeExibicao}
                     </button>
-                  ) : (
-                    <ItemVoz
-                      canal={c}
-                      ehAdmin={ehAdmin}
-                      aoRenomear={aoRenomear}
-                      aoRemover={aoRemover}
-                      aoEntrarVoz={aoEntrarVoz}
-                      presentes={presentesEm(c.id)}
-                      euId={euId}
-                      pessoasVoz={pessoasVoz}
-                      aoVolumePessoa={aoVolumePessoa}
-                      aoSilenciarPessoa={aoSilenciarPessoa}
-                      aqui={minhaVoz === c.id}
-                      servidorUrl={servidorUrl}
-                    />
-                  )}
+                  </li>
+                ))}
+            </ul>
+          )}
+          {dms.length === 0 && !escolhendo && (
+            <p className="suave dica-dm">
+              Nenhuma conversa ainda. Use o + acima ou o envelope na lista de
+              membros.
+            </p>
+          )}
+          <ul aria-label="Mensagens diretas">
+            {dms.map((d) => {
+              const outro = usuarios.find((u) => u.id === d.outroId);
+              const nome = outro?.nomeExibicao ?? "conta removida";
+              return (
+                <li key={d.id}>
+                  <button
+                    type="button"
+                    className={`canal${d.id === dmAtiva ? " ativo" : ""}`}
+                    aria-current={d.id === dmAtiva ? "page" : undefined}
+                    onClick={() => aoAbrirDm(d.id)}
+                  >
+                    {outro ? (
+                      <span className="avatar-com-status">
+                        <Avatar
+                          usuario={outro}
+                          servidorUrl={servidorUrl ?? ""}
+                          tamanho={24}
+                        />
+                        <StatusPonto
+                          status={presencas[d.outroId] ?? "offline"}
+                          oculto
+                        />
+                      </span>
+                    ) : (
+                      <StatusPonto
+                        status={presencas[d.outroId] ?? "offline"}
+                        oculto
+                      />
+                    )}{" "}
+                    <span className="nome-dm">{nome}</span>
+                    <span className="so-leitor" id={`dm-status-${d.id}`}>
+                      {presencas[d.outroId] ?? "offline"}
+                    </span>
+                    {silenciadas.includes(`d:${d.id}`) && <Silenciada />}
+                    <Contador n={naoLidas[`d:${d.id}`]} />
+                  </button>
                 </li>
-              ))}
+              );
+            })}
           </ul>
         </section>
-      ))}
-      <section className="grupo-canais" aria-labelledby="grupo-dms">
-        <div className="grupo-topo">
-          <h2 id="grupo-dms">Mensagens diretas</h2>
-        </div>
-        {dms.length === 0 && <p className="suave dica-dm">Use ✉ na lista de membros para conversar só com uma pessoa.</p>}
-        <ul aria-label="Mensagens diretas">
-          {dms.map((d) => {
-            const nome = usuarios.find((u) => u.id === d.outroId)?.nomeExibicao ?? 'conta removida';
-            return (
-              <li key={d.id}>
-                <button
-                  type="button"
-                  className={`canal${d.id === dmAtiva ? ' ativo' : ''}`}
-                  aria-current={d.id === dmAtiva ? 'page' : undefined}
-                  onClick={() => aoAbrirDm(d.id)}
-                >
-                  <StatusPonto status={presencas[d.outroId] ?? 'offline'} oculto /> {nome}
-                  <span className="so-leitor" id={`dm-status-${d.id}`}>
-                    {presencas[d.outroId] ?? 'offline'}
-                  </span>
-                  {silenciadas.includes(`d:${d.id}`) && <Silenciada />}
-                  <Contador n={naoLidas[`d:${d.id}`]} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      )}
     </nav>
   );
 }

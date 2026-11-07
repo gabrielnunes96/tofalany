@@ -49,7 +49,7 @@ describe('auditoria — entrada e saída (CA-48)', () => {
     const url = await subir();
     const admin = (await cadastrar(app!, 'dono')).json().token;
     const { token: tokenAna } = (await cadastrar(app!, 'ana')).json();
-    const login = (await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-forte-1' } })).json();
+    const login = (await app!.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-forte-1' } })).json();
     const s = await abrir(url, login.token);
     s.close();
     await esperar(400);

@@ -41,7 +41,8 @@ async function criarConta(janela: Page, usuario: string, convite = CONVITE) {
   await janela.getByRole('button', { name: 'Tenho um convite' }).click();
   await janela.getByLabel('Código de convite').fill(convite);
   await janela.getByLabel('Nome de usuário').fill(usuario);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: 'Criar conta' }).click();
 }
 
@@ -103,10 +104,12 @@ test('CA-2, CA-5 e CA-6: cadastro com convite, primeira conta admin, reabrir ent
   await noMenu(janela, 'Sair');
   await expect(janela.getByRole('heading', { name: 'Entrar' })).toBeVisible();
   await janela.getByLabel('Nome de usuário').fill('DONO');
-  await janela.getByLabel('Senha').fill('senha-errada');
+  await janela.getByLabel('Senha', { exact: true }).fill('senha-errada');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('senha-errada');
   await janela.getByRole('button', { name: 'Entrar' }).click();
   await expect(janela.getByRole('alert')).toHaveText('Usuário ou senha incorretos.');
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: 'Entrar' }).click();
   await expect(janela.getByTestId('usuario-logado')).toHaveText('Olá, dono');
   await noMenu(janela, 'Sair');

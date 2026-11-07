@@ -46,7 +46,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByLabel('Mensagem para #geral')).toBeVisible();
   return { app, janela };
@@ -54,7 +55,7 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
 
 test('envio em tempo real entre dois apps, com várias linhas', async () => {
   const dono = await entrar('dono', true);
-  await servidor!.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor!.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
 
   const campo = ana.janela.getByLabel('Mensagem para #geral');
@@ -113,7 +114,7 @@ test('CA-14 e CA-15: 500 mensagens paginadas ao rolar; histórico sobrevive a re
 
 test('CA-17 e CA-18: editar com "(editada)", digitando que some, admin apaga mensagem alheia', async () => {
   const dono = await entrar('dono', true);
-  await servidor!.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor!.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const listaDono = dono.janela.getByRole('list', { name: 'Mensagens de #geral' });
   const listaAna = ana.janela.getByRole('list', { name: 'Mensagens de #geral' });

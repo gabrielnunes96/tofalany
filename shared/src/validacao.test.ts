@@ -40,10 +40,11 @@ describe('validarUsuario', () => {
 });
 
 describe('validarSenha', () => {
-  it('exige de 8 a 128 caracteres', () => {
-    expect(validarSenha('1234567')).toMatchObject({ ok: false });
-    expect(validarSenha('12345678')).toEqual({ ok: true, valor: '12345678' });
-    expect(validarSenha('x'.repeat(129))).toMatchObject({ ok: false });
+  it('exige de 8 a 128 caracteres, maiúscula, minúscula e número (e diz o que falta)', () => {
+    expect(validarSenha('Abcdef1')).toEqual({ ok: false, erro: 'A senha precisa ter: pelo menos 8 caracteres.' });
+    expect(validarSenha('12345678')).toEqual({ ok: false, erro: 'A senha precisa ter: uma letra maiúscula, uma letra minúscula.' });
+    expect(validarSenha('Ábcdefg9')).toEqual({ ok: true, valor: 'Ábcdefg9' });
+    expect(validarSenha('Aa1' + 'x'.repeat(126))).toMatchObject({ ok: false, erro: expect.stringContaining('no máximo') });
   });
 });
 

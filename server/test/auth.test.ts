@@ -13,7 +13,7 @@ const contas = (a: FastifyInstance) => (a.banco.prepare('SELECT COUNT(*) AS n FR
 describe('POST /api/auth/cadastro', () => {
   it('CA-2: convite errado é recusado e nenhuma conta é criada', async () => {
     app = await appTeste();
-    const r = await cadastrar(app, 'ana', 'senha-forte-1', 'errado');
+    const r = await cadastrar(app, 'ana', 'Senha-forte-1', 'errado');
     expect(r.statusCode).toBe(403);
     expect(r.json()).toEqual({ erro: 'convite_invalido', mensagem: 'Código de convite inválido.' });
     expect(contas(app)).toBe(0);
@@ -64,13 +64,13 @@ describe('POST /api/auth/cadastro', () => {
   it('sem código vigente no banco, nenhum convite passa (nem vazio)', async () => {
     app = await appTeste();
     app.banco.prepare("DELETE FROM configuracoes WHERE chave = 'codigo_convite'").run();
-    expect((await cadastrar(app, 'ana', 'senha-forte-1', '')).statusCode).toBe(403);
-    expect((await cadastrar(app, 'ana', 'senha-forte-1', CONVITE)).statusCode).toBe(403);
+    expect((await cadastrar(app, 'ana', 'Senha-forte-1', '')).statusCode).toBe(403);
+    expect((await cadastrar(app, 'ana', 'Senha-forte-1', CONVITE)).statusCode).toBe(403);
   });
 
   it('recusa dados inválidos com mensagem', async () => {
     app = await appTeste();
-    expect((await cadastrar(app, 'ana', '123')).json()).toEqual({ erro: 'dados_invalidos', mensagem: 'A senha deve ter pelo menos 8 caracteres.' });
+    expect((await cadastrar(app, 'ana', '123')).json()).toEqual({ erro: 'dados_invalidos', mensagem: 'A senha precisa ter: pelo menos 8 caracteres, uma letra maiúscula, uma letra minúscula.' });
     expect((await cadastrar(app, 'jo')).json()).toMatchObject({ erro: 'dados_invalidos' });
     const semCampo = await app.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana' } });
     expect(semCampo.statusCode).toBe(400);
@@ -79,10 +79,10 @@ describe('POST /api/auth/cadastro', () => {
 
   it('guarda a senha só como hash scrypt', async () => {
     app = await appTeste();
-    await cadastrar(app, 'ana', 'senha-forte-1');
+    await cadastrar(app, 'ana', 'Senha-forte-1');
     const { senha_hash } = app.banco.prepare('SELECT senha_hash FROM usuarios').get() as { senha_hash: string };
     expect(senha_hash).toMatch(/^scrypt\$32768\$8\$1\$/);
-    expect(senha_hash).not.toContain('senha-forte-1');
+    expect(senha_hash).not.toContain('Senha-forte-1');
   });
 });
 
@@ -105,8 +105,8 @@ describe('erros no formato do contrato', () => {
 describe('login, sessão e saída', () => {
   it('entra com usuário (sem diferenciar maiúsculas) e senha; erra com a senha errada', async () => {
     app = await appTeste();
-    await cadastrar(app, 'Ana', 'senha-forte-1');
-    const ok = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'senha-forte-1' } });
+    await cadastrar(app, 'Ana', 'Senha-forte-1');
+    const ok = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'Senha-forte-1' } });
     expect(ok.statusCode).toBe(200);
     expect(ok.json().usuario).toMatchObject({ usuario: 'Ana' });
     const errada = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'ana', senha: 'outra-senha' } });

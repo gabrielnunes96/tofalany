@@ -54,7 +54,8 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
     await janela.getByLabel('Código de convite').fill(CONVITE);
   }
   await janela.getByLabel('Nome de usuário').fill(nome);
-  await janela.getByLabel('Senha').fill('senha-forte-1');
+  await janela.getByLabel('Senha', { exact: true }).fill('Senha-forte-1');
+  if (await janela.getByLabel('Confirmar senha').count()) await janela.getByLabel('Confirmar senha').fill('Senha-forte-1');
   await janela.getByRole('button', { name: criar ? 'Criar conta' : 'Entrar' }).click();
   await expect(janela.getByLabel('Mensagem para #geral')).toBeVisible();
   return { app, janela };
@@ -74,7 +75,7 @@ async function interceptarNotificacoes(app: ElectronApplication) {
 
 test('CA-19: contador em conversa fechada some ao abrir; notificação fora da conversa e com o app sem foco; clique abre', async () => {
   const dono = await entrar('dono', true);
-  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'senha-forte-1' } });
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const notificacoesDaAna = await interceptarNotificacoes(ana.app);
   // A ana já conectada ao tempo real (vê o dono online) antes das mensagens: as que chegam durante a conexão
@@ -114,6 +115,7 @@ test('CA-19: contador em conversa fechada some ao abrir; notificação fora da c
   await dono.janela.getByRole('button', { name: 'Conversar com ana' }).click();
   await dono.janela.getByLabel('Mensagem para ana').fill('psiu');
   await dono.janela.getByLabel('Mensagem para ana').press('Enter');
+  await ana.janela.getByRole('tab', { name: /Diretas/ }).click();
   const dmDaAna = ana.janela.getByRole('list', { name: 'Mensagens diretas' }).getByRole('button', { name: /dono/ });
   await expect(dmDaAna).toContainText('1 não lida');
   await expect.poll(notificacoesDaAna).toContain('dono | psiu');
@@ -125,7 +127,7 @@ test('CA-19: contador em conversa fechada some ao abrir; notificação fora da c
 test('CA-59, CA-60, CA-61: conversa silenciada, notificações desligadas e aviso de entrada/saída do servidor', async () => {
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
-  for (const nome of ['ana', 'bia']) await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: nome, senha: 'senha-forte-1' } });
+  for (const nome of ['ana', 'bia']) await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: nome, senha: 'Senha-forte-1' } });
   const ana = await entrar('ana', false);
   const anaConectouEm = Date.now();
   const notificacoesDaAna = await interceptarNotificacoes(ana.app);
