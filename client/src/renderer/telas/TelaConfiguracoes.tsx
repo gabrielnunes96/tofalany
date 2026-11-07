@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela } from '@tofalando/shared';
+import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -36,6 +36,9 @@ interface Props {
   /** RF-39, RF-41: notificações. */
   notificacoes?: PreferenciasNotificacoes;
   aoMudarNotificacoes?: (n: PreferenciasNotificacoes) => void;
+  /** Backlog v2, item 9: tema da interface. */
+  tema?: Tema;
+  aoMudarTema?: (tema: Tema) => void;
   /** Backlog v2, 1e: fechar a janela deixa o app na bandeja. */
   fecharParaBandeja?: boolean;
   aoMudarBandeja?: (sim: boolean) => void;
@@ -57,7 +60,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, fecharParaBandeja, aoMudarBandeja, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, fecharParaBandeja, aoMudarBandeja, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -256,6 +259,23 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
             Notificação quando alguém entra ou sai do servidor
           </label>
           <p className="suave">Desligar não zera os contadores de não lidas. Para silenciar um canal ou conversa, use o 🔔 no topo dela.</p>
+        </fieldset>
+      )}
+
+      {tema && aoMudarTema && (
+        <fieldset className="opcoes">
+          <legend>Aparência</legend>
+          {(
+            [
+              ['neon', 'Neon da Madrugada', 'escuro, com ciano e magenta'],
+              ['breu', 'Breu', 'escuro e neutro, sem brilho'],
+              ['aurora', 'Aurora', 'claro'],
+            ] as const
+          ).map(([valor, nome, descricao]) => (
+            <label key={valor}>
+              <input type="radio" name="tema" checked={tema === valor} onChange={() => aoMudarTema(valor)} /> {nome} <span className="suave">({descricao})</span>
+            </label>
+          ))}
         </fieldset>
       )}
 

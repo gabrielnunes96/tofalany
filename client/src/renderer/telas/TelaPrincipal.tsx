@@ -8,6 +8,7 @@ import {
   type StatusPessoa,
   type StatusVisivel,
   type EscolhaStatus,
+  type Tema,
   type Atalhos,
   type PreferenciasAudio,
   type PreferenciasPessoas,
@@ -169,6 +170,15 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       .config.gravar({ tela: novo })
       .catch(() => undefined);
   }
+  // Backlog v2, item 9: tema (aplicado no <html>; main.tsx já aplica o guardado ao abrir).
+  const [tema, setTema] = useState<Tema>((document.documentElement.dataset.tema as Tema | undefined) ?? 'neon');
+  function mudarTema(novo: Tema) {
+    setTema(novo);
+    document.documentElement.dataset.tema = novo;
+    void ponte()
+      .config.gravar({ tema: novo })
+      .catch(() => undefined);
+  }
   // Backlog v2, item 2: status escolhido neste servidor (guardado no computador; o servidor recebe ao conectar).
   const [escolhaStatus, setEscolhaStatus] = useState<EscolhaStatus>('auto');
   const escolhaRef = useRef<EscolhaStatus>('auto');
@@ -233,6 +243,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         notifRef.current = c.notificacoes ?? NOTIFICACOES_PADRAO;
         telaRef.current = c.tela ?? TELA_PADRAO;
         setFecharParaBandeja(c.fecharParaBandeja !== false);
+        if (c.tema) setTema(c.tema);
         const escolhida = c.statusEscolhido?.[servidorUrl];
         if (escolhida && escolhaRef.current === 'auto') {
           escolhaRef.current = escolhida;
@@ -1183,6 +1194,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoMudarSons={mudarSons}
               notificacoes={notif}
               aoMudarNotificacoes={mudarNotificacoes}
+              tema={tema}
+              aoMudarTema={mudarTema}
               fecharParaBandeja={fecharParaBandeja}
               aoMudarBandeja={mudarBandeja}
               tela={telaPrefs}

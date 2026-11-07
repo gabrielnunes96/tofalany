@@ -5,6 +5,14 @@ import { AvisoAtualizacao } from './componentes/AvisoAtualizacao';
 import { ponte } from './servicos/ponte';
 import './estilos/base.css';
 
+// Backlog v2, item 9: o tema escolhido vale desde a primeira tela.
+void ponte()
+  .config.ler()
+  .then((c) => {
+    if (c.tema) document.documentElement.dataset.tema = c.tema;
+  })
+  .catch(() => undefined);
+
 const raiz = document.getElementById('raiz');
 if (!raiz) throw new Error('Elemento #raiz não encontrado.');
 createRoot(raiz).render(
