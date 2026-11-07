@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { CanalDto, UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { FormNome } from './FormNome';
@@ -6,6 +6,8 @@ import { BotaoSilenciarConversa } from './BotaoSilenciarConversa';
 import { MensagensCanal } from './MensagensCanal';
 
 interface Props {
+  /** Backlog v2, item 10: botões de mostrar/ocultar partes da tela, no fim do cabeçalho. */
+  extras?: ReactNode;
   canal: CanalDto | undefined;
   ehAdmin: boolean;
   aoRenomear: (id: number, nome: string) => Promise<string | null>;
@@ -39,6 +41,7 @@ export function CanalAberto({
   aoDigitar,
   silenciada = false,
   aoSilenciar,
+  extras,
 }: Props) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
@@ -108,6 +111,7 @@ export function CanalAberto({
             </button>
           </div>
         )}
+        {extras}
       </header>
       {erro && (
         <p className="erro" role="alert">

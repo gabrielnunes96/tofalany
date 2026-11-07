@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
   SOM_INTERVALO_MS,
   ATALHOS_PADRAO,
@@ -9,6 +9,7 @@ import {
   type StatusVisivel,
   type EscolhaStatus,
   type Tema,
+  type PartesOcultas,
   type Atalhos,
   type PreferenciasAudio,
   type PreferenciasPessoas,
@@ -170,6 +171,29 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       .config.gravar({ tela: novo })
       .catch(() => undefined);
   }
+  // Backlog v2, item 10: esconder canais, membros e câmeras (Ctrl+B e Ctrl+M; guardado no computador).
+  const [ocultos, setOcultos] = useState<PartesOcultas>({ canais: false, membros: false, cameras: false });
+  const alternarParte = useCallback((parte: keyof PartesOcultas) => {
+    setOcultos((atual) => {
+      const novo = { ...atual, [parte]: !atual[parte] };
+      void ponte()
+        .config.gravar({ ocultos: novo })
+        .catch(() => undefined);
+      return novo;
+    });
+  }, []);
+  useEffect(() => {
+    const tecla = (e: globalThis.KeyboardEvent) => {
+      if (!e.ctrlKey || e.shiftKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'b') alternarParte('canais');
+      else if (k === 'm') alternarParte('membros');
+      else return;
+      e.preventDefault();
+    };
+    document.addEventListener('keydown', tecla);
+    return () => document.removeEventListener('keydown', tecla);
+  }, [alternarParte]);
   // Backlog v2, item 8: menu do usuário (fecha ao clicar fora ou com Esc).
   const [menuAberto, setMenuAberto] = useState(false);
   useEffect(() => {
@@ -257,6 +281,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         telaRef.current = c.tela ?? TELA_PADRAO;
         setFecharParaBandeja(c.fecharParaBandeja !== false);
         if (c.tema) setTema(c.tema);
+        if (c.ocultos) setOcultos(c.ocultos);
         const escolhida = c.statusEscolhido?.[servidorUrl];
         if (escolhida && escolhaRef.current === 'auto') {
           escolhaRef.current = escolhida;
@@ -706,6 +731,42 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   }, [servidorUrl, token, acoes, aoSessaoRevogada]);
 
   const usuario = eu ?? usuarioInicial;
+  const barraVisao = (
+    <span className="barra-visao" role="group" aria-label="Mostrar ou ocultar">
+      <button
+        type="button"
+        className="icone"
+        aria-pressed={!ocultos.canais}
+        aria-label="Mostrar canais"
+        title="Canais (Ctrl+B)"
+        onClick={() => alternarParte('canais')}
+      >
+        ⇤
+      </button>
+      {videos.length > 0 && (
+        <button
+          type="button"
+          className="icone"
+          aria-pressed={!ocultos.cameras}
+          aria-label="Mostrar câmeras"
+          title="Câmeras"
+          onClick={() => alternarParte('cameras')}
+        >
+          📷
+        </button>
+      )}
+      <button
+        type="button"
+        className="icone"
+        aria-pressed={!ocultos.membros}
+        aria-label="Mostrar membros"
+        title="Membros (Ctrl+M)"
+        onClick={() => alternarParte('membros')}
+      >
+        ⇥
+      </button>
+    </span>
+  );
   const minhaTela = minhaVoz !== null && transmissoes.some((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id);
   const membrosPorStatus = useMemo(() => {
     const com = usuarios.map((u) => ({ u, status: (presencas[u.id] ?? 'offline') as StatusPessoa }));
@@ -950,7 +1011,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           {conexao === 'conectando' ? 'Conectando…' : 'Sem conexão com o servidor. Reconectando…'}
         </div>
       )}
-      <div className="layout-colunas">
+      <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
         <aside className="coluna-esquerda">
           <BarraLateral
             nomeServidor={nomeServidor ?? servidorUrl}
@@ -1206,7 +1267,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 faixa={telasRemotas.find((v) => v.usuarioId === t.usuarioId)?.faixa}
               />
             ))}
-          <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />
+          {!ocultos.cameras && <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />}
           {vistaAtual === 'auditoria' ? (
             <TelaAuditoria api={api} pessoas={pessoasAuditoria} canais={canais} aoVoltar={voltar} />
           ) : vistaAtual === 'membros' ? (
@@ -1249,6 +1310,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={acoes.atualizarUsuario} aoVoltar={voltar} />
           ) : dmAtiva !== null && dms.some((d) => d.id === dmAtiva) ? (
             <DmAberta
+              extras={barraVisao}
               key={`dm-${dmAtiva}`}
               dm={dms.find((d) => d.id === dmAtiva)!}
               outro={usuarios.find((u) => u.id === dms.find((d) => d.id === dmAtiva)!.outroId)}
@@ -1265,6 +1327,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             />
           ) : (
             <CanalAberto
+              extras={barraVisao}
               key={canalAtivo ?? 'nenhum'}
               canal={canais.find((c) => c.id === canalAtivo)}
               ehAdmin={ehAdmin}

@@ -82,3 +82,30 @@ test('backlog v2, item 9: trocar o tema em Configurações vale na hora e fica g
   await expect(de_novo.janela.getByRole('list', { name: 'Membros' })).toBeVisible();
   await expect.poll(() => de_novo.janela.evaluate(() => document.documentElement.dataset.tema)).toBe('breu');
 });
+
+test('backlog v2, item 10: esconder canais (Ctrl+B) e membros (botão); a escolha fica guardada', async () => {
+  const dono = await cadastrarDono();
+  const j = dono.janela;
+  const canais = j.getByRole('list', { name: 'Canais de texto' });
+  const membros = j.getByRole('list', { name: 'Membros' });
+  await expect(canais).toBeVisible();
+
+  await j.keyboard.press('Control+b');
+  await expect(canais).toBeHidden();
+  await j.getByRole('button', { name: 'Mostrar membros' }).click();
+  await expect(membros).toBeHidden();
+  // A conversa ocupa a largura toda e segue usável.
+  await j.getByLabel('Mensagem para #geral').fill('tela limpa');
+  await j.getByLabel('Mensagem para #geral').press('Enter');
+  await expect(j.getByRole('list', { name: 'Mensagens de #geral' })).toContainText('tela limpa');
+  await j.screenshot({ path: join(PRINTS, 'paineis-ocultos.png') });
+
+  await dono.app.close();
+  const de_novo = await abrir('dono');
+  await expect(de_novo.janela.getByLabel('Mensagem para #geral')).toBeVisible();
+  await expect(de_novo.janela.getByRole('list', { name: 'Canais de texto' })).toBeHidden();
+  await de_novo.janela.getByRole('button', { name: 'Mostrar canais' }).click();
+  await de_novo.janela.keyboard.press('Control+m');
+  await expect(de_novo.janela.getByRole('list', { name: 'Canais de texto' })).toBeVisible();
+  await expect(de_novo.janela.getByRole('list', { name: 'Membros' })).toBeVisible();
+});

@@ -30,6 +30,10 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
   if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
   if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
+  if (obj.ocultos && typeof obj.ocultos === 'object') {
+    const o = obj.ocultos as Record<string, unknown>;
+    resultado.ocultos = { canais: o.canais === true, membros: o.membros === true, cameras: o.cameras === true };
+  }
   if (typeof obj.tema === 'string' && (TEMAS as string[]).includes(obj.tema)) resultado.tema = obj.tema as Tema;
   if (obj.statusEscolhido && typeof obj.statusEscolhido === 'object') {
     const validos: Record<string, EscolhaStatus> = {};

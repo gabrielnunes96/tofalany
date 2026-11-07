@@ -418,3 +418,11 @@ button.icone.abrir-menu { flex: none; font-size: 1.1rem; }
 .menu-grupo { margin: 6px 10px 2px; color: var(--texto-suave); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 button.icone.controle.sair-voz { color: var(--magenta); }
 @media (prefers-reduced-motion: reduce) { .menu-usuario { animation: none; } }
+
+/* Backlog v2, item 10: partes da tela escondidas. */
+.layout-colunas.sem-canais { grid-template-columns: minmax(0, 1fr) 220px; }
+.layout-colunas.sem-membros { grid-template-columns: 250px minmax(0, 1fr); }
+.layout-colunas.sem-canais.sem-membros { grid-template-columns: minmax(0, 1fr); }
+.layout-colunas.sem-canais > .coluna-esquerda, .layout-colunas.sem-membros > .coluna-direita { display: none; }
+.barra-visao { display: inline-flex; gap: 2px; margin-left: auto; }
+.barra-visao button.icone[aria-pressed='false'] { color: var(--texto-suave); opacity: 0.6; }

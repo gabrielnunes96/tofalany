@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import type { DmDto, UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 import { chaveDm } from '../estado/loja';
@@ -7,6 +7,8 @@ import { BotaoSilenciarConversa } from './BotaoSilenciarConversa';
 import { Conversa } from './MensagensCanal';
 
 interface Props {
+  /** Backlog v2, item 10: botões de mostrar/ocultar partes da tela, no fim do cabeçalho. */
+  extras?: ReactNode;
   dm: DmDto;
   /** A outra pessoa (undefined se a conta foi removida). */
   outro: UsuarioDto | undefined;
@@ -24,7 +26,21 @@ interface Props {
 }
 
 /** RF-12a: conversa direta. Só as duas pessoas veem; nem administrador apaga mensagem alheia aqui (RN-18). */
-export function DmAberta({ dm, outro, usuarios, servidorUrl, euId, api, aoEnviar, aoEditarMensagem, aoApagarMensagem, aoDigitar, silenciada = false, aoSilenciar }: Props) {
+export function DmAberta({
+  dm,
+  outro,
+  usuarios,
+  servidorUrl,
+  euId,
+  api,
+  aoEnviar,
+  aoEditarMensagem,
+  aoApagarMensagem,
+  aoDigitar,
+  silenciada = false,
+  aoSilenciar,
+  extras,
+}: Props) {
   const nome = outro?.nomeExibicao ?? 'conta removida';
   const carregarPagina = useCallback((antes?: number) => api.mensagensDm(dm.id, antes), [api, dm.id]);
   return (
@@ -36,6 +52,7 @@ export function DmAberta({ dm, outro, usuarios, servidorUrl, euId, api, aoEnviar
         </h2>
         <span className="suave">Conversa direta · só vocês dois veem</span>
         {aoSilenciar && <BotaoSilenciarConversa silenciada={silenciada} nome={nome} aoSilenciar={aoSilenciar} />}
+        {extras}
       </header>
       <Conversa
         conversa={{
