@@ -56,6 +56,8 @@ export interface ApiTofalando {
   /** CA-46: servidor de um convite em andamento (já testado) pode ser usado antes de virar o salvo. */
   rede: {
     servidorPendente(url: string | null): Promise<void>;
+    /** Backlog v2, item 10b: um player do YouTube abriu (true) ou fechou (false). */
+    video(aberto: boolean): Promise<void>;
   };
   /** Backlog v2, 1d: versão nova (baixada, para reiniciar; ou só disponível, para baixar pela página). */
   atualizacao: {

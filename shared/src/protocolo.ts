@@ -39,6 +39,19 @@ export interface UsuarioAdminDto extends UsuarioDto {
   removido: boolean;
 }
 
+/** Backlog v2, item 10b: prévia de um link do chat (buscada pelo servidor; a imagem vem embutida). */
+export interface PreviaLink {
+  url: string;
+  tipo: 'pagina' | 'youtube';
+  site?: string;
+  titulo?: string;
+  descricao?: string;
+  /** Miniatura reduzida, como data:image/webp. */
+  imagem?: string;
+  /** Só no YouTube: o vídeo para o player. */
+  videoId?: string;
+}
+
 /** Backlog v2, item 3: código de redefinição de senha gerado pelo administrador. */
 export interface RedefinicaoDto {
   codigo: string;

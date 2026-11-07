@@ -8,6 +8,9 @@ const LOCAIS = new Set(['file:', 'devtools:', 'data:', 'blob:', 'chrome:', 'abou
  * desenvolvimento, a sondagem `/api/servidor`, que testa um endereço novo antes de ele ser salvo, e a
  * primeira execução (sem servidor salvo ainda).
  */
+/** Backlog v2, item 10b: o player do YouTube (modo sem cookies) e o que ele carrega, só com um player aberto. */
+const HOSTS_VIDEO = /(^|\.)(youtube-nocookie\.com|youtube\.com|ytimg\.com|googlevideo\.com|ggpht\.com|gstatic\.com|googleapis\.com|google\.com)$/;
+
 /** Hosts das releases do GitHub (backlog v2, 1d): só para pedidos do processo principal, nunca da janela. */
 const HOSTS_ATUALIZACAO = /^(github\.com|api\.github\.com|[a-z0-9-]+\.githubusercontent\.com)$/;
 
@@ -15,7 +18,7 @@ export function permitido(
   url: string,
   servidorUrl: string | null,
   urlDev?: string,
-  opcoes: { metodo?: string; pendente?: string | null; doProcessoPrincipal?: boolean } = {},
+  opcoes: { metodo?: string; pendente?: string | null; doProcessoPrincipal?: boolean; videoAberto?: boolean } = {},
 ): boolean {
   let u: URL;
   try {
@@ -26,6 +29,7 @@ export function permitido(
   if (LOCAIS.has(u.protocol)) return true;
   if (!['http:', 'https:', 'ws:', 'wss:'].includes(u.protocol)) return false;
   if (opcoes.doProcessoPrincipal && u.protocol === 'https:' && HOSTS_ATUALIZACAO.test(u.hostname)) return true;
+  if (opcoes.videoAberto && (u.protocol === 'https:' || u.protocol === 'wss:') && HOSTS_VIDEO.test(u.hostname)) return true;
   if (urlDev && (url === urlDev || url.startsWith(urlDev.endsWith('/') ? urlDev : `${urlDev}/`))) return true;
   // Sondagem de endereço novo: só leitura, sem parâmetros (não vira canal para mandar dados a qualquer host).
   const leitura = !opcoes.metodo || opcoes.metodo === 'GET' || opcoes.metodo === 'HEAD';
@@ -45,10 +49,16 @@ export function permitido(
 }
 
 /** Liga o filtro na sessão padrão; `registrar` recebe cada pedido (para depurar e para os testes de ponta a ponta). */
-export function filtrarRede(servidorUrl: () => string | null, urlDev?: string, registrar?: (url: string, ok: boolean) => void, pendente: () => string | null = () => null) {
+export function filtrarRede(
+  servidorUrl: () => string | null,
+  urlDev?: string,
+  registrar?: (url: string, ok: boolean) => void,
+  pendente: () => string | null = () => null,
+  videoAberto: () => boolean = () => false,
+) {
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (detalhe, responder) => {
     // Sem webContents: pedido do processo principal (a atualização automática), não da janela.
-    const ok = permitido(detalhe.url, servidorUrl(), urlDev, { metodo: detalhe.method, pendente: pendente(), doProcessoPrincipal: detalhe.webContentsId === undefined });
+    const ok = permitido(detalhe.url, servidorUrl(), urlDev, { metodo: detalhe.method, pendente: pendente(), doProcessoPrincipal: detalhe.webContentsId === undefined, videoAberto: videoAberto() });
     registrar?.(detalhe.url, ok);
     if (!ok) console.warn('Bloqueado (fora do servidor configurado):', new URL(detalhe.url).origin);
     responder({ cancel: !ok });

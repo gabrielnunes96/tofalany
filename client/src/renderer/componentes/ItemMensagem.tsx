@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { validarTextoMensagem, type MensagemDto, type UsuarioDto } from '@tofalando/shared';
 import { Avatar } from './Avatar';
 import { ListaAnexos } from './Anexos';
+import { CartaoPrevia, linksDoTexto, TextoComLinks } from './Previa';
 
 interface Props {
   mensagem: MensagemDto;
@@ -101,7 +102,14 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
             </div>
           </div>
         ) : (
-          m.texto && <p className="mensagem-texto">{m.texto}</p>
+          m.texto && (
+            <>
+              <p className="mensagem-texto">
+                <TextoComLinks texto={m.texto} />
+              </p>
+              {linksDoTexto(m.texto)[0] && <CartaoPrevia url={linksDoTexto(m.texto)[0]!} />}
+            </>
+          )
         )}
         <ListaAnexos anexos={m.anexos} servidorUrl={servidorUrl} />
         {modo === 'apagar' && (

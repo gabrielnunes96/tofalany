@@ -20,7 +20,7 @@ export default defineConfig({
         transformIndexHtml: (html: string) =>
           html.replace(
             '<head>',
-            `<head>\n    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:; media-src 'self' blob: http: https:; connect-src 'self' data: blob: http: https: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'" />`,
+            `<head>\n    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:; media-src 'self' blob: http: https:; connect-src 'self' data: blob: http: https: ws: wss:; font-src 'self' data:; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'" />`,
           ),
       },
     ],

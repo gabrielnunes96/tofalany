@@ -23,6 +23,7 @@ import { registrarRotasServidor } from './routes/servidor.js';
 import { registrarRotasAuth } from './routes/auth.js';
 import { criarTempoReal, type TempoReal } from './realtime/tempo-real.js';
 import { registrarRotasAuditoria } from './routes/auditoria.js';
+import { registrarRotasPrevia } from './routes/previa.js';
 import { fecharOnlinesPendentes, limparAuditoria } from './dominio/auditoria.js';
 
 const LIMPEZA_AUDITORIA_MS = 6 * 60 * 60 * 1000;
@@ -112,6 +113,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   app.addHook('onClose', async () => clearInterval(limpezaOrfaos));
   app.decorate('tempoReal', tempoReal);
   registrarRotasServidor(app, banco, config);
+  registrarRotasPrevia(app, banco);
   registrarRotasAuth(app, banco, config, tempoReal);
   registrarRotasAuditoria(app, banco);
   registrarRotasArquivos(app, armazem);

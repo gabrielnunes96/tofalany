@@ -48,6 +48,7 @@ import { TelaSons } from './TelaSons';
 import { TelaConfiguracoes } from './TelaConfiguracoes';
 import { Avatar } from '../componentes/Avatar';
 import { StatusPonto, TEXTO_STATUS } from '../componentes/StatusPonto';
+import { ContextoPrevia, criarBuscaPrevia } from '../componentes/Previa';
 import { BarraLateral } from '../componentes/BarraLateral';
 import { CanalAberto } from '../componentes/CanalAberto';
 import { DmAberta } from '../componentes/DmAberta';
@@ -784,6 +785,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     ] as ({ grupo: string } | { u: UsuarioDto; status: StatusPessoa })[];
   }, [usuarios, presencas]);
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
+  // Backlog v2, item 10b: prévias de links, guardadas enquanto a tela estiver aberta.
+  const buscarPrevia = useMemo(() => criarBuscaPrevia((url) => api.previa(url)), [api]);
   const ehAdmin = usuario.cargo === 'admin';
   const vistaAtual: Vista = !ehAdmin && (vista === 'auditoria' || vista === 'membros' || vista === 'convite' || vista === 'sons') ? 'canal' : vista;
 
@@ -1255,6 +1258,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           </section>
         </aside>
 
+        <ContextoPrevia.Provider value={buscarPrevia}>
         <main className="conteudo">
           {minhaTela && (
             <section className="aviso-transmissao" aria-label="Sua transmissão">
@@ -1352,6 +1356,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             />
           )}
         </main>
+        </ContextoPrevia.Provider>
 
         {seletorTela && (
           <SeletorTela

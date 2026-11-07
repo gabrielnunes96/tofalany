@@ -54,6 +54,7 @@ const api: ApiTofalando = {
   },
   rede: {
     servidorPendente: (url) => ipcRenderer.invoke('rede:pendente', url),
+    video: (aberto) => ipcRenderer.invoke('rede:video', aberto === true),
   },
   atualizacao: {
     estado: () => ipcRenderer.invoke('atualizacao:estado'),

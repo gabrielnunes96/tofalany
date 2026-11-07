@@ -122,7 +122,12 @@ if (links.principal) {
       const n = typeof url === 'string' ? normalizarUrlServidor(url) : undefined;
       servidorPendente = n?.ok ? n.valor : null;
     });
-    filtrarRede(() => configuracoes.ler().servidorUrl, app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL, registrarRede, () => servidorPendente);
+    // Backlog v2, item 10b: players do YouTube abertos (o filtro só libera o YouTube enquanto houver algum).
+    let videosAbertos = 0;
+    ipcMain.handle('rede:video', (_e, aberto: unknown) => {
+      videosAbertos = Math.max(0, videosAbertos + (aberto === true ? 1 : -1));
+    });
+    filtrarRede(() => configuracoes.ler().servidorUrl, app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL, registrarRede, () => servidorPendente, () => videosAbertos > 0);
     // RF-15: atalhos globais mandam aperto/soltura para a janela (funcionam com ela em segundo plano).
     const atalhos = criarAtalhos(
       (e) => {
