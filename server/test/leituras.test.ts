@@ -34,6 +34,20 @@ async function preparar() {
 }
 
 describe('não lidas (RF-12)', () => {
+  it('GET /api/nao-lidas: total da pessoa (canais e DMs), só com sessão', async () => {
+    const { ana, bia } = await preparar();
+    const geral = ana.ola.canais.find((c) => c.tipo === 'texto')!.id;
+    const dm = ((await pedir(ana.s, 'dm:abrir', { usuarioId: bia.id })).valor as DmDto).id;
+    for (const t of ['um', 'dois']) await pedir(ana.s, 'mensagem:enviar', { destino: { canalId: geral }, texto: t });
+    await pedir(ana.s, 'mensagem:enviar', { destino: { dmId: dm }, texto: 'oi' });
+    const daBia = await app!.inject({ method: 'GET', url: '/api/nao-lidas', headers: { authorization: `Bearer ${bia.token}` } });
+    expect(daBia.json()).toEqual({ total: 3 });
+    const daAna = await app!.inject({ method: 'GET', url: '/api/nao-lidas', headers: { authorization: `Bearer ${ana.token}` } });
+    expect(daAna.json()).toEqual({ total: 0 });
+    expect((await app!.inject({ method: 'GET', url: '/api/nao-lidas' })).statusCode).toBe(401);
+  });
+
+
   it('conta só mensagens dos outros depois da última lida, em canal e DM; reconectar traz os números', async () => {
     const { abrir, ana, bia } = await preparar();
     const geral = ana.ola.canais.find((c) => c.tipo === 'texto')!.id;

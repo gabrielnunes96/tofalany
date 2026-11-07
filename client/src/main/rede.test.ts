@@ -36,6 +36,17 @@ describe('privacidade de rede (CA-46)', () => {
     expect(permitido('http://localhost:51730/x', servidor, 'http://localhost:5173')).toBe(false);
   });
 
+  it('outros servidores conhecidos: só GET /api/nao-lidas, sem parâmetros', () => {
+    const conhecidos = ['https://outro.io', 'http://10.0.0.5:3000'];
+    expect(permitido('https://outro.io/api/nao-lidas', 'https://s.io', undefined, { conhecidos })).toBe(true);
+    expect(permitido('http://10.0.0.5:3000/api/nao-lidas', 'https://s.io', undefined, { conhecidos, metodo: 'GET' })).toBe(true);
+    expect(permitido('https://outro.io/api/eu', 'https://s.io', undefined, { conhecidos })).toBe(false);
+    expect(permitido('https://outro.io/api/nao-lidas?x=1', 'https://s.io', undefined, { conhecidos })).toBe(false);
+    expect(permitido('https://outro.io/api/nao-lidas', 'https://s.io', undefined, { conhecidos, metodo: 'POST' })).toBe(false);
+    expect(permitido('wss://outro.io/api/nao-lidas', 'https://s.io', undefined, { conhecidos })).toBe(false);
+    expect(permitido('https://estranho.io/api/nao-lidas', 'https://s.io', undefined, { conhecidos })).toBe(false);
+  });
+
   it('atualização: o processo principal fala com o GitHub por HTTPS; a janela não', () => {
     const principal = { doProcessoPrincipal: true };
     expect(permitido('https://github.com/gabrielnunes96/tofalany/releases/download/v0.2.0/latest.yml', 'https://s.io', undefined, principal)).toBe(true);

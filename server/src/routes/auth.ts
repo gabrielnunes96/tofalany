@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { validarSenha, validarUsuario, type CadastroRequest, type LoginRequest, type RedefinirSenhaRequest, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
+import { validarSenha, validarUsuario, type CadastroRequest, type LoginRequest, type RedefinirSenhaRequest, type ResumoNaoLidas, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
@@ -8,6 +8,7 @@ import { criarLimitador, type Limitador } from '../auth/limitador.js';
 import { exigirSessao } from '../auth/sessao-http.js';
 import { buscarPorId, buscarPorLogin, cadastrarUsuario, conferirConvite, paraDto } from '../dominio/usuarios.js';
 import { criarSessao, revogarSessao, revogarSessoesDoUsuario } from '../dominio/sessoes.js';
+import { contarNaoLidas } from '../dominio/leituras.js';
 import { usarRedefinicao } from '../dominio/redefinicoes.js';
 import { hashToken } from '../auth/tokens.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
@@ -107,5 +108,11 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
     const linha = buscarPorId(banco, req.usuarioId!);
     if (!linha) throw new ErroHttp(401, 'nao_autenticado', 'Sessão inválida ou encerrada. Entre de novo.');
     return paraDto(linha);
+  });
+
+  // Backlog v2: o app consulta os servidores que não estão abertos para mostrar o número no ícone de cada um.
+  app.get('/api/nao-lidas', { preHandler: exigirSessao(banco) }, async (req): Promise<ResumoNaoLidas> => {
+    const total = Object.values(contarNaoLidas(banco, req.usuarioId!)).reduce((soma, n) => soma + n, 0);
+    return { total };
   });
 }

@@ -127,7 +127,7 @@ if (links.principal) {
     ipcMain.handle('rede:video', (_e, aberto: unknown) => {
       videosAbertos = Math.max(0, videosAbertos + (aberto === true ? 1 : -1));
     });
-    filtrarRede(() => configuracoes.ler().servidorUrl, app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL, registrarRede, () => servidorPendente, () => videosAbertos > 0);
+    filtrarRede(() => configuracoes.ler().servidorUrl, app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL, registrarRede, () => servidorPendente, () => videosAbertos > 0, () => (configuracoes.ler().servidores ?? []).map((s) => s.url));
     // RF-15: atalhos globais mandam aperto/soltura para a janela (funcionam com ela em segundo plano).
     const atalhos = criarAtalhos(
       (e) => {

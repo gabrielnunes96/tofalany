@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -25,6 +25,8 @@ export interface ClienteApi {
   entrar(dados: LoginRequest): Promise<SessaoResponse>;
   sair(): Promise<void>;
   eu(): Promise<UsuarioDto>;
+  /** Backlog v2: total de não lidas neste servidor (número no ícone da coluna de servidores). */
+  naoLidas(): Promise<ResumoNaoLidas>;
   auditoria(filtro: FiltroAuditoria): Promise<PaginaAuditoria>;
   atualizarPerfil(dados: AtualizarPerfilRequest): Promise<UsuarioDto>;
   enviarAvatar(arquivo: Blob, nome: string): Promise<{ avatarUrl: string }>;
@@ -100,6 +102,7 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     entrar: (dados) => chamar('POST', '/api/auth/login', dados),
     sair: () => chamar('POST', '/api/auth/sair'),
     eu: () => chamar('GET', '/api/eu'),
+    naoLidas: () => chamar('GET', '/api/nao-lidas'),
     auditoria: (filtro) => chamar('GET', `/api/admin/auditoria${consulta(filtro)}`),
     atualizarPerfil: (dados) => chamar('PATCH', '/api/eu', dados),
     usuariosAdmin: () => chamar('GET', '/api/admin/usuarios'),

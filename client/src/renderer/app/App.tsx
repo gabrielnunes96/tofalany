@@ -8,6 +8,7 @@ import { TelaEntrar } from '../telas/TelaEntrar';
 import { TelaPrincipal } from '../telas/TelaPrincipal';
 import { avisoDeRevogacao } from './avisos';
 import { ColunaServidores } from '../componentes/ColunaServidores';
+import { INTERVALO_OUTROS_MS, naoLidasDosOutros } from '../servicos/naolidas-servidores';
 
 type Estado =
   | { fase: 'carregando' }
@@ -167,13 +168,35 @@ export function App() {
   }
 
   const urlAtiva = estado.fase === 'principal' || estado.fase === 'entrar' || estado.fase === 'sem-conexao' ? estado.url : null;
+
+  // Backlog v2: número de não lidas no ícone dos outros servidores (consulta a cada minuto e ao trocar de servidor).
+  const [naoLidasOutros, setNaoLidasOutros] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (servidores.length < 2) return;
+    let vivo = true;
+    const conferir = () =>
+      void naoLidasDosOutros(
+        servidores,
+        urlAtiva,
+        async (url) => (await ponte().sessao.ler(url).catch(() => null))?.token ?? null,
+        (url, token) => criarApi(url, token).naoLidas(),
+      ).then((r) => {
+        if (vivo) setNaoLidasOutros(r);
+      });
+    conferir();
+    const relogio = setInterval(conferir, INTERVALO_OUTROS_MS);
+    return () => {
+      vivo = false;
+      clearInterval(relogio);
+    };
+  }, [servidores, urlAtiva]);
   /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
   const comColuna = (tela: ReactNode) =>
     servidores.length === 0 ? (
       tela
     ) : (
       <div className="app-com-servidores">
-        <ColunaServidores servidores={servidores} ativo={urlAtiva} aoEscolher={(url) => void irParaServidor(url)} aoAdicionar={trocarServidor} />
+        <ColunaServidores servidores={servidores} ativo={urlAtiva} naoLidas={naoLidasOutros} aoEscolher={(url) => void irParaServidor(url)} aoAdicionar={trocarServidor} />
         <div className="app-tela">{tela}</div>
       </div>
     );

@@ -18,7 +18,7 @@ export function permitido(
   url: string,
   servidorUrl: string | null,
   urlDev?: string,
-  opcoes: { metodo?: string; pendente?: string | null; doProcessoPrincipal?: boolean; videoAberto?: boolean } = {},
+  opcoes: { metodo?: string; pendente?: string | null; doProcessoPrincipal?: boolean; videoAberto?: boolean; conhecidos?: readonly string[] } = {},
 ): boolean {
   let u: URL;
   try {
@@ -44,6 +44,8 @@ export function permitido(
       return false;
     }
   };
+  // Backlog v2: dos outros servidores em que a pessoa entrou, só a consulta do número de não lidas (o ícone da coluna).
+  if (u.pathname === '/api/nao-lidas' && u.search === '' && leitura && (u.protocol === 'http:' || u.protocol === 'https:') && opcoes.conhecidos?.some(mesmoHost)) return true;
   // O servidor do convite em andamento (já testado) vale até a pessoa entrar e ele virar o salvo.
   return mesmoHost(servidorUrl) || mesmoHost(opcoes.pendente);
 }
@@ -55,10 +57,11 @@ export function filtrarRede(
   registrar?: (url: string, ok: boolean) => void,
   pendente: () => string | null = () => null,
   videoAberto: () => boolean = () => false,
+  conhecidos: () => readonly string[] = () => [],
 ) {
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (detalhe, responder) => {
     // Sem webContents: pedido do processo principal (a atualização automática), não da janela.
-    const ok = permitido(detalhe.url, servidorUrl(), urlDev, { metodo: detalhe.method, pendente: pendente(), doProcessoPrincipal: detalhe.webContentsId === undefined, videoAberto: videoAberto() });
+    const ok = permitido(detalhe.url, servidorUrl(), urlDev, { metodo: detalhe.method, pendente: pendente(), doProcessoPrincipal: detalhe.webContentsId === undefined, videoAberto: videoAberto(), conhecidos: conhecidos() });
     registrar?.(detalhe.url, ok);
     if (!ok) console.warn('Bloqueado (fora do servidor configurado):', new URL(detalhe.url).origin);
     responder({ cancel: !ok });

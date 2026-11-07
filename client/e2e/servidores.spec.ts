@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
+import { io as conectar } from 'socket.io-client';
 
 /** Backlog v2, item 7: vários servidores no mesmo app, cada um com o seu login. */
 const principal = join(__dirname, '../out/main/index.js');
@@ -68,10 +69,26 @@ test('backlog v2, item 7: entra em dois servidores e troca entre eles pela colun
 
   // Reabrir o app: lembra dos dois e abre o último usado.
   await app.close();
+  // Com o app fechado, a bia escreve no Família: ao reabrir no Turma, o ícone do Família mostra a não lida.
+  const bia = await fetch(`${b}/api/auth/cadastro`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ usuario: 'bia', senha: 'senha-forte-1', convite: 'convite-familia' }),
+  }).then((r) => r.json() as Promise<{ token: string }>);
+  const socket = conectar(b, { auth: { token: bia.token }, transports: ['websocket'], reconnection: false, forceNew: true });
+  const ola = await new Promise<{ canais: { id: number; tipo: string }[] }>((r) => socket.once('ola', r));
+  const geral = ola.canais.find((c) => c.tipo === 'texto')!.id;
+  await new Promise((r) => socket.emit('mensagem:enviar', { destino: { canalId: geral }, texto: 'cadê vocês?' }, r));
+  socket.close();
+
   const de_novo = await abrir();
   const colunaNova = de_novo.janela.getByRole('navigation', { name: 'Servidores' });
   await expect(colunaNova.getByRole('button', { name: /Família/ })).toBeVisible();
   await expect(colunaNova.getByRole('button', { name: /Turma da Faculdade/ })).toHaveAttribute('aria-current', 'page');
+  await expect(colunaNova.getByRole('button', { name: /Família.*, 1 não lida$/ })).toHaveText('FA1');
+  await de_novo.janela.screenshot({ path: join(PRINTS, 'naolidas-outro-servidor.png') });
   await colunaNova.getByRole('button', { name: /Família/ }).click();
   await expect(de_novo.janela.getByText(/· Família$/)).toBeVisible();
+  // Aberto, o servidor não mostra número no ícone (as não lidas ficam na lista de canais).
+  await expect(colunaNova.getByRole('button', { name: /Família/ })).toHaveText('FA');
 });

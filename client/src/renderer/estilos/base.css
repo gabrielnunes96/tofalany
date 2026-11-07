@@ -479,3 +479,6 @@ button.previa-assistir:hover:not(:disabled) { background: #e00; box-shadow: none
 .quadro-video:hover button.quadro-tela-cheia, .quadro-video button.quadro-tela-cheia:focus-visible { opacity: 1; }
 .quadro-video:fullscreen { border: 0; border-radius: 0; }
 .quadro-video:fullscreen video { object-fit: contain; }
+
+/* Backlog v2: não lidas dos outros servidores, no canto do ícone. */
+.servidor-naolidas { position: absolute; right: -4px; bottom: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--erro); color: #fff; font-size: 0.7rem; font-weight: 700; line-height: 18px; text-align: center; border: 2px solid var(--fundo); }

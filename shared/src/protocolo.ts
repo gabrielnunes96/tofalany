@@ -505,3 +505,8 @@ export const PING_TOLERANCIA_MS = 4000;
 
 /** Mensagem do erro de handshake quando o token não vale. */
 export const ERRO_HANDSHAKE_NAO_AUTENTICADO = 'nao_autenticado';
+
+/** Backlog v2: total de não lidas da pessoa neste servidor, para o número no ícone da coluna de servidores. */
+export interface ResumoNaoLidas {
+  total: number;
+}
