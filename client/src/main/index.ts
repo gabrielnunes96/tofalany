@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification, powerMonitor, safeStorage, shell } from 'electron';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
 import { registrarIpc } from './ipc';
@@ -36,6 +36,10 @@ let janelaPrincipal: BrowserWindow | undefined;
 /** Backlog v2, 1e: com a bandeja ativa e a opção ligada, fechar a janela só a esconde. */
 let saindo = false;
 let fecharParaBandeja = (): boolean => false;
+/** Na primeira vez que a janela vai para a bandeja (por execução), avisa onde o app ficou e como sair. */
+let avisouBandeja = false;
+/** Conferir versão nova (a janela voltando da bandeja é um bom momento). */
+let conferirAtualizacao = (): void => undefined;
 app.on('before-quit', () => (saindo = true));
 
 function mostrarJanela() {
@@ -43,6 +47,7 @@ function mostrarJanela() {
   if (janelaPrincipal.isMinimized()) janelaPrincipal.restore();
   janelaPrincipal.show();
   janelaPrincipal.focus();
+  conferirAtualizacao();
 }
 
 const links = prepararLinks(
@@ -79,6 +84,14 @@ function criarJanela(): BrowserWindow {
     if (saindo || !fecharParaBandeja()) return;
     evento.preventDefault();
     janela.hide();
+    if (!avisouBandeja && !testeDiscreto && Notification.isSupported()) {
+      avisouBandeja = true;
+      new Notification({
+        title: 'O ToFalany continua aberto',
+        body: 'Ficou na bandeja (ícone perto do relógio), com a voz e as notificações. Para fechar de vez: clique direito no ícone → Sair, ou desligue em Configurações → Janela.',
+        silent: true,
+      }).show();
+    }
   });
   janela.on('closed', () => {
     if (janelaPrincipal === janela) janelaPrincipal = undefined;
@@ -138,7 +151,7 @@ if (links.principal) {
     );
     atalhos.definir(configuracoes.ler().atalhos);
     // Backlog v2, 1d: confere as releases do GitHub e avisa a janela (só no app empacotado).
-    iniciarAtualizacao(() => janelaPrincipal);
+    conferirAtualizacao = iniciarAtualizacao(() => janelaPrincipal).conferir;
     app.on('will-quit', () => atalhos.parar());
     // RN-25: ocioso há 10 min → ausente (o renderer avisa o servidor).
     let ociosoForcado: number | undefined;

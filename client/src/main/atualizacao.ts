@@ -5,7 +5,9 @@ import { autoUpdater } from 'electron-updater';
 
 /** Página das versões, para quem não se atualiza sozinho (ex.: .rpm ou sem permissão). */
 export const PAGINA_VERSOES = 'https://github.com/gabrielnunes96/tofalany/releases/latest';
-const INTERVALO_MS = 4 * 60 * 60 * 1000;
+const INTERVALO_MS = 60 * 60 * 1000;
+/** Ao voltar da bandeja confere de novo, mas não mais que uma vez a cada 10 min. */
+const INTERVALO_MINIMO_MS = 10 * 60 * 1000;
 
 /** O que a janela mostra: versão nova baixada (reiniciar) ou só disponível (baixar pela página). */
 export interface EstadoAtualizacao {
@@ -14,7 +16,8 @@ export interface EstadoAtualizacao {
 }
 
 /**
- * Backlog v2, item 1d: o app confere as releases do GitHub ao abrir e a cada 4 h.
+ * Backlog v2, item 1d: o app confere as releases do GitHub ao abrir, a cada hora e quando a janela volta da
+ * bandeja (quem só fecha para a bandeja nunca reabre o app).
  * - Windows (NSIS) e AppImage: baixa em segundo plano e avisa "reiniciar para atualizar".
  * - .deb: baixa em segundo plano; ao reiniciar, o sistema pede a senha (pkexec) e instala com dpkg.
  * - Outro pacote do sistema: só avisa e abre a página da versão.
@@ -33,7 +36,7 @@ function lerTipoPacote(): string | undefined {
   }
 }
 
-export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined) {
+export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined): { conferir(): void } {
   let estado: EstadoAtualizacao | null = null;
   const enviar = (e: EstadoAtualizacao) => {
     estado = e;
@@ -47,7 +50,7 @@ export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined)
     if (estado?.modo === 'reiniciar') autoUpdater.quitAndInstall(true, true);
   });
 
-  if (!app.isPackaged) return;
+  if (!app.isPackaged) return { conferir: () => undefined };
   const sozinho = podeAtualizarSozinho(process.platform, process.env.APPIMAGE, lerTipoPacote());
   autoUpdater.autoDownload = sozinho;
   autoUpdater.autoInstallOnAppQuit = sozinho;
@@ -59,8 +62,15 @@ export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined)
   // Sem internet ou GitHub fora: tenta de novo na próxima rodada, sem incomodar.
   autoUpdater.on('error', (erro) => console.warn('Atualização: não foi possível conferir agora.', erro?.message ?? erro));
 
-  const conferir = () => void autoUpdater.checkForUpdates().catch(() => undefined);
+  let ultima = 0;
+  const conferir = () => {
+    // Já baixada: nada a conferir (o aviso de reiniciar já está na janela).
+    if (estado?.modo === 'reiniciar' || Date.now() - ultima < INTERVALO_MINIMO_MS) return;
+    ultima = Date.now();
+    void autoUpdater.checkForUpdates().catch(() => undefined);
+  };
   setTimeout(conferir, 10_000);
   const relogio = setInterval(conferir, INTERVALO_MS);
   app.on('will-quit', () => clearInterval(relogio));
+  return { conferir };
 }

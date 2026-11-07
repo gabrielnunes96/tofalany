@@ -92,6 +92,9 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
       const erro = dados as Partial<ErroApi> | undefined;
       // 5xx esconde o detalhe interno, exceto os avisos que o servidor dá de propósito (ex.: voz sem LiveKit configurado).
       if ((resposta.status < 500 || (erro?.erro !== undefined && ERROS_5XX_COM_MENSAGEM.has(erro.erro))) && erro?.mensagem) throw new ErroApiCliente(resposta.status, erro.erro ?? 'erro', erro.mensagem);
+      // 502/503/504 sem mensagem própria: é o proxy na frente de um servidor reiniciando (atualização automática).
+      if (resposta.status >= 502 && resposta.status <= 504)
+        throw new ErroApiCliente(resposta.status, erro?.erro ?? 'erro', 'O servidor está reiniciando (provavelmente atualizando). Tente de novo em alguns segundos.');
       throw new ErroApiCliente(resposta.status, erro?.erro ?? 'erro', 'O servidor teve um problema. Tente de novo em instantes.');
     }
     return dados as T;

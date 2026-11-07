@@ -30,6 +30,13 @@ describe('criarApi', () => {
     expect((erro as ErroApiCliente).semConexao).toBe(true);
   });
 
+  it('502 do proxy (servidor reiniciando numa atualização) tem mensagem própria', async () => {
+    await expect(criarApi('http://s', 't', () => Promise.resolve(new Response('Bad Gateway', { status: 502 }))).tokenVoz(1)).rejects.toMatchObject({
+      status: 502,
+      message: 'O servidor está reiniciando (provavelmente atualizando). Tente de novo em alguns segundos.',
+    });
+  });
+
   it('mostra o aviso de voz não configurada mesmo sendo 503', async () => {
     const api = criarApi('http://s', 't', () => resposta({ erro: 'voz_indisponivel', mensagem: 'A voz não está configurada neste servidor.' }, 503));
     await expect(api.tokenVoz(1)).rejects.toMatchObject({ status: 503, codigo: 'voz_indisponivel', message: 'A voz não está configurada neste servidor.' });
