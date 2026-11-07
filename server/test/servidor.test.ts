@@ -15,7 +15,7 @@ describe('GET /api/servidor', () => {
     app = await appTeste({ NOME_SERVIDOR: 'Turma' });
     const antes = await app.inject({ method: 'GET', url: '/api/servidor' });
     expect(antes.statusCode).toBe(200);
-    expect(antes.json()).toEqual({ app: 'tofalany', nome: 'Turma', versao: '0.1.0', contas: 0, limiteContas: 20 });
+    expect(antes.json()).toEqual({ app: 'tofalany', nome: 'Turma', versao: (await import('../package.json', { with: { type: 'json' } })).default.version, contas: 0, limiteContas: 20 });
     await cadastrar(app, 'ana');
     expect((await app.inject({ method: 'GET', url: '/api/servidor' })).json()).toMatchObject({ contas: 1 });
   });
