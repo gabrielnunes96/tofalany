@@ -14,8 +14,8 @@
     "lint": "eslint .",
     "dev:server": "npm run build -w shared && npm run dev -w server",
     "dev:client": "npm run build -w shared && npm run dev -w client",
-    "dist:linux": "npm run build -w shared && npm run dist:linux -w client",
-    "dist:win": "npm run build -w shared && npm run dist:win -w client"
+    "dist:linux": "npm run build -w shared && npm run build -w server && npm run dist:linux -w client",
+    "dist:win": "npm run build -w shared && npm run build -w server && npm run dist:win -w client"
   },
   "engines": {
     "node": ">=24"

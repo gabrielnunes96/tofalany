@@ -1,0 +1,101 @@
+# Release (item 5 do backlog v2): a cada tag vX.Y.Z, gera os instaladores e publica na página de Releases.
+#   git tag v0.1.0 && git push origin v0.1.0
+# A versão da tag precisa ser a mesma de client/package.json.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag já existente para (re)publicar (por exemplo, v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  instaladores:
+    name: Instaladores (${{ matrix.so }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - so: linux
+            runner: ubuntu-24.04
+            comando: dist:linux
+            arquivos: |
+              client/release/*.AppImage
+              client/release/*.deb
+          - so: windows
+            runner: windows-2025
+            comando: dist:win
+            arquivos: |
+              client/release/*.exe
+    runs-on: ${{ matrix.runner }}
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Conferir versão da tag
+        shell: bash
+        run: |
+          versao=$(node -p "require('./client/package.json').version")
+          if [ "v$versao" != "$TAG" ]; then
+            echo "::error::A tag $TAG não bate com a versão de client/package.json ($versao)."
+            exit 1
+          fi
+
+      # Sem scripts de instalação: os módulos nativos do app (uiohook) já trazem binários prontos, o electron-builder
+      # baixa o Electron da versão fixa no yml, e o better-sqlite3 do servidor não entra no app.
+      - name: Dependências
+        run: npm ci --ignore-scripts
+
+      - name: Gerar instaladores
+        run: npm run ${{ matrix.comando }}
+        env:
+          # Sem assinatura de código (o SmartScreen avisa no Windows; ver README).
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: instaladores-${{ matrix.so }}
+          path: ${{ matrix.arquivos }}
+          if-no-files-found: error
+
+  publicar:
+    name: Publicar release
+    needs: instaladores
+    runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: instaladores-*
+          path: instaladores
+          merge-multiple: true
+
+      - name: Criar ou atualizar a release
+        run: |
+          ls -la instaladores
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" instaladores/* --clobber
+          else
+            gh release create "$TAG" instaladores/* --title "ToFalany $TAG" --generate-notes
+          fi
