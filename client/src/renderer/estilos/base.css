@@ -131,8 +131,10 @@ button.link:hover:not(:disabled) { background: transparent; color: var(--texto);
 .lista-admin .nome { flex: 1; min-width: 160px; }
 .lista-admin button { margin: 0; padding: 6px 10px; }
 .confirmar { display: inline-flex; gap: 6px; }
-.lista-admin audio { height: 32px; max-width: 260px; }
-.som-renomear { display: flex; flex: 1; min-width: 220px; gap: 6px; align-items: center; }
+/* Largura fixa e sem encolher: os controles nativos do áudio não cabem em menos e passavam por cima do botão ao lado. */
+.lista-admin audio { height: 32px; width: 260px; flex: none; }
+/* Renomeando: o formulário ocupa a linha toda (o player desce), senão os botões ficavam embaixo do áudio. */
+.som-renomear { display: flex; flex: 1 1 100%; min-width: 0; gap: 6px; align-items: center; }
 .som-renomear input { flex: 1; margin: 0; }
 button.perigo { background: var(--magenta); color: var(--texto-no-destaque); }
 button.perigo:hover:not(:disabled) { background: #ff6b99; box-shadow: 0 0 14px rgba(255, 42, 109, 0.45); }

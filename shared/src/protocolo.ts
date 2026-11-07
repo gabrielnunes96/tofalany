@@ -111,7 +111,8 @@ export const AUDIO_PADRAO: PreferenciasAudio = {
   saidaId: null,
   supressaoRuido: true,
   cancelamentoEco: true,
-  ganhoAutomatico: true,
+  // Desligado por padrão: o ganho automático do navegador sobe e desce o volume da voz (pedido do usuário, 07/11).
+  ganhoAutomatico: false,
   sensibilidadeDb: -50,
   modoMicrofone: 'deteccao',
 };
