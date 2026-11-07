@@ -4,6 +4,14 @@ Pedidos do usuário de 06/11/2026, depois de fechar a to-falando-v1. Ainda não 
 
 **Regra que vale para tudo:** zero configuração de sistema para quem usa o app. A pessoa instala (next, next, finish), entra pelo link de convite e só mexe em personalização.
 
+## Situação (07/11/2026, 1h40)
+
+| Versão | Itens | Estado |
+| --- | --- | --- |
+| v0.2.0 | 0a (endereço https), 0b (transmissão cortada), 1b (colar imagem), 1d (atualização automática), ganho automático desligado, compositor que perdia anexo | publicada no GitHub |
+| v0.3.0 | 1 (bolinha de fala sem atraso), 1c (qualidade da voz), 1e (bandeja), 2 (status manual), 3 (redefinir senha pelo app), 4 (colar o link de convite) | pronta, sem release |
+| depois | 0c (contador às vezes conta uma a menos), 5 e 6 já feitos na prática (GitHub com releases e servidor na Oracle; falta o roteiro .md da VPS com a comparação de opções), P2, P2b, P3 e P4 | a fazer |
+
 ## Prioridades
 
 ### P0: defeitos vistos no primeiro uso real (07/11, servidor na Oracle)

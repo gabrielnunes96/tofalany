@@ -55,6 +55,8 @@ test('CA-48 e CA-52: administrador vê a auditoria com entradas e saídas; membr
   await expect(ana.janela.getByTestId('usuario-logado')).toHaveText('Olá, ana');
   await expect(ana.janela.getByText(/^Membro · /)).toBeVisible();
   await expect(ana.janela.getByRole('button', { name: 'Auditoria' })).toHaveCount(0);
+  // A conexão em tempo real da ana chegou (senão fechar antes não gera online/offline).
+  await expect(dono.janela.getByRole('list', { name: 'Membros' }).getByRole('listitem', { name: 'ana, online' })).toBeVisible();
   await ana.app.close();
   // Espera a saída da ana chegar (carência de 200 ms; sob carga a desconexão demora mais que um tempo fixo).
   await expect(dono.janela.getByRole('list', { name: 'Membros' }).getByRole('listitem', { name: 'ana, offline' })).toBeVisible({ timeout: 10_000 });
