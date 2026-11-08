@@ -240,6 +240,8 @@ export interface PreferenciasTela {
   qualidade: QualidadeTela;
   /** R-3: H.264 (codificação por hardware comum) ou VP9. */
   codec: 'h264' | 'vp9';
+  /** Incluir o áudio do sistema (a última escolha no seletor; sem valor: sim). */
+  audio?: boolean;
 }
 
 export const TELA_PADRAO: PreferenciasTela = { qualidade: '720p30', codec: 'h264' };

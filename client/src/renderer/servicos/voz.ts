@@ -100,6 +100,7 @@ export interface SalaLivekit {
       opcoes: { source: Track.Source; name: string; audioPreset?: { maxBitrate: number }; dtx?: boolean; red?: boolean },
     ): Promise<{ track?: { replaceTrack(f: MediaStreamTrack, doUsuario?: boolean): Promise<unknown>; mute(): Promise<unknown>; unmute(): Promise<unknown> } }>;
     unpublishTrack?(faixa: MediaStreamTrack, parar?: boolean): Promise<unknown>;
+    getTrackPublication?(fonte: Track.Source): unknown;
   };
   switchActiveDevice(tipo: MediaDeviceKind, id: string): Promise<unknown>;
   /** O livekit-client mede o RTT do canal de sinalização (ping/pong com o servidor de mídia). */
@@ -473,6 +474,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         }
         transmitindoTela = !!pub?.track;
         minhaFaixaTela = (pub?.track as { mediaStreamTrack?: MediaStreamTrack } | undefined)?.mediaStreamTrack;
+        // Windows: o som vem junto da captura; se o sistema não entregou, quem transmite fica sabendo.
+        if (transmitindoTela && audio && !somVirtual && !atual.localParticipant.getTrackPublication?.(Track.Source.ScreenShareAudio)) {
+          ouvintes.aoAviso('A tela está indo, mas sem o som do computador (o sistema não entregou o áudio).');
+        }
         if (transmitindoTela && somVirtual) {
           const faixa = await abrirMicrofoneVirtual();
           if (!faixa) ouvintes.aoAviso('A tela está indo, mas sem o som do computador (o microfone virtual não apareceu).');

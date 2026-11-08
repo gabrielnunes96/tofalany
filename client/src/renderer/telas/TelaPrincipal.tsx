@@ -1539,9 +1539,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           <SeletorTela
             listar={ponte().captura.fontes}
             audioDisponivel={ponte().captura.audioDisponivel}
+            audioPadrao={telaPrefs.audio ?? true}
             qualidades={qualidadesPermitidas(usuario.cargo, permissoes)}
             qualidadePadrao={telaPrefs.qualidade}
-            aoEscolher={(f, a, q) => void transmitirTela(f, a, q)}
+            aoEscolher={(f, a, q) => {
+              // Lembra a escolha do som para a próxima vez.
+              if (ponte().captura.audioDisponivel && a !== (telaRef.current.audio ?? true)) mudarTela({ ...telaRef.current, audio: a });
+              void transmitirTela(f, a, q);
+            }}
             aoCancelar={fecharSeletorTela}
           />
         )}

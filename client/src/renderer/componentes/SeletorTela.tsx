@@ -18,6 +18,8 @@ interface Props {
   listar: () => Promise<FonteTela[]>;
   /** RF-29: áudio do sistema só no Windows; no Linux a opção aparece desabilitada com o motivo. */
   audioDisponivel: boolean;
+  /** Última escolha de "Incluir o áudio do sistema" (sem valor: marcada). */
+  audioPadrao?: boolean;
   /** RF-28: qualidades que o cargo permite (membro: só 720p30) e a já selecionada. */
   qualidades?: QualidadeTela[];
   qualidadePadrao?: QualidadeTela;
@@ -26,10 +28,10 @@ interface Props {
 }
 
 /** RF-26: seletor próprio com miniaturas das telas e janelas abertas. */
-export function SeletorTela({ listar, audioDisponivel, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
+export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
   const [fontes, setFontes] = useState<FonteTela[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [audio, setAudio] = useState(false);
+  const [audio, setAudio] = useState(audioDisponivel && audioPadrao);
   const [qualidade, setQualidade] = useState<QualidadeTela>(qualidades.includes(qualidadePadrao) ? qualidadePadrao : '720p30');
 
   useEffect(() => {

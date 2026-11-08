@@ -64,12 +64,17 @@ describe('SeletorTela (RF-26, RF-29)', () => {
         aoCancelar={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByLabelText('Incluir o áudio do sistema'));
+    // Marcado por padrão (o app lembra a última escolha).
+    expect((screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement).checked).toBe(true);
     expect((screen.getByLabelText('1080p60') as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByLabelText('1440p60'));
     fireEvent.click(await screen.findByRole('button', { name: 'Tela 1' }));
     expect(aoEscolher).toHaveBeenCalledWith(fontes[0], true, '1440p60');
     unmount();
+    // Quem desmarcou da última vez abre desmarcado.
+    const outro = render(<SeletorTela listar={async () => fontes} audioDisponivel audioPadrao={false} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    expect((screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement).checked).toBe(false);
+    outro.unmount();
     render(<SeletorTela listar={async () => Promise.reject(new Error('x'))} audioDisponivel={false} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
     expect((await screen.findByRole('alert')).textContent).toContain('Não foi possível listar');
   });

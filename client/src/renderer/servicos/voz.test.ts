@@ -314,6 +314,18 @@ describe('sala de voz (RF-13)', () => {
     setScreenShareEnabled.mockRejectedValueOnce(new Error('negado'));
     expect(await voz.transmitir('720p30', false)).toBe(false);
     expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível transmitir a tela.');
+
+    // Windows: pediu o som e o sistema não entregou — quem transmite fica sabendo; com o som, nada.
+    const publicacoes = new Map<string, unknown>();
+    (sala.localParticipant as unknown as { getTrackPublication: unknown }).getTrackPublication = (f: string) => publicacoes.get(f);
+    o.aoAviso.mockClear();
+    expect(await voz.transmitir('720p30', true)).toBe(true);
+    expect(o.aoAviso).toHaveBeenLastCalledWith('A tela está indo, mas sem o som do computador (o sistema não entregou o áudio).');
+    await voz.pararTela();
+    o.aoAviso.mockClear();
+    publicacoes.set('screen_share_audio', {});
+    expect(await voz.transmitir('720p30', true)).toBe(true);
+    expect(o.aoAviso).not.toHaveBeenCalled();
   });
 
   it('RF-31: avisa enquanto a mídia reconecta', async () => {

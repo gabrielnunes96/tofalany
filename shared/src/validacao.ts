@@ -255,5 +255,6 @@ export function mesclarTela(base: PreferenciasTela = TELA_PADRAO, bruto: unknown
   const o = bruto as Record<string, unknown>;
   if (QUALIDADES_TELA.includes(o.qualidade as QualidadeTela)) r.qualidade = o.qualidade as QualidadeTela;
   if (o.codec === 'h264' || o.codec === 'vp9') r.codec = o.codec;
+  if (typeof o.audio === 'boolean') r.audio = o.audio;
   return r;
 }
