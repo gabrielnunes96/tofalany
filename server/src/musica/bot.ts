@@ -1,6 +1,7 @@
 import type { Readable } from 'node:stream';
 import { LIMITE_CANAIS_MUSICA, LIMITE_FILA_MUSICA, type EstadoMusica, type MusicaDto } from '@tofalando/shared';
 import { ErroHttp } from '../erros.js';
+import { rm } from 'node:fs/promises';
 import type { FluxoAudio, FonteMusica, InfoMusica } from './fonte.js';
 
 /** Para onde o bot manda o áudio (no servidor de verdade, um participante do LiveKit). */
@@ -27,6 +28,10 @@ interface Canal {
   rodando: boolean;
   /** Sem música: o bot espera um pouco na sala antes de sair sozinho. */
   ocioso?: NodeJS.Timeout;
+  /** Áudio da próxima música, baixado enquanto a atual toca (começa sem esperar o YouTube). */
+  proxima?: { url: string; arquivo: Promise<string | undefined> };
+  /** Cortes pedidos (pular, parar): distingue "a música acabou sem som" de "mandaram cortar". */
+  cortes: number;
 }
 
 /** Quanto o ToOuvini espera na sala, sem tocar nada, antes de sair sozinho. */
@@ -63,10 +68,30 @@ export function criarBotMusica(deps: {
   };
   const avisar = (canalVozId: number) => deps.aoMudar(estado(canalVozId));
 
+  /** Apaga um áudio baixado que não vai mais tocar (pulado, parado, fila mudou). */
+  const descartar = (p: Canal['proxima']) => void p?.arquivo.then((f) => (f ? rm(f, { force: true }).catch(() => undefined) : undefined));
+
+  /** Começa a baixar o áudio da próxima da fila (uma por vez; falha só faz ela usar o caminho normal). */
+  function prepararProxima(c: Canal) {
+    const seguinte = c.fila[0];
+    if (!seguinte || !deps.fonte.preparar || c.proxima?.url === seguinte.url) return;
+    descartar(c.proxima);
+    c.proxima = {
+      url: seguinte.url,
+      arquivo: deps.fonte.preparar(seguinte.url).catch((erro: unknown) => {
+        deps.registrarErro(erro);
+        return undefined;
+      }),
+    };
+  }
+
   async function sair(canalVozId: number, c: Canal) {
     clearTimeout(c.ocioso);
     c.fila = [];
     c.tocando = null;
+    descartar(c.proxima);
+    c.proxima = undefined;
+    c.cortes++;
     c.fluxo?.parar();
     const saida = c.saida;
     c.saida = undefined;
@@ -101,13 +126,36 @@ export function criarBotMusica(deps: {
           c.saida ??= await deps.conectar(canalVozId);
           // Mandaram parar enquanto conectava.
           if (c.tocando !== musica) continue;
-          c.fluxo = deps.fonte.abrir(musica.url);
-          await c.saida.tocar(c.fluxo.audio, () => {
-            // O relógio da música começa no primeiro som.
+          // Já baixada enquanto a anterior tocava: começa direto do arquivo.
+          const proxima = c.proxima;
+          c.proxima = undefined;
+          const pronta = proxima?.url === musica.url ? await proxima.arquivo : (descartar(proxima), undefined);
+          if (c.tocando !== musica) {
+            if (pronta) void rm(pronta, { force: true }).catch(() => undefined);
+            continue;
+          }
+          let comecou = false;
+          const aoComecar = () => {
+            // O relógio da música começa no primeiro som; e já prepara a seguinte.
+            comecou = true;
             c.carregando = false;
             c.desde = agora();
             avisar(canalVozId);
-          });
+            prepararProxima(c);
+          };
+          const cortesAntes = c.cortes;
+          c.fluxo = pronta && deps.fonte.abrirArquivo ? deps.fonte.abrirArquivo(pronta) : deps.fonte.abrir(musica.url);
+          try {
+            await c.saida.tocar(c.fluxo.audio, aoComecar);
+          } finally {
+            if (pronta) void rm(pronta, { force: true }).catch(() => undefined);
+          }
+          // O arquivo baixado não tocou (corrompido, formato estranho): tenta pelo caminho normal.
+          if (pronta && !comecou && c.cortes === cortesAntes && c.tocando === musica) {
+            c.fluxo.parar();
+            c.fluxo = deps.fonte.abrir(musica.url);
+            await c.saida.tocar(c.fluxo.audio, aoComecar);
+          }
         } catch (erro) {
           deps.registrarErro(erro);
         } finally {
@@ -149,12 +197,16 @@ export function criarBotMusica(deps: {
       if (infos.length === 0) throw new ErroHttp(404, 'nao_encontrado', 'Não achei essa música.');
       let c = canais.get(canalVozId);
       if (!c) {
-        c = { fila: [], tocando: null, desde: null, pausado: false, carregando: false, decorrido: 0, rodando: false };
+        c = { fila: [], tocando: null, desde: null, pausado: false, carregando: false, decorrido: 0, rodando: false, cortes: 0 };
         canais.set(canalVozId, c);
       }
       c.fila.push(...infos.slice(0, espaco).map((i) => ({ ...i, pedidoPor: usuarioId })));
       if (!c.rodando) void rodar(canalVozId, c);
-      else avisar(canalVozId);
+      else {
+        // Algo já toca: a próxima da fila já pode ir sendo preparada.
+        if (c.tocando && !c.carregando) prepararProxima(c);
+        avisar(canalVozId);
+      }
       return estado(canalVozId);
     },
 
@@ -186,6 +238,7 @@ export function criarBotMusica(deps: {
         c.pausado = false;
         c.saida?.continuar?.();
       }
+      c.cortes++;
       c.fluxo?.parar();
       return estado(canalVozId);
     },
@@ -196,6 +249,9 @@ export function criarBotMusica(deps: {
       if (!c) return estado(canalVozId);
       c.fila = [];
       c.tocando = null;
+      descartar(c.proxima);
+      c.proxima = undefined;
+      c.cortes++;
       if (c.pausado) {
         c.pausado = false;
         c.saida?.continuar?.();

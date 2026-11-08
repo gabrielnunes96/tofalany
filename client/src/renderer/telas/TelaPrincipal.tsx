@@ -33,6 +33,7 @@ import { CanalAberto } from '../componentes/CanalAberto';
 import { DmAberta } from '../componentes/DmAberta';
 import { chaveCanal, chaveDm, type Chave, type Historico } from '../estado/loja';
 import { decidirAvisoPresenca, decidirMensagemNova } from '../estado/notificar';
+import { ordenarMembros } from '../estado/ordemMembros';
 
 interface Props {
   /** Backlog v2, item 7: o nome do servidor chegou (vai para a coluna de servidores). */
@@ -822,15 +823,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   ) : null;
   const minhaTela = minhaVoz !== null && transmissoes.some((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id);
   const faixaPrevia = minhaTela ? previaMinhaTela : undefined;
-  const membrosPorStatus = useMemo(() => {
-    const com = usuarios.map((u) => ({ u, status: (presencas[u.id] ?? 'offline') as StatusPessoa }));
-    const ativos = com.filter((m) => m.status !== 'offline');
-    const fora = com.filter((m) => m.status === 'offline');
-    return [
-      ...(ativos.length ? [{ grupo: `Online — ${ativos.length}` }, ...ativos] : []),
-      ...(fora.length ? [{ grupo: `Offline — ${fora.length}` }, ...fora] : []),
-    ] as ({ grupo: string } | { u: UsuarioDto; status: StatusPessoa })[];
-  }, [usuarios, presencas]);
+  // Lista de membros por cargo (mais permissões primeiro) e nome; os offline no fim.
+  const membrosPorStatus = useMemo(() => ordenarMembros(usuarios, presencas, funcoes), [usuarios, presencas, funcoes]);
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
   // Backlog v2, item 10b: prévias de links, guardadas enquanto a tela estiver aberta.
   const buscarPrevia = useMemo(() => criarBuscaPrevia((url) => api.previa(url)), [api]);

@@ -492,7 +492,9 @@ test('CA-56, CA-57: status online, ausente e offline na lista de membros', async
   const membros = dono.janela.getByRole('list', { name: 'Membros' });
 
   await expect(membros.getByRole('listitem', { name: 'ana, online' })).toBeVisible();
-  await expect(membros).toContainText('Online — 2');
+  // Conectados agrupados por cargo: o dono (administrador) e a ana (membro).
+  await expect(membros).toContainText('Administradores — 1');
+  await expect(membros).toContainText('Membros — 1');
 
   // CA-57: 10 min sem mexer (simulado) → ausente; mexeu → online.
   await ocioso(ana.app, 700);

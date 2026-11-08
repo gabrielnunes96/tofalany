@@ -93,7 +93,7 @@ test('CA-2, CA-5 e CA-6: cadastro com convite, primeira conta admin, reabrir ent
   await janela.getByLabel('Código de convite').fill(CONVITE);
   await janela.getByRole('button', { name: 'Criar conta' }).click();
   await expect(janela.getByTestId('usuario-logado')).toHaveText('Olá, dono');
-  await expect(janela.getByText('Administrador', { exact: false })).toBeVisible();
+  await expect(janela.getByText(/^Administrador ·/)).toBeVisible();
   await app.close();
 
   // CA-6: reabrir entra direto, sem pedir senha.

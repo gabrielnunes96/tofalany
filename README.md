@@ -210,6 +210,13 @@ Fora do Docker (servidor de desenvolvimento): `npm run build` e depois `npm run 
 
 O código de convite pode ser trocado pelo app (administrador, em **Convite**). O `CODIGO_CONVITE` do `.env` só vale na primeira subida.
 
+### Servidores, amigos e cargos
+
+- **Vários servidores:** o administrador do servidor principal cria outros no **+** da coluna (cada um com canais, cargos, sons e convite próprios, no endereço `<servidor>/c/<id>`). A conta é a mesma em todos; cada pessoa vê os servidores em que entrou pelo convite.
+- **Amigos:** clique com o botão direito numa pessoa → **Adicionar amigo**; ela aceita na aba **Amigos**. A amizade vale em todos os servidores, e a conversa direta com amigos funciona de qualquer um. O mesmo menu ajusta o volume da pessoa só para você.
+- **Cargos:** em **Membros**, o administrador cria cargos com cor e permissões. As **básicas** (mensagens, arquivos, voz, câmera, transmitir em 720p, soundboard e ToOuvini) vêm marcadas e dá para tirar; as **extras** (gerenciar canais, convite e sons, apagar mensagens, transmitir em 1080p, transmitir em 2K e auditoria) vêm desmarcadas. Quem não tem cargo fica com as básicas. A lista de membros mostra os cargos do que tem mais permissões para o que tem menos.
+- **Qualidade da transmissão:** além do cargo, vale o monitor: sem um monitor de 1440p, o 2K fica desligado.
+
 ### Bot de música (ToOuvini)
 
 Quem está num canal de voz pede música pelo chat de qualquer canal de texto. Digitar **/** abre a lista de comandos:
@@ -223,7 +230,7 @@ Quem está num canal de voz pede música pelo chat de qualquer canal de texto. D
 | `/queue` | mostra a fila no painel |
 | `/kick` | tira o ToOuvini da sala na hora |
 
-Os nomes em português também valem (`/tocar`, `/pausar`, `/continuar`, `/pular`, `/parar`, `/fila`, `/sair`). O painel de voz mostra o que toca, quem pediu e a fila, com os mesmos botões. Cada pessoa ajusta o volume do ToOuvini como o de qualquer outra. Ele toca em até 5 canais ao mesmo tempo, de qualquer servidor da instalação.
+Enquanto uma música toca, o ToOuvini já baixa a próxima da fila: só a primeira espera o YouTube (uns 20 segundos numa VPS pequena); as seguintes começam na hora. Os nomes em português também valem (`/tocar`, `/pausar`, `/continuar`, `/pular`, `/parar`, `/fila`, `/sair`). O painel de voz mostra o que toca, quem pediu e a fila, com os mesmos botões. Cada pessoa ajusta o volume do ToOuvini como o de qualquer outra. Ele toca em até 5 canais ao mesmo tempo, de qualquer servidor da instalação.
 
 **Cookies do YouTube (obrigatório numa VPS):** o YouTube recusa servidores de nuvem sem login ("confirme que você não é um robô"). O administrador do servidor principal abre **menu → Bot de música (ToOuvini)** e envia o `cookies.txt` de uma **conta secundária** do YouTube (exportado com a extensão "Get cookies.txt LOCALLY" no youtube.com). O arquivo fica no volume do servidor (`/data/musica-cookies.txt`), legível só pelo ToFalany. O yt-dlp se atualiza sozinho uma vez por dia. Fora do Docker, o bot precisa do `yt-dlp` e do `ffmpeg` instalados.
 

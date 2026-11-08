@@ -32,8 +32,11 @@ function saidaFalsa() {
   const fechar = vi.fn(async () => undefined);
   const tocadas: string[] = [];
   const conectar = vi.fn(async (): Promise<SaidaAudio> => ({
-    async tocar(pcm: Readable) {
-      for await (const pedaco of pcm) tocadas.push(String(pedaco));
+    async tocar(pcm: Readable, aoComecar?: () => void) {
+      for await (const pedaco of pcm) {
+        if (tocadas.length === 0 || !tocadas.includes(String(pedaco))) aoComecar?.();
+        tocadas.push(String(pedaco));
+      }
     },
     fechar,
   }));
@@ -108,6 +111,44 @@ describe('ToOuvini, o bot de música (backlog v2, item 14)', () => {
     expect(fechar).toHaveBeenCalledTimes(1);
     expect(bot.estado(1)).toMatchObject({ tocando: null, conectado: false });
     expect(bot.estado(2).tocando?.titulo).toBe('Música c');
+  });
+
+  it('a próxima música é baixada enquanto a atual toca e começa pelo arquivo; se ele falhar, usa o caminho normal', async () => {
+    const { fonte, abertos } = fonteFalsa();
+    const { conectar } = saidaFalsa();
+    const resolver = vi.fn(async (url: string) => `/tmp/nao-existe-${url.slice(-1)}.webm`);
+    const prontos: { url: string; audio: PassThrough }[] = [];
+    fonte.preparar = resolver;
+    fonte.abrirArquivo = vi.fn((caminho: string) => {
+      const audio = new PassThrough();
+      prontos.push({ url: caminho, audio });
+      return { audio, parar: () => audio.end() };
+    });
+    const bot = criarBotMusica({ fonte, conectar, registrarErro: vi.fn(), aoMudar: vi.fn(), esperaOciosoMs: 10_000 });
+    await bot.tocar(1, 'a', 1);
+    await bot.tocar(1, 'b', 1);
+    await bot.tocar(1, 'c', 1);
+    await esperar();
+    expect(resolver).not.toHaveBeenCalled();
+    // O primeiro som da "a": já resolve a "b".
+    abertos[0]!.audio.write('som-a');
+    await esperar();
+    expect(resolver).toHaveBeenCalledWith('https://youtu.be/b');
+    expect(bot.estado(1).carregando).toBe(false);
+    abertos[0]!.audio.end();
+    await esperar();
+    // A "b" começa pelo arquivo baixado (sem esperar o yt-dlp de novo).
+    expect(prontos.map((p) => p.url)).toEqual(['/tmp/nao-existe-b.webm']);
+    expect(abertos).toHaveLength(1);
+    // O arquivo da "c" não toca (acabou sem som): cai no caminho normal.
+    prontos[0]!.audio.write('som-b');
+    await esperar();
+    prontos[0]!.audio.end();
+    await esperar();
+    prontos[1]!.audio.end();
+    await esperar();
+    expect(abertos.map((a) => a.url)).toEqual(['https://youtu.be/a', 'https://youtu.be/c']);
+    expect(bot.estado(1).tocando?.titulo).toBe('Música c');
   });
 
   it('falha ao conectar ou ao tocar não trava a fila', async () => {

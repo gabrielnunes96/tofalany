@@ -143,7 +143,7 @@ test('backlog v2, item 10c: o administrador dá o cargo Moderador; a ana ganha o
   await noMenu(dono.janela, 'Membros');
   await dono.janela.getByLabel('Cargo de ana').selectOption({ label: 'Moderador' });
   // A ana recebe na hora: selo na lista, cargo no painel, convite no menu, auditoria não.
-  await expect(ana.janela.getByRole('list', { name: 'Membros' }).getByText('Moderador')).toBeVisible();
+  await expect(ana.janela.getByRole('list', { name: 'Membros' }).getByText('Moderador', { exact: true })).toBeVisible();
   await expect(ana.janela.getByText(/^Moderador · /)).toBeVisible();
   await expect.poll(() => itensDoMenu(ana.janela)).toContain('Convite');
   expect(await itensDoMenu(ana.janela)).not.toContain('Auditoria');

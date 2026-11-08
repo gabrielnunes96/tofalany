@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Readable } from 'node:stream';
 import { DURACAO_MAXIMA_MUSICA_S } from '@tofalando/shared';
 import { ErroHttp } from '../erros.js';
@@ -19,6 +22,13 @@ export interface FluxoAudio {
 
 export interface FonteMusica {
   buscar(busca: string): Promise<InfoMusica>;
+  /**
+   * Baixa antes o áudio da música para um arquivo temporário (o YouTube leva uns 20 s para começar a entregar numa
+   * VPS pequena), para ela começar na hora quando chegar a vez dela. Devolve o caminho do arquivo.
+   */
+  preparar?(url: string): Promise<string>;
+  /** Toca a partir do arquivo já baixado. */
+  abrirArquivo?(caminho: string): FluxoAudio;
   /** Uma música ou, para link de playlist, as primeiras `limite` dela. */
   buscarVarias?(busca: string, limite: number): Promise<InfoMusica[]>;
   abrir(url: string): FluxoAudio;
@@ -143,6 +153,9 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
   const ffmpeg = opcoes.ffmpeg ?? 'ffmpeg';
   // Os cookies valem a partir do momento em que o arquivo existe (o administrador envia pelo app, sem reiniciar).
   const extrasBase = opcoes.extras ?? [];
+  // Músicas baixadas antes da vez delas (apagadas depois de tocar); o que sobrou de uma execução anterior sai.
+  const pastaTemporaria = join(tmpdir(), 'tofalany-musica');
+  rmSync(pastaTemporaria, { recursive: true, force: true });
   const argsCookies = () => (opcoes.cookies && existsSync(opcoes.cookies) ? ['--cookies', opcoes.cookies] : []);
   return {
     async buscar(busca) {
@@ -188,6 +201,27 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
         throw new ErroHttp(502, 'musica_indisponivel', 'Não consegui abrir essa playlist agora (o YouTube recusou ou ela é privada).');
       }
       return lerPlaylist(saida, limite);
+    },
+    async preparar(url) {
+      // O endereço do YouTube só funciona pelo downloader do próprio yt-dlp (o ffmpeg direto leva 403): baixa o áudio.
+      mkdirSync(pastaTemporaria, { recursive: true });
+      const base = join(pastaTemporaria, randomBytes(8).toString('hex'));
+      const saida = await rodar(
+        ytdlp,
+        [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '--max-filesize', '60M', '-o', `${base}.%(ext)s`, '--print', 'after_move:filepath', url],
+        180_000,
+      );
+      const caminho = saida.trim().split('\n').at(-1)?.trim();
+      if (!caminho || !caminho.startsWith(base) || !existsSync(caminho)) throw new Error('o yt-dlp não baixou o áudio');
+      return caminho;
+    },
+    abrirArquivo(caminho) {
+      const converter = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', caminho, '-vn', '-af', 'volume=0.5', '-f', 's16le', '-ac', '2', '-ar', '48000', 'pipe:1'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      converter.stderr.resume();
+      converter.on('error', (e) => opcoes.registrarErro?.(e));
+      return { audio: converter.stdout, parar: () => void converter.kill('SIGKILL') };
     },
     abrir(url) {
       const baixar = spawn(ytdlp, [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '-o', '-', url], { stdio: ['ignore', 'pipe', 'pipe'] });

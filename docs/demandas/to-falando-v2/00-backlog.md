@@ -16,7 +16,10 @@ Pedidos do usuário de 06/11/2026, depois de fechar a to-falando-v1. Ainda não 
 | v0.7.0 | 11 e 11b (câmera em tela cheia e janelinha flutuante arrastável), 12 (prévia da própria transmissão) | publicada |
 | v0.8.0 | .deb se atualiza sozinho (pede a senha do sistema); 15 (`./vm.sh consulta`, `./vm.sh copia-banco` e `npm run banco -w server`); não lidas dos outros servidores no ícone da coluna | publicada (tag enviada) |
 | próxima | 13 (som do sistema na transmissão no Linux, pela venmic e PipeWire); 14 (bot de música: /tocar, /pular, /parar, fila por canal, yt-dlp e ffmpeg no servidor); VM se atualiza sozinha (./vm.sh automatico) e baixa a imagem pronta do CI | v0.9.0 |
-| depois | — | backlog v2 concluído; próximos itens vêm do uso |
+| v0.10.0 | tela cheia que sai; pergunta ao fechar (bandeja ou sair); cadastro com confirmação e regras da senha; ping; ícones SVG; menu de status; botão da barra à esquerda | publicada |
+| v0.11.0 | vários servidores na mesma instalação (só o administrador cria; convite por servidor); ToOuvini com comandos, lista do "/", fila, playlist e cookies do YouTube; versão no menu | publicada |
+| v0.12.0 | amigos (pedido e aceite) e menu do clique direito; cargos com permissões básicas e extras (1080p e 2K separados); qualidade limitada pelo monitor; prévia ampliada sem espelho; ToOuvini mais rápido (próxima música baixada antes, volume próprio); membros ordenados por cargo | pronta |
+| depois | — | próximos itens vêm do uso |
 
 ## Prioridades
 
