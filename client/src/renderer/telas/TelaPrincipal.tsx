@@ -16,7 +16,6 @@ import { PainelMusica } from '../componentes/PainelMusica';
 import { Icone } from '../componentes/Icone';
 import { SeletorStatus } from '../componentes/SeletorStatus';
 import { MenuPessoa } from '../componentes/MenuPessoa';
-import { alternarTelaCheia, useEmTelaCheia } from '../componentes/telaCheia';
 import { ponte } from '../servicos/ponte';
 import { testarServidor } from '../servicos/servidor';
 import { TelaAuditoria, type PessoaFiltro } from './TelaAuditoria';
@@ -243,6 +242,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const [verPrevia, setVerPrevia] = useState(true);
   /** Transmitindo a tela inteira: a prévia em tela cheia apareceria dentro da própria transmissão (espelho infinito). */
   const [previaDaTelaInteira, setPreviaDaTelaInteira] = useState(false);
+  const [previaMesmaTela, setPreviaMesmaTela] = useState(false);
   // Backlog v2, item 8: menu do usuário (fecha ao clicar fora ou com Esc).
   const [menuAberto, setMenuAberto] = useState(false);
   useEffect(() => {
@@ -685,11 +685,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         acoes.atualizarUsuario(u);
         // Perdeu a permissão: as telas de administração somem sozinhas (podeVer).
         if (u.id === useLoja.getState().eu?.id) {
-          const alta = permissoesDe(u, useLoja.getState().funcoes).has('transmitir_alta');
-          // RN-17: transmitindo acima de 720p30 sem permissão — para (o servidor também libera).
-          if (salaVozRef.current?.transmitindoTela() && !qualidadesPermitidas(u.cargo, alta).includes(qualidadeAtualRef.current)) {
+          const minhas = permissoesDe(u, useLoja.getState().funcoes);
+          // RN-17: transmitindo numa qualidade que o cargo não libera mais — para (o servidor também libera).
+          if (salaVozRef.current?.transmitindoTela() && !qualidadesPermitidas(u.cargo, minhas).includes(qualidadeAtualRef.current)) {
             void salaVozRef.current.pararTela();
-            setAvisoVoz('Sua transmissão parou: acima de 720p30 só administradores transmitem.');
+            setAvisoVoz('Sua transmissão parou: seu cargo não libera mais essa qualidade.');
           }
         }
       },
@@ -1067,6 +1067,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           qualidadeAtualRef.current = qualidade;
           setPreviaMinhaTela(sala.faixaMinhaTela());
           setPreviaDaTelaInteira(fonte.tipo === 'tela');
+          // Transmitindo a tela em que o app está: a prévia viraria espelho infinito, então não é desenhada.
+          setPreviaMesmaTela(fonte.tipo === 'tela' ? await ponte().captura.mesmaTela().catch(() => true) : false);
         }
       } catch {
         setAvisoVoz('Não foi possível transmitir a tela.');
@@ -1234,7 +1236,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     className={`icone controle${controles.camera ? ' ligado' : ''}`}
                     aria-pressed={controles.camera}
                     aria-label="Câmera"
-                    title={controles.camera ? 'Desligar câmera' : 'Ligar câmera'}
+                    disabled={!controles.camera && !permissoes.has('usar_camera')}
+                    title={!permissoes.has('usar_camera') ? 'Seu cargo não libera a câmera' : controles.camera ? 'Desligar câmera' : 'Ligar câmera'}
                     onClick={() => void alternarCamera()}
                   >
                     <Icone nome="camera" />
@@ -1245,8 +1248,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     aria-pressed={minhaTela}
                     aria-label="Transmitir tela"
                     ref={botaoTelaRef}
-                    disabled={iniciandoTela}
-                    title={iniciandoTela ? 'Iniciando a transmissão…' : minhaTela ? 'Parar transmissão' : 'Transmitir tela'}
+                    disabled={iniciandoTela || (!minhaTela && !permissoes.has('transmitir_tela'))}
+                    title={!permissoes.has('transmitir_tela') ? 'Seu cargo não libera transmitir a tela' : iniciandoTela ? 'Iniciando a transmissão…' : minhaTela ? 'Parar transmissão' : 'Transmitir tela'}
                     onClick={() => (minhaTela ? void pararTela() : abrirSeletorTela())}
                   >
                     <Icone nome="tela" />
@@ -1256,7 +1259,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                     className={`icone controle${soundboardAberto ? ' ligado' : ''}`}
                     aria-expanded={soundboardAberto}
                     aria-label="Tocar sons"
-                    title="Soundboard: tocar sons para o canal"
+                    disabled={!permissoes.has('tocar_sons')}
+                    title={permissoes.has('tocar_sons') ? 'Soundboard: tocar sons para o canal' : 'Seu cargo não libera o soundboard'}
                     onClick={() => setSoundboardAberto(!soundboardAberto)}
                   >
                     <Icone nome="sons" />
@@ -1417,7 +1421,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               <button type="button" className="perigo" disabled={iniciandoTela} onClick={() => void pararTela()}>
                 Parar transmissão
               </button>
-              {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} telaInteira={previaDaTelaInteira} />}
+              {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} telaInteira={previaDaTelaInteira} mesmaTela={previaMesmaTela} />}
             </section>
           )}
           {transmissoes
@@ -1462,7 +1466,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               aoMudarAoFechar={mudarAoFechar}
               tela={telaPrefs}
               aoMudarTela={mudarTela}
-              qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes.has('transmitir_alta'))}
+              qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes)}
               aoVoltar={voltar}
             />
           ) : vistaAtual === 'toouvini' ? (
@@ -1498,6 +1502,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               key={canalAtivo ?? 'nenhum'}
               canal={canais.find((c) => c.id === canalAtivo)}
               ehAdmin={ehAdmin}
+              somenteLeitura={permissoes.has('enviar_mensagens') ? undefined : 'Seu cargo não permite enviar mensagens nos canais.'}
               aoRenomear={renomearCanal}
               aoRemover={removerCanal}
               usuarios={usuarios}
@@ -1519,7 +1524,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           <SeletorTela
             listar={ponte().captura.fontes}
             audioDisponivel={ponte().captura.audioDisponivel}
-            qualidades={qualidadesPermitidas(usuario.cargo, permissoes.has('transmitir_alta'))}
+            qualidades={qualidadesPermitidas(usuario.cargo, permissoes)}
             qualidadePadrao={telaPrefs.qualidade}
             aoEscolher={(f, a, q) => void transmitirTela(f, a, q)}
             aoCancelar={fecharSeletorTela}
@@ -1577,32 +1582,58 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   );
 }
 
-/** Backlog v2, item 12: o que a minha tela está mandando, num quadro pequeno (mudo, sem rede), com tela cheia. */
-function PreviaLocal({ faixa, telaInteira }: { faixa: MediaStreamTrack; telaInteira: boolean }) {
+/**
+ * Backlog v2, item 12: o que a minha tela está mandando (mudo, sem rede). "Ampliar" abre grande dentro do app (não em
+ * tela cheia). Transmitindo a tela em que o app está, a imagem não é desenhada: ela apareceria dentro da própria
+ * transmissão, num espelho infinito para quem assiste.
+ */
+function PreviaLocal({ faixa, telaInteira, mesmaTela }: { faixa: MediaStreamTrack; telaInteira: boolean; mesmaTela: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
-  const caixa = useRef<HTMLElement>(null);
-  const cheia = useEmTelaCheia(caixa);
+  const [ampliada, setAmpliada] = useState(false);
   useEffect(() => {
     const v = ref.current;
-    if (!v) return;
+    if (!v || mesmaTela) return;
     v.srcObject = new MediaStream([faixa]);
     void v.play().catch(() => undefined);
     return () => {
       v.srcObject = null;
     };
-  }, [faixa]);
+  }, [faixa, mesmaTela, ampliada]);
+  useEffect(() => {
+    if (!ampliada) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAmpliada(false);
+    };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [ampliada]);
+  if (mesmaTela) {
+    return (
+      <p className="previa-minha-tela previa-espelho" role="note">
+        Você está transmitindo a tela em que o ToFalany está aberto: a prévia não aparece aqui para não virar espelho para quem assiste.
+        {telaInteira && ' Para ver a prévia, transmita uma janela ou deixe o ToFalany em outro monitor.'}
+      </p>
+    );
+  }
+  const video = <video ref={ref} aria-label="Prévia da sua transmissão" muted playsInline />;
+  if (ampliada) {
+    return (
+      <div className="previa-ampliada-fundo" role="presentation" onClick={() => setAmpliada(false)}>
+        <figure className="previa-ampliada" role="dialog" aria-label="Prévia ampliada" onClick={(e) => e.stopPropagation()}>
+          {video}
+          <button type="button" className="secundario" onClick={() => setAmpliada(false)}>
+            Fechar (Esc)
+          </button>
+        </figure>
+      </div>
+    );
+  }
   return (
-    <figure ref={caixa} className="previa-minha-tela" onDoubleClick={telaInteira ? undefined : () => alternarTelaCheia(caixa.current)}>
-      <video ref={ref} aria-label="Prévia da sua transmissão" muted playsInline />
-      {telaInteira ? (
-        <figcaption className="previa-aviso" title="A prévia em tela cheia apareceria dentro da própria transmissão, num espelho infinito. Para ver grande, transmita uma janela.">
-          Tela inteira: sem tela cheia na prévia
-        </figcaption>
-      ) : (
-        <button type="button" className="icone quadro-tela-cheia" aria-label={cheia ? 'Sair da tela cheia' : 'Prévia em tela cheia'} title={cheia ? 'Sair da tela cheia (ou Esc)' : 'Tela cheia (ou duplo clique)'} onClick={() => alternarTelaCheia(caixa.current)}>
-          {cheia ? '🗗' : '⛶'}
-        </button>
-      )}
+    <figure className="previa-minha-tela" onDoubleClick={() => setAmpliada(true)}>
+      {video}
+      <button type="button" className="icone quadro-tela-cheia" aria-label="Ampliar prévia" title="Ampliar (ou duplo clique)" onClick={() => setAmpliada(true)}>
+        ⛶
+      </button>
     </figure>
   );
 }

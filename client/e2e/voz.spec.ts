@@ -697,7 +697,11 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
   await seletor.getByRole('region', { name: 'Telas' }).getByRole('button').first().click();
   await expect(d.getByRole('region', { name: 'Sua transmissão' })).toBeVisible({ timeout: 15_000 });
   // Backlog v2, item 12: quem transmite vê a prévia da própria tela (a faixa local).
-  await expect.poll(() => d.getByLabel('Prévia da sua transmissão').evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
+  // Com um monitor só, a tela transmitida é a do app: a prévia vira um aviso (sem espelho). Com mais, mostra a imagem.
+  const avisoEspelho = d.getByRole('note').filter({ hasText: 'para não virar espelho' });
+  if (!(await avisoEspelho.isVisible().catch(() => false))) {
+    await expect.poll(() => d.getByLabel('Prévia da sua transmissão').evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
+  }
   if (temPipeWire) {
     // O microfone virtual existe enquanto a tela vai. (Com a mídia falsa dos testes a janela não o enxerga e avisa
     // "sem o som do computador"; a captura com os dispositivos reais foi conferida à parte em 07/11.)

@@ -30,6 +30,19 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     expect(aoCancelar).toHaveBeenCalled();
   });
 
+  it('monitor 1080p: 1440p fica desligado com o motivo; escolher a tela usa a maior qualidade que cabe', async () => {
+    const aoEscolher = vi.fn();
+    const fonte = { id: 'screen:1', nome: 'Tela 1', tipo: 'tela' as const, miniatura: 'data:,', largura: 1920, altura: 1080 };
+    render(<SeletorTela listar={async () => [fonte]} audioDisponivel={false} qualidades={['720p30', '1080p60', '1440p60']} qualidadePadrao="1440p60" aoEscolher={aoEscolher} aoCancelar={vi.fn()} />);
+    await screen.findByText('Tela 1');
+    const q1440 = screen.getByLabelText(/1440p60/) as HTMLInputElement;
+    expect(q1440.disabled).toBe(true);
+    expect(q1440.closest('label')!.title).toContain('Não encontramos um monitor com 1440p');
+    expect((screen.getByLabelText(/1080p60/) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByText('Tela 1'));
+    expect(aoEscolher).toHaveBeenCalledWith(fonte, false, '1080p60');
+  });
+
   it('Windows: áudio do sistema pode ir junto; erro ao listar aparece', async () => {
     const aoEscolher = vi.fn();
     const { unmount } = render(

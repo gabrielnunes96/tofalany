@@ -21,6 +21,8 @@ interface Props {
   servidorUrl: string;
   api: Pick<ClienteApi, 'mensagensCanal' | 'enviarAnexo'>;
   aoEnviar: (canalId: number, texto: string, anexos: string[]) => Promise<string | null>;
+  /** Cargo sem "Enviar mensagens": o campo de escrever vira só um aviso. */
+  somenteLeitura?: string;
   euId: number;
   aoEditarMensagem: (id: number, texto: string) => Promise<string | null>;
   aoApagarMensagem: (id: number) => Promise<string | null>;
@@ -49,6 +51,7 @@ export function CanalAberto({
   aoSilenciar,
   extras,
   antes,
+  somenteLeitura,
 }: Props) {
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
@@ -138,6 +141,7 @@ export function CanalAberto({
         aoApagar={aoApagarMensagem}
         aoDigitar={() => aoDigitar(canal.id)}
         comandos={COMANDOS_MUSICA}
+        somenteLeitura={somenteLeitura}
       />
     </section>
   );

@@ -2,7 +2,7 @@ import { temPermissao } from '../dominio/funcoes.js';
 import { comunidadeDoCanal } from '../dominio/canais.js';
 import { membroDe } from '../dominio/comunidades.js';
 import { salaComunidade } from './salas.js';
-import { DIMENSOES_TELA, QUALIDADES_TELA, qualidadesPermitidas, type QualidadeTela, type TransmissaoDto } from '@tofalando/shared';
+import { DIMENSOES_TELA, QUALIDADES_TELA, qualidadesPermitidas, type QualidadeTela, type TransmissaoDto, PERMISSOES } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal } from '../dominio/canais.js';
@@ -36,7 +36,8 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
   /** Cargo e permissão de transmitir em alta no servidor do canal (cada servidor tem os seus cargos). */
   function papel(usuarioId: number, canalVozId: number) {
     const c = comunidadeDoCanal(banco, canalVozId) ?? 1;
-    return { cargo: membroDe(banco, c, usuarioId)?.cargo ?? 'membro', alta: temPermissao(banco, usuarioId, 'transmitir_alta', c), c };
+    const permissoes = new Set(PERMISSOES.map((p) => p.id).filter((p) => temPermissao(banco, usuarioId, p, c)));
+    return { cargo: membroDe(banco, c, usuarioId)?.cargo ?? 'membro', alta: permissoes, c };
   }
   const paraCanal = (canalVozId: number) => io.to(salaComunidade(comunidadeDoCanal(banco, canalVozId) ?? 1));
 
@@ -64,6 +65,7 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           if (typeof canalVozId !== 'number' || !Number.isInteger(canalVozId)) throw new ErroHttp(400, 'dados_invalidos', 'Canal inválido.');
           if (!QUALIDADES_TELA.includes(qualidade as QualidadeTela)) throw new ErroHttp(400, 'dados_invalidos', 'Qualidade inválida.');
           if (voz.presenca(usuarioId)?.canalVozId !== canalVozId) throw new ErroHttp(403, 'sem_permissao', 'Entre no canal de voz para transmitir.');
+          if (!papel(usuarioId, canalVozId).alta.has('transmitir_tela') && papel(usuarioId, canalVozId).cargo !== 'admin') throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite transmitir a tela.');
           // RN-17: membro transmite só em 720p30 (o servidor aplica, não só a tela).
           const { cargo, alta } = papel(usuarioId, canalVozId);
           if (!qualidadesPermitidas(cargo, alta).includes(qualidade as QualidadeTela)) {
@@ -104,7 +106,7 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
       if (soAudio) return false;
       // Sem dimensões (o livekit-client sempre manda em vídeo): de membro, é suspeito.
       const { cargo, alta } = papel(usuarioId, canalVozId);
-      if (largura <= 0 || altura <= 0) return !alta;
+      if (largura <= 0 || altura <= 0) return cargo !== 'admin' && !alta.has('transmitir_1080p');
       const qualidade = qualidadesPermitidas(cargo, alta).includes(t.qualidade) ? t.qualidade : '720p30';
       const max = DIMENSOES_TELA[qualidade];
       // Retrato (tela em pé) também vale: compara o lado maior e o menor.

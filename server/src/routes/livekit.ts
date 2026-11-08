@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { AccessToken, TrackSource, WebhookReceiver } from 'livekit-server-sdk';
-import { salaLivekit, type TokenVozResponse } from '@tofalando/shared';
+import { salaLivekit, type Permissao, type TokenVozResponse } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
@@ -8,6 +8,7 @@ import { exigirSessao } from '../auth/sessao-http.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 import { buscarNa } from '../dominio/usuarios.js';
 import type { Voz } from '../realtime/voz.js';
+import { temPermissao } from '../dominio/funcoes.js';
 
 /** Validade do token de mídia: o app pede outro ao reentrar. */
 const VALIDADE_TOKEN = '6h';
@@ -39,6 +40,8 @@ export async function registrarRotasLivekit(
       if (!canal) throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
       if (canal.tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Esse canal não é de voz.');
       const usuario = buscarNa(banco, req.usuarioId!, req.comunidadeId)!;
+      const pode = (p: Permissao) => temPermissao(banco, usuario.id, p, req.comunidadeId);
+      if (!pode('entrar_voz')) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite entrar na voz.');
       const token = new AccessToken(livekit.chave, livekit.segredo, {
         identity: String(usuario.id),
         name: usuario.nome_exibicao,
@@ -51,7 +54,12 @@ export async function registrarRotasLivekit(
         canSubscribe: true,
         canPublish: true,
         canPublishData: false,
-        canPublishSources: [TrackSource.MICROPHONE, TrackSource.CAMERA, TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
+        // O LiveKit só deixa publicar o que o cargo libera (câmera e tela).
+        canPublishSources: [
+          TrackSource.MICROPHONE,
+          ...(pode('usar_camera') ? [TrackSource.CAMERA] : []),
+          ...(pode('transmitir_tela') ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : []),
+        ],
       });
       return { url: livekit.url, token: await token.toJwt() };
     },

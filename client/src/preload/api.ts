@@ -50,13 +50,15 @@ export interface ApiTofalando {
   };
   /** RF-26: fontes para transmitir (telas e janelas, com miniatura) e a escolhida. */
   captura: {
-    fontes(): Promise<{ id: string; nome: string; tipo: 'tela' | 'janela'; miniatura: string }[]>;
+    fontes(): Promise<{ id: string; nome: string; tipo: 'tela' | 'janela'; miniatura: string; largura?: number; altura?: number }[]>;
     /** true: o som do sistema vai pelo microfone virtual do Linux (a janela o captura e publica). */
     escolher(fonteId: string, audio: boolean): Promise<boolean>;
     /** RF-29: áudio do sistema no Windows; no Linux, com PipeWire (backlog v2, item 13). */
     audioDisponivel: boolean;
     /** Desfaz o microfone virtual do Linux (fim da transmissão). */
     pararSom(): Promise<void>;
+    /** A tela transmitida é a mesma em que o app está (a prévia viraria espelho). */
+    mesmaTela(): Promise<boolean>;
   };
   /** CA-46: servidor de um convite em andamento (já testado) pode ser usado antes de virar o salvo. */
   rede: {

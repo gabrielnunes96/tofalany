@@ -2,6 +2,7 @@ import type { VozEstadoDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
+import { temPermissao } from '../dominio/funcoes.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { comAck } from './acoes.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
@@ -116,6 +117,9 @@ export function criarVoz(
         comAck(registrarErro, (dados: unknown) => {
           const pedido = lerPedido(dados);
           const atual = presentes.get(usuarioId);
+          if (pedido.canalVozId !== null && !temPermissao(banco, usuarioId, 'entrar_voz', socket.data.comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite entrar na voz.');
+          // Sem a permissão de câmera, o estado nunca diz "câmera ligada" (o LiveKit também não deixa publicar).
+          if (pedido.camera && !temPermissao(banco, usuarioId, 'usar_camera', socket.data.comunidadeId)) pedido.camera = false;
           if (pedido.canalVozId === null) {
             // Só o computador que está na voz tira a pessoa (o outro já foi tirado com voz:tirado).
             if (atual && atual.socketId === socket.id) {

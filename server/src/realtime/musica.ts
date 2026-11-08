@@ -7,6 +7,7 @@ import { criarConectorLivekit } from '../musica/saida-livekit.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
 import { salaComunidade } from './salas.js';
 import { comunidadeDoCanal } from '../dominio/canais.js';
+import { temPermissao } from '../dominio/funcoes.js';
 import type { Banco } from '../db/banco.js';
 import type { Voz } from './voz.js';
 
@@ -65,6 +66,7 @@ export function criarMusica(
   async function executar(usuarioId: number, comando: ComandoMusica): Promise<EstadoMusica> {
     if (!config.musica.ligada || !bot || !(await conferir())) throw new ErroHttp(503, 'musica_indisponivel', 'O bot de música não está disponível neste servidor.');
     const onde = voz.presenca(usuarioId);
+    if (onde && banco && !temPermissao(banco, usuarioId, 'usar_toouvini', comunidadeDoCanal(banco, onde.canalVozId) ?? 1)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite usar o ToOuvini.');
     if (!onde) throw new ErroHttp(403, 'sem_permissao', 'Entre num canal de voz para usar o bot de música.');
     if (comando.comando === 'pular') return bot.pular(onde.canalVozId);
     if (comando.comando === 'parar') return bot.parar(onde.canalVozId);

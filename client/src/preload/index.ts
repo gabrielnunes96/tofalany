@@ -53,6 +53,7 @@ const api: ApiTofalando = {
     escolher: (fonteId, audio) => ipcRenderer.invoke('captura:escolher', { fonteId, audio }),
     audioDisponivel: ipcRenderer.sendSync('captura:som-disponivel') === true,
     pararSom: () => ipcRenderer.invoke('captura:som-parar'),
+    mesmaTela: () => ipcRenderer.invoke('captura:mesma-tela'),
   },
   rede: {
     servidorPendente: (url) => ipcRenderer.invoke('rede:pendente', url),

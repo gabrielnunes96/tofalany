@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState, type KeyboardEvent as TecladoReact } from 'react';
-import type { QualidadeTela } from '@tofalando/shared';
+import { DIMENSOES_TELA, type QualidadeTela } from '@tofalando/shared';
 
 export interface FonteTela {
   id: string;
   nome: string;
   tipo: 'tela' | 'janela';
   miniatura: string;
+  /** Resolução do monitor (pixels reais), para não oferecer qualidade acima do que ele tem. */
+  largura?: number;
+  altura?: number;
 }
+
+/** A qualidade cabe no monitor (sem resolução conhecida, cabe). */
+const cabe = (q: QualidadeTela, f: { altura?: number } | undefined) => !f?.altura || DIMENSOES_TELA[q].altura <= f.altura;
 
 interface Props {
   listar: () => Promise<FonteTela[]>;
@@ -58,6 +64,15 @@ export function SeletorTela({ listar, audioDisponivel, qualidades = ['720p30'], 
     }
   }
 
+  // O maior monitor deste computador decide o que dá para escolher (1440p só com monitor de 1440p ou mais).
+  const maiorMonitor = (fontes ?? []).reduce<FonteTela | undefined>((m, f) => (f.altura && (!m?.altura || f.altura > m.altura) ? f : m), undefined);
+  const semMonitor = (q: QualidadeTela) => !cabe(q, maiorMonitor);
+  // Fonte menor que a qualidade (ex.: tela 1080p com 1440p marcado): transmite na maior que cabe nela.
+  const maiorQueCabe = (f: FonteTela | undefined): QualidadeTela => [...qualidades].reverse().find((q) => cabe(q, f)) ?? '720p30';
+  // A escolhida, ajustada ao maior monitor (ex.: o padrão era 1440p e o monitor é 1080p).
+  const qualidadeVista = semMonitor(qualidade) ? maiorQueCabe(maiorMonitor) : qualidade;
+  const qualidadePara = (f: FonteTela): QualidadeTela => (cabe(qualidadeVista, f) ? qualidadeVista : maiorQueCabe(f));
+
   const grupo = (tipo: FonteTela['tipo'], titulo: string) => {
     const lista = (fontes ?? []).filter((f) => f.tipo === tipo);
     if (lista.length === 0) return null;
@@ -67,7 +82,7 @@ export function SeletorTela({ listar, audioDisponivel, qualidades = ['720p30'], 
         <ul className="fontes-tela">
           {lista.map((f) => (
             <li key={f.id}>
-              <button type="button" className="fonte-tela" onClick={() => aoEscolher(f, audio, qualidade)}>
+              <button type="button" className="fonte-tela" onClick={() => aoEscolher(f, audio, qualidadePara(f))}>
                 <img src={f.miniatura} alt="" />
                 <span>{f.nome}</span>
               </button>
@@ -98,13 +113,23 @@ export function SeletorTela({ listar, audioDisponivel, qualidades = ['720p30'], 
         <fieldset className="opcoes qualidade-tela" aria-describedby={qualidades.length === 1 ? 'qualidade-tela-motivo' : undefined}>
           <legend>Qualidade</legend>
           {(['720p30', '1080p60', '1440p60'] as const).map((q) => (
-            <label key={q}>
-              <input type="radio" name="qualidade-tela" checked={qualidade === q} disabled={!qualidades.includes(q)} onChange={() => setQualidade(q)} /> {q}
+            <label
+              key={q}
+              title={
+                !qualidades.includes(q)
+                  ? 'Seu cargo não libera esta qualidade'
+                  : semMonitor(q)
+                    ? `Não encontramos um monitor com ${DIMENSOES_TELA[q].altura}p: a transmissão fica em até ${maiorMonitor?.altura ?? '?'}p`
+                    : undefined
+              }
+            >
+              <input type="radio" name="qualidade-tela" checked={qualidadeVista === q} disabled={!qualidades.includes(q) || semMonitor(q)} onChange={() => setQualidade(q)} /> {q}
+              {qualidades.includes(q) && semMonitor(q) && <span className="suave"> (monitor não tem)</span>}
             </label>
           ))}
           {qualidades.length === 1 && (
             <p className="suave" id="qualidade-tela-motivo">
-              Acima de 720p30, só administradores.
+              Acima de 720p30, só com o cargo que libera (ou administrador).
             </p>
           )}
         </fieldset>

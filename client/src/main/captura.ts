@@ -1,4 +1,4 @@
-import { desktopCapturer, ipcMain, session, webContents, type DesktopCapturerSource } from 'electron';
+import { BrowserWindow, desktopCapturer, ipcMain, screen, session, webContents, type DesktopCapturerSource } from 'electron';
 import { criarSomSistema } from './som-sistema';
 
 /** A escolha do seletor vale só para a captura logo em seguida. */
@@ -11,6 +11,18 @@ export interface FonteCaptura {
   tipo: 'tela' | 'janela';
   /** Miniatura como data URL (PNG). */
   miniatura: string;
+  /** Resolução em pixels reais (monitor da tela; numa janela, o maior monitor). Sem valor: desconhecida. */
+  largura?: number;
+  altura?: number;
+}
+
+/** Monitores em pixels reais (tamanho lógico × escala). */
+function monitores(): { id: string; largura: number; altura: number }[] {
+  try {
+    return screen.getAllDisplays().map((d) => ({ id: String(d.id), largura: Math.round(d.size.width * d.scaleFactor), altura: Math.round(d.size.height * d.scaleFactor) }));
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -24,11 +36,35 @@ export function registrarCaptura(
   som: Pick<ReturnType<typeof criarSomSistema>, 'disponivel' | 'ligar' | 'desligar'> = criarSomSistema(),
 ) {
   let escolhida: { fonteId: string; audio: boolean; janelaId: number; em: number } | undefined;
+  /** A última fonte escolhida (para saber se a prévia apareceria na própria tela transmitida). */
+  let ultimaEscolhida: string | undefined;
   let ultimas: DesktopCapturerSource[] = [];
 
   ipcMain.handle('captura:fontes', async (): Promise<FonteCaptura[]> => {
     ultimas = await listar({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: false });
-    return ultimas.map((f) => ({ id: f.id, nome: f.name, tipo: f.id.startsWith('screen:') ? 'tela' : 'janela', miniatura: f.thumbnail.toDataURL() }));
+    const telas = monitores();
+    const maior = telas.reduce<{ largura: number; altura: number } | undefined>((m, t) => (!m || t.altura > m.altura ? t : m), undefined);
+    return ultimas.map((f) => {
+      const tela = f.id.startsWith('screen:');
+      const monitor = tela ? (telas.find((t) => t.id === f.display_id) ?? (telas.length === 1 ? telas[0] : undefined)) : maior;
+      return { id: f.id, nome: f.name, tipo: tela ? 'tela' : 'janela', miniatura: f.thumbnail.toDataURL(), ...(monitor ? { largura: monitor.largura, altura: monitor.altura } : {}) };
+    });
+  });
+
+  // A prévia da minha transmissão apareceria dentro dela mesma (espelho infinito) se eu transmito a tela inteira em
+  // que o app está. Com uma janela ou outro monitor, não.
+  ipcMain.handle('captura:mesma-tela', (e): boolean => {
+    const fonte = ultimas.find((f) => f.id === ultimaEscolhida);
+    if (!fonte || !fonte.id.startsWith('screen:')) return false;
+    const telas = monitores();
+    if (telas.length <= 1) return true;
+    if (!fonte.display_id) return true;
+    try {
+      const janela = BrowserWindow.fromWebContents(e.sender);
+      return !!janela && String(screen.getDisplayMatching(janela.getBounds()).id) === fonte.display_id;
+    } catch {
+      return true;
+    }
   });
 
   // Lido uma vez pela ponte, ao abrir a janela: a opção "Incluir o áudio do sistema" aparece ou não.
@@ -42,6 +78,7 @@ export function registrarCaptura(
     // Só uma fonte que o seletor acabou de mostrar.
     if (!p || typeof p.fonteId !== 'string' || !ultimas.some((f) => f.id === p.fonteId)) throw new Error('Fonte inválida.');
     escolhida = { fonteId: p.fonteId, audio: p.audio === true && process.platform === 'win32', janelaId: e.sender.id, em: Date.now() };
+    ultimaEscolhida = p.fonteId;
     // Linux: o som vai pelo microfone virtual; a janela o captura se a resposta for true.
     if (p.audio === true && process.platform === 'linux') return som.ligar();
     som.desligar();

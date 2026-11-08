@@ -7,6 +7,8 @@ vi.mock('electron', () => ({
   ipcMain: { handle: (canal: string, fn: (...a: unknown[]) => unknown) => handlers.set(canal, fn), on: (canal: string, fn: (...a: unknown[]) => unknown) => handlers.set(canal, fn) },
   session: { defaultSession: { setDisplayMediaRequestHandler: (fn: typeof handlerTela) => (handlerTela = fn) } },
   webContents: { fromFrame: (frame: { janela: number }) => ({ id: frame.janela }) },
+  screen: { getAllDisplays: () => [{ id: 1, size: { width: 1920, height: 1080 }, scaleFactor: 1 }], getDisplayMatching: () => ({ id: 1 }) },
+  BrowserWindow: { fromWebContents: () => ({ getBounds: () => ({ x: 0, y: 0, width: 800, height: 600 }) }) },
 }));
 
 const { registrarCaptura } = await import('./captura');
@@ -24,8 +26,8 @@ describe('captura de tela (RF-26)', () => {
 
   it('lista telas e janelas; a escolha vale uma vez, só para a mesma janela', async () => {
     expect(await handlers.get('captura:fontes')!()).toEqual([
-      { id: 'screen:1', nome: 'Tela 1', tipo: 'tela', miniatura: 'data:,' },
-      { id: 'window:2', nome: 'Jogo', tipo: 'janela', miniatura: 'data:,' },
+      { id: 'screen:1', nome: 'Tela 1', tipo: 'tela', miniatura: 'data:,', largura: 1920, altura: 1080 },
+      { id: 'window:2', nome: 'Jogo', tipo: 'janela', miniatura: 'data:,', largura: 1920, altura: 1080 },
     ]);
     await handlers.get('captura:escolher')!({ sender: { id: 7 } }, { fonteId: 'window:2', audio: true });
     expect(await pedirTela(7)).toMatchObject({ video: { id: 'window:2' } });

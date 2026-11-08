@@ -186,5 +186,14 @@ export const MIGRACOES: readonly string[] = [
   );
   CREATE INDEX amizades_b ON amizades(usuario_b);
   `,
+  // 013 — permissões básicas (marcadas por padrão, dá para desmarcar) e transmissão em 1080p e 2K separadas.
+  // Os cargos que já existem ganham todas as básicas: ninguém perde o que já fazia.
+  `
+  UPDATE funcoes SET permissoes = replace(permissoes, '"transmitir_alta"', '"transmitir_1080p","transmitir_1440p"');
+  UPDATE funcoes SET permissoes = CASE
+    WHEN permissoes = '[]' THEN '["enviar_mensagens","enviar_anexos","entrar_voz","usar_camera","transmitir_tela","tocar_sons","usar_toouvini"]'
+    ELSE replace(permissoes, '[', '["enviar_mensagens","enviar_anexos","entrar_voz","usar_camera","transmitir_tela","tocar_sons","usar_toouvini",')
+  END;
+  `,
 ];
 

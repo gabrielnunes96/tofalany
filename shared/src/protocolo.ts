@@ -37,18 +37,44 @@ export interface UsuarioDto {
 }
 
 /**
- * Backlog v2, item 10c: o que um cargo personalizado libera. O administrador tem tudo, e só ele mexe em
- * contas e cargos.
+ * O que um cargo libera. Básicas: o que todo membro faz (um cargo personalizado vem com elas marcadas e dá para
+ * desmarcar). Extras: vêm desmarcadas. O administrador tem tudo, e só ele mexe em contas e cargos.
  */
-export type Permissao = 'gerenciar_canais' | 'apagar_mensagens' | 'gerenciar_convite' | 'gerenciar_sons' | 'transmitir_alta' | 'ver_auditoria';
-export const PERMISSOES: { id: Permissao; nome: string; descricao: string }[] = [
+export type Permissao =
+  | 'enviar_mensagens'
+  | 'enviar_anexos'
+  | 'entrar_voz'
+  | 'usar_camera'
+  | 'transmitir_tela'
+  | 'tocar_sons'
+  | 'usar_toouvini'
+  | 'gerenciar_canais'
+  | 'apagar_mensagens'
+  | 'gerenciar_convite'
+  | 'gerenciar_sons'
+  | 'transmitir_1080p'
+  | 'transmitir_1440p'
+  | 'ver_auditoria';
+
+export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basica?: boolean }[] = [
+  { id: 'enviar_mensagens', nome: 'Enviar mensagens', descricao: 'escrever nos canais de texto', basica: true },
+  { id: 'enviar_anexos', nome: 'Enviar arquivos', descricao: 'anexar imagens e arquivos nos canais', basica: true },
+  { id: 'entrar_voz', nome: 'Entrar na voz', descricao: 'entrar nos canais de voz e falar', basica: true },
+  { id: 'usar_camera', nome: 'Câmera', descricao: 'ligar a câmera nos canais de voz', basica: true },
+  { id: 'transmitir_tela', nome: 'Transmitir a tela', descricao: 'transmitir a tela em 720p30', basica: true },
+  { id: 'tocar_sons', nome: 'Soundboard', descricao: 'tocar os sons do soundboard', basica: true },
+  { id: 'usar_toouvini', nome: 'ToOuvini', descricao: 'pedir música ao bot (/play, /next…)', basica: true },
   { id: 'gerenciar_canais', nome: 'Gerenciar canais', descricao: 'remover canais de texto e de voz' },
   { id: 'apagar_mensagens', nome: 'Apagar mensagens', descricao: 'apagar mensagens dos outros nos canais' },
   { id: 'gerenciar_convite', nome: 'Gerenciar convite', descricao: 'ver e trocar o código de convite' },
   { id: 'gerenciar_sons', nome: 'Gerenciar sons', descricao: 'cadastrar, trocar e remover sons do soundboard' },
-  { id: 'transmitir_alta', nome: 'Transmitir em alta', descricao: 'transmitir a tela em 1080p60 e 1440p60' },
+  { id: 'transmitir_1080p', nome: 'Transmitir em 1080p', descricao: 'transmitir a tela em 1080p60' },
+  { id: 'transmitir_1440p', nome: 'Transmitir em 2K', descricao: 'transmitir a tela em 1440p60 (se o monitor tiver)' },
   { id: 'ver_auditoria', nome: 'Ver auditoria', descricao: 'ver o registro de entradas, saídas e ações' },
 ];
+
+/** O que todo membro sem cargo personalizado faz (e o que um cargo novo traz marcado). */
+export const PERMISSOES_BASICAS: Permissao[] = PERMISSOES.filter((p) => p.basica).map((p) => p.id);
 
 /** Backlog v2, item 10c: cargo personalizado. */
 export interface FuncaoDto {
@@ -59,11 +85,12 @@ export interface FuncaoDto {
   permissoes: Permissao[];
 }
 
-/** O que alguém pode fazer: administrador tudo; os outros, o que o cargo personalizado libera. */
+/** O que alguém pode fazer: administrador tudo; com cargo personalizado, o que ele libera; sem, as básicas. */
 export function permissoesDe(usuario: Pick<UsuarioDto, 'cargo' | 'funcaoId'> | undefined, funcoes: FuncaoDto[]): Set<Permissao> {
   if (!usuario) return new Set();
   if (usuario.cargo === 'admin') return new Set(PERMISSOES.map((p) => p.id));
-  return new Set(funcoes.find((f) => f.id === usuario.funcaoId)?.permissoes ?? []);
+  const funcao = usuario.funcaoId ? funcoes.find((f) => f.id === usuario.funcaoId) : undefined;
+  return new Set(funcao ? funcao.permissoes : PERMISSOES_BASICAS);
 }
 
 /** Visão do administrador: inclui contas removidas (para a auditoria). */
@@ -384,7 +411,11 @@ export const DIMENSOES_TELA: Record<QualidadeTela, { largura: number; altura: nu
 };
 
 /** RN-17: o que cada cargo pode escolher. */
-export const qualidadesPermitidas = (cargo: Cargo, altaLiberada = false): QualidadeTela[] => (cargo === 'admin' || altaLiberada ? QUALIDADES_TELA : ['720p30']);
+/** Qualidades que o cargo libera: 720p30 com "Transmitir a tela"; 1080p e 2K por permissão própria (administrador: todas). */
+export const qualidadesPermitidas = (cargo: Cargo, permissoes: ReadonlySet<Permissao> = new Set()): QualidadeTela[] => {
+  if (cargo === 'admin') return QUALIDADES_TELA;
+  return QUALIDADES_TELA.filter((q) => q === '720p30' || (q === '1080p60' && permissoes.has('transmitir_1080p')) || (q === '1440p60' && permissoes.has('transmitir_1440p')));
+};
 
 /** RN-10: quem transmite em cada canal de voz. */
 export interface TransmissaoDto {

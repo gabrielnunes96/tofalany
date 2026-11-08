@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import { io as conectar, type Socket } from 'socket.io-client';
+import { PERMISSOES_BASICAS } from '@tofalando/shared';
 import type { CanalDto, EventosCliente, EventosServidor, FuncaoDto, OlaPayload, UsuarioDto } from '@tofalando/shared';
 import { appTeste, cadastrar } from './apoio.js';
 
@@ -38,7 +39,8 @@ describe('cargos personalizados (backlog v2, item 10c)', () => {
     const { dono, ana, anaId, abrir } = await preparar();
     const a = await abrir(ana);
     const moderador = a.ola.funcoes.find((f) => f.nome === 'Moderador')!;
-    expect(moderador.permissoes).toEqual(['gerenciar_canais', 'apagar_mensagens', 'gerenciar_convite']);
+    // O Moderador de fábrica tem as básicas (a migração 013 deu a todos os cargos que já existiam) e as dele.
+    expect(moderador.permissoes).toEqual([...PERMISSOES_BASICAS, 'gerenciar_canais', 'apagar_mensagens', 'gerenciar_convite']);
 
     // Sem cargo: não pode.
     expect((await app!.inject({ method: 'GET', url: '/api/admin/convite', headers: auth(ana) })).statusCode).toBe(403);

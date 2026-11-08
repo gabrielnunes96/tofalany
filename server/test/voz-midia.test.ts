@@ -15,6 +15,7 @@ function socketFalso(id: string, usuarioId: number) {
 function preparar() {
   const banco = abrirBanco(':memory:');
   banco.prepare("INSERT INTO usuarios (id, usuario, senha_hash, nome_exibicao, cor, cargo, criado_em) VALUES (1, 'ana', 'x', 'ana', '#00f0ff', 'membro', 0)").run();
+  banco.prepare("INSERT INTO membros (comunidade_id, usuario_id, cargo, entrou_em) VALUES (1, 1, 'membro', 0)").run();
   const papo = criarCanal(banco, 'voz', 'Papo', 1);
   const jogo = criarCanal(banco, 'voz', 'Jogo', 1);
   const emitidos: [string, string, unknown][] = [];

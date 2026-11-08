@@ -115,6 +115,11 @@ export function registrarEventosMensagens(
     comAck(registrarErro, (dados: unknown) => {
       const { destino, participantes } = lerDestino(banco, dados, usuarioId, comunidadeId);
       const anexos = lerAnexos(dados);
+      // Canais seguem o cargo (as conversas diretas, não).
+      if ('canalId' in destino) {
+        if (!temPermissao(banco, usuarioId, 'enviar_mensagens', comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite enviar mensagens nos canais.');
+        if (anexos.length > 0 && !temPermissao(banco, usuarioId, 'enviar_anexos', comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite enviar arquivos nos canais.');
+      }
       // Só com anexos, o texto pode ficar vazio.
       const bruto = ehObjeto(dados) && typeof dados.texto === 'string' ? dados.texto : '';
       const texto = anexos.length > 0 && !bruto.trim() ? '' : lerTexto(dados);

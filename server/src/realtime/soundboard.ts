@@ -2,6 +2,7 @@ import { SOM_INTERVALO_MS } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarSom, comunidadeDoSom } from '../dominio/sons.js';
+import { temPermissao } from '../dominio/funcoes.js';
 import { comAck } from './acoes.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
 import type { Voz } from './voz.js';
@@ -21,6 +22,7 @@ export function criarSoundboard(io: ServidorTempoReal, banco: Banco, voz: Pick<V
           const somId = typeof dados === 'object' && dados !== null ? (dados as { somId?: unknown }).somId : undefined;
           if (typeof somId !== 'number' || !Number.isInteger(somId) || somId < 1) throw new ErroHttp(400, 'dados_invalidos', 'Som inválido.');
           const onde = voz.presenca(usuarioId);
+          if (onde && !temPermissao(banco, usuarioId, 'tocar_sons', socket.data.comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite tocar sons.');
           if (!onde) throw new ErroHttp(403, 'sem_permissao', 'Entre num canal de voz para tocar sons.');
           const falta = (ultimo.get(usuarioId) ?? -Infinity) + SOM_INTERVALO_MS - agora();
           if (falta > 0) throw new ErroHttp(429, 'muitas_tentativas', `Aguarde ${Math.ceil(falta / 1000)} s para tocar outro som.`);
