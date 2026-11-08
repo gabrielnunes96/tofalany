@@ -43,9 +43,13 @@ describe('BarraLateral — mensagens diretas', () => {
   });
 });
 
-describe('BarraLateral — abas Canais e Diretas', () => {
-  it('as conversas diretas ficam numa aba própria, com o total de não lidas; + começa conversa nova', () => {
+describe('BarraLateral — aba Amigos', () => {
+  it('pedidos, amigos (clicar abre a conversa) e outras conversas; adicionar amigo e aceitar pedido', () => {
+    const aoPedirAmizade = vi.fn();
+    const aoAceitarAmizade = vi.fn();
     const aoConversarCom = vi.fn();
+    const caio = { ...bia, id: 3, usuario: 'caio', nomeExibicao: 'Caio' };
+    const davi = { ...bia, id: 4, usuario: 'davi', nomeExibicao: 'Davi' };
     render(
       <BarraLateral
         nomeServidor="T"
@@ -57,24 +61,35 @@ describe('BarraLateral — abas Canais e Diretas', () => {
         aoRenomear={fn()}
         aoRemover={fn()}
         dms={[dm]}
-        usuarios={[bia, { ...bia, id: 3, usuario: 'caio', nomeExibicao: 'Caio' }]}
+        usuarios={[bia, caio, davi]}
         dmAtiva={null}
         aoAbrirDm={vi.fn()}
         naoLidas={{ 'd:7': 2 }}
         euId={1}
+        amizades={[
+          { usuarioId: 3, situacao: 'amigo' },
+          { usuarioId: 4, situacao: 'recebido' },
+        ]}
         aoConversarCom={aoConversarCom}
+        aoPedirAmizade={aoPedirAmizade}
+        aoAceitarAmizade={aoAceitarAmizade}
       />,
     );
-    expect(screen.queryByRole('list', { name: 'Mensagens diretas' })).toBeNull();
-    const diretas = screen.getByRole('tab', { name: /Diretas/ });
-    expect(diretas.textContent).toContain('2 não lidas');
-    fireEvent.click(diretas);
-    expect(screen.getByRole('tab', { name: /Diretas/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByRole('list', { name: 'Amigos' })).toBeNull();
+    const aba = screen.getByRole('tab', { name: /Amigos/ });
+    // 2 não lidas na conversa com a Bia + 1 pedido recebido.
+    expect(aba.textContent).toContain('3 não lidas');
+    fireEvent.click(aba);
+    expect(screen.getByRole('list', { name: 'Amigos' }).textContent).toContain('Caio');
+    // A Bia não é amiga: a conversa com ela fica em "Outras conversas".
     expect(screen.getByRole('list', { name: 'Mensagens diretas' }).textContent).toContain('Bia');
-    expect(screen.queryByRole('list', { name: 'Canais de texto' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Nova conversa' }));
-    fireEvent.click(screen.getByRole('list', { name: 'Conversar com' }).querySelectorAll('button')[1]!);
+    fireEvent.click(screen.getByRole('list', { name: 'Amigos' }).querySelector('button')!);
     expect(aoConversarCom).toHaveBeenCalledWith(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Aceitar Davi' }));
+    expect(aoAceitarAmizade).toHaveBeenCalledWith(4);
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar amigo' }));
+    fireEvent.click(screen.getByRole('list', { name: 'Adicionar amigo' }).querySelector('button')!);
+    expect(aoPedirAmizade).toHaveBeenCalledWith(2);
   });
 });
 

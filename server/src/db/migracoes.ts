@@ -173,5 +173,18 @@ export const MIGRACOES: readonly string[] = [
   ALTER TABLE funcoes ADD COLUMN comunidade_id INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE auditoria ADD COLUMN comunidade_id INTEGER;
   `,
+  // 012 — amigos (como no Discord): pedido, aceite. Vale para a conta, em todos os servidores da instalação.
+  `
+  CREATE TABLE amizades (
+    usuario_a INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    usuario_b INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    pedido_por INTEGER NOT NULL,
+    aceita INTEGER NOT NULL DEFAULT 0,
+    criado_em INTEGER NOT NULL,
+    PRIMARY KEY (usuario_a, usuario_b),
+    CHECK (usuario_a < usuario_b)
+  );
+  CREATE INDEX amizades_b ON amizades(usuario_b);
+  `,
 ];
 

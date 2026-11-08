@@ -1,6 +1,6 @@
 import { Icone } from './Icone';
 import { useState } from 'react';
-import type { CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
+import type { AmizadeDto, CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
 import { Avatar } from './Avatar';
 import { StatusPonto } from './StatusPonto';
 import { FormNome } from './FormNome';
@@ -11,8 +11,15 @@ interface Props {
   /** O que a barra mostra: canais (texto e voz) ou as conversas diretas. Sem `aoMudarAba`, a barra controla sozinha. */
   aba?: AbaBarra;
   aoMudarAba?: (aba: AbaBarra) => void;
-  /** Começar conversa direta com alguém (botão "Nova conversa" na aba Diretas). */
+  /** Começar conversa direta com alguém (amigo ou "Nova conversa" na aba Amigos). */
   aoConversarCom?: (usuarioId: number) => void;
+  /** Amigos e pedidos (valem em todos os servidores) e as ações de amizade. */
+  amizades?: AmizadeDto[];
+  aoPedirAmizade?: (usuarioId: number) => void;
+  aoAceitarAmizade?: (usuarioId: number) => void;
+  aoRemoverAmizade?: (usuarioId: number) => void;
+  /** Clique direito numa pessoa (na sala de voz): abre o menu dela (volume, mensagem, amizade). */
+  aoMenuPessoa?: (usuarioId: number, x: number, y: number) => void;
   nomeServidor: string;
   canais: CanalDto[];
   canalAtivo: number | null;
@@ -79,7 +86,7 @@ const TITULOS: Record<TipoCanal, string> = {
 /** Canal de voz na barra: renomear (qualquer membro) e remover (só administrador, com confirmação). */
 interface PropsItemVoz extends Pick<
   Props,
-  'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa'
+  'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa' | 'aoMenuPessoa'
 > {
   canal: CanalDto;
   presentes: {
@@ -142,7 +149,8 @@ function PresentesVoz({
   pessoasVoz,
   aoVolumePessoa,
   aoSilenciarPessoa,
-}: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl' | 'aqui' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa'>) {
+  aoMenuPessoa,
+}: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl' | 'aqui' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa' | 'aoMenuPessoa'>) {
   const [abertos, setAbertos] = useState<number | null>(null);
   if (presentes.length === 0) return null;
   return (
@@ -152,7 +160,19 @@ function PresentesVoz({
         // Só ajusta quem eu ouço: gente do meu canal, menos eu.
         const ajustavel = aqui && usuario.id !== euId && !!aoVolumePessoa && !!aoSilenciarPessoa;
         return (
-          <li key={usuario.id} className={falando ? 'falando' : undefined} aria-label={`${usuario.nomeExibicao}${falando ? ', falando' : ''}`}>
+          <li
+            key={usuario.id}
+            className={falando ? 'falando' : undefined}
+            aria-label={`${usuario.nomeExibicao}${falando ? ', falando' : ''}`}
+            onContextMenu={
+              aoMenuPessoa
+                ? (e) => {
+                    e.preventDefault();
+                    aoMenuPessoa(usuario.id, e.clientX, e.clientY);
+                  }
+                : undefined
+            }
+          >
             <Avatar usuario={usuario} servidorUrl={servidorUrl ?? ''} tamanho={20} />
             <span className="nome">{usuario.nomeExibicao}</span>
             {silenciado && aqui && (
@@ -318,11 +338,15 @@ export function BarraLateral({
   aba: abaControlada,
   aoMudarAba,
   aoConversarCom,
+  amizades = [],
+  aoPedirAmizade,
+  aoAceitarAmizade,
+  aoRemoverAmizade,
+  aoMenuPessoa,
 }: Props) {
   const [abaLocal, setAbaLocal] = useState<AbaBarra>('canais');
   const aba = abaControlada ?? abaLocal;
   const mudarAba = (a: AbaBarra) => (aoMudarAba ? aoMudarAba(a) : setAbaLocal(a));
-  const [escolhendo, setEscolhendo] = useState(false);
   const soma = (prefixo: string) => Object.entries(naoLidas).reduce((t, [k, n]) => (k.startsWith(prefixo) ? t + (n ?? 0) : t), 0);
   const naoLidasCanais = soma('c:');
   const naoLidasDiretas = soma('d:');
@@ -365,8 +389,8 @@ export function BarraLateral({
           className={aba === 'diretas' ? 'ativa' : undefined}
           onClick={() => mudarAba('diretas')}
         >
-          <Icone nome="conversas" tamanho={15} /> Diretas
-          <Contador n={naoLidasDiretas} />
+          <Icone nome="pessoas" tamanho={15} /> Amigos
+          <Contador n={naoLidasDiretas + amizades.filter((a) => a.situacao === 'recebido').length} />
         </button>
       </div>
       {aba === 'canais' &&
@@ -418,6 +442,7 @@ export function BarraLateral({
                         pessoasVoz={pessoasVoz}
                         aoVolumePessoa={aoVolumePessoa}
                         aoSilenciarPessoa={aoSilenciarPessoa}
+                        aoMenuPessoa={aoMenuPessoa}
                         aqui={minhaVoz === c.id}
                         servidorUrl={servidorUrl}
                       />
@@ -428,76 +453,186 @@ export function BarraLateral({
           </section>
         ))}
       {aba === 'diretas' && (
-        <section className="grupo-canais grupo-dms" aria-labelledby="grupo-dms">
-          <div className="grupo-topo">
-            <h2 id="grupo-dms">Mensagens diretas</h2>
-            {aoConversarCom && (
-              <button
-                type="button"
-                className="icone"
-                aria-expanded={escolhendo}
-                aria-label="Nova conversa"
-                title="Nova conversa direta"
-                onClick={() => setEscolhendo(!escolhendo)}
-              >
-                <Icone nome="mais" tamanho={16} />
-              </button>
-            )}
-          </div>
-          {escolhendo && aoConversarCom && (
-            <ul className="escolher-pessoa" aria-label="Conversar com">
-              {usuarios
-                .filter((u) => u.id !== euId)
-                .map((u) => (
-                  <li key={u.id}>
-                    <button
-                      type="button"
-                      className="canal"
-                      onClick={() => {
-                        setEscolhendo(false);
-                        aoConversarCom(u.id);
-                      }}
-                    >
-                      <Avatar usuario={u} servidorUrl={servidorUrl ?? ''} tamanho={22} /> {u.nomeExibicao}
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          )}
-          {dms.length === 0 && !escolhendo && <p className="suave dica-dm">Nenhuma conversa ainda. Use o + acima ou o envelope na lista de membros.</p>}
-          <ul aria-label="Mensagens diretas">
-            {dms.map((d) => {
-              const outro = usuarios.find((u) => u.id === d.outroId);
-              const nome = outro?.nomeExibicao ?? 'conta removida';
-              return (
-                <li key={d.id}>
-                  <button
-                    type="button"
-                    className={`canal${d.id === dmAtiva ? ' ativo' : ''}`}
-                    aria-current={d.id === dmAtiva ? 'page' : undefined}
-                    onClick={() => aoAbrirDm(d.id)}
-                  >
-                    {outro ? (
-                      <span className="avatar-com-status">
-                        <Avatar usuario={outro} servidorUrl={servidorUrl ?? ''} tamanho={24} />
-                        <StatusPonto status={presencas[d.outroId] ?? 'offline'} oculto />
-                      </span>
-                    ) : (
-                      <StatusPonto status={presencas[d.outroId] ?? 'offline'} oculto />
-                    )}{' '}
-                    <span className="nome-dm">{nome}</span>
-                    <span className="so-leitor" id={`dm-status-${d.id}`}>
-                      {presencas[d.outroId] ?? 'offline'}
-                    </span>
-                    {silenciadas.includes(`d:${d.id}`) && <Silenciada />}
-                    <Contador n={naoLidas[`d:${d.id}`]} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <AbaAmigos
+          dms={dms}
+          usuarios={usuarios}
+          dmAtiva={dmAtiva}
+          naoLidas={naoLidas}
+          presencas={presencas}
+          silenciadas={silenciadas}
+          servidorUrl={servidorUrl ?? ''}
+          euId={euId}
+          amizades={amizades}
+          aoAbrirDm={aoAbrirDm}
+          aoConversarCom={aoConversarCom}
+          aoPedirAmizade={aoPedirAmizade}
+          aoAceitarAmizade={aoAceitarAmizade}
+          aoRemoverAmizade={aoRemoverAmizade}
+          aoMenuPessoa={aoMenuPessoa}
+        />
       )}
     </nav>
+  );
+}
+
+/**
+ * Aba Amigos (no lugar de Diretas): pedidos recebidos e enviados, amigos com status (clicar abre a conversa) e as
+ * conversas com quem não é amigo em "Outras conversas". Amizade vale em todos os servidores da instalação.
+ */
+function AbaAmigos({
+  dms,
+  usuarios,
+  dmAtiva,
+  naoLidas,
+  presencas,
+  silenciadas,
+  servidorUrl,
+  euId,
+  amizades,
+  aoAbrirDm,
+  aoConversarCom,
+  aoPedirAmizade,
+  aoAceitarAmizade,
+  aoRemoverAmizade,
+  aoMenuPessoa,
+}: {
+  dms: DmDto[];
+  usuarios: UsuarioDto[];
+  dmAtiva: number | null;
+  naoLidas: Partial<Record<string, number>>;
+  presencas: Partial<Record<number, StatusVisivel>>;
+  silenciadas: string[];
+  servidorUrl: string;
+  euId?: number;
+  amizades: AmizadeDto[];
+  aoAbrirDm: (id: number) => void;
+  aoConversarCom?: (usuarioId: number) => void;
+  aoPedirAmizade?: (usuarioId: number) => void;
+  aoAceitarAmizade?: (usuarioId: number) => void;
+  aoRemoverAmizade?: (usuarioId: number) => void;
+  aoMenuPessoa?: (usuarioId: number, x: number, y: number) => void;
+}) {
+  const [adicionando, setAdicionando] = useState(false);
+  const pessoa = (id: number) => usuarios.find((u) => u.id === id);
+  const situacao = new Map(amizades.map((a) => [a.usuarioId, a.situacao]));
+  const amigos = amizades.filter((a) => a.situacao === 'amigo').map((a) => pessoa(a.usuarioId)).filter((u): u is UsuarioDto => !!u);
+  const recebidos = amizades.filter((a) => a.situacao === 'recebido');
+  const enviados = amizades.filter((a) => a.situacao === 'enviado');
+  const dmDe = (id: number) => dms.find((d) => d.outroId === id);
+  const outras = dms.filter((d) => situacao.get(d.outroId) !== 'amigo');
+  const ordem: Record<string, number> = { online: 0, naoIncomodar: 1, ausente: 2 };
+  amigos.sort((a, b) => (ordem[presencas[a.id] ?? 'offline'] ?? 3) - (ordem[presencas[b.id] ?? 'offline'] ?? 3) || a.nomeExibicao.localeCompare(b.nomeExibicao));
+  const menu = (id: number) => (e: React.MouseEvent) => {
+    if (!aoMenuPessoa) return;
+    e.preventDefault();
+    aoMenuPessoa(id, e.clientX, e.clientY);
+  };
+  const linhaPessoa = (u: UsuarioDto | undefined, id: number) => (
+    <>
+      {u ? (
+        <span className="avatar-com-status">
+          <Avatar usuario={u} servidorUrl={servidorUrl} tamanho={24} />
+          <StatusPonto status={presencas[id] ?? 'offline'} oculto />
+        </span>
+      ) : (
+        <StatusPonto status={presencas[id] ?? 'offline'} oculto />
+      )}{' '}
+      <span className="nome-dm">{u?.nomeExibicao ?? 'conta removida'}</span>
+    </>
+  );
+
+  return (
+    <section className="grupo-canais grupo-dms" aria-labelledby="grupo-amigos">
+      {recebidos.length > 0 && (
+        <>
+          <div className="grupo-topo">
+            <h2>Pedidos de amizade</h2>
+          </div>
+          <ul className="pedidos-amizade" aria-label="Pedidos de amizade">
+            {recebidos.map((a) => (
+              <li key={a.usuarioId}>
+                {linhaPessoa(pessoa(a.usuarioId), a.usuarioId)}
+                <button type="button" className="icone aceitar" aria-label={`Aceitar ${pessoa(a.usuarioId)?.nomeExibicao ?? ''}`} title="Aceitar" onClick={() => aoAceitarAmizade?.(a.usuarioId)}>
+                  ✓
+                </button>
+                <button type="button" className="icone recusar" aria-label={`Recusar ${pessoa(a.usuarioId)?.nomeExibicao ?? ''}`} title="Recusar" onClick={() => aoRemoverAmizade?.(a.usuarioId)}>
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <div className="grupo-topo">
+        <h2 id="grupo-amigos">Amigos{amigos.length ? ` — ${amigos.length}` : ''}</h2>
+        {aoPedirAmizade && (
+          <button type="button" className="icone" aria-expanded={adicionando} aria-label="Adicionar amigo" title="Adicionar amigo" onClick={() => setAdicionando(!adicionando)}>
+            <Icone nome="mais" tamanho={16} />
+          </button>
+        )}
+      </div>
+      {adicionando && aoPedirAmizade && (
+        <ul className="escolher-pessoa" aria-label="Adicionar amigo">
+          {usuarios.filter((u) => u.id !== euId && !situacao.has(u.id)).length === 0 && <li className="suave">Todo mundo daqui já é seu amigo (ou tem pedido).</li>}
+          {usuarios
+            .filter((u) => u.id !== euId && !situacao.has(u.id))
+            .map((u) => (
+              <li key={u.id}>
+                <button
+                  type="button"
+                  className="canal"
+                  onClick={() => {
+                    setAdicionando(false);
+                    aoPedirAmizade(u.id);
+                  }}
+                >
+                  <Avatar usuario={u} servidorUrl={servidorUrl} tamanho={22} /> {u.nomeExibicao}
+                </button>
+              </li>
+            ))}
+        </ul>
+      )}
+      {amigos.length === 0 && !adicionando && <p className="suave dica-dm">Sem amigos ainda. Use o + ou clique com o botão direito em alguém.</p>}
+      <ul aria-label="Amigos">
+        {amigos.map((u) => {
+          const dm = dmDe(u.id);
+          return (
+            <li key={u.id} onContextMenu={menu(u.id)}>
+              <button
+                type="button"
+                className={`canal${dm && dm.id === dmAtiva ? ' ativo' : ''}`}
+                aria-current={dm && dm.id === dmAtiva ? 'page' : undefined}
+                onClick={() => (dm ? aoAbrirDm(dm.id) : aoConversarCom?.(u.id))}
+              >
+                {linhaPessoa(u, u.id)}
+                {dm && silenciadas.includes(`d:${dm.id}`) && <Silenciada />}
+                <Contador n={dm ? naoLidas[`d:${dm.id}`] : undefined} />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {enviados.length > 0 && (
+        <p className="suave pedidos-enviados">
+          Aguardando: {enviados.map((a) => pessoa(a.usuarioId)?.nomeExibicao ?? 'alguém').join(', ')}
+        </p>
+      )}
+      <div className="grupo-topo">
+        <h2>Outras conversas</h2>
+      </div>
+      {outras.length === 0 && <p className="suave dica-dm">Conversas com quem não é seu amigo aparecem aqui.</p>}
+      <ul aria-label="Mensagens diretas">
+        {outras.map((d) => (
+          <li key={d.id} onContextMenu={menu(d.outroId)}>
+            <button type="button" className={`canal${d.id === dmAtiva ? ' ativo' : ''}`} aria-current={d.id === dmAtiva ? 'page' : undefined} onClick={() => aoAbrirDm(d.id)}>
+              {linhaPessoa(pessoa(d.outroId), d.outroId)}
+              <span className="so-leitor">{presencas[d.outroId] ?? 'offline'}</span>
+              {silenciadas.includes(`d:${d.id}`) && <Silenciada />}
+              <Contador n={naoLidas[`d:${d.id}`]} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

@@ -66,7 +66,7 @@ test('CA-19a e CA-19b: DM com texto e imagem só para os dois; edição chega; o
 
   // A bia vê a DM aparecer na barra e lê texto e imagem.
   // As conversas diretas ficam na aba Diretas da barra.
-  await bia.janela.getByRole('tab', { name: /Diretas/ }).click();
+  await bia.janela.getByRole('tab', { name: /Amigos/ }).click();
   const dmsDaBia = bia.janela.getByRole('list', { name: 'Mensagens diretas' });
   await expect(dmsDaBia).toContainText('ana');
   await dmsDaBia.getByRole('button', { name: /ana/ }).click();
@@ -84,7 +84,7 @@ test('CA-19a e CA-19b: DM com texto e imagem só para os dois; edição chega; o
   await expect(listaBia).toContainText('(editada)');
 
   // O dono (admin) não tem essa conversa e o servidor recusa ler o histórico.
-  await dono.janela.getByRole('tab', { name: /Diretas/ }).click();
+  await dono.janela.getByRole('tab', { name: /Amigos/ }).click();
   await expect(dono.janela.getByRole('list', { name: 'Mensagens diretas' })).not.toContainText('ana');
   const dmId = (servidor.banco.prepare('SELECT id FROM dms').get() as { id: number }).id;
   const login = (await servidor.inject({ method: 'POST', url: '/api/auth/login', payload: { usuario: 'dono', senha: 'Senha-forte-1' } })).json();

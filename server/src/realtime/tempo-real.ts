@@ -36,6 +36,8 @@ import { salaLivekit } from '@tofalando/shared';
 import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
 import { criarSoundboard } from './soundboard.js';
 import { salaComunidade } from './salas.js';
+import { conhecidosDe, registrarEventosAmizades } from './amizades.js';
+import { listarAmizades } from '../dominio/amizades.js';
 import { criarMusica } from './musica.js';
 import { criarTela } from './tela.js';
 
@@ -254,7 +256,10 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     const ids = new Set(membros.map((m) => m.id));
     const canais = listarCanais(banco, comunidadeId);
     const daqui = new Set(canais.map((c) => c.id));
-    const dms = listarDms(banco, eu.id).filter((d) => ids.has(d.outroId));
+    // Conversas diretas com quem está neste servidor ou é amigo (amizade vale em todos os servidores).
+    const amizades = listarAmizades(banco, eu.id);
+    const amigos = new Set(amizades.filter((a) => a.situacao === 'amigo').map((a) => a.usuarioId));
+    const dms = listarDms(banco, eu.id).filter((d) => ids.has(d.outroId) || amigos.has(d.outroId));
     const chaves = new Set([...canais.map((c) => `c:${c.id}`), ...dms.map((d) => `d:${d.id}`)]);
     const ola: OlaPayload = {
       servidor: { nome: nomeComunidade(banco, comunidadeId, config.nomeServidor) ?? config.nomeServidor, id: comunidadeId, donoId: donoDa(banco, comunidadeId) },
@@ -270,6 +275,8 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       presencas: {},
       transmissoes: tela.transmissoes().filter((t) => daqui.has(t.canalVozId)),
       musica: musica.estados().filter((m) => daqui.has(m.canalVozId)),
+      amizades,
+      conhecidos: conhecidosDe(banco, eu.id, comunidadeId),
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
@@ -277,6 +284,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     musica.registrar(socket);
     tela.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e));
+    registrarEventosAmizades(io, socket, banco, (e) => app.log.error(e));
     presenca.entrou(eu.id);
     // RN-25: quem reconecta já ausente avisa no handshake (sem piscar "online" para os outros).
     if (socket.handshake.auth?.ausente === true) ausentes.add(socket.id);
@@ -284,7 +292,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     const escolhaInicial = lerEscolha(socket.handshake.auth?.status);
     if (escolhaInicial) escolhas.set(eu.id, escolhaInicial);
     recalcularStatus(eu.id);
-    ola.presencas = Object.fromEntries([...status].filter(([id]) => ids.has(id)));
+    ola.presencas = Object.fromEntries([...status].filter(([id]) => ids.has(id) || amigos.has(id)));
     socket.emit('ola', ola);
     socket.on('presenca:ausente', (dados) => {
       const ausente = typeof dados === 'object' && dados !== null && (dados as { ausente?: unknown }).ausente === true;

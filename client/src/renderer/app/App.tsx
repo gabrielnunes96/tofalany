@@ -249,8 +249,8 @@ export function App() {
     const { base } = separarComunidade(principalUrl);
     let vivo = true;
     void (async () => {
-      const lista = await criarApi(principalUrl, principalToken)
-        .comunidades()
+      const lista = await Promise.resolve()
+        .then(() => criarApi(principalUrl, principalToken).comunidades())
         .catch(() => null);
       if (!lista || !vivo) return;
       const daqui = lista.map((c) => ({ url: `${base}${caminhoComunidade(c.id)}`, nome: c.nome }));
@@ -272,8 +272,8 @@ export function App() {
         return proximo;
       });
       // Só o administrador do principal cria servidores (o botão "Criar servidor" aparece para ele).
-      const eu = await criarApi(base, principalToken)
-        .eu()
+      const eu = await Promise.resolve()
+        .then(() => criarApi(base, principalToken).eu())
         .catch(() => null);
       if (vivo) setPodeCriar(eu?.cargo === 'admin' ? base : null);
     })();

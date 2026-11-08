@@ -15,6 +15,7 @@ import { PainelTransmissao } from '../componentes/PainelTransmissao';
 import { PainelMusica } from '../componentes/PainelMusica';
 import { Icone } from '../componentes/Icone';
 import { SeletorStatus } from '../componentes/SeletorStatus';
+import { MenuPessoa } from '../componentes/MenuPessoa';
 import { alternarTelaCheia, useEmTelaCheia } from '../componentes/telaCheia';
 import { ponte } from '../servicos/ponte';
 import { testarServidor } from '../servicos/servidor';
@@ -74,12 +75,14 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor, aoSairDoServidor }: Props) {
-  const { conexao, eu, usuarios, funcoes, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica } = useLoja(
+  const { conexao, eu, usuarios, funcoes, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica, amizades, conhecidos } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
       transmissoes: s.transmissoes,
       musica: s.musica,
+      amizades: s.amizades,
+      conhecidos: s.conhecidos,
       presencas: s.presencas,
       naoLidas: s.naoLidas,
       sons: s.sons,
@@ -117,6 +120,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       iniciarTransmissao: s.iniciarTransmissao,
       pararTransmissao: s.pararTransmissao,
       definirMusica: s.definirMusica,
+      definirAmizades: s.definirAmizades,
       definirPresenca: s.definirPresenca,
       definirFalando: s.definirFalando,
       salvarSom: s.salvarSom,
@@ -213,6 +217,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       vivo = false;
     };
   }, [servidorUrl]);
+  // Amigos (valem em todos os servidores): pedir, aceitar e recusar/desfazer.
+  const pedirAmizade = (usuarioId: number) => void pedir((c) => c.pedir('amizade:pedir', { usuarioId }), (l) => acoes.definirAmizades(l));
+  const aceitarAmizade = (usuarioId: number) => void pedir((c) => c.pedir('amizade:aceitar', { usuarioId }), (l) => acoes.definirAmizades(l));
+  const removerAmizade = (usuarioId: number) => void pedir((c) => c.pedir('amizade:remover', { usuarioId }), (l) => acoes.definirAmizades(l));
+  // Clique direito numa pessoa: menu com volume, silenciar, mensagem direta e amizade.
+  const [menuPessoa, setMenuPessoa] = useState<{ usuarioId: number; x: number; y: number } | null>(null);
+  const fecharMenuPessoa = useCallback(() => setMenuPessoa(null), []);
+  const abrirMenuPessoa = (usuarioId: number, x: number, y: number) => setMenuPessoa({ usuarioId, x, y });
   // Barra lateral: canais ou conversas diretas (abrir uma DM, por notificação ou pelo envelope, troca para Diretas).
   const [abaBarra, setAbaBarra] = useState<AbaBarra>('canais');
   // Ping até o servidor de voz, atualizado a cada 2 s enquanto estou num canal.
@@ -731,6 +743,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       aoTelaIniciada: acoes.iniciarTransmissao,
       aoTelaParada: acoes.pararTransmissao,
       aoMusica: acoes.definirMusica,
+      aoAmizades: acoes.definirAmizades,
       aoPresenca: (id, status) => {
         // RF-41: alguém entrou ou saiu do servidor.
         avisarEntradaSaida(id, useLoja.getState().presencas[id], status);
@@ -774,6 +787,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     if (nomeServidor) aoNomeServidor?.(nomeServidor);
   }, [nomeServidor, aoNomeServidor]);
   const usuario = eu ?? usuarioInicial;
+  const pessoas = useMemo(() => [...usuarios, ...conhecidos.filter((c) => !usuarios.some((u) => u.id === c.id))], [usuarios, conhecidos]);
   const barraVisao = (
     <span className="barra-visao" role="group" aria-label="Mostrar ou ocultar">
       {videos.length > 0 && (
@@ -1087,6 +1101,25 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
           {conexao === 'conectando' ? 'Conectando…' : 'Sem conexão com o servidor. Reconectando…'}
         </div>
       )}
+      {menuPessoa && pessoas.find((p) => p.id === menuPessoa.usuarioId) && (
+        <MenuPessoa
+          usuario={pessoas.find((p) => p.id === menuPessoa.usuarioId)!}
+          x={menuPessoa.x}
+          y={menuPessoa.y}
+          servidorUrl={servidorUrl}
+          eu={menuPessoa.usuarioId === usuario.id}
+          volume={pessoasVoz.volumes[String(menuPessoa.usuarioId)] ?? 1}
+          silenciado={pessoasVoz.silenciados.includes(menuPessoa.usuarioId)}
+          amizade={amizades.find((a) => a.usuarioId === menuPessoa.usuarioId)?.situacao}
+          aoVolume={(v) => volumePessoa(menuPessoa.usuarioId, v)}
+          aoSilenciar={(sim) => silenciarPessoa(menuPessoa.usuarioId, sim)}
+          aoConversar={() => conversarCom(menuPessoa.usuarioId)}
+          aoPedirAmizade={() => pedirAmizade(menuPessoa.usuarioId)}
+          aoAceitarAmizade={() => aceitarAmizade(menuPessoa.usuarioId)}
+          aoRemoverAmizade={() => removerAmizade(menuPessoa.usuarioId)}
+          aoFechar={fecharMenuPessoa}
+        />
+      )}
       <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
         <aside className="coluna-esquerda">
           <BarraLateral
@@ -1094,11 +1127,16 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             aba={abaBarra}
             aoMudarAba={setAbaBarra}
             aoConversarCom={conversarCom}
+            amizades={amizades}
+            aoPedirAmizade={pedirAmizade}
+            aoAceitarAmizade={aceitarAmizade}
+            aoRemoverAmizade={removerAmizade}
+            aoMenuPessoa={abrirMenuPessoa}
             nomeServidor={nomeServidor ?? servidorUrl}
             canais={canais}
             canalAtivo={vistaAtual === 'canal' && dmAtiva === null ? canalAtivo : null}
             dms={dms}
-            usuarios={usuarios}
+            usuarios={pessoas}
             dmAtiva={vistaAtual === 'canal' ? dmAtiva : null}
             naoLidas={naoLidas}
             aoAbrirDm={(id) => {
@@ -1441,8 +1479,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               antes={mostrarCanais}
               key={`dm-${dmAtiva}`}
               dm={dms.find((d) => d.id === dmAtiva)!}
-              outro={usuarios.find((u) => u.id === dms.find((d) => d.id === dmAtiva)!.outroId)}
-              usuarios={usuarios}
+              outro={pessoas.find((u) => u.id === dms.find((d) => d.id === dmAtiva)!.outroId)}
+              usuarios={pessoas}
               servidorUrl={servidorUrl}
               euId={usuario.id}
               api={api}
@@ -1497,7 +1535,14 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   {item.grupo}
                 </li>
               ) : (
-                <li key={item.u.id} aria-label={`${item.u.nomeExibicao}, ${TEXTO_STATUS[item.status]}`}>
+                <li
+                  key={item.u.id}
+                  aria-label={`${item.u.nomeExibicao}, ${TEXTO_STATUS[item.status]}`}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    abrirMenuPessoa(item.u.id, e.clientX, e.clientY);
+                  }}
+                >
                   <span className="avatar-com-status">
                     <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
                     <StatusPonto status={item.status} />

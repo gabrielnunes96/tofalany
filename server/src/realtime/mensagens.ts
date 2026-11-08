@@ -4,6 +4,7 @@ import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 import { membroDe } from '../dominio/comunidades.js';
+import { saoAmigos } from '../dominio/amizades.js';
 import { salaComunidade } from './salas.js';
 import { apagarMensagem, buscarMensagem, editarMensagem, inserirMensagem } from '../dominio/mensagens.js';
 import { buscarPorId } from '../dominio/usuarios.js';
@@ -87,7 +88,7 @@ export function registrarEventosMensagens(
       const i = participantes.indexOf(s.data.usuarioId);
       if (i < 0) return false;
       const outro = participantes[1 - i]!;
-      return outro === s.data.usuarioId || !!membroDe(banco, s.data.comunidadeId, outro);
+      return outro === s.data.usuarioId || !!membroDe(banco, s.data.comunidadeId, outro) || saoAmigos(banco, s.data.usuarioId, outro);
     });
   }
 
@@ -217,7 +218,7 @@ export function registrarEventosMensagens(
       const outro = ehObjeto(dados) ? dados.usuarioId : undefined;
       if (!ehId(outro)) throw new ErroHttp(400, 'dados_invalidos', 'Pessoa inválida.');
       // Conversa direta com quem também está neste servidor.
-      if (outro !== usuarioId && !membroDe(banco, comunidadeId, outro)) throw new ErroHttp(404, 'nao_encontrado', 'Pessoa não encontrada.');
+      if (outro !== usuarioId && !membroDe(banco, comunidadeId, outro) && !saoAmigos(banco, usuarioId, outro)) throw new ErroHttp(404, 'nao_encontrado', 'Pessoa não encontrada.');
       const id = abrirDm(banco, usuarioId, outro);
       // Só quem abriu: a outra pessoa fica sabendo na primeira mensagem (mensagem:enviar avisa os dois).
       io.to(salaUsuario(usuarioId)).emit('dm:atualizada', dmPara(banco, id, usuarioId));

@@ -115,7 +115,7 @@ test('CA-19: contador em conversa fechada some ao abrir; notificação fora da c
   await dono.janela.getByRole('button', { name: 'Conversar com ana' }).click();
   await dono.janela.getByLabel('Mensagem para ana').fill('psiu');
   await dono.janela.getByLabel('Mensagem para ana').press('Enter');
-  await ana.janela.getByRole('tab', { name: /Diretas/ }).click();
+  await ana.janela.getByRole('tab', { name: /Amigos/ }).click();
   const dmDaAna = ana.janela.getByRole('list', { name: 'Mensagens diretas' }).getByRole('button', { name: /dono/ });
   await expect(dmDaAna).toContainText('1 não lida');
   await expect.poll(notificacoesDaAna).toContain('dono | psiu');

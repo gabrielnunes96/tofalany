@@ -428,6 +428,10 @@ export interface OlaPayload {
   naoLidas: Record<string, number>;
   /** Backlog v2, item 14: o que o bot de música toca em cada canal de voz (servidor antigo não manda). */
   musica?: EstadoMusica[];
+  /** Amizades da conta (valem em todos os servidores da instalação) e quem são essas pessoas. */
+  amizades?: AmizadeDto[];
+  /** Pessoas das amizades e das conversas diretas que não são membros deste servidor (nome, cor, avatar). */
+  conhecidos?: UsuarioDto[];
 }
 
 /** Eventos servidor → cliente. */
@@ -471,6 +475,8 @@ export interface EventosServidor {
   'funcoes:atualizadas': (funcoes: FuncaoDto[]) => void;
   /** Backlog v2, item 14: o bot de música mudou num canal de voz (sem tocando e fila vazia = parou). */
   'musica:estado': (estado: EstadoMusica) => void;
+  /** Amizades da conta mudaram (pedido, aceite, recusa ou remoção): a lista inteira, e quem é cada pessoa. */
+  'amizades:atualizadas': (payload: { amizades: AmizadeDto[]; conhecidos: UsuarioDto[] }) => void;
 }
 
 /** Eventos cliente → servidor, sempre com resposta (ack). */
@@ -506,6 +512,10 @@ export interface EventosCliente {
   'presenca:escolher': (dados: { status: EscolhaStatus }) => void;
   /** Backlog v2, item 14: bot de música no canal de voz em que estou (/tocar, /pular, /parar). */
   'musica:comando': (dados: ComandoMusica, ack: Ack<EstadoMusica>) => void;
+  /** Amigos: pedir (se a outra pessoa já pediu, vira amizade), aceitar e recusar/desfazer. */
+  'amizade:pedir': (dados: { usuarioId: number }, ack: Ack<AmizadeDto[]>) => void;
+  'amizade:aceitar': (dados: { usuarioId: number }, ack: Ack<AmizadeDto[]>) => void;
+  'amizade:remover': (dados: { usuarioId: number }, ack: Ack<AmizadeDto[]>) => void;
 }
 
 /**
@@ -646,3 +656,9 @@ export function separarComunidade(url: string): { base: string; comunidade: numb
 export const IDENTIDADE_BOT_MUSICA = 'bot-musica';
 /** Volume inicial do ToOuvini para quem ouve (música costuma ser mais alta que voz). */
 export const VOLUME_BOT_PADRAO = 0.5;
+
+/** Amizade vista por mim: amigo, pedido que eu mandei (aguardando) ou pedido que recebi (posso aceitar). */
+export interface AmizadeDto {
+  usuarioId: number;
+  situacao: 'amigo' | 'enviado' | 'recebido';
+}

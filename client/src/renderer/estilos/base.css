@@ -613,3 +613,22 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .musica-volume { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 0.8rem; }
 .musica-volume input[type='range'] { flex: 1; margin: 0; accent-color: var(--destaque); }
 .musica-volume-valor { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Menu do clique direito numa pessoa. */
+.menu-pessoa { position: fixed; z-index: 60; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); animation: surgir 0.12s ease-out; }
+.menu-pessoa-topo { display: flex; align-items: center; gap: 10px; padding-bottom: 4px; }
+.menu-pessoa-volume { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; }
+.menu-pessoa-volume .linha { display: flex; align-items: center; gap: 8px; }
+.menu-pessoa-volume input[type='range'] { flex: 1; margin: 0; accent-color: var(--destaque); }
+.menu-pessoa-check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+.menu-pessoa hr { width: 100%; border: 0; border-top: 1px solid var(--borda); margin: 2px 0; }
+.menu-pessoa button[role='menuitem'] { margin: 0; padding: 6px 8px; text-align: left; background: transparent; color: var(--texto); border: 0; border-radius: 8px; box-shadow: none; }
+.menu-pessoa button[role='menuitem']:hover:not(:disabled) { background: color-mix(in srgb, var(--destaque) 14%, transparent); box-shadow: none; }
+.menu-pessoa .perigo-texto { color: var(--magenta) !important; }
+/* Aba Amigos. */
+.pedidos-amizade { list-style: none; margin: 0 0 8px; padding: 0; }
+.pedidos-amizade li { display: flex; align-items: center; gap: 6px; padding: 4px 6px; }
+.pedidos-amizade .nome-dm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pedidos-amizade .aceitar { color: var(--ok); }
+.pedidos-amizade .recusar { color: var(--magenta); }
+.pedidos-enviados { margin: 4px 6px 10px; font-size: 0.75rem; }
