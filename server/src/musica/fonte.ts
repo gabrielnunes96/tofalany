@@ -70,6 +70,34 @@ export function lerPlaylist(saida: string, limite: number): InfoMusica[] {
   return lista;
 }
 
+/** Id do vídeo de um link do YouTube (watch?v=, youtu.be/, shorts/, music.youtube.com); undefined se não for de vídeo. */
+export function idDoVideo(link: string): string | undefined {
+  try {
+    const u = new URL(link);
+    if (!HOSTS_YOUTUBE.test(u.hostname)) return undefined;
+    const id = /youtu\.be$/i.test(u.hostname) ? u.pathname.slice(1) : (u.searchParams.get('v') ?? /^\/(shorts|live|embed)\/([\w-]+)/.exec(u.pathname)?.[2]);
+    return id && /^[\w-]{6,20}$/.test(id) ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Título pelo oEmbed do YouTube: responde em menos de um segundo (o yt-dlp completo leva uns 20 s numa VPS pequena,
+ * porque resolve o desafio de JavaScript do player). A duração fica desconhecida (0).
+ */
+export async function infoPorOembed(id: string, buscar: typeof fetch = fetch): Promise<InfoMusica | undefined> {
+  const url = `https://www.youtube.com/watch?v=${id}`;
+  try {
+    const r = await buscar(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return undefined;
+    const j = (await r.json()) as { title?: unknown };
+    return typeof j.title === 'string' && j.title.trim() ? { titulo: j.title.trim().slice(0, 200), url, duracao: 0 } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Primeira linha JSON do yt-dlp (-j) → título, página e duração. */
 export function lerInfo(saida: string): InfoMusica {
   const linha = saida.split('\n').find((l) => l.trim().startsWith('{'));
@@ -119,9 +147,21 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
   return {
     async buscar(busca) {
       const alvo = alvoDaBusca(busca);
+      // Link de vídeo: o título vem rápido pelo oEmbed; o áudio é resolvido só na hora de tocar.
+      const id = idDoVideo(alvo);
+      if (id) {
+        const rapido = await infoPorOembed(id);
+        if (rapido) return rapido;
+      }
+      // Texto: busca "rasa" (só a lista de resultados, sem extrair o vídeo).
+      const raso = alvo.startsWith('ytsearch');
       let saida: string;
       try {
-        saida = await rodar(ytdlp, [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '--skip-download', '-j', alvo], 45_000);
+        saida = await rodar(
+          ytdlp,
+          raso ? [...extrasBase, ...argsCookies(), '--flat-playlist', '--no-warnings', '-J', alvo] : [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '--skip-download', '-j', alvo],
+          90_000,
+        );
       } catch (erro) {
         opcoes.registrarErro?.(erro);
         const recusa = /not a bot|sign in to confirm/i.test(String((erro as Error)?.message));
@@ -133,7 +173,10 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
             : 'Não consegui abrir essa música agora (o YouTube recusou ou está fora).',
         );
       }
-      return lerInfo(saida);
+      if (!raso) return lerInfo(saida);
+      const achada = lerPlaylist(saida, 1)[0];
+      if (!achada) throw new ErroHttp(404, 'nao_encontrado', 'Não achei essa música.');
+      return achada;
     },
     async buscarVarias(busca, limite) {
       if (!ehPlaylist(busca)) return [await this.buscar(busca)];

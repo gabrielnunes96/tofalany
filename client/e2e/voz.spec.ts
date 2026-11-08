@@ -591,6 +591,11 @@ test('backlog v2, item 14: /tocar no chat põe o bot no canal de voz; todos ouve
     .toBeGreaterThan(0.01);
   await ana.janela.screenshot({ path: join(__dirname, '../../docs/demandas/to-falando-v2/prints/bot-musica.png') });
 
+  // Volume do ToOuvini só para a ana: começa em 50% e a barra muda o volume do áudio dele.
+  const volume = painelAna.getByLabel('Volume do ToOuvini');
+  await expect(volume).toHaveValue('50');
+  await volume.fill('20');
+  await expect.poll(() => audioBot.getAttribute('data-volume')).toBe('0.2');
   // Pausar e continuar; pular vai para a segunda.
   await painelAna.getByRole('button', { name: 'Pausar' }).click();
   await expect(painelAna).toContainText('pausado');

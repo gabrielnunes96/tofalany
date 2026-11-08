@@ -206,7 +206,8 @@ export function mesclarPessoas(base: Record<string, PreferenciasPessoas>, bruto:
     const volumes: Record<string, number> = {};
     if (v.volumes && typeof v.volumes === 'object') {
       for (const [id, vol] of Object.entries(v.volumes as Record<string, unknown>).slice(0, 200)) {
-        if (/^\d{1,9}$/.test(id) && typeof vol === 'number' && Number.isFinite(vol) && vol >= 0 && vol <= VOLUME_PESSOA_MAX) volumes[id] = Math.round(vol * 100) / 100;
+        // Ids das pessoas e o do ToOuvini (bot-musica), cada um com o seu volume.
+        if (/^(\d{1,9}|bot-musica)$/.test(id) && typeof vol === 'number' && Number.isFinite(vol) && vol >= 0 && vol <= VOLUME_PESSOA_MAX) volumes[id] = Math.round(vol * 100) / 100;
       }
     }
     const silenciados = Array.isArray(v.silenciados) ? [...new Set(v.silenciados.filter((id): id is number => Number.isInteger(id) && id > 0))].slice(0, 200) : [];

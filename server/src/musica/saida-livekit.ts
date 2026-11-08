@@ -1,10 +1,10 @@
 import type { Readable } from 'node:stream';
 import { AccessToken, TrackSource as FonteToken } from 'livekit-server-sdk';
-import { salaLivekit } from '@tofalando/shared';
+import { IDENTIDADE_BOT_MUSICA, salaLivekit } from '@tofalando/shared';
 import type { SaidaAudio } from './bot.js';
 
 /** Identidade do bot no LiveKit (não é número: o webhook e o app não confundem com uma pessoa). */
-export const IDENTIDADE_BOT = 'bot-musica';
+export const IDENTIDADE_BOT = IDENTIDADE_BOT_MUSICA;
 
 /** Nome do bot de música, como ele aparece no canal. */
 export const NOME_BOT = 'ToOuvini';
@@ -62,8 +62,9 @@ export function criarConectorLivekit(lk: { urlInterna: string; chave: string; se
         soltar = undefined;
         pausa = undefined;
       },
-      async tocar(pcm: Readable) {
+      async tocar(pcm: Readable, aoComecar?: () => void) {
         let pendente: Buffer = Buffer.alloc(0);
+        let comecou = false;
         for await (const pedaco of pcm as AsyncIterable<Buffer>) {
           pendente = pendente.length ? Buffer.concat([pendente, pedaco]) : pedaco;
           const corte = quadros(pendente);
@@ -75,6 +76,10 @@ export function criarConectorLivekit(lk: { urlInterna: string; chave: string; se
             }
             if (pausa) await pausa;
             await fonte.captureFrame(new rtc.AudioFrame(r.value, TAXA, CANAIS, AMOSTRAS));
+            if (!comecou) {
+              comecou = true;
+              aoComecar?.();
+            }
           }
         }
         await fonte.waitForPlayout();

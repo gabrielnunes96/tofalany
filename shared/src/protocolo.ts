@@ -544,6 +544,8 @@ export interface EstadoMusica {
   pausado?: boolean;
   /** O ToOuvini está na sala (mesmo sem tocar: depois de /stop ele espera alguns minutos). */
   conectado?: boolean;
+  /** Buscando o áudio da música atual no YouTube (ainda sem som). */
+  carregando?: boolean;
 }
 
 export type ComandoMusica =
@@ -639,3 +641,8 @@ export function separarComunidade(url: string): { base: string; comunidade: numb
   const m = /^(.*?)\/c\/(\d{1,9})\/?$/.exec(url);
   return m ? { base: m[1]!, comunidade: Number(m[2]) } : { base: url.replace(/\/+$/, ''), comunidade: COMUNIDADE_PRINCIPAL };
 }
+
+/** Identidade do ToOuvini na sala de voz (o volume dele fica guardado por esta chave, como o de uma pessoa). */
+export const IDENTIDADE_BOT_MUSICA = 'bot-musica';
+/** Volume inicial do ToOuvini para quem ouve (música costuma ser mais alta que voz). */
+export const VOLUME_BOT_PADRAO = 0.5;

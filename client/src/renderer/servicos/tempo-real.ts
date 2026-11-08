@@ -74,7 +74,8 @@ export interface ConexaoTempoReal {
   /** Backlog v2, item 2: status escolhido (vai também no handshake das reconexões). */
   escolherStatus(status: EscolhaStatus): void;
   /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
-  pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0]): Promise<RespostaAcao<AckValor<K>>>;
+  /** `tempoMs`: quanto esperar a resposta (padrão 10 s; a busca de música no YouTube pede mais). */
+  pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0], tempoMs?: number): Promise<RespostaAcao<AckValor<K>>>;
 }
 
 /** Eventos que esperam resposta (ack); "digitando" é só um sinal. */
@@ -191,10 +192,10 @@ export function conectarTempoReal(
     avisarDigitando(destino) {
       if (socket.connected) socket.emit('digitando', { destino });
     },
-    pedir(evento, dados) {
+    pedir(evento, dados, tempoMs = 10_000) {
       if (!socket.connected) return Promise.resolve({ ok: false, erro: SEM_CONEXAO });
       return new Promise((resolver) => {
-        (socket.timeout(10_000).emit as (e: string, d: unknown, cb: (erro: Error | null, r: never) => void) => void)(evento, dados, (erro, resposta) =>
+        (socket.timeout(tempoMs).emit as (e: string, d: unknown, cb: (erro: Error | null, r: never) => void) => void)(evento, dados, (erro, resposta) =>
           resolver(erro ? { ok: false, erro: SEM_CONEXAO } : resposta),
         );
       });

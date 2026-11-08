@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
+import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -375,7 +375,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     salaVozRef.current?.definirPessoas(novo);
     adiarGravacao({ pessoas: { servidor: servidorUrl, valor: novo } });
   }
-  const volumePessoa = (id: number, volume: number) =>
+  const volumePessoa = (id: number | string, volume: number) =>
     mudarPessoas({
       ...pessoasRef.current,
       volumes: { ...pessoasRef.current.volumes, [String(id)]: volume },
@@ -894,7 +894,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const enviarMensagem = (destino: Destino, texto: string, anexos: string[]) =>
     pedir((c) => c.pedir('mensagem:enviar', { destino, texto, anexos }), acoes.adicionarMensagem);
   /** Backlog v2, item 14: /tocar, /pular e /parar no chat viram comando do bot (não vão como mensagem). */
-  const comandoMusica = (comando: ComandoMusica) => pedir((c) => c.pedir('musica:comando', comando), acoes.definirMusica);
+  // A busca no YouTube leva alguns segundos na VPS: o comando espera até 60 s.
+  const comandoMusica = (comando: ComandoMusica) => pedir((c) => c.pedir('musica:comando', comando, 60_000), acoes.definirMusica);
   // /queue só abre a fila no painel (não vai ao servidor).
   const [filaMusicaAberta, setFilaMusicaAberta] = useState(false);
   const enviarNoCanal = (canalId: number, texto: string, anexos: string[]) => {
@@ -1158,6 +1159,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   aoComando={comandoMusica}
                   filaAberta={filaMusicaAberta}
                   aoAlternarFila={() => setFilaMusicaAberta(!filaMusicaAberta)}
+                  volume={pessoasVoz.volumes[IDENTIDADE_BOT_MUSICA] ?? VOLUME_BOT_PADRAO}
+                  aoVolume={(v) => volumePessoa(IDENTIDADE_BOT_MUSICA, v)}
                 />
               )}
               {minhaVoz !== null && !entrandoVoz && (

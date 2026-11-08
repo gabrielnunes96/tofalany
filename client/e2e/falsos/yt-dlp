@@ -3,6 +3,7 @@
 for a in "$@"; do ultimo="$a"; done
 case " $* " in
   *" --version "*) echo "2099.01.01-falso" ;;
+  *" -J "*) printf '{"entries":[{"id":"teste","title":"Tom de teste (%s)","duration":30}]}\n' "$ultimo" ;;
   *" -j "*) printf '{"title":"Tom de teste (%s)","webpage_url":"https://www.youtube.com/watch?v=teste","duration":30}\n' "$ultimo" ;;
   *" -o - "*) exec ffmpeg -hide_banner -loglevel error -f lavfi -i "sine=frequency=440:duration=30" -f wav pipe:1 ;;
   *) echo "uso inesperado: $*" >&2; exit 2 ;;

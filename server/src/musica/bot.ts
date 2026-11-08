@@ -5,8 +5,8 @@ import type { FluxoAudio, FonteMusica, InfoMusica } from './fonte.js';
 
 /** Para onde o bot manda o áudio (no servidor de verdade, um participante do LiveKit). */
 export interface SaidaAudio {
-  /** Toca o PCM até o fim do fluxo (ou até ele ser cortado). */
-  tocar(pcm: Readable): Promise<void>;
+  /** Toca o PCM até o fim do fluxo (ou até ele ser cortado); `aoComecar` quando o primeiro áudio sai. */
+  tocar(pcm: Readable, aoComecar?: () => void): Promise<void>;
   /** Segura o envio do áudio (pausa) e solta de novo. */
   pausar?(): void;
   continuar?(): void;
@@ -18,6 +18,8 @@ interface Canal {
   tocando: MusicaDto | null;
   desde: number | null;
   pausado: boolean;
+  /** Entre pedir o áudio ao YouTube e o primeiro som (na VPS leva uns 20 s). */
+  carregando: boolean;
   /** Tempo já tocado da música atual quando pausou (para o relógio continuar de onde parou). */
   decorrido: number;
   fluxo?: FluxoAudio;
@@ -56,6 +58,7 @@ export function criarBotMusica(deps: {
       fila: c ? [...c.fila] : [],
       pausado: c?.pausado ?? false,
       conectado: !!c?.saida,
+      carregando: c?.carregando ?? false,
     };
   };
   const avisar = (canalVozId: number) => deps.aoMudar(estado(canalVozId));
@@ -92,16 +95,23 @@ export function criarBotMusica(deps: {
         c.desde = agora();
         c.decorrido = 0;
         c.pausado = false;
+        c.carregando = true;
         avisar(canalVozId);
         try {
           c.saida ??= await deps.conectar(canalVozId);
           // Mandaram parar enquanto conectava.
           if (c.tocando !== musica) continue;
           c.fluxo = deps.fonte.abrir(musica.url);
-          await c.saida.tocar(c.fluxo.audio);
+          await c.saida.tocar(c.fluxo.audio, () => {
+            // O relógio da música começa no primeiro som.
+            c.carregando = false;
+            c.desde = agora();
+            avisar(canalVozId);
+          });
         } catch (erro) {
           deps.registrarErro(erro);
         } finally {
+          c.carregando = false;
           c.fluxo?.parar();
           c.fluxo = undefined;
         }
@@ -139,7 +149,7 @@ export function criarBotMusica(deps: {
       if (infos.length === 0) throw new ErroHttp(404, 'nao_encontrado', 'Não achei essa música.');
       let c = canais.get(canalVozId);
       if (!c) {
-        c = { fila: [], tocando: null, desde: null, pausado: false, decorrido: 0, rodando: false };
+        c = { fila: [], tocando: null, desde: null, pausado: false, carregando: false, decorrido: 0, rodando: false };
         canais.set(canalVozId, c);
       }
       c.fila.push(...infos.slice(0, espaco).map((i) => ({ ...i, pedidoPor: usuarioId })));

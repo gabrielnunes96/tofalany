@@ -1,5 +1,5 @@
 import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
-import { DIMENSOES_TELA, type PreferenciasAudio, type QualidadeTela } from '@tofalando/shared';
+import { DIMENSOES_TELA, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type PreferenciasAudio, type QualidadeTela } from '@tofalando/shared';
 import { abrirMicrofone, type Microfone } from './pipeline-audio';
 import { criarMedidorFala, fonteDeFaixa } from './medidor-fala';
 
@@ -191,7 +191,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
   let silenciados = new Set<string>();
   function aplicarVolume(elemento: HTMLMediaElement, faixa: RemoteTrack) {
     const id = elemento.dataset.participante ?? '';
-    const v = controles.surdo || silenciados.has(id) ? 0 : (volumes[id] ?? 1);
+    const v = controles.surdo || silenciados.has(id) ? 0 : (volumes[id] ?? (id === IDENTIDADE_BOT_MUSICA ? VOLUME_BOT_PADRAO : 1));
     const ajustar = (faixa as RemoteTrack & { setVolume?(v: number): void }).setVolume?.bind(faixa);
     try {
       ajustar?.(v);

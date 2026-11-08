@@ -608,3 +608,8 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 
 /* Versão do app (e do servidor) no rodapé do menu do usuário. */
 .menu-usuario .versao-app { margin: 6px 4px 0; padding-top: 6px; border-top: 1px solid var(--borda); font-size: 0.7rem; color: var(--texto-suave); text-align: center; }
+
+/* Volume do ToOuvini (só para quem ouve). */
+.musica-volume { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 0.8rem; }
+.musica-volume input[type='range'] { flex: 1; margin: 0; accent-color: var(--destaque); }
+.musica-volume-valor { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }

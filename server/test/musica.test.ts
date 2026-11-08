@@ -2,7 +2,7 @@ import { PassThrough, type Readable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 import { lerComandoMusica, type EstadoMusica } from '@tofalando/shared';
 import { criarBotMusica, type SaidaAudio } from '../src/musica/bot.js';
-import { alvoDaBusca, ehPlaylist, lerInfo, lerPlaylist, type FonteMusica } from '../src/musica/fonte.js';
+import { alvoDaBusca, ehPlaylist, idDoVideo, infoPorOembed, lerInfo, lerPlaylist, type FonteMusica } from '../src/musica/fonte.js';
 import { quadros, urlDaSala } from '../src/musica/saida-livekit.js';
 import { ErroHttp } from '../src/erros.js';
 
@@ -70,7 +70,7 @@ describe('ToOuvini, o bot de música (backlog v2, item 14)', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(fechar).toHaveBeenCalledTimes(1);
     expect(bot.estados()).toEqual([]);
-    expect(estados.at(-1)).toEqual({ canalVozId: 7, tocando: null, desde: null, fila: [], pausado: false, conectado: false });
+    expect(estados.at(-1)).toEqual({ canalVozId: 7, tocando: null, desde: null, fila: [], pausado: false, conectado: false, carregando: false });
   });
 
   it('pausa e continua; stop limpa e espera; kick sai na hora; canais diferentes têm filas separadas', async () => {
@@ -161,6 +161,18 @@ describe('fonte e saída do bot', () => {
       { titulo: 'Um', url: 'https://www.youtube.com/watch?v=a1', duracao: 200 },
       { titulo: 'Três', url: 'https://www.youtube.com/watch?v=c3', duracao: 0 },
     ]);
+  });
+
+  it('id do vídeo dos vários formatos de link; título rápido pelo oEmbed', async () => {
+    expect(idDoVideo('https://www.youtube.com/watch?v=oNMgR54yuTI&t=3')).toBe('oNMgR54yuTI');
+    expect(idDoVideo('https://youtu.be/oNMgR54yuTI')).toBe('oNMgR54yuTI');
+    expect(idDoVideo('https://music.youtube.com/watch?v=oNMgR54yuTI&list=RD')).toBe('oNMgR54yuTI');
+    expect(idDoVideo('https://www.youtube.com/shorts/abcDEF12345')).toBe('abcDEF12345');
+    expect(idDoVideo('https://www.youtube.com/playlist?list=PL1')).toBeUndefined();
+    expect(idDoVideo('ytsearch1:jeremy')).toBeUndefined();
+    const buscar = (async () => new Response(JSON.stringify({ title: 'Pearl Jam - Jeremy' }))) as unknown as typeof fetch;
+    expect(await infoPorOembed('abc123', buscar)).toEqual({ titulo: 'Pearl Jam - Jeremy', url: 'https://www.youtube.com/watch?v=abc123', duracao: 0 });
+    expect(await infoPorOembed('abc123', (async () => new Response('nope', { status: 404 })) as unknown as typeof fetch)).toBeUndefined();
   });
 
   it('só links do YouTube; texto vira busca', () => {
