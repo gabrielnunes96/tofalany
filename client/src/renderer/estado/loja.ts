@@ -46,6 +46,7 @@ interface Loja {
   transmissoes: TransmissaoDto[];
   iniciarTransmissao(t: TransmissaoDto): void;
   pararTransmissao(canalVozId: number): void;
+  espectadoresDaTransmissao(canalVozId: number, espectadores: number[]): void;
   /** Backlog v2, item 14: o bot de música em cada canal de voz (só os que têm algo tocando). */
   musica: EstadoMusica[];
   definirMusica(estado: EstadoMusica): void;
@@ -155,6 +156,8 @@ export const useLoja = create<Loja>((set) => ({
   definirVoz: (voz) => set({ voz }),
   iniciarTransmissao: (t) => set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => x.canalVozId !== t.canalVozId), t] })),
   pararTransmissao: (canalVozId) => set((s) => ({ transmissoes: s.transmissoes.filter((x) => x.canalVozId !== canalVozId) })),
+  espectadoresDaTransmissao: (canalVozId, espectadores) =>
+    set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId ? { ...x, espectadores } : x)) })),
   definirAmizades: (amizades, conhecidos) => set((s) => ({ amizades, conhecidos: conhecidos ?? s.conhecidos })),
   definirMusica: (estado) =>
     set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])] })),

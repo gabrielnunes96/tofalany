@@ -33,6 +33,7 @@ export interface OuvintesTempoReal {
   /** RN-10: transmissão de tela começou/parou em algum canal. */
   aoTelaIniciada(t: TransmissaoDto): void;
   aoTelaParada(canalVozId: number): void;
+  aoTelaEspectadores?(canalVozId: number, espectadores: number[]): void;
   /** Backlog v2, item 14: o bot de música mudou num canal (servidor antigo nunca manda). */
   aoMusica?(estado: EstadoMusica): void;
   /** Amigos e pedidos mudaram (servidor antigo nunca manda). */
@@ -151,6 +152,7 @@ export function conectarTempoReal(
   socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
   socket.on('tela:iniciada', (t) => ouvintes.aoTelaIniciada(t));
   socket.on('tela:parada', ({ canalVozId }) => ouvintes.aoTelaParada(canalVozId));
+  socket.on('tela:espectadores', ({ canalVozId, espectadores }) => ouvintes.aoTelaEspectadores?.(canalVozId, espectadores));
   socket.on('musica:estado', (estado) => ouvintes.aoMusica?.(estado));
   socket.on('amizades:atualizadas', ({ amizades, conhecidos }) => ouvintes.aoAmizades?.(amizades, conhecidos));
   socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));

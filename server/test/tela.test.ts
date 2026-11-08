@@ -16,7 +16,12 @@ afterEach(async () => {
 });
 
 async function abrir(token: string): Promise<{ s: Cliente; ola: OlaPayload }> {
-  const s = conectar(`http://127.0.0.1:${(app!.server.address() as AddressInfo).port}`, { auth: { token }, transports: ['websocket'], reconnection: false, forceNew: true }) as Cliente;
+  const s = conectar(`http://127.0.0.1:${(app!.server.address() as AddressInfo).port}`, {
+    auth: { token },
+    transports: ['websocket'],
+    reconnection: false,
+    forceNew: true,
+  }) as Cliente;
   sockets.push(s);
   const ola = await new Promise<OlaPayload>((r) => s.once('ola', r));
   return { s, ola };
@@ -42,8 +47,11 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
     await naVoz(a.s, papo);
     await naVoz(b.s, papo);
     const iniciada = new Promise<TransmissaoDto>((r) => b.s.once('tela:iniciada', r));
-    expect(await pedir(a.s, 'tela:pedir', { canalVozId: papo, qualidade: '720p30' })).toEqual({ ok: true, valor: { canalVozId: papo, usuarioId: 1, qualidade: '720p30' } });
-    expect(await iniciada).toEqual({ canalVozId: papo, usuarioId: 1, qualidade: '720p30' });
+    expect(await pedir(a.s, 'tela:pedir', { canalVozId: papo, qualidade: '720p30' })).toEqual({
+      ok: true,
+      valor: { canalVozId: papo, usuarioId: 1, qualidade: '720p30', espectadores: [] },
+    });
+    expect(await iniciada).toEqual({ canalVozId: papo, usuarioId: 1, qualidade: '720p30', espectadores: [] });
     expect(await pedir(b.s, 'tela:pedir', { canalVozId: papo, qualidade: '720p30' })).toEqual({ ok: false, erro: 'dono já está transmitindo neste canal.' });
     // Pedir de novo quem já transmite não muda nada; parar de outro não libera.
     expect((await pedir(a.s, 'tela:pedir', { canalVozId: papo, qualidade: '720p30' })).ok).toBe(true);
@@ -55,12 +63,42 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
     expect(await parada).toEqual({ canalVozId: papo, usuarioId: 1 });
     expect((await pedir(b.s, 'tela:pedir', { canalVozId: papo, qualidade: '720p30' })).ok).toBe(true);
 
-    const registros = listarAuditoria(app!.banco).registros.filter((r) => r.tipo.startsWith('tela_')).reverse();
+    const registros = listarAuditoria(app!.banco)
+      .registros.filter((r) => r.tipo.startsWith('tela_'))
+      .reverse();
     expect(registros.map((r) => [r.tipo, r.ator?.nome, r.canal?.nome])).toEqual([
       ['tela_iniciou', 'dono', 'Papo'],
       ['tela_parou', 'dono', 'Papo'],
       ['tela_iniciou', 'ana', 'Papo'],
     ]);
+  });
+
+  it('quem assiste: entra e sai da lista, só estando no canal; quem transmite não conta; sair da voz tira; ola traz', async () => {
+    const { a, b, papo, jogo, ana } = await preparar();
+    await naVoz(a.s, papo);
+    await naVoz(b.s, jogo);
+    expect((await pedir(a.s, 'tela:pedir', { canalVozId: papo, qualidade: '720p30' })).ok).toBe(true);
+    expect(await pedir(b.s, 'tela:assistir', { canalVozId: papo, assistindo: true })).toEqual({ ok: false, erro: 'Entre no canal de voz para assistir.' });
+    expect((await pedir(b.s, 'tela:assistir', { canalVozId: papo, assistindo: 'sim' })).ok).toBe(false);
+    await naVoz(b.s, papo);
+    const lista = () => new Promise<{ canalVozId: number; espectadores: number[] }>((r) => a.s.once('tela:espectadores', r));
+    let aviso = lista();
+    expect((await pedir(b.s, 'tela:assistir', { canalVozId: papo, assistindo: true })).ok).toBe(true);
+    expect(await aviso).toEqual({ canalVozId: papo, espectadores: [2] });
+    // Quem transmite não vira espectador da própria tela.
+    expect((await pedir(a.s, 'tela:assistir', { canalVozId: papo, assistindo: true })).ok).toBe(true);
+    const c = await abrir(ana);
+    expect(c.ola.transmissoes).toEqual([{ canalVozId: papo, usuarioId: 1, qualidade: '720p30', espectadores: [2] }]);
+    aviso = lista();
+    await pedir(b.s, 'tela:assistir', { canalVozId: papo, assistindo: false });
+    expect(await aviso).toEqual({ canalVozId: papo, espectadores: [] });
+    aviso = lista();
+    await pedir(b.s, 'tela:assistir', { canalVozId: papo, assistindo: true });
+    expect(await aviso).toEqual({ canalVozId: papo, espectadores: [2] });
+    // Saiu da voz: sai da lista.
+    aviso = lista();
+    await naVoz(b.s, null);
+    expect(await aviso).toEqual({ canalVozId: papo, espectadores: [] });
   });
 
   it('outro computador da mesma pessoa assume a voz: a transmissão da sessão anterior acaba', async () => {
@@ -94,7 +132,9 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
     a.s.close();
     expect(await parada2).toEqual({ canalVozId: papo, usuarioId: 1 });
     // CA-49: transmitir e sair da voz fica registrado como fim da transmissão.
-    const motivos = listarAuditoria(app!.banco).registros.filter((r) => r.tipo === 'tela_parou').map((r) => [r.ator?.nome, r.detalhes?.motivo]);
+    const motivos = listarAuditoria(app!.banco)
+      .registros.filter((r) => r.tipo === 'tela_parou')
+      .map((r) => [r.ator?.nome, r.detalhes?.motivo]);
     expect(motivos).toEqual([
       ['dono', 'saiu_da_voz'],
       ['ana', 'saiu_da_voz'],

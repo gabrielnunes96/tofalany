@@ -41,6 +41,16 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
   }
   const paraCanal = (canalVozId: number) => io.to(salaComunidade(comunidadeDoCanal(banco, canalVozId) ?? 1));
 
+  /** Muda quem assiste a transmissão do canal e avisa (sem mudança, nada). */
+  function marcarEspectador(canalVozId: number, usuarioId: number, assistindo: boolean) {
+    const t = ativas.get(canalVozId);
+    if (!t || t.usuarioId === usuarioId) return;
+    const lista = t.espectadores ?? [];
+    if (lista.includes(usuarioId) === assistindo) return;
+    t.espectadores = assistindo ? [...lista, usuarioId] : lista.filter((id) => id !== usuarioId);
+    if (banco.open) paraCanal(canalVozId).emit('tela:espectadores', { canalVozId, espectadores: t.espectadores });
+  }
+
   function liberar(canalVozId: number, motivo?: string) {
     const t = ativas.get(canalVozId);
     if (!t) return;
@@ -65,7 +75,8 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           if (typeof canalVozId !== 'number' || !Number.isInteger(canalVozId)) throw new ErroHttp(400, 'dados_invalidos', 'Canal inválido.');
           if (!QUALIDADES_TELA.includes(qualidade as QualidadeTela)) throw new ErroHttp(400, 'dados_invalidos', 'Qualidade inválida.');
           if (voz.presenca(usuarioId)?.canalVozId !== canalVozId) throw new ErroHttp(403, 'sem_permissao', 'Entre no canal de voz para transmitir.');
-          if (!papel(usuarioId, canalVozId).alta.has('transmitir_tela') && papel(usuarioId, canalVozId).cargo !== 'admin') throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite transmitir a tela.');
+          if (!papel(usuarioId, canalVozId).alta.has('transmitir_tela') && papel(usuarioId, canalVozId).cargo !== 'admin')
+            throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite transmitir a tela.');
           // RN-17: membro transmite só em 720p30 (o servidor aplica, não só a tela).
           const { cargo, alta } = papel(usuarioId, canalVozId);
           if (!qualidadesPermitidas(cargo, alta).includes(qualidade as QualidadeTela)) {
@@ -77,7 +88,7 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
             throw new ErroHttp(409, 'sem_permissao', `${nome} já está transmitindo neste canal.`);
           }
           if (atual) return atual;
-          const t: TransmissaoDto = { canalVozId, usuarioId, qualidade: qualidade as QualidadeTela };
+          const t: TransmissaoDto = { canalVozId, usuarioId, qualidade: qualidade as QualidadeTela, espectadores: [] };
           ativas.set(canalVozId, t);
           auditar('tela_iniciou', t);
           paraCanal(canalVozId).emit('tela:iniciada', t);
@@ -90,6 +101,19 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           const canalVozId = typeof dados === 'object' && dados !== null ? (dados as { canalVozId?: unknown }).canalVozId : undefined;
           if (typeof canalVozId !== 'number' || !Number.isInteger(canalVozId)) throw new ErroHttp(400, 'dados_invalidos', 'Canal inválido.');
           if (ativas.get(canalVozId)?.usuarioId === usuarioId) liberar(canalVozId, 'parou');
+          return undefined;
+        }),
+      );
+      socket.on(
+        'tela:assistir',
+        comAck(registrarErro, (dados: unknown) => {
+          const { canalVozId, assistindo } = (typeof dados === 'object' && dados !== null ? dados : {}) as { canalVozId?: unknown; assistindo?: unknown };
+          if (typeof canalVozId !== 'number' || !Number.isInteger(canalVozId) || typeof assistindo !== 'boolean')
+            throw new ErroHttp(400, 'dados_invalidos', 'Dados inválidos.');
+          // Só quem está no canal de voz assiste (fechar vale sempre).
+          if (assistindo && voz.presenca(usuarioId)?.canalVozId !== canalVozId)
+            throw new ErroHttp(403, 'sem_permissao', 'Entre no canal de voz para assistir.');
+          marcarEspectador(canalVozId, usuarioId, assistindo);
           return undefined;
         }),
       );
@@ -123,6 +147,7 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
     /** Quem saiu da voz (por qualquer motivo) deixa de transmitir. */
     saiuDaVoz(usuarioId: number, canalVozId: number) {
       if (ativas.get(canalVozId)?.usuarioId === usuarioId) liberar(canalVozId, 'saiu_da_voz');
+      else marcarEspectador(canalVozId, usuarioId, false);
     },
   };
 }

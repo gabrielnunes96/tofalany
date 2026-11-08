@@ -638,3 +638,14 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .previa-ampliada { margin: 0; width: min(92vw, 1600px); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .previa-ampliada video { width: 100%; max-height: 82vh; object-fit: contain; background: #000; border: 1px solid var(--borda); border-radius: var(--raio); }
 .previa-espelho { aspect-ratio: auto; padding: 10px 12px; font-size: 0.8rem; color: var(--texto-suave); background: color-mix(in srgb, var(--superficie) 80%, transparent); }
+
+/* Quem está assistindo a transmissão: olho com o número e a lista de nomes. */
+.espectadores { position: relative; flex: none; }
+.aviso-transmissao .espectadores span, .transmissao-acoes .espectadores span { flex: none; }
+.espectadores-botao { display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 4px 9px; background: transparent; color: var(--texto); border: 1px solid var(--borda); border-radius: 999px; font-variant-numeric: tabular-nums; }
+.espectadores-botao:hover, .espectadores-botao[aria-expanded="true"] { background: color-mix(in srgb, var(--destaque) 14%, transparent); }
+.espectadores-lista { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 200px; max-height: 260px; overflow: auto; padding: 8px 10px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); animation: surgir 0.14s ease-out; }
+.espectadores-lista strong { display: block; margin-bottom: 4px; font-size: 0.85em; color: var(--texto-suave); }
+.espectadores-lista ul { margin: 0; padding: 0; list-style: none; }
+.espectadores-lista li { padding: 4px 2px; }
+@media (prefers-reduced-motion: reduce) { .espectadores-lista { animation: none; } }

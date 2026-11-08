@@ -422,6 +422,8 @@ export interface TransmissaoDto {
   canalVozId: number;
   usuarioId: number;
   qualidade: QualidadeTela;
+  /** Quem está assistindo agora (servidor antigo não manda). */
+  espectadores?: number[];
 }
 
 /** Sala do LiveKit de um canal de voz. */
@@ -498,6 +500,8 @@ export interface EventosServidor {
   /** RN-10: transmissão de tela começou ou parou (para todos: a barra mostra quem transmite). */
   'tela:iniciada': (t: TransmissaoDto) => void;
   'tela:parada': (payload: { canalVozId: number; usuarioId: number }) => void;
+  /** Quem assiste a transmissão do canal mudou. */
+  'tela:espectadores': (payload: { canalVozId: number; espectadores: number[] }) => void;
   /** RF-37: status de alguém mudou. */
   'presenca:atualizada': (payload: { id: number; status: StatusPessoa }) => void;
   /** Conta removida por um administrador: some da lista. */
@@ -537,6 +541,8 @@ export interface EventosCliente {
   /** RF-26/RN-10: pede a trava do canal para transmitir (recusa se outro já transmite). */
   'tela:pedir': (dados: { canalVozId: number; qualidade: QualidadeTela }, ack: Ack<TransmissaoDto>) => void;
   'tela:parar': (dados: { canalVozId: number }, ack: Ack) => void;
+  /** Abri ou fechei a transmissão de alguém do meu canal de voz. */
+  'tela:assistir': (dados: { canalVozId: number; assistindo: boolean }, ack: Ack) => void;
   /** RN-25: o computador ficou ocioso (ou voltou), sem resposta. */
   'presenca:ausente': (dados: { ausente: boolean }) => void;
   /** Backlog v2, item 2: status escolhido (vale até trocar; o app reenvia ao reconectar). */
