@@ -540,6 +540,19 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     // Desmutar durante o deafen desliga os dois (como o microfone volta, o áudio também).
     definirControles(c.surdo ? { ...c, mudo: false, surdo: false } : { ...c, mudo: !c.mudo });
   };
+  /** Teste de som nas configurações: mudo e surdo enquanto ele roda; ao parar, volta o que estava. */
+  const antesDoTeste = useRef<{ mudo: boolean; surdo: boolean } | null>(null);
+  const testarSom = (testando: boolean) => {
+    const c = controlesRef.current;
+    if (testando) {
+      if (!antesDoTeste.current) antesDoTeste.current = { mudo: c.mudo, surdo: c.surdo };
+      definirControles({ ...c, mudo: true, surdo: true });
+    } else if (antesDoTeste.current) {
+      const antes = antesDoTeste.current;
+      antesDoTeste.current = null;
+      definirControles({ ...c, ...antes });
+    }
+  };
   const alternarSurdo = () => {
     const c = controlesRef.current;
     definirControles({ ...c, surdo: !c.surdo });
@@ -1454,7 +1467,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
             <TelaConfiguracoes
               audio={audio}
               aoMudarAudio={mudarAudio}
-              microfoneDaChamada={() => salaVozRef.current?.microfone()}
+              aoTestarSom={testarSom}
               atalhos={atalhos}
               aoMudarAtalhos={mudarAtalhos}
               aoCapturar={pausarAtalhos}

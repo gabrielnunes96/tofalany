@@ -10,7 +10,11 @@ afterEach(cleanup);
 
 const dispositivo = (kind: MediaDeviceKind, deviceId: string, label: string) => ({ kind, deviceId, label, groupId: '' }) as MediaDeviceInfo;
 
-function montar(audio: PreferenciasAudio = AUDIO_PADRAO, supressao: 'forte' | 'basica' = 'forte', extra: Partial<Parameters<typeof TelaConfiguracoes>[0]> = {}) {
+function montar(
+  audio: PreferenciasAudio = AUDIO_PADRAO,
+  supressao: 'forte' | 'basica' = 'forte',
+  extra: Partial<Parameters<typeof TelaConfiguracoes>[0]> = {},
+) {
   const parar = vi.fn();
   const pararMedidor = vi.fn();
   const deps: DependenciasConfiguracoes = {
@@ -21,13 +25,29 @@ function montar(audio: PreferenciasAudio = AUDIO_PADRAO, supressao: 'forte' | 'b
       dispositivo('audiooutput', 'fone', 'Fone'),
     ]),
     aoMudarDispositivos: () => () => undefined,
-    abrirMicrofone: vi.fn(async () => ({ faixa: {} as MediaStreamTrack, faixaMedicao: {} as MediaStreamTrack, portao: { definir: vi.fn(), aoMudar: () => () => undefined }, supressao, usouPadrao: false, dispositivoId: 'mic-1', parar })),
+    abrirMicrofone: vi.fn(async () => ({
+      faixa: {} as MediaStreamTrack,
+      faixaMedicao: {} as MediaStreamTrack,
+      portao: { definir: vi.fn(), aoMudar: () => () => undefined },
+      supressao,
+      usouPadrao: false,
+      dispositivoId: 'mic-1',
+      parar,
+    })),
     criarMedidor: vi.fn(() => ({ nivelDb: () => -20, parar: pararMedidor })),
   };
   const aoMudarAudio = vi.fn();
   const aoMudarAtalhos = vi.fn();
   const r = render(
-    <TelaConfiguracoes audio={audio} aoMudarAudio={aoMudarAudio} atalhos={ATALHOS_PADRAO} aoMudarAtalhos={aoMudarAtalhos} aoVoltar={() => undefined} deps={deps} {...extra} />,
+    <TelaConfiguracoes
+      audio={audio}
+      aoMudarAudio={aoMudarAudio}
+      atalhos={ATALHOS_PADRAO}
+      aoMudarAtalhos={aoMudarAtalhos}
+      aoVoltar={() => undefined}
+      deps={deps}
+      {...extra}
+    />,
   );
   return { deps, aoMudarAudio, aoMudarAtalhos, parar, pararMedidor, desmontar: r.unmount };
 }
@@ -70,9 +90,18 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
     let liberar!: () => void;
     vi.mocked(deps.abrirMicrofone).mockImplementationOnce(
       () =>
-        new Promise((r) =>
-          (liberar = () =>
-            r({ faixa: {} as MediaStreamTrack, faixaMedicao: {} as MediaStreamTrack, portao: { definir: vi.fn(), aoMudar: () => () => undefined }, supressao: 'forte', usouPadrao: false, dispositivoId: 'x', parar })),
+        new Promise(
+          (r) =>
+            (liberar = () =>
+              r({
+                faixa: {} as MediaStreamTrack,
+                faixaMedicao: {} as MediaStreamTrack,
+                portao: { definir: vi.fn(), aoMudar: () => () => undefined },
+                supressao: 'forte',
+                usouPadrao: false,
+                dispositivoId: 'x',
+                parar,
+              })),
         ),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Testar microfone' }));
@@ -82,24 +111,39 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
     expect(deps.criarMedidor).not.toHaveBeenCalled();
   });
 
-  it('em chamada, mede o microfone da chamada sem abrir outro nem fechá-lo', async () => {
-    const pararDaChamada = vi.fn();
-    const daChamada = {
-      faixa: {} as MediaStreamTrack,
-      faixaMedicao: { medicao: true } as unknown as MediaStreamTrack,
-      portao: { definir: vi.fn(), aoMudar: () => () => undefined },
-      supressao: 'forte' as const,
-      usouPadrao: false,
-      dispositivoId: 'mic-1',
-      parar: pararDaChamada,
-    };
-    const { deps } = montar(AUDIO_PADRAO, 'forte', { microfoneDaChamada: () => daChamada });
+  it('teste de som: toca a minha voz na saída escolhida, muta a chamada e devolve ao parar ou sair', async () => {
+    const aoTestarSom = vi.fn();
+    const pararRetorno = vi.fn();
+    const audio = { ...AUDIO_PADRAO, saidaId: 'fone', modoMicrofone: 'ptt' as const };
+    const { deps, parar, desmontar } = montar(audio, 'forte', { aoTestarSom });
+    deps.tocarRetorno = vi.fn(() => pararRetorno);
     fireEvent.click(screen.getByRole('button', { name: 'Testar microfone' }));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Medindo o microfone da chamada'));
-    expect(deps.abrirMicrofone).not.toHaveBeenCalled();
-    expect(deps.criarMedidor).toHaveBeenCalledWith(daChamada.faixaMedicao);
+    expect(aoTestarSom).toHaveBeenLastCalledWith(true);
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Você está se ouvindo'));
+    const mic = await vi.mocked(deps.abrirMicrofone).mock.results[0]!.value;
+    expect(deps.tocarRetorno).toHaveBeenCalledWith(mic.faixa, 'fone');
+    // Push-to-talk: no teste a voz passa sem o atalho.
+    expect(mic.portao.definir).toHaveBeenCalledWith({ modo: 'deteccao', limiarDb: -100 });
     fireEvent.click(screen.getByRole('button', { name: 'Parar teste' }));
-    expect(pararDaChamada).not.toHaveBeenCalled();
+    expect(pararRetorno).toHaveBeenCalled();
+    expect(parar).toHaveBeenCalled();
+    expect(aoTestarSom).toHaveBeenLastCalledWith(false);
+    expect(aoTestarSom).toHaveBeenCalledTimes(2);
+    // Sair da tela no meio do teste também devolve.
+    fireEvent.click(screen.getByRole('button', { name: 'Testar microfone' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Parar teste' })).toBeTruthy());
+    desmontar();
+    expect(aoTestarSom).toHaveBeenLastCalledWith(false);
+    expect(aoTestarSom).toHaveBeenCalledTimes(4);
+  });
+
+  it('teste de som: a sensibilidade vale na hora para o retorno', async () => {
+    const { deps } = montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Testar microfone' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Parar teste' })).toBeTruthy());
+    const mic = await vi.mocked(deps.abrirMicrofone).mock.results[0]!.value;
+    fireEvent.change(screen.getByLabelText(/Sensibilidade da detecção de voz/), { target: { value: '-35' } });
+    expect(mic.portao.definir).toHaveBeenLastCalledWith({ limiarDb: -35 });
   });
 
   it('RF-14/RF-15: modo do microfone e atalhos com captura, conflito recusado e remoção', () => {

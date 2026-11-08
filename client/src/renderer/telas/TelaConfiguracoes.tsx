@@ -7,6 +7,22 @@ export interface DependenciasConfiguracoes {
   aoMudarDispositivos(fn: () => void): () => void;
   abrirMicrofone: typeof abrirMicrofone;
   criarMedidor: typeof criarMedidor;
+  /** Toca a minha voz (já tratada) na saída escolhida, para eu me ouvir no teste. Devolve a função que para. */
+  tocarRetorno?(faixa: MediaStreamTrack, saidaId: string | null): () => void;
+}
+
+/** Retorno do teste: um elemento de áudio com a faixa do microfone, na saída escolhida. */
+function tocarRetorno(faixa: MediaStreamTrack, saidaId: string | null) {
+  const el = new Audio();
+  el.srcObject = new MediaStream([faixa]);
+  const tocar = () => void el.play().catch(() => undefined);
+  const comSaida = el as HTMLAudioElement & { setSinkId?(id: string): Promise<void> };
+  if (saidaId && comSaida.setSinkId) void comSaida.setSinkId(saidaId).catch(() => undefined).then(tocar);
+  else tocar();
+  return () => {
+    el.pause();
+    el.srcObject = null;
+  };
 }
 
 const doNavegador: DependenciasConfiguracoes = {
@@ -17,14 +33,18 @@ const doNavegador: DependenciasConfiguracoes = {
   },
   abrirMicrofone,
   criarMedidor,
+  tocarRetorno,
 };
 
 interface Props {
   audio: PreferenciasAudio;
   /** Grava (RN-14) e aplica na chamada, se houver (RF-17); resolve quando a chamada já usa a escolha. */
   aoMudarAudio: (audio: PreferenciasAudio) => Promise<void> | void;
-  /** Microfone da chamada em andamento: o teste mede ele em vez de abrir outro (R-7). */
-  microfoneDaChamada?: () => Microfone | undefined;
+  /**
+   * O teste de som começou ou parou: enquanto ele roda, o app me deixa mudo e surdo na chamada (ninguém me ouve
+   * testando e o som da sala não atrapalha o retorno); ao parar, volta como estava.
+   */
+  aoTestarSom?: (testando: boolean) => void;
   /** RF-15: atalhos globais (gravados por máquina). */
   atalhos: Atalhos;
   aoMudarAtalhos: (atalhos: Atalhos) => void;
@@ -60,7 +80,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -92,10 +112,15 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
   const [testando, setTestando] = useState(false);
   const [nivel, setNivel] = useState(-100);
   const [supressao, setSupressao] = useState<Microfone['supressao'] | null>(null);
-  const [daChamada, setDaChamada] = useState(false);
   const [dispositivoEmUso, setDispositivoEmUso] = useState<string | undefined>();
   const [erro, setErro] = useState<string | null>(null);
-  const teste = useRef<{ mic: Microfone; medidor: Medidor; relogio: ReturnType<typeof setInterval>; proprio: boolean } | null>(null);
+  const teste = useRef<{ mic: Microfone; medidor: Medidor; relogio: ReturnType<typeof setInterval>; pararRetorno?: () => void } | null>(null);
+  const avisarTeste = useRef(aoTestarSom);
+  useEffect(() => {
+    avisarTeste.current = aoTestarSom;
+  }, [aoTestarSom]);
+  /** O teste está valendo (mudo/surdo pedidos), mesmo enquanto o microfone reabre. */
+  const testandoRef = useRef(false);
   /** Cada abertura ganha um número; a que voltar atrasada (ou depois de sair da tela) é descartada. */
   const geracao = useRef(0);
 
@@ -120,9 +145,17 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
     if (!t) return;
     clearInterval(t.relogio);
     t.medidor.parar();
-    // O microfone da chamada continua; só o aberto para o teste é fechado.
-    if (t.proprio) t.mic.parar();
+    t.pararRetorno?.();
+    t.mic.parar();
     teste.current = null;
+  }
+
+  /** Fim do teste (botão ou sair da tela): devolve o mute/deafen de antes. */
+  function encerrarTeste() {
+    const tinha = teste.current !== null || testandoRef.current;
+    pararTeste();
+    testandoRef.current = false;
+    if (tinha) avisarTeste.current?.(false);
   }
 
   async function iniciarTeste(prefs: PreferenciasAudio) {
@@ -130,21 +163,28 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
     const minha = geracao.current;
     setErro(null);
     let mic: Microfone | undefined;
+    // Mudo e surdo na chamada antes de abrir o microfone do teste (só avisa uma vez por teste).
+    if (!testandoRef.current) {
+      testandoRef.current = true;
+      avisarTeste.current?.(true);
+    }
     try {
-      const daSala = microfoneDaChamada?.();
-      mic = daSala ?? (await deps.abrirMicrofone(prefs));
-      const proprio = !daSala;
+      // Microfone próprio do teste: o da chamada fica fechado (mudo) enquanto isso.
+      mic = await deps.abrirMicrofone(prefs);
       if (geracao.current !== minha) {
-        if (proprio) mic.parar();
+        mic.parar();
         return;
       }
+      // Push-to-talk: no teste a voz passa sempre (o atalho vai para a chamada, não para o teste).
+      if (prefs.modoMicrofone === 'ptt') mic.portao.definir({ modo: 'deteccao', limiarDb: -100 });
       const medidor = deps.criarMedidor(mic.faixaMedicao);
       // ~12 leituras por segundo bastam para o medidor (e não repinta a tela a 60 Hz).
       const relogio = setInterval(() => setNivel(Math.round(medidor.nivelDb())), 80);
-      teste.current = { mic, medidor, relogio, proprio };
+      // Retorno: eu me ouço como os outros me ouviriam (supressão e detecção de voz aplicadas).
+      const pararRetorno = deps.tocarRetorno?.(mic.faixa, prefs.saidaId);
+      teste.current = { mic, medidor, relogio, pararRetorno };
       setNivel(Math.round(medidor.nivelDb()));
       setSupressao(mic.supressao);
-      setDaChamada(!proprio);
       setDispositivoEmUso(mic.dispositivoId);
       setTestando(true);
       if (mic.usouPadrao) setErro('O microfone escolhido não foi encontrado; testando o padrão do sistema.');
@@ -154,18 +194,23 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
         .then(setDispositivos)
         .catch(() => undefined);
     } catch {
-      if (mic && !microfoneDaChamada?.()) mic.parar();
+      mic?.parar();
       if (geracao.current !== minha) return;
       setTestando(false);
+      testandoRef.current = false;
+      avisarTeste.current?.(false);
       setErro('Não foi possível abrir o microfone. Confira a permissão e o dispositivo escolhido.');
     }
   }
 
-  useEffect(() => pararTeste, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => encerrarTeste, []);
 
   function mudar(parcial: Partial<PreferenciasAudio>) {
     const novo = { ...audio, ...parcial };
     const aplicado = aoMudarAudio(novo);
+    // A sensibilidade vale na hora para o retorno do teste.
+    if (teste.current && 'sensibilidadeDb' in parcial && novo.modoMicrofone !== 'ptt') teste.current.mic.portao.definir({ limiarDb: novo.sensibilidadeDb });
     // O teste reabre o microfone com o que mudou (a sensibilidade só move a marca); na chamada, depois da troca.
     if (teste.current && !('sensibilidadeDb' in parcial) && !('modoMicrofone' in parcial)) void Promise.resolve(aplicado).then(() => iniciarTeste(novo));
   }
@@ -386,7 +431,7 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
             type="button"
             className="secundario"
             onClick={() => {
-              pararTeste();
+              encerrarTeste();
               setTestando(false);
               setNivel(-100);
             }}
@@ -398,9 +443,10 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, microfoneDaChamada, ata
             Testar microfone
           </button>
         )}
+        <p className="suave">Use fone de ouvido no teste: pelas caixas de som, a sua voz volta para o microfone (microfonia).</p>
         {/* Região viva sempre presente: o leitor de tela anuncia quando o texto muda. */}
         <p className="suave" role="status" data-dispositivo={testando ? dispositivoEmUso : undefined}>
-          {testando && supressao ? `${daChamada ? 'Medindo o microfone da chamada. ' : ''}${TEXTO_SUPRESSAO[supressao]}` : ''}
+          {testando && supressao ? `Você está se ouvindo; na chamada, fica mudo e sem áudio até parar o teste. ${TEXTO_SUPRESSAO[supressao]}` : ''}
         </p>
         {erro && (
           <p className="erro" role="alert">

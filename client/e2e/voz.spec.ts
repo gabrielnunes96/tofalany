@@ -182,16 +182,18 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
     await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
   }
   await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1, { timeout: 15_000 });
-  // Em chamada, o teste mede o microfone da própria chamada e mostra qual dispositivo ela usa.
+  // Em chamada, o teste de som me deixa mudo e sem áudio (eu me ouço; ninguém me ouve testando).
   await j.getByRole('button', { name: 'Testar microfone' }).click();
-  const status = j.getByRole('status').filter({ hasText: 'Medindo o microfone da chamada' });
+  const status = j.getByRole('status').filter({ hasText: 'Você está se ouvindo' });
   await expect(status).toBeVisible({ timeout: 10_000 });
+  await expect(j.getByRole('button', { name: 'Mutar microfone' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(j.getByRole('button', { name: 'Desligar áudio' })).toHaveAttribute('aria-pressed', 'true');
   const emUso = await status.getAttribute('data-dispositivo');
   const entradas = await j.getByLabel('Microfone', { exact: true }).locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
   const escolhida = entradas.find((id) => id !== emUso);
   expect(escolhida, `o Chromium falso deveria ter mais de um microfone (em uso: ${emUso}, lista: ${entradas.join(', ')})`).toBeTruthy();
   await j.getByLabel('Microfone', { exact: true }).selectOption(escolhida!);
-  // A chamada passou a usar o microfone escolhido (troca a quente, sem sair da voz).
+  // O teste (e a chamada) passou a usar o microfone escolhido (troca a quente, sem sair da voz).
   await expect(status).toHaveAttribute('data-dispositivo', escolhida!, { timeout: 10_000 });
   await print(j, 'T15-troca-microfone-na-chamada');
   const saidas = await j.getByLabel('Saída de áudio').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
@@ -205,6 +207,10 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   await j.getByLabel('Microfone', { exact: true }).selectOption(voltar);
   await expect(status).toHaveAttribute('data-dispositivo', emUso!, { timeout: 10_000 });
   await j.getByLabel('Supressão de ruído').uncheck();
+  // Parar o teste devolve o microfone e o áudio da chamada.
+  await j.getByRole('button', { name: 'Parar teste' }).click();
+  await expect(j.getByRole('button', { name: 'Mutar microfone' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(j.getByRole('button', { name: 'Desligar áudio' })).toHaveAttribute('aria-pressed', 'false');
   await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem', { name: 'dono, falando' })).toBeVisible({ timeout: 15_000 });
   await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1);
   await print(ana.janela, 'T15-ana-ouve-dono-depois-das-trocas');
