@@ -12,3 +12,8 @@ playwright-report/
 copia-banco-*.db
 .versao-instalada
 .atualizando.lock
+
+# Chaves SSH (nunca no git)
+keys/
+*.key
+*.pem
