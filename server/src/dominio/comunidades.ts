@@ -24,7 +24,14 @@ export interface Membro {
 export function nomeComunidade(banco: Banco, id: number, nomePrincipal: string): string | undefined {
   const c = banco.prepare('SELECT nome FROM comunidades WHERE id = ?').get(id) as { nome: string | null } | undefined;
   if (!c) return undefined;
-  return id === COMUNIDADE_PRINCIPAL ? nomePrincipal : (c.nome ?? `Servidor ${id}`);
+  // O principal vem da configuração (NOME_SERVIDOR) até o administrador renomear pelo app.
+  return c.nome ?? (id === COMUNIDADE_PRINCIPAL ? nomePrincipal : `Servidor ${id}`);
+}
+
+/** Imagem do servidor (/files/<id>) ou null. */
+export function iconeComunidade(banco: Banco, id: number): string | null {
+  const c = banco.prepare('SELECT icone_arquivo FROM comunidades WHERE id = ?').get(id) as { icone_arquivo: string | null } | undefined;
+  return c?.icone_arquivo ? `/files/${c.icone_arquivo}` : null;
 }
 
 export function existeComunidade(banco: Banco, id: number): boolean {
@@ -85,7 +92,12 @@ export function garantirAdminsDaInstalacao(banco: Banco, agora: number = Date.no
  */
 export function listarComunidadesDe(banco: Banco, usuarioId: number, base: string, nomePrincipal: string): ComunidadeDto[] {
   if (ehAdminDaInstalacao(banco, usuarioId)) garantirAdminsDaInstalacao(banco);
-  return comunidadesDe(banco, usuarioId).map((id) => ({ id, nome: nomeComunidade(banco, id, nomePrincipal) ?? '', url: `${base}${caminhoComunidade(id)}` }));
+  return comunidadesDe(banco, usuarioId).map((id) => ({
+    id,
+    nome: nomeComunidade(banco, id, nomePrincipal) ?? '',
+    url: `${base}${caminhoComunidade(id)}`,
+    iconeUrl: iconeComunidade(banco, id),
+  }));
 }
 
 export function adicionarMembro(banco: Banco, comunidadeId: number, usuarioId: number, cargo: Cargo, agora: number = Date.now()): void {
@@ -161,6 +173,8 @@ export function excluirComunidade(banco: Banco, comunidadeId: number, usuarioId:
   if (donoDa(banco, comunidadeId) !== usuarioId) throw new ErroHttp(403, 'sem_permissao', 'Só quem criou o servidor pode excluí-lo.');
   return banco.transaction(() => {
     const arquivos = (banco.prepare('SELECT arquivo FROM sons WHERE comunidade_id = ?').all(comunidadeId) as { arquivo: string }[]).map((s) => s.arquivo);
+    const icone = (banco.prepare('SELECT icone_arquivo FROM comunidades WHERE id = ?').get(comunidadeId) as { icone_arquivo: string | null } | undefined)?.icone_arquivo;
+    if (icone) arquivos.push(icone);
     const canais = (banco.prepare('SELECT id FROM canais WHERE comunidade_id = ?').all(comunidadeId) as { id: number }[]).map((c) => c.id);
     for (const id of canais) banco.prepare('DELETE FROM leituras WHERE chave = ?').run(`c:${id}`);
     banco.prepare('DELETE FROM canais WHERE comunidade_id = ?').run(comunidadeId);

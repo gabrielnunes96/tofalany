@@ -33,6 +33,10 @@ export interface ClienteApi {
   entrarComunidade(codigo: string): Promise<ComunidadeDto>;
   sairComunidade(): Promise<void>;
   excluirComunidade(): Promise<void>;
+  /** Administrador: nome e imagem do servidor do endereço. */
+  renomearComunidade(nome: string): Promise<ComunidadeDto>;
+  enviarIconeComunidade(arquivo: Blob, nome: string): Promise<ComunidadeDto>;
+  removerIconeComunidade(): Promise<ComunidadeDto>;
   /** ToOuvini: cookies do YouTube (administrador do principal). */
   situacaoMusica(): Promise<{ cookies: boolean; atualizadoEm: number | null }>;
   enviarCookiesMusica(conteudo: string): Promise<{ cookies: boolean; atualizadoEm: number | null }>;
@@ -121,6 +125,13 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     entrarComunidade: (codigo) => chamar('POST', '/api/comunidades/entrar', { codigo }),
     sairComunidade: () => chamar('POST', '/api/comunidade/sair'),
     excluirComunidade: () => chamar('DELETE', '/api/comunidade'),
+    renomearComunidade: (nome) => chamar('PATCH', '/api/comunidade', { nome }),
+    enviarIconeComunidade: (arquivo, nome) => {
+      const form = new FormData();
+      form.append('arquivo', arquivo, nome);
+      return chamar('PUT', '/api/comunidade/icone', form);
+    },
+    removerIconeComunidade: () => chamar('DELETE', '/api/comunidade/icone'),
     situacaoMusica: () => chamar('GET', '/api/admin/musica'),
     enviarCookiesMusica: (conteudo) => chamar('PUT', '/api/admin/musica/cookies', { conteudo }),
     removerCookiesMusica: () => chamar('DELETE', '/api/admin/musica/cookies'),

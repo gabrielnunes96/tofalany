@@ -1,4 +1,6 @@
 import type { AddressInfo } from 'node:net';
+import { randomBytes } from 'node:crypto';
+import sharp from 'sharp';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { io as conectar, type Socket } from 'socket.io-client';
@@ -18,6 +20,18 @@ type Resposta = { ok: boolean; valor?: unknown; erro?: string };
 const pedir = (s: Cliente, evento: string, dados: unknown) =>
   new Promise<Resposta>((r) => (s.emit as (e: string, d: unknown, cb: (x: Resposta) => void) => void)(evento, dados, r));
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
+const png = () => sharp({ create: { width: 64, height: 64, channels: 3, background: '#3366ff' } }).png().toBuffer();
+function multipart(dados: Buffer, nome = 'icone.png', tipo = 'image/png') {
+  const limite = '----tofalany' + randomBytes(6).toString('hex');
+  return {
+    payload: Buffer.concat([
+      Buffer.from(`--${limite}\r\nContent-Disposition: form-data; name="arquivo"; filename="${nome}"\r\nContent-Type: ${tipo}\r\n\r\n`),
+      dados,
+      Buffer.from(`\r\n--${limite}--\r\n`),
+    ]),
+    headers: { 'content-type': `multipart/form-data; boundary=${limite}` },
+  };
+}
 
 async function preparar() {
   app = await appTeste();
@@ -37,6 +51,44 @@ async function preparar() {
 }
 
 describe('vários servidores na mesma instalação', () => {
+  it('administrador renomeia (o principal também) e troca ou remove a imagem; quem está dentro é avisado; membro não pode', async () => {
+    const { dono, ana, abrir } = await preparar();
+    const conexao = await abrir(ana.token);
+    if ('erro' in conexao) throw new Error(conexao.erro);
+    expect(conexao.ola.servidor.iconeUrl).toBeNull();
+    const aviso = () => new Promise<{ nome: string; iconeUrl: string | null }>((r) => conexao.s.once('servidor:atualizado', r));
+
+    expect((await app!.inject({ method: 'PATCH', url: '/api/comunidade', headers: auth(ana.token), payload: { nome: 'Da ana' } })).statusCode).toBe(403);
+    let chegou = aviso();
+    const renomeado = await app!.inject({ method: 'PATCH', url: '/api/comunidade', headers: auth(dono.token), payload: { nome: 'Turma' } });
+    expect(renomeado.statusCode).toBe(200);
+    expect((renomeado.json() as ComunidadeDto).nome).toBe('Turma');
+    expect(await chegou).toEqual({ nome: 'Turma', iconeUrl: null });
+    expect((await app!.inject({ method: 'GET', url: '/api/servidor' })).json()).toMatchObject({ nome: 'Turma' });
+
+    const negado = multipart(await png());
+    expect((await app!.inject({ method: 'PUT', url: '/api/comunidade/icone', headers: { ...auth(ana.token), ...negado.headers }, payload: negado.payload })).statusCode).toBe(403);
+    const texto = multipart(Buffer.from('não é imagem'), 'a.txt', 'text/plain');
+    expect((await app!.inject({ method: 'PUT', url: '/api/comunidade/icone', headers: { ...auth(dono.token), ...texto.headers }, payload: texto.payload })).statusCode).toBe(415);
+    chegou = aviso();
+    const img = multipart(await png());
+    const enviado = await app!.inject({ method: 'PUT', url: '/api/comunidade/icone', headers: { ...auth(dono.token), ...img.headers }, payload: img.payload });
+    expect(enviado.statusCode).toBe(200);
+    const iconeUrl = (enviado.json() as ComunidadeDto).iconeUrl!;
+    expect(iconeUrl).toMatch(/^\/files\//);
+    expect((await chegou).iconeUrl).toBe(iconeUrl);
+    const arquivo = await app!.inject({ method: 'GET', url: iconeUrl });
+    expect(arquivo.statusCode).toBe(200);
+    expect((await sharp(arquivo.rawPayload).metadata()).format).toBe('webp');
+    const lista = (await app!.inject({ method: 'GET', url: '/api/comunidades', headers: auth(ana.token) })).json() as ComunidadeDto[];
+    expect(lista[0]).toMatchObject({ nome: 'Turma', iconeUrl });
+
+    chegou = aviso();
+    expect((await app!.inject({ method: 'DELETE', url: '/api/comunidade/icone', headers: auth(dono.token) })).json()).toMatchObject({ iconeUrl: null });
+    expect((await chegou).iconeUrl).toBeNull();
+    expect((await app!.inject({ method: 'GET', url: iconeUrl })).statusCode).toBe(404);
+  });
+
   it('só o administrador cria; o servidor novo vem com #geral, Sala 1 e convite próprio; endereço /c/<id>', async () => {
     const { dono, ana } = await preparar();
     const negado = await app!.inject({ method: 'POST', url: '/api/comunidades', headers: auth(ana.token), payload: { nome: 'Da ana' } });

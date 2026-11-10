@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { caminhoComunidade, COMUNIDADE_PRINCIPAL, type ComunidadeDto } from '@tofalando/shared';
+import { AVATAR_MAX_BYTES, caminhoComunidade, type ComunidadeDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
@@ -10,6 +10,7 @@ import {
   criarComunidade,
   ehAdminDaInstalacao,
   excluirComunidade,
+  iconeComunidade,
   listarComunidadesDe,
   membroDe,
   nomeComunidade,
@@ -23,6 +24,7 @@ import { salaComunidade } from '../realtime/salas.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import { baseServidor } from './convite.js';
 import { arquivosDoCanal } from '../dominio/anexos.js';
+import { processarAvatar } from './perfil.js';
 
 /**
  * Vários servidores na mesma instalação (como no Discord): listar os meus, criar um, entrar com convite, sair e
@@ -30,7 +32,15 @@ import { arquivosDoCanal } from '../dominio/anexos.js';
  */
 export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, config: Config, tempoReal: TempoReal, armazem: Armazem): void {
   const daConta = exigirSessao(banco, { daConta: true });
-  const dto = (id: number, base: string): ComunidadeDto => ({ id, nome: nomeComunidade(banco, id, config.nomeServidor) ?? '', url: `${base}${caminhoComunidade(id)}` });
+  const dto = (id: number, base: string): ComunidadeDto => ({
+    id,
+    nome: nomeComunidade(banco, id, config.nomeServidor) ?? '',
+    url: `${base}${caminhoComunidade(id)}`,
+    iconeUrl: iconeComunidade(banco, id),
+  });
+  /** Avisa quem está no servidor que o nome ou a imagem mudou. */
+  const avisar = (id: number) =>
+    tempoReal.io.to(salaComunidade(id)).emit('servidor:atualizado', { nome: nomeComunidade(banco, id, config.nomeServidor) ?? '', iconeUrl: iconeComunidade(banco, id) });
 
   app.get('/api/comunidades', { preHandler: daConta }, async (req): Promise<ComunidadeDto[]> =>
     listarComunidadesDe(banco, req.usuarioId!, baseServidor(config, req), config.nomeServidor),
@@ -71,10 +81,50 @@ export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, co
     reply.code(204);
   });
 
+  // Administrador do servidor renomeia (o principal também: o nome do app passa a valer sobre NOME_SERVIDOR).
   app.patch('/api/comunidade', { preHandler: [exigirSessao(banco), exigirAdmin(banco)] }, async (req): Promise<ComunidadeDto> => {
-    if (req.comunidadeId === COMUNIDADE_PRINCIPAL) throw new ErroHttp(400, 'dados_invalidos', 'O nome do servidor principal vem da configuração (NOME_SERVIDOR).');
     const nome = validarNomeComunidade((req.body as { nome?: unknown } | undefined)?.nome);
     banco.prepare('UPDATE comunidades SET nome = ? WHERE id = ?').run(nome, req.comunidadeId);
+    registrarAuditoria(banco, { tipo: 'servidor_editado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { nome } });
+    avisar(req.comunidadeId);
+    return dto(req.comunidadeId, baseServidor(config, req));
+  });
+
+  // Imagem do servidor: como o avatar (conferida pelo conteúdo, regravada em 256×256 WebP sem metadados).
+  app.put('/api/comunidade/icone', { preHandler: [exigirSessao(banco), exigirAdmin(banco)] }, async (req): Promise<ComunidadeDto> => {
+    if (!req.isMultipart()) throw new ErroHttp(400, 'dados_invalidos', 'Envie a imagem como multipart/form-data.');
+    const parte = await req.file({ limits: { fileSize: AVATAR_MAX_BYTES, files: 1 } });
+    if (!parte || parte.fieldname !== 'arquivo') throw new ErroHttp(400, 'dados_invalidos', 'Envie a imagem no campo "arquivo".');
+    const dados = await parte.toBuffer().catch((erro: { code?: string }) => {
+      if (erro.code === 'FST_REQ_FILE_TOO_LARGE') throw new ErroHttp(413, 'arquivo_grande', 'A imagem deve ter no máximo 8 MB.');
+      throw erro;
+    });
+    const id = armazem.gravar(await processarAvatar(dados), 'webp');
+    let anterior: string | null | undefined;
+    try {
+      anterior = banco.transaction(() => {
+        const atual = (banco.prepare('SELECT icone_arquivo FROM comunidades WHERE id = ?').get(req.comunidadeId) as { icone_arquivo: string | null } | undefined)?.icone_arquivo;
+        banco.prepare('UPDATE comunidades SET icone_arquivo = ? WHERE id = ?').run(id, req.comunidadeId);
+        return atual;
+      })();
+    } catch (erro) {
+      armazem.apagar(id);
+      throw erro;
+    }
+    armazem.apagar(anterior);
+    registrarAuditoria(banco, { tipo: 'servidor_editado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { imagem: 'trocada' } });
+    avisar(req.comunidadeId);
+    return dto(req.comunidadeId, baseServidor(config, req));
+  });
+
+  app.delete('/api/comunidade/icone', { preHandler: [exigirSessao(banco), exigirAdmin(banco)] }, async (req): Promise<ComunidadeDto> => {
+    const anterior = (banco.prepare('SELECT icone_arquivo FROM comunidades WHERE id = ?').get(req.comunidadeId) as { icone_arquivo: string | null } | undefined)?.icone_arquivo;
+    banco.prepare('UPDATE comunidades SET icone_arquivo = NULL WHERE id = ?').run(req.comunidadeId);
+    armazem.apagar(anterior);
+    if (anterior) {
+      registrarAuditoria(banco, { tipo: 'servidor_editado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { imagem: 'removida' } });
+      avisar(req.comunidadeId);
+    }
     return dto(req.comunidadeId, baseServidor(config, req));
   });
 

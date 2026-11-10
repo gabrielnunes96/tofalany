@@ -195,5 +195,9 @@ export const MIGRACOES: readonly string[] = [
     ELSE replace(permissoes, '[', '["enviar_mensagens","enviar_anexos","entrar_voz","usar_camera","transmitir_tela","tocar_sons","usar_toouvini",')
   END;
   `,
+  // 014 — imagem do servidor (arquivo no armazém, como o avatar).
+  `
+  ALTER TABLE comunidades ADD COLUMN icone_arquivo TEXT;
+  `,
 ];
 

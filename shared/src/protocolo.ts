@@ -288,6 +288,8 @@ export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
 export interface ServidorConhecido {
   url: string;
   nome?: string;
+  /** Endereço completo da imagem do servidor, se tiver. */
+  icone?: string;
 }
 
 /** Backlog v2, item 10: canais (coluna da esquerda), membros (da direita) e câmeras escondidos. */
@@ -446,7 +448,7 @@ export type Ack<T = undefined> = (resposta: { ok: true; valor: T } | { ok: false
 /** Retrato inicial enviado ao conectar o Socket.IO (cresce com canais, DMs, voz… nas próximas tarefas). */
 export interface OlaPayload {
   /** Servidor desta conexão: nome, id (1 = principal) e quem criou (só quem criou exclui; servidor antigo não manda). */
-  servidor: { nome: string; id?: number; donoId?: number | null };
+  servidor: { nome: string; id?: number; donoId?: number | null; iconeUrl?: string | null };
   /** Link de convite vigente, que qualquer membro pode copiar (RF-1a). */
   convite: { link: string };
   eu: UsuarioDto;
@@ -504,6 +506,8 @@ export interface EventosServidor {
   'som:tocado': (payload: { somId: number; porUsuarioId: number; canalVozId: number }) => void;
   /** RN-10: transmissão de tela começou ou parou (para todos: a barra mostra quem transmite). */
   'tela:iniciada': (t: TransmissaoDto) => void;
+  /** Nome ou imagem do servidor mudou. */
+  'servidor:atualizado': (s: { nome: string; iconeUrl: string | null }) => void;
   'tela:parada': (payload: { canalVozId: number; usuarioId: number }) => void;
   /** Quem assiste a transmissão do canal mudou. */
   'tela:espectadores': (payload: { canalVozId: number; usuarioId: number; espectadores: number[] }) => void;
@@ -677,6 +681,8 @@ export const LIMITE_SERVIDORES_POR_PESSOA = 5;
 export interface ComunidadeDto {
   id: number;
   nome: string;
+  /** Imagem do servidor (/files/<id>), se tiver. */
+  iconeUrl?: string | null;
   /** Endereço do servidor para o app (raiz para o principal, /c/<id> para os outros). */
   url: string;
 }

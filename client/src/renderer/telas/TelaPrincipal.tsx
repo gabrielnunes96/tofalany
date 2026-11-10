@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
+import { separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -12,6 +12,7 @@ import { PainelSoundboard } from '../componentes/PainelSoundboard';
 import { GradeVideos } from '../componentes/GradeVideos';
 import { SeletorTela, type FonteTela } from '../componentes/SeletorTela';
 import { PainelTransmissao } from '../componentes/PainelTransmissao';
+import { TelaEditarServidor } from './TelaEditarServidor';
 import { Espectadores } from '../componentes/Espectadores';
 import { PainelMusica } from '../componentes/PainelMusica';
 import { Icone } from '../componentes/Icone';
@@ -38,7 +39,7 @@ import { ordenarMembros } from '../estado/ordemMembros';
 
 interface Props {
   /** Backlog v2, item 7: o nome do servidor chegou (vai para a coluna de servidores). */
-  aoNomeServidor?: (nome: string) => void;
+  aoNomeServidor?: (nome: string, icone?: string | null) => void;
   servidorUrl: string;
   token: string;
   /** Usuário de /api/eu, mostrado até o retrato do tempo real chegar. */
@@ -66,7 +67,7 @@ interface GravacaoAdiada {
   sons?: PreferenciasSons;
 }
 
-type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes' | 'toouvini';
+type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes' | 'toouvini' | 'servidor';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
 const destinoDe = (chave: Chave): Destino => {
@@ -76,7 +77,7 @@ const destinoDe = (chave: Chave): Destino => {
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
 export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor, aoSairDoServidor }: Props) {
-  const { conexao, eu, usuarios, funcoes, nomeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica, amizades, conhecidos } = useLoja(
+  const { conexao, eu, usuarios, funcoes, nomeServidor, iconeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica, amizades, conhecidos } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
@@ -94,6 +95,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       usuarios: s.usuarios,
       funcoes: s.funcoes,
       nomeServidor: s.nomeServidor,
+      iconeServidor: s.iconeServidor,
       canais: s.canais,
       canalAtivo: s.canalAtivo,
       linkConvite: s.linkConvite,
@@ -120,6 +122,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       definirVoz: s.definirVoz,
       iniciarTransmissao: s.iniciarTransmissao,
       pararTransmissao: s.pararTransmissao,
+      servidorAtualizado: s.servidorAtualizado,
       espectadoresDaTransmissao: s.espectadoresDaTransmissao,
       definirMusica: s.definirMusica,
       definirAmizades: s.definirAmizades,
@@ -758,6 +761,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       },
       aoTelaIniciada: acoes.iniciarTransmissao,
       aoTelaParada: acoes.pararTransmissao,
+      aoServidorAtualizado: acoes.servidorAtualizado,
       aoTelaEspectadores: acoes.espectadoresDaTransmissao,
       aoMusica: acoes.definirMusica,
       aoAmizades: acoes.definirAmizades,
@@ -799,10 +803,10 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     };
   }, [servidorUrl, token, acoes, aoSessaoRevogada]);
 
-  // Backlog v2, item 7: o nome do servidor vai para a coluna de servidores.
+  // Backlog v2, item 7: o nome (e a imagem) do servidor vão para a coluna de servidores.
   useEffect(() => {
-    if (nomeServidor) aoNomeServidor?.(nomeServidor);
-  }, [nomeServidor, aoNomeServidor]);
+    if (nomeServidor) aoNomeServidor?.(nomeServidor, iconeServidor ? `${separarComunidade(servidorUrl).base}${iconeServidor}` : null);
+  }, [nomeServidor, iconeServidor, servidorUrl, aoNomeServidor]);
   const usuario = eu ?? usuarioInicial;
   const pessoas = useMemo(() => [...usuarios, ...conhecidos.filter((c) => !usuarios.some((u) => u.id === c.id))], [usuarios, conhecidos]);
   const barraVisao = (
@@ -1388,6 +1392,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                   </>
                 )}
                 <hr />
+                {ehAdmin && (
+                  <button type="button" onClick={() => setVista('servidor')}>
+                    Editar servidor
+                  </button>
+                )}
                 {servidorId !== null && servidorId !== 1 && donoServidor !== usuario.id && (
                   <button type="button" onClick={() => void sairDoServidor()}>
                     Sair do servidor
@@ -1486,6 +1495,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
               qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes)}
               aoVoltar={voltar}
             />
+          ) : vistaAtual === 'servidor' ? (
+            <TelaEditarServidor api={api} nome={nomeServidor ?? ''} iconeUrl={iconeServidor} servidorUrl={separarComunidade(servidorUrl).base} aoVoltar={voltar} />
           ) : vistaAtual === 'toouvini' ? (
             <TelaToOuvini api={api} aoVoltar={voltar} />
           ) : vistaAtual === 'sons' ? (

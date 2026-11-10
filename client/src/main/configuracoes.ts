@@ -36,11 +36,22 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
     const lista: ServidorConhecido[] = [];
     for (const item of obj.servidores.slice(0, 20)) {
       if (!item || typeof item !== 'object') continue;
-      const { url, nome } = item as { url?: unknown; nome?: unknown };
+      const { url, nome, icone } = item as { url?: unknown; nome?: unknown; icone?: unknown };
       const n = typeof url === 'string' ? normalizarUrlServidor(url) : undefined;
       if (!n?.ok || vistos.has(n.valor)) continue;
       vistos.add(n.valor);
-      lista.push(typeof nome === 'string' && nome.trim() ? { url: n.valor, nome: nome.trim().slice(0, 64) } : { url: n.valor });
+      const s: ServidorConhecido = { url: n.valor };
+      if (typeof nome === 'string' && nome.trim()) s.nome = nome.trim().slice(0, 64);
+      // Imagem: só do mesmo host do servidor, em /files/<id>.
+      if (typeof icone === 'string' && icone.length <= 512) {
+        try {
+          const u = new URL(icone);
+          if (u.host === new URL(n.valor).host && /^\/files\/[\w.-]+$/.test(u.pathname) && !u.search) s.icone = u.href;
+        } catch {
+          // endereço inválido: sem imagem
+        }
+      }
+      lista.push(s);
     }
     resultado.servidores = lista;
   }

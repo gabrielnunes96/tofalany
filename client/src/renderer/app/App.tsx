@@ -25,11 +25,14 @@ export function App() {
   }, [estado]);
   // Backlog v2, item 7: servidores em que a pessoa entrou (a coluna à esquerda).
   const [servidores, setServidores] = useState<ServidorConhecido[]>([]);
-  const lembrarServidor = useCallback((url: string, nome?: string) => {
+  const lembrarServidor = useCallback((url: string, nome?: string, icone?: string | null) => {
     setServidores((atual) => {
       const existente = atual.find((s) => s.url === url);
-      if (existente && (nome === undefined || existente.nome === nome)) return atual;
-      const novo = existente ? atual.map((s) => (s.url === url ? { url, nome } : s)) : [...atual, nome ? { url, nome } : { url }];
+      // icone: undefined = não sei (mantém); null = sem imagem.
+      const iconeFinal = icone === undefined ? existente?.icone : (icone ?? undefined);
+      if (existente && (nome === undefined || existente.nome === nome) && existente.icone === iconeFinal) return atual;
+      const item = { url, ...((nome ?? existente?.nome) ? { nome: nome ?? existente?.nome } : {}), ...(iconeFinal ? { icone: iconeFinal } : {}) };
+      const novo = existente ? atual.map((s) => (s.url === url ? item : s)) : [...atual, item];
       void ponte()
         .config.gravar({ servidores: novo })
         .catch(() => undefined);
@@ -253,7 +256,7 @@ export function App() {
         .then(() => criarApi(principalUrl, principalToken).comunidades())
         .catch(() => null);
       if (!lista || !vivo) return;
-      const daqui = lista.map((c) => ({ url: `${base}${caminhoComunidade(c.id)}`, nome: c.nome }));
+      const daqui = lista.map((c) => ({ url: `${base}${caminhoComunidade(c.id)}`, nome: c.nome, ...(c.iconeUrl ? { icone: `${base}${c.iconeUrl}` } : {}) }));
       for (const c of daqui) {
         await ponte()
           .sessao.gravar({ servidorUrl: c.url, token: principalToken })
@@ -374,7 +377,7 @@ export function App() {
       return comColuna(
         <TelaPrincipal
           key={estado.url}
-          aoNomeServidor={(nome) => lembrarServidor(estado.url, nome)}
+          aoNomeServidor={(nome, icone) => lembrarServidor(estado.url, nome, icone)}
           servidorUrl={estado.url}
           token={estado.token}
           usuarioInicial={estado.usuario}

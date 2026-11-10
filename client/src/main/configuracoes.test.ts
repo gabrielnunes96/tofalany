@@ -40,6 +40,24 @@ describe('criarArmazemConfiguracoes', () => {
     expect(armazem.gravar({ servidorUrl: null })).toEqual({ servidorUrl: null, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO });
   });
 
+  it('servidores guardam a imagem só do mesmo host, em /files/<id>', () => {
+    const arm = criarArmazemConfiguracoes(arquivoTemp());
+    arm.gravar({
+      servidores: [
+        { url: 'https://a.io', nome: 'A', icone: 'https://a.io/files/abc.webp' },
+        { url: 'https://a.io/c/2', icone: 'https://outro.io/files/abc.webp' },
+        { url: 'https://b.io', icone: 'https://b.io/api/eu' },
+        { url: 'https://c.io', icone: 'javascript:alert(1)' },
+      ],
+    });
+    expect(arm.ler().servidores).toEqual([
+      { url: 'https://a.io', nome: 'A', icone: 'https://a.io/files/abc.webp' },
+      { url: 'https://a.io/c/2' },
+      { url: 'https://b.io' },
+      { url: 'https://c.io' },
+    ]);
+  });
+
   it('volta ao padrão com arquivo corrompido', () => {
     const arquivo = arquivoTemp();
     criarArmazemConfiguracoes(arquivo).gravar({ servidorUrl: 'http://a' });

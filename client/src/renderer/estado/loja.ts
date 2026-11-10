@@ -10,6 +10,8 @@ export { chaveCanal, chaveDe, chaveDm, type Chave } from './chaves';
 interface Loja {
   conexao: EstadoConexao;
   nomeServidor: string | null;
+  /** Imagem do servidor (/files/<id>), se tiver. */
+  iconeServidor: string | null;
   /** Servidor desta conexão (1 = principal) e quem o criou (só quem criou exclui). */
   servidorId: number | null;
   donoServidor: number | null;
@@ -62,6 +64,7 @@ interface Loja {
   tirarSom(id: number): void;
   definirConexao(estado: EstadoConexao): void;
   aplicarOla(payload: OlaPayload): void;
+  servidorAtualizado(s: { nome: string; iconeUrl: string | null }): void;
   adicionarUsuario(usuario: UsuarioDto): void;
   /** Mesmo efeito de adicionar (substitui pelo id) e também atualiza "eu" se for a própria pessoa. */
   atualizarUsuario(usuario: UsuarioDto): void;
@@ -113,6 +116,7 @@ let proximaGeracao = 1;
 const inicial = {
   conexao: 'conectando' as EstadoConexao,
   nomeServidor: null,
+  iconeServidor: null,
   servidorId: null,
   donoServidor: null,
   linkConvite: null,
@@ -174,11 +178,13 @@ export const useLoja = create<Loja>((set) => ({
   definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
   salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
   tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
+  servidorAtualizado: ({ nome, iconeUrl }) => set({ nomeServidor: nome, iconeServidor: iconeUrl }),
   aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica, amizades, conhecidos }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
         nomeServidor: servidor.nome,
+        iconeServidor: servidor.iconeUrl ?? null,
         servidorId: servidor.id ?? null,
         donoServidor: servidor.donoId ?? null,
         linkConvite: convite.link,

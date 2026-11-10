@@ -654,3 +654,12 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .transmissao-volume { display: flex; align-items: center; gap: 6px; flex: none; }
 .transmissao-acoes .transmissao-volume input[type="range"] { width: 110px; margin: 0; }
 .transmissao-acoes .transmissao-volume button { min-width: 34px; }
+
+/* Imagem do servidor (coluna e tela de edição). */
+.servidor-imagem { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+.servidor-imagem-previa { width: 96px; height: 96px; object-fit: cover; border-radius: 22px; display: block; margin-bottom: 8px; }
+.editar-servidor-nome { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.editar-servidor-nome label { width: 100%; }
+.editar-servidor-nome input { flex: 1; min-width: 200px; margin: 0; }
+.editar-servidor-nome button { margin: 0; }
+.editar-servidor-imagem { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }

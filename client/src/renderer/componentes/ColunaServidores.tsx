@@ -72,6 +72,8 @@ export function ColunaServidores({
       setMenu('fechado');
     }
   }
+  /** Imagem que não carregou (servidor fora do ar, outra instalação): volta para as iniciais. */
+  const [falhas, setFalhas] = useState<Record<string, true>>({});
   return (
     <nav className="coluna-servidores" aria-label="Servidores">
       {servidores.map((s) => {
@@ -87,7 +89,11 @@ export function ColunaServidores({
             title={s.nome ? `${s.nome}\n${s.url}` : s.url}
             onClick={() => s.url !== ativo && aoEscolher(s.url)}
           >
-            {iniciais(s)}
+            {s.icone && falhas[s.icone] !== true ? (
+              <img className="servidor-imagem" src={s.icone} alt="" onError={() => setFalhas((f) => ({ ...f, [s.icone!]: true }))} />
+            ) : (
+              iniciais(s)
+            )}
             {n > 0 && (
               <span className="servidor-naolidas" aria-hidden="true">
                 {n > 99 ? '99+' : n}
