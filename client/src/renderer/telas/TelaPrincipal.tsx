@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
-import { useLoja } from '../estado/loja';
+import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
 // A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
@@ -40,6 +40,14 @@ import { ordenarMembros } from '../estado/ordemMembros';
 interface Props {
   /** Backlog v2, item 7: o nome do servidor chegou (vai para a coluna de servidores). */
   aoNomeServidor?: (nome: string, icone?: string | null) => void;
+  /** A tela está escondida (a pessoa olha outro servidor) e só segura a voz daqui: não notifica nem marca como lido. */
+  oculta?: boolean;
+  /** Entrou ou saiu da voz neste servidor. */
+  aoVoz?: (v: { canal: string; servidor: string } | null) => void;
+  /** A pessoa está na voz de outro servidor (a tela dele está escondida). */
+  vozEmOutro?: { canal: string; servidor: string; aoVoltar: () => void; aoDesconectar: () => void } | null;
+  /** Muda (contador) quando a pessoa pede, de outro servidor, para sair da voz daqui. */
+  pedidoSairVoz?: number;
   servidorUrl: string;
   token: string;
   /** Usuário de /api/eu, mostrado até o retrato do tempo real chegar. */
@@ -76,7 +84,39 @@ const destinoDe = (chave: Chave): Destino => {
 };
 
 /** Tela logada: barra de canais, canal aberto (ou telas de perfil/administração) e membros. */
-export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTrocarServidor, aoSessaoRevogada, aoNomeServidor, aoSairDoServidor }: Props) {
+export function TelaPrincipal(props: Props) {
+  // Cada tela (servidor) tem a sua loja: a do servidor com voz fica viva, escondida, enquanto a pessoa olha outro.
+  const [useLoja] = useState(criarLoja);
+  return (
+    <ContextoLoja.Provider value={useLoja}>
+      <TelaDoServidor {...props} useLoja={useLoja} />
+    </ContextoLoja.Provider>
+  );
+}
+
+function TelaDoServidor({
+  servidorUrl,
+  token,
+  usuarioInicial,
+  aoSair,
+  aoTrocarServidor,
+  aoSessaoRevogada,
+  aoNomeServidor,
+  aoSairDoServidor,
+  oculta = false,
+  aoVoz,
+  vozEmOutro,
+  pedidoSairVoz = 0,
+  useLoja,
+}: Props & { useLoja: ReturnType<typeof criarLoja> }) {
+  const ocultaRef = useRef(oculta);
+  useEffect(() => {
+    ocultaRef.current = oculta;
+  }, [oculta]);
+  const vozEmOutroRef = useRef(!!vozEmOutro);
+  useEffect(() => {
+    vozEmOutroRef.current = !!vozEmOutro;
+  }, [vozEmOutro]);
   const { conexao, eu, usuarios, funcoes, nomeServidor, iconeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica, amizades, conhecidos } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
@@ -181,7 +221,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   }, []);
   useEffect(() => {
     const tecla = (e: globalThis.KeyboardEvent) => {
-      if (!e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (ocultaRef.current || !e.ctrlKey || e.shiftKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'b') alternarParte('canais');
       else if (k === 'm') alternarParte('membros');
@@ -418,7 +458,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     const atuais = (notifRef.current.silenciadas[servidorUrl] ?? []).filter((c) => c !== chave);
     mudarNotificacoes({ ...notifRef.current, silenciadas: { ...notifRef.current.silenciadas, [servidorUrl]: sim ? [...atuais, chave] : atuais } });
   };
-  const avisarEntradaSaida = (id: number, antes: StatusVisivel | undefined, status: StatusPessoa) => {
+  const avisarEntradaSaida = useEffectEvent((id: number, antes: StatusVisivel | undefined, status: StatusPessoa) => {
     const nome = useLoja.getState().usuarios.find((u) => u.id === id)?.nomeExibicao;
     if (!nome) return;
     const d = decidirAvisoPresenca(antes, status, {
@@ -444,7 +484,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
         })
         .catch(() => undefined);
     }
-  };
+  });
   function mudarSons(novo: PreferenciasSons) {
     sonsRef.current = novo;
     setPrefSons(novo);
@@ -561,6 +601,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     definirControles({ ...c, surdo: !c.surdo });
   };
   const aoAtalho = useEffectEvent(({ acao, pressionado }: { acao: AcaoAtalho; pressionado: boolean }) => {
+    // Voz em outro servidor: quem responde ao atalho é a tela de lá.
+    if (vozEmOutroRef.current && minhaVozRef.current === null) return;
     if (acao === 'ptt') salaVozRef.current?.controlar({ ptt: pressionado });
     else if (pressionado && acao === 'mudo') alternarMudo();
     else if (pressionado && acao === 'surdo') alternarSurdo();
@@ -653,6 +695,8 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     function avisarMensagemNova(m: MensagemDto) {
       const estado = useLoja.getState();
       if (!estado.eu) return;
+      // Escondida: as diretas são da conta (a tela visível já recebe e avisa).
+      if (ocultaRef.current && m.dmId != null) return;
       const d = decidirMensagemNova(m, {
         euId: estado.eu.id,
         chaveAberta: chaveAbertaRef.current,
@@ -801,7 +845,13 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       conexao.desconectar();
       acoes.limpar();
     };
-  }, [servidorUrl, token, acoes, aoSessaoRevogada]);
+  }, [servidorUrl, token, acoes, aoSessaoRevogada, useLoja]);
+
+  // A voz daqui (para o App manter esta tela viva enquanto a pessoa olha outro servidor).
+  const nomeCanalVoz = minhaVoz === null ? null : (canais.find((c) => c.id === minhaVoz)?.nome ?? 'voz');
+  useEffect(() => {
+    aoVoz?.(nomeCanalVoz === null ? null : { canal: nomeCanalVoz, servidor: nomeServidor ?? servidorUrl });
+  }, [nomeCanalVoz, nomeServidor, servidorUrl, aoVoz]);
 
   // Backlog v2, item 7: o nome (e a imagem) do servidor vão para a coluna de servidores.
   useEffect(() => {
@@ -857,7 +907,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
   const vistaAtual: Vista = !podeVer(vista) ? 'canal' : vista;
 
   /** Conversa na tela agora (null em perfil/administração). */
-  const chaveAberta: Chave | null = vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
+  const chaveAberta: Chave | null = oculta || vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
   useEffect(() => {
     chaveAbertaRef.current = chaveAberta;
   }, [chaveAberta]);
@@ -877,12 +927,13 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     marcar();
     window.addEventListener('focus', marcar);
     return () => window.removeEventListener('focus', marcar);
-  }, [chaveAberta, ultimoIdAberta, acoes]);
+  }, [chaveAberta, ultimoIdAberta, acoes, useLoja]);
 
   // Clique na notificação do sistema: abre a conversa.
   useEffect(
     () =>
       ponte().notificacoes.aoClicar((chave) => {
+        if (ocultaRef.current) return;
         const [tipo, id] = chave.split(':');
         // Aviso sobre uma pessoa (entrou/saiu): só traz a janela, sem trocar de tela.
         if (tipo === 'u') return;
@@ -1101,6 +1152,11 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
     if (canal !== null) await conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
   }
 
+  // "Desconectar" na barra de voz de outro servidor: sai desta voz de verdade (não espera a carência de queda).
+  const sairVozPedido = useEffectEvent(() => void sairVoz());
+  useEffect(() => {
+    if (pedidoSairVoz > 0) sairVozPedido();
+  }, [pedidoSairVoz]);
   async function sairVoz() {
     pararSoundboard();
     if (minhaVozRef.current !== null) tocar('sair');
@@ -1429,6 +1485,19 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
 
         <ContextoPrevia.Provider value={buscarPrevia}>
         <main className="conteudo">
+          {vozEmOutro && minhaVoz === null && (
+            <section className="aviso-voz-outro" aria-label="Voz em outro servidor">
+              <span>
+                🔊 Na voz em <strong>{vozEmOutro.canal}</strong> · {vozEmOutro.servidor}
+              </span>
+              <button type="button" className="secundario" onClick={vozEmOutro.aoVoltar}>
+                Voltar
+              </button>
+              <button type="button" className="perigo" onClick={vozEmOutro.aoDesconectar}>
+                Desconectar
+              </button>
+            </section>
+          )}
           {minhaTela && (
             <section className="aviso-transmissao" aria-label="Sua transmissão">
               <span>🖥️ Você está transmitindo a tela.</span>

@@ -40,6 +40,17 @@ export function App() {
     });
   }, []);
 
+  const [vozViva, setVozViva] = useState<{ url: string; token: string; usuario: UsuarioDto; canal: string; servidor: string; pedidoSair: number } | null>(null);
+  const aoVozDe = useCallback((t: { url: string; token: string; usuario: UsuarioDto }, v: { canal: string; servidor: string } | null) => {
+    setVozViva((atual) => {
+      // Saiu da voz deste servidor: a tela escondida (se era ela) pode ir embora.
+      if (!v) return atual?.url === t.url ? null : atual;
+      if (atual?.url === t.url && atual.canal === v.canal && atual.servidor === v.servidor) return atual;
+      // Entrou na voz aqui: a de outro servidor (se houver) sai, como no Discord (uma voz por vez).
+      return { url: t.url, token: t.token, usuario: t.usuario, canal: v.canal, servidor: v.servidor, pedidoSair: atual?.url === t.url ? atual.pedidoSair : 0 };
+    });
+  }, []);
+
   const servidoresRef = useRef(servidores);
   useEffect(() => {
     servidoresRef.current = servidores;
@@ -194,6 +205,8 @@ export function App() {
     await ponte()
       .sessao.apagar(url)
       .catch((e: unknown) => console.error('Não foi possível apagar a sessão guardada.', e));
+    // Saiu da conta: a voz escondida da mesma instalação (mesma conta) acaba junto.
+    setVozViva((v) => (v && separarComunidade(v.url).base === separarComunidade(url).base ? null : v));
     setEstado({ fase: 'entrar', url });
   }
 
@@ -339,15 +352,66 @@ export function App() {
       </div>
     );
 
+  /**
+   * Voz viva: a tela do servidor em que a pessoa está na voz continua montada (escondida) enquanto ela olha outro
+   * servidor, como no Discord. Cada tela tem a sua conexão e a sua loja.
+   */
+  const montarTela = (t: { url: string; token: string; usuario: UsuarioDto }, oculta: boolean) => (
+    <TelaPrincipal
+      oculta={oculta}
+      aoNomeServidor={(nome, icone) => lembrarServidor(t.url, nome, icone)}
+      servidorUrl={t.url}
+      token={t.token}
+      usuarioInicial={t.usuario}
+      aoSair={() => void sair(t.url, t.token)}
+      aoTrocarServidor={trocarServidor}
+      aoSessaoRevogada={sessaoRevogada}
+      aoSairDoServidor={() => void esquecerServidor(t.url)}
+      aoVoz={(v) => aoVozDe(t, v)}
+      pedidoSairVoz={vozViva?.url === t.url ? vozViva.pedidoSair : 0}
+      vozEmOutro={
+        !oculta && vozViva && vozViva.url !== t.url
+          ? {
+              canal: vozViva.canal,
+              servidor: vozViva.servidor,
+              aoVoltar: () => void irParaServidor(vozViva.url),
+              aoDesconectar: () => setVozViva((v) => (v ? { ...v, pedidoSair: v.pedidoSair + 1 } : v)),
+            }
+          : null
+      }
+    />
+  );
+  /** A tela visível (se for um servidor) e, escondida, a do servidor com voz. */
+  function montarTelas(ativa: { url: string; token: string; usuario: UsuarioDto } | null, outra?: ReactNode) {
+    const filhos: ReactNode[] = [];
+    if (vozViva && vozViva.url !== ativa?.url)
+      filhos.push(
+        <div key={`tela:${vozViva.url}`} className="tela-servidor" style={{ display: 'none' }} aria-hidden="true">
+          {montarTela(vozViva, true)}
+        </div>,
+      );
+    if (ativa)
+      filhos.push(
+        <div key={`tela:${ativa.url}`} className="tela-servidor">
+          {montarTela(ativa, false)}
+        </div>,
+      );
+    if (outra) filhos.push(outra);
+    return <>{filhos}</>;
+  }
+  const comVoz = (chave: string, tela: ReactNode) => (vozViva ? montarTelas(null, <div key={`fase:${chave}`} className="tela-servidor">{tela}</div>) : tela);
+
   switch (estado.fase) {
     case 'carregando':
-      return null;
+      return vozViva ? comColuna(montarTelas(null)) : null;
     case 'escolher-servidor': {
       const { voltar } = estado;
-      return comColuna(<TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />);
+      return comColuna(comVoz('escolher', <TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />));
     }
     case 'sem-conexao':
       return comColuna(
+        comVoz(
+          'sem-conexao',
         <main className="tela-centro">
           <section className="cartao">
             <h1>Sem conexão</h1>
@@ -362,9 +426,12 @@ export function App() {
             </button>
           </section>
         </main>,
+        ),
       );
     case 'entrar':
       return comColuna(
+        comVoz(
+          'entrar',
         <TelaEntrar
           key={`${estado.url}|${estado.convite ?? ''}`}
           servidorUrl={estado.url}
@@ -372,20 +439,9 @@ export function App() {
           conviteInicial={estado.convite}
           aoCancelarConvite={estado.voltar && estado.voltar.fase !== 'carregando' ? () => setEstado(estado.voltar!) : undefined}
           aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />,
+        ),
       );
     case 'principal':
-      return comColuna(
-        <TelaPrincipal
-          key={estado.url}
-          aoNomeServidor={(nome, icone) => lembrarServidor(estado.url, nome, icone)}
-          servidorUrl={estado.url}
-          token={estado.token}
-          usuarioInicial={estado.usuario}
-          aoSair={() => void sair(estado.url, estado.token)}
-          aoTrocarServidor={trocarServidor}
-          aoSessaoRevogada={sessaoRevogada}
-          aoSairDoServidor={() => void esquecerServidor(estado.url)}
-        />,
-      );
+      return comColuna(montarTelas(estado));
   }
 }

@@ -663,3 +663,9 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .editar-servidor-nome input { flex: 1; min-width: 200px; margin: 0; }
 .editar-servidor-nome button { margin: 0; }
 .editar-servidor-imagem { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+/* Voz viva: cada servidor aberto numa caixa que não muda o layout; a do servidor com voz fica escondida. */
+.tela-servidor { display: contents; }
+.aviso-voz-outro { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: none; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--destaque); border-radius: var(--raio); background: color-mix(in srgb, var(--destaque) 10%, transparent); }
+.aviso-voz-outro span { flex: 1; }
+.aviso-voz-outro button { margin: 0; }

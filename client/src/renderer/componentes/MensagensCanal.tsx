@@ -11,7 +11,7 @@ import {
   type UsuarioDto,
 } from '@tofalando/shared';
 import { tamanhoLegivel } from './Anexos';
-import { chaveCanal, useLoja, type Chave } from '../estado/loja';
+import { chaveCanal, useLojaDaTela, type Chave } from '../estado/loja';
 import type { ClienteApi } from '../servicos/api';
 import { ErroApiCliente } from '../servicos/api';
 import { ItemMensagem } from './ItemMensagem';
@@ -106,6 +106,7 @@ export function Conversa({
   comandos,
 }: Props) {
   const chave = conversa.chave;
+  const useLoja = useLojaDaTela();
   const historico = useLoja((s) => s.historicos[chave]);
   const digitandoAte = useLoja((s) => s.digitando[chave]);
   const [agora, setAgora] = useState(() => Date.now());
@@ -178,13 +179,13 @@ export function Conversa({
           falharCarga(chave, e instanceof ErroApiCliente ? e.message : 'Não foi possível carregar as mensagens.', geracao);
         });
     },
-    [carregarPagina, chave],
+    [carregarPagina, chave, useLoja],
   );
 
   // Primeira abertura da conversa (ou depois de reconectar, quando o histórico foi descartado).
   useEffect(() => {
     if (!useLoja.getState().historicos[chave]) carregar();
-  }, [chave, carregar, historico]);
+  }, [chave, carregar, historico, useLoja]);
 
   const carregarAnteriores = useCallback(
     (automatico: boolean) => {
@@ -193,7 +194,7 @@ export function Conversa({
       alturaAntes.current = lista.current?.scrollHeight ?? null;
       carregar(h.mensagens[0]?.id);
     },
-    [chave, carregar],
+    [chave, carregar, useLoja],
   );
 
   // Chegar ao topo da lista carrega as anteriores (o botão continua para teclado e leitor de tela).

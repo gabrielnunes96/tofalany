@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react';
 import { create } from 'zustand';
 import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica, AmizadeDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
@@ -152,7 +153,12 @@ function canalValido(canais: CanalDto[], atual: number | null): number | null {
   return canais.find((c) => c.tipo === 'texto')?.id ?? null;
 }
 
-export const useLoja = create<Loja>((set) => ({
+/**
+ * Cada servidor aberto tem a sua loja (a voz de um servidor continua viva enquanto a pessoa olha outro).
+ * `useLoja` é a do primeiro (e dos testes de componente); a TelaPrincipal cria a dela com criarLoja().
+ */
+export const criarLoja = () =>
+  create<Loja>((set) => ({
   ...inicial,
   definirConexao: (conexao) => set({ conexao }),
   definirSons: (sons) => set({ sons }),
@@ -332,4 +338,10 @@ export const useLoja = create<Loja>((set) => ({
       ),
     })),
   limpar: () => set(inicial),
-}));
+  }));
+
+export const useLoja = criarLoja();
+export type UsarLoja = typeof useLoja;
+/** A loja do servidor desta tela (padrão: a global). */
+export const ContextoLoja = createContext<UsarLoja>(useLoja);
+export const useLojaDaTela = () => useContext(ContextoLoja);

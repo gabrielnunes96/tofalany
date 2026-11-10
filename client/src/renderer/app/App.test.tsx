@@ -5,9 +5,46 @@ import { ATALHOS_PADRAO, AUDIO_PADRAO, NOTIFICACOES_PADRAO, TELA_PADRAO, SONS_PA
 import type { ApiTofalando, SessaoLocal } from '../../preload/api';
 
 // A tela principal abre o tempo real; aqui só importa saber que chegou nela.
-vi.mock('../telas/TelaPrincipal', () => ({
-  TelaPrincipal: ({ servidorUrl }: { servidorUrl: string }) => <p>PRINCIPAL {servidorUrl}</p>,
-}));
+const montagens = vi.fn();
+vi.mock('../telas/TelaPrincipal', async () => {
+  const { useEffect } = await import('react');
+  return {
+    TelaPrincipal: (p: {
+      servidorUrl: string;
+      oculta?: boolean;
+      pedidoSairVoz?: number;
+      aoVoz?: (v: { canal: string; servidor: string } | null) => void;
+      vozEmOutro?: { canal: string; servidor: string; aoVoltar(): void; aoDesconectar(): void } | null;
+    }) => {
+      useEffect(() => {
+        montagens(p.servidorUrl);
+      }, [p.servidorUrl]);
+      return (
+        <div>
+          <p>
+            PRINCIPAL {p.servidorUrl}
+            {p.oculta ? ' (escondida)' : ''}
+            {p.pedidoSairVoz ? ` sair:${p.pedidoSairVoz}` : ''}
+          </p>
+          <button type="button" onClick={() => p.aoVoz?.({ canal: 'Papo', servidor: 'Turma' })}>
+            entrar na voz {p.servidorUrl}
+          </button>
+          <button type="button" onClick={() => p.aoVoz?.(null)}>
+            sair da voz {p.servidorUrl}
+          </button>
+          {p.vozEmOutro && (
+            <>
+              <span>voz em {p.vozEmOutro.canal}</span>
+              <button type="button" onClick={p.vozEmOutro.aoDesconectar}>
+                desconectar
+              </button>
+            </>
+          )}
+        </div>
+      );
+    },
+  };
+});
 const testar = vi.fn();
 // O teste real devolve o endereço a guardar; os casos aqui só dizem ok/erro (o endereço é o mesmo pedido).
 vi.mock('../servicos/servidor', () => ({
@@ -107,5 +144,35 @@ describe('App — link de convite (RF-1a)', () => {
     expect(await screen.findByRole('heading', { name: 'Sem conexão' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
     await waitFor(() => expect((screen.getByLabelText('Código de convite') as HTMLInputElement).value).toBe('turma-2026'));
+  });
+});
+
+describe('App — voz continua ao olhar outro servidor', () => {
+  it('a tela do servidor com voz fica montada e escondida; a outra mostra a barra; desconectar pede a saída; sair da voz a desmonta', async () => {
+    const A2 = `${A}/c/2`;
+    const { gravarConfig } = ponteFalsa({ servidorUrl: A, sessao: { servidorUrl: A, token: 't' }, pendente: null });
+    testar.mockResolvedValue({ ok: true, valor: info });
+    const config = window.tofalando.config.ler;
+    window.tofalando.config.ler = async () => ({ ...(await config()), servidores: [{ url: A, nome: 'Turma' }, { url: A2, nome: 'Família' }] });
+    window.tofalando.sessao.ler = async (url?: string) => ({ servidorUrl: url ?? A, token: 't' });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${A}`)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: `entrar na voz ${A}` }));
+
+    // Vai para o outro servidor: a tela de A continua (escondida), sem remontar.
+    montagens.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /Família/ }));
+    expect(await screen.findByText(`PRINCIPAL ${A2}`)).toBeTruthy();
+    expect(screen.getByText(`PRINCIPAL ${A} (escondida)`)).toBeTruthy();
+    expect(montagens).not.toHaveBeenCalledWith(A);
+    expect(screen.getByText('voz em Papo')).toBeTruthy();
+
+    // Desconectar daqui pede à tela de A que saia da voz; quando ela sai, é desmontada.
+    fireEvent.click(screen.getByRole('button', { name: 'desconectar' }));
+    expect(screen.getByText(/sair:1/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: `sair da voz ${A}`, hidden: true }));
+    await waitFor(() => expect(screen.queryByText(/^PRINCIPAL http:\/\/servidor-a:3000( \(escondida\))?( sair:\d+)?$/)).toBeNull());
+    expect(screen.queryByText('voz em Papo')).toBeNull();
+    expect(gravarConfig).toHaveBeenCalled();
   });
 });
