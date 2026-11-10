@@ -673,7 +673,7 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
   await ana.app.close();
 });
 
-test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por canal e visualização grande', async () => {
+test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, várias no canal, quem assiste e visualização grande', async () => {
   test.skip(!!globalThis.process['env'].TOFALANDO_E2E_ISOLADO, 'captura de tela: rode com npm run test:e2e:desktop');
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
@@ -731,20 +731,15 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
   await expect(a.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('transmitindo a tela')).toBeVisible();
   await print(a, 'T21-ana-assiste-tela-do-dono');
 
-  // CA-38: a ana tenta transmitir no mesmo canal — aviso e nada inicia.
-  await a.getByRole('button', { name: 'Transmitir tela', exact: true }).click();
-  await expect(a.getByRole('alert')).toContainText('dono já está transmitindo neste canal.');
-  await expect(a.getByRole('dialog', { name: 'Transmitir tela' })).toHaveCount(0);
+  // O dono vê que a ana está assistindo (olho com o número).
+  await expect(d.getByRole('region', { name: 'Sua transmissão' }).getByRole('button', { name: '1 pessoa assistindo' })).toBeVisible({ timeout: 10_000 });
 
-  // O dono para; a ana consegue.
-  await d.getByRole('button', { name: 'Parar transmissão' }).click();
-  await expect(aviso).toHaveCount(0, { timeout: 15_000 });
-  // O microfone virtual some com o fim da transmissão.
-  if (temPipeWire) await expect.poll(fontesDeSom, { timeout: 5_000 }).not.toContain('vencord-screen-share');
+  // CA-38 (v0.14): várias transmissões no mesmo canal — a ana transmite junto com o dono.
   await a.getByRole('button', { name: 'Transmitir tela', exact: true }).click();
   await a.getByRole('dialog', { name: 'Transmitir tela' }).getByRole('region', { name: 'Telas' }).getByRole('button').first().click();
   await expect(a.getByRole('region', { name: 'Sua transmissão' })).toBeVisible({ timeout: 15_000 });
   await expect(d.getByRole('region', { name: 'Transmissão de ana' })).toBeVisible({ timeout: 15_000 });
+  await expect(a.getByRole('region', { name: 'Transmissão de dono' })).toBeVisible();
   // RN-17: a transmissão da ana (membro, 720p30) chega dentro do teto.
   await d.getByRole('region', { name: 'Transmissão de ana' }).getByRole('button', { name: 'Assistir' }).click({ timeout: 15_000 });
   const telaAna = d.getByLabel('Tela de ana');
@@ -752,13 +747,21 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, trava por ca
   const [w, h] = await telaAna.evaluate((v: HTMLVideoElement) => [v.videoWidth, v.videoHeight]);
   expect(Math.max(w!, h!)).toBeLessThanOrEqual(1280);
   expect(Math.min(w!, h!)).toBeLessThanOrEqual(720);
+  await print(d, 'v014-duas-transmissoes-no-canal');
+
+  // O dono para; a da ana continua.
+  await d.getByRole('button', { name: 'Parar transmissão' }).click();
+  await expect(aviso).toHaveCount(0, { timeout: 15_000 });
+  await expect(d.getByRole('region', { name: 'Transmissão de ana' })).toBeVisible();
+  // O microfone virtual some com o fim da transmissão do dono.
+  if (temPipeWire) await expect.poll(fontesDeSom, { timeout: 5_000 }).not.toContain('vencord-screen-share');
 
   // CA-49: auditoria com quem e o canal.
   const tipos = (servidor.banco.prepare("SELECT tipo, detalhes FROM auditoria WHERE tipo LIKE 'tela_%' ORDER BY id").all() as { tipo: string; detalhes: string }[]).map((r) => [r.tipo, JSON.parse(r.detalhes).atorNome, JSON.parse(r.detalhes).canalNome]);
   expect(tipos).toEqual([
     ['tela_iniciou', 'dono', 'Papo'],
-    ['tela_parou', 'dono', 'Papo'],
     ['tela_iniciou', 'ana', 'Papo'],
+    ['tela_parou', 'dono', 'Papo'],
   ]);
 
   await dono.app.close();
