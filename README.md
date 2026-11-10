@@ -216,6 +216,10 @@ O código de convite pode ser trocado pelo app (administrador, em **Convite**). 
 - **Amigos:** clique com o botão direito numa pessoa → **Adicionar amigo**; ela aceita na aba **Amigos**. A amizade vale em todos os servidores, e a conversa direta com amigos funciona de qualquer um. O mesmo menu ajusta o volume da pessoa só para você.
 - **Cargos:** em **Membros**, o administrador cria cargos com cor e permissões. As **básicas** (mensagens, arquivos, voz, câmera, transmitir em 720p, soundboard e ToOuvini) vêm marcadas e dá para tirar; as **extras** (gerenciar canais, convite e sons, apagar mensagens, transmitir em 1080p, transmitir em 2K e auditoria) vêm desmarcadas. Quem não tem cargo fica com as básicas. A lista de membros mostra os cargos do que tem mais permissões para o que tem menos.
 - **Qualidade da transmissão:** além do cargo, vale o monitor: sem um monitor de 1440p, o 2K fica desligado.
+- **Editar o servidor:** o administrador troca o nome e a imagem em **Editar servidor** (menu do usuário). A imagem aparece na coluna de servidores no lugar das iniciais.
+- **Voz em outro servidor:** a voz continua enquanto você olha outro servidor; uma faixa "Na voz em …" leva de volta ou desconecta. Uma voz por vez.
+- **Moderação:** o administrador, ou um cargo com **Moderar membros**, clica com o botão direito numa pessoa e escolhe **Pôr de castigo** (1 minuto a 1 semana: não escreve, não entra na voz, não transmite), **Expulsar** (volta com convite) ou **Banir** (não volta nem com convite até desbanir em **Membros → Banidos**). O motivo é opcional e a pessoa vê. Administradores não são moderados, e um moderador não modera outro.
+- **Atividade:** em **Configurações → Atividade**, cada um escolhe mostrar o jogo que está jogando (jogos da Steam) e a música que está ouvindo no Spotify. Vem desligado; some quando a pessoa fica invisível.
 
 ### Bot de música (ToOuvini)
 
@@ -338,11 +342,12 @@ Referências: a internet residencial costuma ter upload bem menor que o download
 
 - **Atalhos globais no Wayland (Linux)**: os atalhos (push-to-talk, mudo, deafen) usam um gancho de teclado do X11. Numa sessão Wayland (padrão no GNOME e no KDE recentes), o gancho só recebe as teclas enviadas a janelas X11 (XWayland): com uma janela nativa do Wayland em foco, os atalhos não disparam. Jogos pelo Steam/Proton costumam rodar no XWayland. Se os atalhos não funcionarem, entre numa sessão "X11/Xorg" na tela de login ou use o modo de voz por sensibilidade.
 - **Status ausente no Wayland**: o "ausente" automático (10 minutos sem usar o computador) depende de o sistema informar o tempo ocioso. Em algumas sessões Wayland, esse tempo fica sempre zerado e a pessoa aparece como online.
-- **Áudio do sistema na transmissão**: no Windows e no Linux com PipeWire (o som do próprio ToFalany fica de fora, sem eco). Linux só com PulseAudio vai sem o som do computador.
+- **Áudio do sistema na transmissão**: no Windows e no Linux com PipeWire (o som do próprio ToFalany fica de fora, sem eco; no Windows, a partir do 11). Linux só com PulseAudio vai sem o som do computador.
 - **ToOuvini e o YouTube**: numa VPS o YouTube exige os cookies de uma conta (veja "Bot de música"). Se os cookies vencerem (a conta saiu ou trocou a senha), envie de novo.
 - **Instalador do Windows sem assinatura**: o SmartScreen avisa na primeira instalação (veja acima).
 - **Mesmo host para servidor e LiveKit**: por privacidade, o app bloqueia qualquer endereço que não seja o do servidor. `LIVEKIT_URL` precisa usar o mesmo IP ou domínio de `URL_PUBLICA`.
-- **Uma transmissão de tela por canal de voz** por vez. Para outra pessoa transmitir, quem está transmitindo para antes.
+- **Até 4 transmissões de tela por canal de voz** ao mesmo tempo (cada pessoa a sua). Quem assiste escolhe qual abrir e ajusta o volume do som de cada uma. Confira a banda (tabela acima): cada transmissão soma.
+- **Som da transmissão sem o som do app no Windows 10**: o Windows 11 tira o som do ToFalany da captura; no Windows 10 pode não tirar, e quem assiste ouve a chamada de volta.
 
 ## Desenvolvimento
 
@@ -351,6 +356,10 @@ Requisitos: Node.js 24+, npm e Docker (para o LiveKit e os testes de voz). Na ra
 ```bash
 npm install
 ```
+
+**Jeito fácil:** `npm run dev` abre um menu que sobe a mídia (LiveKit no Docker), o servidor e quantos apps você quiser (cada app é uma pessoa, com a sua pasta de dados), mostra o log, roda os testes e para tudo. Os dados de teste ficam em `.dev/` (fora do git) e não mexem no ToFalany instalado nem na VM. Na primeira tela do app: servidor `http://127.0.0.1:3000` e convite `teste`. Atalhos sem menu: `npm run dev -- tudo` e `npm run dev -- parar`.
+
+Os comandos abaixo são o que o menu faz por baixo, para rodar à mão.
 
 Servidor de desenvolvimento, com LiveKit em modo dev (chaves `devkey`/`secret`):
 
