@@ -45,8 +45,8 @@ interface Loja {
   /** RN-10: transmissões de tela ativas (uma por canal). */
   transmissoes: TransmissaoDto[];
   iniciarTransmissao(t: TransmissaoDto): void;
-  pararTransmissao(canalVozId: number): void;
-  espectadoresDaTransmissao(canalVozId: number, espectadores: number[]): void;
+  pararTransmissao(canalVozId: number, usuarioId?: number): void;
+  espectadoresDaTransmissao(canalVozId: number, usuarioId: number, espectadores: number[]): void;
   /** Backlog v2, item 14: o bot de música em cada canal de voz (só os que têm algo tocando). */
   musica: EstadoMusica[];
   definirMusica(estado: EstadoMusica): void;
@@ -154,10 +154,13 @@ export const useLoja = create<Loja>((set) => ({
   definirSons: (sons) => set({ sons }),
   definirFuncoes: (funcoes) => set({ funcoes }),
   definirVoz: (voz) => set({ voz }),
-  iniciarTransmissao: (t) => set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => x.canalVozId !== t.canalVozId), t] })),
-  pararTransmissao: (canalVozId) => set((s) => ({ transmissoes: s.transmissoes.filter((x) => x.canalVozId !== canalVozId) })),
-  espectadoresDaTransmissao: (canalVozId, espectadores) =>
-    set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId ? { ...x, espectadores } : x)) })),
+  iniciarTransmissao: (t) =>
+    set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => !(x.canalVozId === t.canalVozId && x.usuarioId === t.usuarioId)), t] })),
+  // Sem usuário (servidor antigo): todas as do canal.
+  pararTransmissao: (canalVozId, usuarioId) =>
+    set((s) => ({ transmissoes: s.transmissoes.filter((x) => !(x.canalVozId === canalVozId && (usuarioId === undefined || x.usuarioId === usuarioId))) })),
+  espectadoresDaTransmissao: (canalVozId, usuarioId, espectadores) =>
+    set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId && x.usuarioId === usuarioId ? { ...x, espectadores } : x)) })),
   definirAmizades: (amizades, conhecidos) => set((s) => ({ amizades, conhecidos: conhecidos ?? s.conhecidos })),
   definirMusica: (estado) =>
     set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])] })),

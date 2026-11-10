@@ -420,6 +420,9 @@ export const qualidadesPermitidas = (cargo: Cargo, permissoes: ReadonlySet<Permi
 };
 
 /** RN-10: quem transmite em cada canal de voz. */
+/** Quantas pessoas transmitem a tela ao mesmo tempo num canal de voz (cada uma a sua). */
+export const LIMITE_TELAS_POR_CANAL = 4;
+
 export interface TransmissaoDto {
   canalVozId: number;
   usuarioId: number;
@@ -503,7 +506,7 @@ export interface EventosServidor {
   'tela:iniciada': (t: TransmissaoDto) => void;
   'tela:parada': (payload: { canalVozId: number; usuarioId: number }) => void;
   /** Quem assiste a transmissão do canal mudou. */
-  'tela:espectadores': (payload: { canalVozId: number; espectadores: number[] }) => void;
+  'tela:espectadores': (payload: { canalVozId: number; usuarioId: number; espectadores: number[] }) => void;
   /** RF-37: status de alguém mudou. */
   'presenca:atualizada': (payload: { id: number; status: StatusPessoa }) => void;
   /** Conta removida por um administrador: some da lista. */
@@ -544,7 +547,7 @@ export interface EventosCliente {
   'tela:pedir': (dados: { canalVozId: number; qualidade: QualidadeTela }, ack: Ack<TransmissaoDto>) => void;
   'tela:parar': (dados: { canalVozId: number }, ack: Ack) => void;
   /** Abri ou fechei a transmissão de alguém do meu canal de voz. */
-  'tela:assistir': (dados: { canalVozId: number; assistindo: boolean }, ack: Ack) => void;
+  'tela:assistir': (dados: { canalVozId: number; usuarioId?: number; assistindo: boolean }, ack: Ack) => void;
   /** RN-25: o computador ficou ocioso (ou voltou), sem resposta. */
   'presenca:ausente': (dados: { ausente: boolean }) => void;
   /** Backlog v2, item 2: status escolhido (vale até trocar; o app reenvia ao reconectar). */

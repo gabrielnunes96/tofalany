@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { SOM_INTERVALO_MS, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
+import { SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -1043,13 +1043,12 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
       () => setLiberadoEm(Date.now() + SOM_INTERVALO_MS),
     );
 
-  /** RF-27: antes de abrir o seletor, avisa se alguém já transmite neste canal. */
+  /** RF-27: antes de abrir o seletor, avisa se o canal já chegou no limite de transmissões ao mesmo tempo. */
   function abrirSeletorTela() {
     const canal = minhaVozRef.current;
-    const outro = useLoja.getState().transmissoes.find((t) => t.canalVozId === canal && t.usuarioId !== usuario.id);
-    if (outro) {
-      const nome = usuarios.find((u) => u.id === outro.usuarioId)?.nomeExibicao ?? 'Alguém';
-      setAvisoVoz(`${nome} já está transmitindo neste canal.`);
+    const outras = useLoja.getState().transmissoes.filter((t) => t.canalVozId === canal && t.usuarioId !== usuario.id);
+    if (outras.length >= LIMITE_TELAS_POR_CANAL) {
+      setAvisoVoz(`Já há ${LIMITE_TELAS_POR_CANAL} pessoas transmitindo neste canal.`);
       return;
     }
     setSeletorTela(true);
@@ -1445,7 +1444,9 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 faixa={telasRemotas.find((v) => v.usuarioId === t.usuarioId)?.faixa}
                 espectadores={nomesDeIds(t.espectadores)}
                 conectado={conexao === 'conectado'}
-                aoAssistir={(assistindo) => void conexaoRef.current?.pedir('tela:assistir', { canalVozId: t.canalVozId, assistindo }).catch(() => undefined)}
+                aoAssistir={(assistindo) =>
+                  void conexaoRef.current?.pedir('tela:assistir', { canalVozId: t.canalVozId, usuarioId: t.usuarioId, assistindo }).catch(() => undefined)
+                }
               />
             ))}
           {!ocultos.cameras && <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />}

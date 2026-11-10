@@ -92,11 +92,19 @@ describe('histórico de mensagens na loja', () => {
     expect(useLoja.getState().presencas).toEqual({ 2: 'online' });
   });
 
-  it('RN-10: transmissões do ola, iniciar troca a do canal, parar tira', () => {
+  it('RN-10: transmissões do ola; várias no mesmo canal (uma por pessoa); parar tira só a da pessoa; espectadores', () => {
     useLoja.getState().aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [{ canalVozId: 5, usuarioId: 1, qualidade: '720p30' }] });
     useLoja.getState().iniciarTransmissao({ canalVozId: 5, usuarioId: 2, qualidade: '720p30' });
     useLoja.getState().iniciarTransmissao({ canalVozId: 6, usuarioId: 3, qualidade: '720p30' });
-    expect(useLoja.getState().transmissoes.map((t) => [t.canalVozId, t.usuarioId])).toEqual([[5, 2], [6, 3]]);
+    // A mesma pessoa de novo troca a dela (não duplica).
+    useLoja.getState().iniciarTransmissao({ canalVozId: 5, usuarioId: 2, qualidade: '1080p60' });
+    expect(useLoja.getState().transmissoes.map((t) => [t.canalVozId, t.usuarioId])).toEqual([[5, 1], [6, 3], [5, 2]]);
+    useLoja.getState().espectadoresDaTransmissao(5, 2, [1]);
+    expect(useLoja.getState().transmissoes.find((t) => t.usuarioId === 2)?.espectadores).toEqual([1]);
+    expect(useLoja.getState().transmissoes.find((t) => t.usuarioId === 1)?.espectadores).toBeUndefined();
+    useLoja.getState().pararTransmissao(5, 1);
+    expect(useLoja.getState().transmissoes.map((t) => [t.canalVozId, t.usuarioId])).toEqual([[6, 3], [5, 2]]);
+    // Servidor antigo (sem usuário): todas do canal.
     useLoja.getState().pararTransmissao(5);
     expect(useLoja.getState().transmissoes.map((t) => t.canalVozId)).toEqual([6]);
   });
