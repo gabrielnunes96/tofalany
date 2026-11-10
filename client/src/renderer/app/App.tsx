@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { caminhoComunidade, separarComunidade, type ConviteLink, type MotivoRevogacao, type ServidorConhecido, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
+import { caminhoComunidade, decidirNovidades, separarComunidade, type NotasVersao, type ConviteLink, type MotivoRevogacao, type ServidorConhecido, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
 import { testarServidor } from '../servicos/servidor';
 import { ponte } from '../servicos/ponte';
 import { criarApi, ErroApiCliente } from '../servicos/api';
@@ -25,6 +25,8 @@ export function App() {
   }, [estado]);
   // Backlog v2, item 7: servidores em que a pessoa entrou (a coluna à esquerda).
   const [servidores, setServidores] = useState<ServidorConhecido[]>([]);
+  /** Notas da versão, uma vez depois de atualizar. */
+  const [notas, setNotas] = useState<NotasVersao | null>(null);
   const lembrarServidor = useCallback((url: string, nome?: string, icone?: string | null) => {
     setServidores((atual) => {
       const existente = atual.find((s) => s.url === url);
@@ -172,6 +174,13 @@ export function App() {
       const pendente = await ponte().convite.pendente().catch(() => null);
       if (pendente) return abrirConvite(pendente);
       const c = await ponte().config.ler();
+      // Novidades da versão: uma vez, depois de atualizar (instalação nova só guarda a versão).
+      const novidades = decidirNovidades(ponte().versao, c.novidadesVistas, !!c.servidorUrl || !!c.servidores?.length);
+      if (novidades.mostrar) setNotas(novidades.mostrar);
+      if (novidades.gravar)
+        void ponte()
+          .config.gravar({ novidadesVistas: novidades.gravar })
+          .catch(() => undefined);
       // Quem vem da versão sem a lista: o servidor salvo entra nela.
       setServidores(c.servidores?.length ? c.servidores : c.servidorUrl ? [{ url: c.servidorUrl }] : []);
       return c.servidorUrl ? retomar(c.servidorUrl) : setEstado({ fase: 'escolher-servidor', voltar: null });
@@ -354,6 +363,34 @@ export function App() {
     };
   }, [servidores, urlAtiva]);
   /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
+  const janelaNovidades = notas && (
+    <div className="dialogo-fundo" role="presentation">
+      <div className="dialogo cartao novidades" role="dialog" aria-label={`Novidades da versão ${ponte().versao}`}>
+        <h2>Novidades da versão {ponte().versao}</h2>
+        <ul>
+          {notas.itens.map((i) => (
+            <li key={i.titulo}>
+              <strong>{i.titulo}</strong>: {i.texto}
+            </li>
+          ))}
+        </ul>
+        <div className="dialogo-acoes">
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              setNotas(null);
+              void ponte()
+                .config.gravar({ novidadesVistas: ponte().versao })
+                .catch(() => undefined);
+            }}
+          >
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+  );
   const janelaModeracao = avisoModeracao && (
     <div className="dialogo-fundo" role="presentation">
       <div className="dialogo cartao" role="alertdialog" aria-label="Aviso da moderação" aria-describedby="texto-moderacao">
@@ -371,7 +408,7 @@ export function App() {
     servidores.length === 0 ? (
       <>
         {tela}
-        {janelaModeracao}
+        {janelaModeracao ?? janelaNovidades}
       </>
     ) : (
       <div className="app-com-servidores">
@@ -384,7 +421,7 @@ export function App() {
           aoCriar={podeCriar && urlAtiva && separarComunidade(urlAtiva).base === podeCriar ? criarServidor : undefined}
         />
         <div className="app-tela">{tela}</div>
-        {janelaModeracao}
+        {janelaModeracao ?? janelaNovidades}
       </div>
     );
 

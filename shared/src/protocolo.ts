@@ -249,6 +249,8 @@ export interface ConfiguracoesLocais {
   statusEscolhido?: Record<string, EscolhaStatus>;
   /** Atividade (como no Discord): mostrar o jogo e a música do Spotify. Desligado até a pessoa ligar. */
   atividade?: PreferenciasAtividade;
+  /** Versão cujas notas ("Novidades") a pessoa já viu. */
+  novidadesVistas?: string;
 }
 
 export interface PreferenciasAtividade {

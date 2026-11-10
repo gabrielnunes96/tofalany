@@ -116,7 +116,7 @@ describe('App — link de convite (RF-1a)', () => {
     chegar({ servidor: B, codigo: 'turma-2026' });
     expect(await screen.findByRole('heading', { name: 'Criar conta' })).toBeTruthy();
     expect((screen.getByLabelText('Código de convite') as HTMLInputElement).value).toBe('turma-2026');
-    expect(gravarConfig).not.toHaveBeenCalled();
+    expect(gravarConfig).not.toHaveBeenCalledWith(expect.objectContaining({ servidorUrl: expect.anything() }));
     expect(estado.servidorUrl).toBe(A);
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar convite' }));
@@ -176,3 +176,28 @@ describe('App — voz continua ao olhar outro servidor', () => {
     expect(gravarConfig).toHaveBeenCalled();
   });
 });
+
+describe('App — novidades da versão', () => {
+  it('depois de atualizar mostra as notas uma vez; "Entendi" guarda a versão vista', async () => {
+    const { gravarConfig } = ponteFalsa({ servidorUrl: A, sessao: { servidorUrl: A, token: 't' }, pendente: null });
+    testar.mockResolvedValue({ ok: true, valor: info });
+    window.tofalando.versao = '0.14.0';
+    const ler = window.tofalando.config.ler;
+    window.tofalando.config.ler = async () => ({ ...(await ler()), novidadesVistas: '0.13.0' });
+    render(<App />);
+    const janela = await screen.findByRole('dialog', { name: 'Novidades da versão 0.14.0' });
+    expect(janela.textContent).toContain('Várias transmissões');
+    fireEvent.click(screen.getByRole('button', { name: 'Entendi' }));
+    expect(screen.queryByRole('dialog', { name: /Novidades/ })).toBeNull();
+    expect(gravarConfig).toHaveBeenCalledWith({ novidadesVistas: '0.14.0' });
+  });
+
+  it('instalação nova não mostra, só guarda a versão', async () => {
+    const { gravarConfig } = ponteFalsa({ servidorUrl: null, sessao: null, pendente: null });
+    window.tofalando.versao = '0.14.0';
+    render(<App />);
+    await waitFor(() => expect(gravarConfig).toHaveBeenCalledWith({ novidadesVistas: '0.14.0' }));
+    expect(screen.queryByRole('dialog', { name: /Novidades/ })).toBeNull();
+  });
+});
+
