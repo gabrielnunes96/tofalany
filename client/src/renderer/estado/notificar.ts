@@ -34,9 +34,11 @@ export function decidirMensagemNova(
   const aberta = contexto.chaveAberta === chave;
   const autor = contexto.usuarios.find((u) => u.id === m.autorId)?.nomeExibicao ?? 'Alguém';
   const canal = m.canalId !== null ? contexto.canais.find((c) => c.id === m.canalId) : undefined;
-  const titulo = canal ? `#${canal.nome} — ${autor}` : autor;
+  // Menção a mim (ou @todos num canal): avisa mesmo com a conversa silenciada ou as notificações de mensagem desligadas.
+  const mencionado = m.mencoes?.includes(contexto.euId) || (!!m.mencionaTodos && m.canalId !== null);
+  const titulo = mencionado ? `@ ${autor} mencionou você${canal ? ` em #${canal.nome}` : ''}` : canal ? `#${canal.nome} — ${autor}` : autor;
   const anexos = m.anexos.length === 0 ? '' : `📎 ${m.anexos.length === 1 ? m.anexos[0]!.nome : `${m.anexos.length} anexos`}`;
-  const notificar = contexto.notificar !== false && !contexto.naoIncomodar && !contexto.silenciadas?.includes(chave);
+  const notificar = !contexto.naoIncomodar && (mencionado || (contexto.notificar !== false && !contexto.silenciadas?.includes(chave)));
   return {
     chave,
     acao: aberta && contexto.focado ? 'lido' : 'contar',

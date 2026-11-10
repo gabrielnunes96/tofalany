@@ -212,5 +212,10 @@ export const MIGRACOES: readonly string[] = [
     PRIMARY KEY (comunidade_id, usuario_id)
   );
   `,
+  // 016 — menções: quem foi marcado (ids em JSON) e @todos, resolvidos ao enviar (valem para o histórico).
+  `
+  ALTER TABLE mensagens ADD COLUMN mencoes TEXT;
+  ALTER TABLE mensagens ADD COLUMN menciona_todos INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 

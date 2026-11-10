@@ -70,4 +70,26 @@ describe('MensagensCanal', () => {
     expect(await screen.findByText('texto 1')).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  it('menções: "@" abre a lista (sem mim; @todos só com permissão), Enter insere @usuario; a mensagem que me marca fica em destaque', async () => {
+    const beto: UsuarioDto = { id: 2, usuario: 'beto', nomeExibicao: 'Beto Silva', cor: '#fff', avatarUrl: null, cargo: 'membro' };
+    const marcada: MensagemDto = { ...msg(5, 2), texto: 'oi @ana e @todos', mencoes: [1], mencionaTodos: true };
+    const mensagensCanal = vi.fn(async (): Promise<PaginaMensagens> => ({ mensagens: [marcada], fim: true }));
+    const aoEnviar = vi.fn(async () => null);
+    render(
+      <MensagensCanal canal={canal} usuarios={[ana, beto]} servidorUrl="http://s" api={{ mensagensCanal, enviarAnexo: vi.fn() }} aoEnviar={aoEnviar} mencoes={{ podeTodos: false }} {...extras} />,
+    );
+    const lista = await screen.findByRole('list', { name: 'Mensagens de #geral' });
+    await waitFor(() => expect(lista.querySelector('.mencionou-me')).toBeTruthy());
+    expect([...lista.querySelectorAll('.mencao')].map((e) => e.textContent)).toEqual(['@Ana', '@todos']);
+
+    const campo = screen.getByLabelText('Mensagem para #geral') as HTMLTextAreaElement;
+    fireEvent.change(campo, { target: { value: 'ei @', selectionStart: 4 } });
+    const opcoes = screen.getByRole('listbox', { name: 'Mencionar' });
+    expect([...opcoes.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual(['Beto Silva@beto']);
+    fireEvent.keyDown(campo, { key: 'Enter' });
+    expect(campo.value).toBe('ei @beto ');
+    expect(screen.queryByRole('listbox', { name: 'Mencionar' })).toBeNull();
+    expect(aoEnviar).not.toHaveBeenCalled();
+  });
 });

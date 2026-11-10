@@ -1,12 +1,12 @@
 import { temPermissao } from '../dominio/funcoes.js';
-import { ANEXOS_POR_MENSAGEM, validarTextoMensagem, type Destino, type EventosServidor } from '@tofalando/shared';
+import { ANEXOS_POR_MENSAGEM, extrairMencoes, validarTextoMensagem, type Destino, type EventosServidor } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 import { membroDe } from '../dominio/comunidades.js';
 import { saoAmigos } from '../dominio/amizades.js';
 import { salaComunidade } from './salas.js';
-import { apagarMensagem, buscarMensagem, editarMensagem, inserirMensagem } from '../dominio/mensagens.js';
+import { apagarMensagem, buscarMensagem, editarMensagem, inserirMensagem, type Mencoes } from '../dominio/mensagens.js';
 import { buscarPorId } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { arquivosDaMensagem, vincularAnexos } from '../dominio/anexos.js';
@@ -108,6 +108,22 @@ export function registrarEventosMensagens(
     if (m.canalId !== null && comunidadeDoCanal(banco, m.canalId) !== comunidadeId) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
   };
 
+  /**
+   * Menções da mensagem: @usuario vale para quem está no servidor do canal (na DM, só o outro participante);
+   * @todos só num canal e de quem tem "Mencionar @todos" (sem a permissão, fica só o texto).
+   */
+  function resolverMencoes(texto: string, destino: Destino, participantes: [number, number] | null): Mencoes {
+    const { usuarios, todos } = extrairMencoes(texto);
+    const ids = new Set<number>();
+    for (const nome of usuarios.slice(0, 20)) {
+      const linha = banco.prepare('SELECT id FROM usuarios WHERE usuario_norm = ? AND removido_em IS NULL').get(nome) as { id: number } | undefined;
+      if (!linha || linha.id === usuarioId) continue;
+      const alcanca = participantes ? participantes.includes(linha.id) : !!membroDe(banco, comunidadeId, linha.id);
+      if (alcanca) ids.add(linha.id);
+    }
+    return { usuarios: [...ids], todos: todos && 'canalId' in destino && temPermissao(banco, usuarioId, 'mencionar_todos', comunidadeId) };
+  }
+
   const participantesDa = (m: { dmId: number | null }) => (m.dmId === null ? null : exigirParticipante(banco, m.dmId, usuarioId));
 
   socket.on(
@@ -124,7 +140,7 @@ export function registrarEventosMensagens(
       const bruto = ehObjeto(dados) && typeof dados.texto === 'string' ? dados.texto : '';
       const texto = anexos.length > 0 && !bruto.trim() ? '' : lerTexto(dados);
       const mensagem = banco.transaction(() => {
-        const id = inserirMensagem(banco, destino, usuarioId, texto);
+        const id = inserirMensagem(banco, destino, usuarioId, texto, Date.now(), resolverMencoes(texto, destino, participantes));
         vincularAnexos(banco, anexos, usuarioId, id);
         return buscarMensagem(banco, id)!;
       })();
@@ -149,7 +165,8 @@ export function registrarEventosMensagens(
         participantes = participantesDa(atual);
         if (atual.autorId !== usuarioId) throw new ErroHttp(403, 'sem_permissao', 'Só quem escreveu pode editar a mensagem.');
         if (atual.texto === texto) return atual;
-        const nova = editarMensagem(banco, id, texto);
+        const destinoAtual: Destino = atual.canalId !== null ? { canalId: atual.canalId } : { dmId: atual.dmId! };
+        const nova = editarMensagem(banco, id, texto, Date.now(), resolverMencoes(texto, destinoAtual, participantes));
         // RN-20d: registra que editou (só em canal, RN-21), nunca o texto.
         if (nova.canalId !== null) {
           const canal = buscarCanal(banco, nova.canalId);

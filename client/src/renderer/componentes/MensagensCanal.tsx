@@ -44,6 +44,8 @@ interface Props {
   somenteLeitura?: string;
   /** Comandos de bot (ex.: ToOuvini) que abrem numa lista ao digitar "/" no começo. */
   comandos?: readonly ComandoBot[];
+  /** Menções: a lista ao digitar "@" (só em canal) e se @todos aparece nela. */
+  mencoes?: { podeTodos: boolean };
 }
 
 /** Um comando de bot para a lista do "/": nomes (o primeiro aparece), argumento e o que faz. */
@@ -104,6 +106,7 @@ export function Conversa({
   aoDigitar,
   somenteLeitura,
   comandos,
+  mencoes,
 }: Props) {
   const chave = conversa.chave;
   const useLoja = useLojaDaTela();
@@ -123,6 +126,22 @@ export function Conversa({
   const campoRef = useRef<HTMLTextAreaElement>(null);
   const prefixo = /^\/(\S*)$/.exec(texto)?.[1]?.toLowerCase();
   const sugestoes = !comandos || paletaFechada || prefixo === undefined ? [] : comandos.filter((c) => c.nomes.some((n) => n.startsWith(prefixo)));
+  // Menções: "@" + o começo do nome antes do cursor abre a lista de pessoas (e @todos, se pode).
+  const [cursor, setCursor] = useState(0);
+  const [mencaoFechada, setMencaoFechada] = useState(false);
+  const [mencaoFoco, setMencaoFoco] = useState(0);
+  const parcial = mencoes && !mencaoFechada ? /(^|\s)@([\w.-]{0,32})$/.exec(texto.slice(0, cursor)) : null;
+  const termo = parcial?.[2]?.toLowerCase();
+  const opcoesMencao: { usuario: string; nome: string }[] =
+    termo === undefined
+      ? []
+      : [
+          ...(mencoes?.podeTodos && 'todos'.startsWith(termo) ? [{ usuario: 'todos', nome: 'Todos do canal' }] : []),
+          ...usuarios
+            .filter((u) => u.id !== euId && (u.usuario.toLowerCase().startsWith(termo) || u.nomeExibicao.toLowerCase().includes(termo)))
+            .slice(0, 8)
+            .map((u) => ({ usuario: u.usuario, nome: u.nomeExibicao })),
+        ];
   const comandoAtual = comandos?.find((c) => c.nomes.includes(/^\/(\S+)(\s|$)/.exec(texto)?.[1]?.toLowerCase() ?? '\u0000') && /^\/\S+\s/.test(texto));
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -232,8 +251,11 @@ export function Conversa({
     return () => clearInterval(t);
   }, [alguemDigitando]);
 
-  function mudarTexto(valor: string) {
+  function mudarTexto(valor: string, posicao: number = valor.length) {
     setTexto(valor);
+    setCursor(posicao);
+    setMencaoFechada(false);
+    setMencaoFoco(0);
     setPaletaFechada(false);
     setPaletaFoco(0);
     const t = Date.now();
@@ -281,6 +303,21 @@ export function Conversa({
     void enviar();
   });
 
+  /** Troca o "@começo" antes do cursor por "@usuario " e põe o cursor depois. */
+  function escolherMencao(o: { usuario: string }) {
+    const antes = texto.slice(0, cursor).replace(/@[\w.-]*$/, `@${o.usuario} `);
+    const novo = antes + texto.slice(cursor);
+    setTexto(novo);
+    setCursor(antes.length);
+    setMencaoFoco(0);
+    requestAnimationFrame(() => {
+      const c = campoRef.current;
+      if (!c) return;
+      c.focus();
+      c.setSelectionRange(antes.length, antes.length);
+    });
+  }
+
   function escolherComando(c: ComandoBot) {
     const novo = `/${c.nomes[0]}${c.argumento ? ' ' : ''}`;
     setTexto(novo);
@@ -291,6 +328,23 @@ export function Conversa({
   }
 
   function teclas(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (opcoesMencao.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMencaoFoco((f) => (f + (e.key === 'ArrowDown' ? 1 : opcoesMencao.length - 1)) % opcoesMencao.length);
+        return;
+      }
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+        e.preventDefault();
+        escolherMencao(opcoesMencao[Math.min(mencaoFoco, opcoesMencao.length - 1)]!);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMencaoFechada(true);
+        return;
+      }
+    }
     if (sugestoes.length > 0) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -372,6 +426,8 @@ export function Conversa({
               podeApagar={m.autorId === euId || ehAdmin}
               aoEditar={aoEditar}
               aoApagar={aoApagar}
+              usuarios={porId}
+              euId={euId}
             />
           ))}
         </ol>
@@ -419,6 +475,30 @@ export function Conversa({
             e.target.value = '';
           }}
         />
+        {opcoesMencao.length > 0 && (
+          <ul className="paleta-comandos" role="listbox" aria-label="Mencionar" id="paleta-mencoes">
+            <li className="paleta-titulo" role="presentation">
+              Mencionar
+            </li>
+            {opcoesMencao.map((o, i) => (
+              <li
+                key={o.usuario}
+                id={`mencao-${o.usuario}`}
+                role="option"
+                aria-selected={i === mencaoFoco}
+                className={i === mencaoFoco ? 'foco' : undefined}
+                onMouseEnter={() => setMencaoFoco(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  escolherMencao(o);
+                }}
+              >
+                <span className="paleta-nome">{o.nome}</span>
+                <span className="paleta-descricao">@{o.usuario}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         {sugestoes.length > 0 && (
           <ul className="paleta-comandos" role="listbox" aria-label="Comandos" id="paleta-comandos">
             <li className="paleta-titulo" role="presentation">
@@ -454,13 +534,20 @@ export function Conversa({
         <textarea
           ref={campoRef}
           className={comandoAtual ? 'com-comando' : undefined}
-          aria-expanded={sugestoes.length > 0 ? true : undefined}
-          aria-controls={sugestoes.length > 0 ? 'paleta-comandos' : undefined}
-          aria-activedescendant={sugestoes.length > 0 ? `comando-${sugestoes[Math.min(paletaFoco, sugestoes.length - 1)]!.nomes[0]}` : undefined}
+          aria-expanded={sugestoes.length > 0 || opcoesMencao.length > 0 ? true : undefined}
+          aria-controls={opcoesMencao.length > 0 ? 'paleta-mencoes' : sugestoes.length > 0 ? 'paleta-comandos' : undefined}
+          aria-activedescendant={
+            opcoesMencao.length > 0
+              ? `mencao-${opcoesMencao[Math.min(mencaoFoco, opcoesMencao.length - 1)]!.usuario}`
+              : sugestoes.length > 0
+                ? `comando-${sugestoes[Math.min(paletaFoco, sugestoes.length - 1)]!.nomes[0]}`
+                : undefined
+          }
           aria-label={`Mensagem para ${conversa.titulo}`}
           placeholder={`Mensagem para ${conversa.titulo}`}
           value={texto}
-          onChange={(e) => mudarTexto(e.target.value)}
+          onChange={(e) => mudarTexto(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+          onSelect={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
           onKeyDown={teclas}
           onPaste={colar}
           rows={1}

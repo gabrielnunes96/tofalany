@@ -291,3 +291,22 @@ export function mesclarAtividade(base: PreferenciasAtividade = ATIVIDADE_PADRAO,
   if (typeof o.musica === 'boolean') r.musica = o.musica;
   return r;
 }
+
+/** Palavra que marca todo mundo do canal. */
+export const MENCAO_TODOS = 'todos';
+
+/**
+ * Menções no texto: `@usuario` (o nome de usuário, sem acento nem espaço) e `@todos`. Devolve os nomes
+ * normalizados (o servidor confere quem existe) e se tem @todos. Endereço de e-mail (a@b) não conta.
+ */
+export function extrairMencoes(texto: string): { usuarios: string[]; todos: boolean } {
+  const usuarios = new Set<string>();
+  let todos = false;
+  for (const m of texto.matchAll(/(^|[^\w@.])@([A-Za-z0-9._-]{1,32})/g)) {
+    const nome = m[2]!.replace(/[.]+$/, '').toLowerCase();
+    if (!nome) continue;
+    if (nome === MENCAO_TODOS) todos = true;
+    else usuarios.add(nome);
+  }
+  return { usuarios: [...usuarios], todos };
+}

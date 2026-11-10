@@ -57,7 +57,8 @@ export type Permissao =
   | 'transmitir_1080p'
   | 'transmitir_1440p'
   | 'ver_auditoria'
-  | 'moderar_membros';
+  | 'moderar_membros'
+  | 'mencionar_todos';
 
 export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basica?: boolean }[] = [
   { id: 'enviar_mensagens', nome: 'Enviar mensagens', descricao: 'escrever nos canais de texto', basica: true },
@@ -75,6 +76,7 @@ export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basic
   { id: 'transmitir_1440p', nome: 'Transmitir em 2K', descricao: 'transmitir a tela em 1440p60 (se o monitor tiver)' },
   { id: 'ver_auditoria', nome: 'Ver auditoria', descricao: 'ver o registro de entradas, saídas e ações' },
   { id: 'moderar_membros', nome: 'Moderar membros', descricao: 'pôr de castigo, expulsar e banir (não vale para administradores)' },
+  { id: 'mencionar_todos', nome: 'Mencionar @todos', descricao: 'marcar todo mundo do canal com @todos (notifica todos)' },
 ];
 
 /** O que todo membro sem cargo personalizado faz (e o que um cargo novo traz marcado). */
@@ -401,6 +403,10 @@ export interface MensagemDto {
   criadaEm: number;
   editadaEm: number | null;
   anexos: AnexoDto[];
+  /** Menções resolvidas pelo servidor: quem foi marcado com @usuario (ids). */
+  mencoes?: number[];
+  /** @todos valeu (num canal, de quem pode). */
+  mencionaTodos?: boolean;
 }
 
 export interface PaginaMensagens {

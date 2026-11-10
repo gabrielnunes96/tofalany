@@ -23,6 +23,15 @@ describe('decidirMensagemNova (RF-12)', () => {
     });
   });
 
+  it('menção a mim (ou @todos num canal) notifica mesmo silenciada ou com mensagens desligadas; "não incomodar" vence', () => {
+    const silenciada = ctx({ silenciadas: ['c:5'], notificar: false });
+    expect(decidirMensagemNova(msg({}), silenciada)?.notificacao).toBeUndefined();
+    expect(decidirMensagemNova(msg({ mencoes: [1] }), silenciada)?.notificacao).toMatchObject({ titulo: '@ Dono mencionou você em #jogos' });
+    expect(decidirMensagemNova(msg({ mencionaTodos: true }), silenciada)?.notificacao).toBeDefined();
+    expect(decidirMensagemNova(msg({ mencoes: [3] }), silenciada)?.notificacao).toBeUndefined();
+    expect(decidirMensagemNova(msg({ mencoes: [1] }), ctx({ naoIncomodar: true }))?.notificacao).toBeUndefined();
+  });
+
   it('backlog v2, item 2: em "não incomodar", conta mas não notifica', () => {
     expect(decidirMensagemNova(msg({}), ctx({ naoIncomodar: true }))).toEqual({ chave: 'c:5', acao: 'contar', notificacao: undefined });
   });

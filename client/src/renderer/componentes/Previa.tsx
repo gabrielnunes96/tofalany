@@ -26,13 +26,42 @@ export function linksDoTexto(texto: string): string[] {
 }
 
 /** Texto da mensagem com os links clicáveis (abrem no navegador do sistema). */
-export function TextoComLinks({ texto }: { texto: string }) {
+/** Quem foi marcado de verdade (o servidor resolveu): @usuario → nome a mostrar; e se @todos valeu. */
+export interface MencoesDoTexto {
+  nomes: Map<string, { nome: string; eu: boolean }>;
+  todos: boolean;
+}
+
+/** Trecho sem link: as menções resolvidas viram um destaque com o nome de exibição. */
+function comMencoes(trecho: string, mencoes: MencoesDoTexto | undefined, chave: number): ReactNode[] {
+  if (!mencoes || (mencoes.nomes.size === 0 && !mencoes.todos)) return [trecho];
+  const r: ReactNode[] = [];
+  let ultimo = 0;
+  for (const m of trecho.matchAll(/(^|[^\w@.])@([A-Za-z0-9._-]{1,32})/g)) {
+    const nome = m[2]!.replace(/[.]+$/, '');
+    const alvo = mencoes.nomes.get(nome.toLowerCase());
+    const todos = nome.toLowerCase() === 'todos' && mencoes.todos;
+    if (!alvo && !todos) continue;
+    const inicio = m.index + m[1]!.length;
+    if (inicio > ultimo) r.push(trecho.slice(ultimo, inicio));
+    r.push(
+      <span key={`${chave}-${inicio}`} className={`mencao${alvo?.eu || todos ? ' mencao-eu' : ''}`}>
+        @{todos ? 'todos' : alvo!.nome}
+      </span>,
+    );
+    ultimo = inicio + 1 + nome.length;
+  }
+  if (ultimo < trecho.length) r.push(trecho.slice(ultimo));
+  return r;
+}
+
+export function TextoComLinks({ texto, mencoes }: { texto: string; mencoes?: MencoesDoTexto }) {
   const partes: ReactNode[] = [];
   let ultimo = 0;
   for (const m of texto.matchAll(LINK)) {
     const url = limparFim(m[0]);
     const inicio = m.index;
-    if (inicio > ultimo) partes.push(texto.slice(ultimo, inicio));
+    if (inicio > ultimo) partes.push(...comMencoes(texto.slice(ultimo, inicio), mencoes, ultimo));
     partes.push(
       <a key={inicio} href={url} target="_blank" rel="noreferrer noopener">
         {url}
@@ -40,7 +69,7 @@ export function TextoComLinks({ texto }: { texto: string }) {
     );
     ultimo = inicio + url.length;
   }
-  if (ultimo < texto.length) partes.push(texto.slice(ultimo));
+  if (ultimo < texto.length) partes.push(...comMencoes(texto.slice(ultimo), mencoes, ultimo));
   return <>{partes}</>;
 }
 

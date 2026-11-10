@@ -2,7 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { validarTextoMensagem, type MensagemDto, type UsuarioDto } from '@tofalando/shared';
 import { Avatar } from './Avatar';
 import { ListaAnexos } from './Anexos';
-import { CartaoPrevia, linksDoTexto, TextoComLinks } from './Previa';
+import { CartaoPrevia, linksDoTexto, TextoComLinks, type MencoesDoTexto } from './Previa';
 
 interface Props {
   mensagem: MensagemDto;
@@ -12,12 +12,28 @@ interface Props {
   podeApagar: boolean;
   aoEditar: (id: number, texto: string) => Promise<string | null>;
   aoApagar: (id: number) => Promise<string | null>;
+  /** Para mostrar as menções: as pessoas (por id) e quem sou eu. */
+  usuarios?: Map<number, UsuarioDto>;
+  euId?: number;
 }
 
 const horario = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
 /** Uma mensagem com editar (autor) e apagar (autor ou administrador em canal) — RF-11, RN-9. */
-export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, podeApagar, aoEditar, aoApagar }: Props) {
+export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, podeApagar, aoEditar, aoApagar, usuarios, euId }: Props) {
+  const mencoes: MencoesDoTexto | undefined =
+    m.mencoes?.length || m.mencionaTodos
+      ? {
+          nomes: new Map(
+            (m.mencoes ?? []).flatMap((id) => {
+              const u = usuarios?.get(id);
+              return u ? [[u.usuario.toLowerCase(), { nome: u.nomeExibicao, eu: id === euId }] as const] : [];
+            }),
+          ),
+          todos: !!m.mencionaTodos,
+        }
+      : undefined;
+  const mencionouMe = euId !== undefined && m.autorId !== euId && (m.mencoes?.includes(euId) || !!m.mencionaTodos);
   const [modo, setModo] = useState<'ver' | 'editar' | 'apagar'>('ver');
   const [texto, setTexto] = useState(m.texto);
   const [erro, setErro] = useState<string | null>(null);
@@ -59,7 +75,7 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
   }
 
   return (
-    <li className="mensagem" aria-label={`Mensagem de ${autor?.nomeExibicao ?? 'conta removida'}`}>
+    <li className={`mensagem${mencionouMe ? ' mencionou-me' : ''}`} aria-label={`Mensagem de ${autor?.nomeExibicao ?? 'conta removida'}`}>
       <Avatar usuario={autor ?? { nomeExibicao: '?', cor: '#3a2f5c', avatarUrl: null }} servidorUrl={servidorUrl} tamanho={36} />
       <div className="mensagem-corpo">
         <div className="mensagem-topo">
@@ -105,7 +121,7 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
           m.texto && (
             <>
               <p className="mensagem-texto">
-                <TextoComLinks texto={m.texto} />
+                <TextoComLinks texto={m.texto} mencoes={mencoes} />
               </p>
               {linksDoTexto(m.texto)[0] && <CartaoPrevia url={linksDoTexto(m.texto)[0]!} />}
             </>

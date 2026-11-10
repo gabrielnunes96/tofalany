@@ -1708,6 +1708,7 @@ function TelaDoServidor({
               aoApagarMensagem={apagarMensagem}
               aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando({ canalId })}
               silenciada={canalAtivo !== null && silenciadasAqui.includes(`c:${canalAtivo}`)}
+              podeMencionarTodos={permissoes.has('mencionar_todos')}
               aoSilenciar={canalAtivo !== null ? (sim) => silenciarConversa(`c:${canalAtivo}`, sim) : undefined}
             />
           )}

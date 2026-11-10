@@ -27,6 +27,8 @@ interface Props {
   aoEditarMensagem: (id: number, texto: string) => Promise<string | null>;
   aoApagarMensagem: (id: number) => Promise<string | null>;
   aoDigitar: (canalId: number) => void;
+  /** Pode marcar @todos (administrador ou "Mencionar @todos"). */
+  podeMencionarTodos?: boolean;
   /** RF-40: notificações deste canal silenciadas. */
   silenciada?: boolean;
   aoSilenciar?: (sim: boolean) => void;
@@ -48,6 +50,7 @@ export function CanalAberto({
   aoApagarMensagem,
   aoDigitar,
   silenciada = false,
+  podeMencionarTodos = false,
   aoSilenciar,
   extras,
   antes,
@@ -141,6 +144,7 @@ export function CanalAberto({
         aoApagar={aoApagarMensagem}
         aoDigitar={() => aoDigitar(canal.id)}
         comandos={COMANDOS_MUSICA}
+        mencoes={{ podeTodos: podeMencionarTodos }}
         somenteLeitura={somenteLeitura}
       />
     </section>

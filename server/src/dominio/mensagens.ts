@@ -10,6 +10,24 @@ interface LinhaMensagem {
   texto: string;
   criada_em: number;
   editada_em: number | null;
+  mencoes?: string | null;
+  menciona_todos?: number;
+}
+
+/** Quem foi marcado numa mensagem (resolvido por quem envia). */
+export interface Mencoes {
+  usuarios: number[];
+  todos: boolean;
+}
+
+function lerIds(json: string | null | undefined): number[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json) as unknown;
+    return Array.isArray(v) ? v.filter((x): x is number => Number.isInteger(x)) : [];
+  } catch {
+    return [];
+  }
 }
 
 const paraDtoSemAnexos = (m: LinhaMensagem): MensagemDto => ({
@@ -21,6 +39,8 @@ const paraDtoSemAnexos = (m: LinhaMensagem): MensagemDto => ({
   criadaEm: m.criada_em,
   editadaEm: m.editada_em,
   anexos: [],
+  ...(lerIds(m.mencoes).length ? { mencoes: lerIds(m.mencoes) } : {}),
+  ...(m.menciona_todos ? { mencionaTodos: true } : {}),
 });
 
 /** Mensagens com os anexos de cada uma (uma consulta só para a página toda). */
@@ -30,11 +50,19 @@ function comAnexos(banco: Banco, linhas: LinhaMensagem[]): MensagemDto[] {
 }
 
 /** Cria a linha num canal ou numa DM e devolve o id (os anexos são vinculados na mesma transação por quem chama). */
-export function inserirMensagem(banco: Banco, destino: Destino, autorId: number, texto: string, agora: number = Date.now()): number {
+export function inserirMensagem(
+  banco: Banco,
+  destino: Destino,
+  autorId: number,
+  texto: string,
+  agora: number = Date.now(),
+  mencoes: Mencoes = { usuarios: [], todos: false },
+): number {
   const [canalId, dmId] = 'canalId' in destino ? [destino.canalId, null] : [null, destino.dmId];
   return Number(
-    banco.prepare('INSERT INTO mensagens (canal_id, dm_id, autor_id, texto, criada_em) VALUES (?, ?, ?, ?, ?)').run(canalId, dmId, autorId, texto, agora)
-      .lastInsertRowid,
+    banco
+      .prepare('INSERT INTO mensagens (canal_id, dm_id, autor_id, texto, criada_em, mencoes, menciona_todos) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(canalId, dmId, autorId, texto, agora, mencoes.usuarios.length ? JSON.stringify(mencoes.usuarios) : null, mencoes.todos ? 1 : 0).lastInsertRowid,
   );
 }
 
@@ -43,8 +71,10 @@ export function buscarMensagem(banco: Banco, id: number): MensagemDto | undefine
   return m && comAnexos(banco, [m])[0];
 }
 
-export function editarMensagem(banco: Banco, id: number, texto: string, agora: number = Date.now()): MensagemDto {
-  banco.prepare('UPDATE mensagens SET texto = ?, editada_em = ? WHERE id = ?').run(texto, agora, id);
+export function editarMensagem(banco: Banco, id: number, texto: string, agora: number = Date.now(), mencoes: Mencoes = { usuarios: [], todos: false }): MensagemDto {
+  banco
+    .prepare('UPDATE mensagens SET texto = ?, editada_em = ?, mencoes = ?, menciona_todos = ? WHERE id = ?')
+    .run(texto, agora, mencoes.usuarios.length ? JSON.stringify(mencoes.usuarios) : null, mencoes.todos ? 1 : 0, id);
   return buscarMensagem(banco, id)!;
 }
 
