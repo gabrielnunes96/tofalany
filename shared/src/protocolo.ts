@@ -245,6 +245,23 @@ export interface ConfiguracoesLocais {
   tema?: Tema;
   /** Backlog v2, item 2: status escolhido em cada servidor (chave = URL do servidor). */
   statusEscolhido?: Record<string, EscolhaStatus>;
+  /** Atividade (como no Discord): mostrar o jogo e a música do Spotify. Desligado até a pessoa ligar. */
+  atividade?: PreferenciasAtividade;
+}
+
+export interface PreferenciasAtividade {
+  /** "Jogando X": jogos abertos pela Steam. */
+  jogos: boolean;
+  /** "Ouvindo X": música tocando no Spotify. */
+  musica: boolean;
+}
+
+export const ATIVIDADE_PADRAO: PreferenciasAtividade = { jogos: false, musica: false };
+
+/** O que a pessoa está fazendo agora (só o que ela escolheu mostrar). */
+export interface AtividadeDto {
+  jogo?: string;
+  musica?: { titulo: string; artista?: string };
 }
 
 export interface PreferenciasTela {
@@ -484,6 +501,8 @@ export interface OlaPayload {
   /** Link de convite vigente, que qualquer membro pode copiar (RF-1a). */
   /** Moderação: o meu castigo aqui, com o motivo (só eu recebo o motivo). */
   meuCastigo?: { ate: number; motivo: string | null } | null;
+  /** Atividade de quem está online e mostra (jogo, música). */
+  atividades?: Record<string, AtividadeDto>;
   convite: { link: string };
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
@@ -549,6 +568,8 @@ export interface EventosServidor {
   'tela:espectadores': (payload: { canalVozId: number; usuarioId: number; espectadores: number[] }) => void;
   /** RF-37: status de alguém mudou. */
   'presenca:atualizada': (payload: { id: number; status: StatusPessoa }) => void;
+  /** Atividade de alguém (jogo, música) mudou; null = nada. */
+  'atividade:atualizada': (payload: { id: number; atividade: AtividadeDto | null }) => void;
   /** Conta removida por um administrador: some da lista. */
   'usuario:removido': (payload: { id: number }) => void;
   /** Backlog v2, item 10c: a lista de cargos personalizados mudou. */
@@ -592,6 +613,8 @@ export interface EventosCliente {
   'presenca:ausente': (dados: { ausente: boolean }) => void;
   /** Backlog v2, item 2: status escolhido (vale até trocar; o app reenvia ao reconectar). */
   'presenca:escolher': (dados: { status: EscolhaStatus }) => void;
+  /** Minha atividade (jogo, música) mudou; null = nada. */
+  'presenca:atividade': (dados: { atividade: AtividadeDto | null }) => void;
   /** Backlog v2, item 14: bot de música no canal de voz em que estou (/tocar, /pular, /parar). */
   'musica:comando': (dados: ComandoMusica, ack: Ack<EstadoMusica>) => void;
   /** Amigos: pedir (se a outra pessoa já pediu, vira amizade), aceitar e recusar/desfazer. */

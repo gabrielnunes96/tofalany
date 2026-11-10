@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
+import { ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -37,6 +37,7 @@ import { DmAberta } from '../componentes/DmAberta';
 import { chaveCanal, chaveDm, type Chave, type Historico } from '../estado/loja';
 import { decidirAvisoPresenca, decidirMensagemNova } from '../estado/notificar';
 import { ordenarMembros } from '../estado/ordemMembros';
+import { textosAtividade } from '../estado/atividade';
 
 interface Props {
   /** Backlog v2, item 7: o nome do servidor chegou (vai para a coluna de servidores). */
@@ -119,7 +120,7 @@ function TelaDoServidor({
   useEffect(() => {
     vozEmOutroRef.current = !!vozEmOutro;
   }, [vozEmOutro]);
-  const { conexao, eu, usuarios, funcoes, nomeServidor, iconeServidor, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica, amizades, conhecidos } = useLoja(
+  const { conexao, eu, usuarios, funcoes, nomeServidor, iconeServidor, atividades, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica, amizades, conhecidos } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
@@ -137,6 +138,7 @@ function TelaDoServidor({
       usuarios: s.usuarios,
       funcoes: s.funcoes,
       nomeServidor: s.nomeServidor,
+      atividades: s.atividades,
       iconeServidor: s.iconeServidor,
       canais: s.canais,
       canalAtivo: s.canalAtivo,
@@ -165,6 +167,7 @@ function TelaDoServidor({
       iniciarTransmissao: s.iniciarTransmissao,
       pararTransmissao: s.pararTransmissao,
       servidorAtualizado: s.servidorAtualizado,
+      definirAtividade: s.definirAtividade,
       espectadoresDaTransmissao: s.espectadoresDaTransmissao,
       definirMusica: s.definirMusica,
       definirAmizades: s.definirAmizades,
@@ -382,6 +385,7 @@ function TelaDoServidor({
         setAoFechar(acaoAoFechar(c));
         if (c.tema) setTema(c.tema);
         if (c.ocultos) setOcultos(c.ocultos);
+        if (c.atividade) setPrefAtividade(c.atividade);
         const escolhida = c.statusEscolhido?.[servidorUrl];
         if (escolhida && escolhaRef.current === 'auto') {
           escolhaRef.current = escolhida;
@@ -530,6 +534,28 @@ function TelaDoServidor({
       .catch(() => undefined);
     return ponte().presenca.aoMudar(avisar);
   }, []);
+  // Atividade (jogo, música) detectada pelo processo principal, se a pessoa ligou: vai para o servidor.
+  const atividadeRef = useRef<AtividadeDto | null>(null);
+  useEffect(() => {
+    const ponteAtividade = ponte().atividade;
+    if (!ponteAtividade) return;
+    const avisar = (a: AtividadeDto | null) => {
+      atividadeRef.current = a;
+      conexaoRef.current?.avisarAtividade(a);
+    };
+    void ponteAtividade
+      .atual()
+      .then(avisar)
+      .catch(() => undefined);
+    return ponteAtividade.aoMudar(avisar);
+  }, []);
+  const [prefAtividade, setPrefAtividade] = useState<PreferenciasAtividade>(ATIVIDADE_PADRAO);
+  function mudarAtividade(novo: PreferenciasAtividade) {
+    setPrefAtividade(novo);
+    void ponte()
+      .config.gravar({ atividade: novo })
+      .catch(() => undefined);
+  }
   // RF-15/RF-16: mute e deafen (valem também fora da voz e são aplicados ao entrar) e atalhos globais.
   const [controles, setControlesEstado] = useState({
     mudo: false,
@@ -812,6 +838,7 @@ function TelaDoServidor({
       aoTelaIniciada: acoes.iniciarTransmissao,
       aoTelaParada: acoes.pararTransmissao,
       aoServidorAtualizado: acoes.servidorAtualizado,
+      aoAtividade: acoes.definirAtividade,
       aoTelaEspectadores: acoes.espectadoresDaTransmissao,
       aoMusica: acoes.definirMusica,
       aoAmizades: acoes.definirAmizades,
@@ -846,6 +873,7 @@ function TelaDoServidor({
       aoCastigo: setMeuCastigo,
     });
     conexaoRef.current = conexao;
+    conexao.avisarAtividade(atividadeRef.current);
     conexao.escolherStatus(escolhaRef.current);
     return () => {
       conexaoRef.current = null;
@@ -1220,6 +1248,7 @@ function TelaDoServidor({
           aoAceitarAmizade={() => aceitarAmizade(menuPessoa.usuarioId)}
           aoRemoverAmizade={() => removerAmizade(menuPessoa.usuarioId)}
           aoFechar={fecharMenuPessoa}
+          atividade={textosAtividade(atividades[menuPessoa.usuarioId])}
           moderacao={(() => {
             const alvoMod = usuarios.find((u) => u.id === menuPessoa.usuarioId);
             if (!alvoMod || alvoMod.id === usuario.id || alvoMod.cargo === 'admin' || alvoMod.id === donoServidor || !permissoes.has('moderar_membros')) return undefined;
@@ -1625,6 +1654,8 @@ function TelaDoServidor({
               aoMudarTema={mudarTema}
               aoFechar={aoFechar}
               aoMudarAoFechar={mudarAoFechar}
+              atividade={prefAtividade}
+              aoMudarAtividade={mudarAtividade}
               tela={telaPrefs}
               aoMudarTela={mudarTela}
               qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes)}
@@ -1723,6 +1754,11 @@ function TelaDoServidor({
                   <span style={funcoes.find((f) => f.id === item.u.funcaoId) ? { color: funcoes.find((f) => f.id === item.u.funcaoId)!.cor } : undefined}>
                     {item.u.nomeExibicao}
                   </span>
+                  {atividades[item.u.id] && (
+                    <span className="atividade-membro" title={textosAtividade(atividades[item.u.id]).join('\n')}>
+                      {textosAtividade(atividades[item.u.id])[0]}
+                    </span>
+                  )}
                   {item.u.cargo === 'admin' && <span className="selo">admin</span>}
                   {item.u.castigoAte && item.u.castigoAte > Date.now() && (
                     <span

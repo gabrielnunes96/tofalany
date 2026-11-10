@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica, AmizadeDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica, AmizadeDto, AtividadeDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -44,6 +44,9 @@ interface Loja {
   falando: number[];
   /** RF-37: status de quem não está offline (ausência na lista = offline). */
   presencas: Partial<Record<number, StatusVisivel>>;
+  /** Atividade (jogo, música) de quem mostra. */
+  atividades: Partial<Record<number, AtividadeDto>>;
+  definirAtividade(id: number, a: AtividadeDto | null): void;
   definirPresenca(id: number, status: StatusPessoa): void;
   /** RN-10: transmissões de tela ativas (uma por canal). */
   transmissoes: TransmissaoDto[];
@@ -135,6 +138,7 @@ const inicial = {
   sons: [] as SomDto[],
   voz: [] as VozEstadoDto[],
   presencas: {} as Partial<Record<number, StatusVisivel>>,
+  atividades: {} as Partial<Record<number, AtividadeDto>>,
   transmissoes: [] as TransmissaoDto[],
   musica: [] as EstadoMusica[],
   amizades: [] as AmizadeDto[],
@@ -185,7 +189,14 @@ export const criarLoja = () =>
   salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
   tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
   servidorAtualizado: ({ nome, iconeUrl }) => set({ nomeServidor: nome, iconeServidor: iconeUrl }),
-  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica, amizades, conhecidos }) =>
+  definirAtividade: (id, a) =>
+    set((s) => {
+      const atividades = { ...s.atividades };
+      if (a) atividades[id] = a;
+      else delete atividades[id];
+      return { atividades };
+    }),
+  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica, amizades, conhecidos, atividades }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -207,6 +218,7 @@ export const criarLoja = () =>
         amizades: amizades ?? [],
         conhecidos: conhecidos ?? [],
         presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
+        atividades: Object.fromEntries(Object.entries(atividades ?? {}).map(([id, a]) => [Number(id), a])),
         dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
         // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
         historicos: {},

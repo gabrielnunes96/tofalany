@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import { separarComunidade, ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto, type EstadoMusica, type AmizadeDto } from '@tofalando/shared';
+import { separarComunidade, ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto, type EstadoMusica, type AmizadeDto, type AtividadeDto } from '@tofalando/shared';
 import { chaveDe, type Chave } from '../estado/chaves';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
@@ -35,6 +35,7 @@ export interface OuvintesTempoReal {
   /** RN-10: transmissão de tela começou/parou em algum canal. */
   aoTelaIniciada(t: TransmissaoDto): void;
   aoTelaParada(canalVozId: number, usuarioId?: number): void;
+  aoAtividade?(id: number, atividade: AtividadeDto | null): void;
   aoServidorAtualizado?(s: { nome: string; iconeUrl: string | null }): void;
   aoTelaEspectadores?(canalVozId: number, usuarioId: number, espectadores: number[]): void;
   /** Backlog v2, item 14: o bot de música mudou num canal (servidor antigo nunca manda). */
@@ -79,13 +80,15 @@ export interface ConexaoTempoReal {
   avisarAusente(ausente: boolean): void;
   /** Backlog v2, item 2: status escolhido (vai também no handshake das reconexões). */
   escolherStatus(status: EscolhaStatus): void;
+  /** Minha atividade (jogo, música); vai de novo a cada reconexão. */
+  avisarAtividade(atividade: AtividadeDto | null): void;
   /** Envia uma ação e espera a resposta do servidor (ou "sem conexão" se não estiver conectado / demorar). */
   /** `tempoMs`: quanto esperar a resposta (padrão 10 s; a busca de música no YouTube pede mais). */
   pedir<K extends EventoComResposta>(evento: K, dados: Parameters<EventosCliente[K]>[0], tempoMs?: number): Promise<RespostaAcao<AckValor<K>>>;
 }
 
 /** Eventos que esperam resposta (ack); "digitando" é só um sinal. */
-type EventoComResposta = Exclude<keyof EventosCliente, 'digitando' | 'lido:marcar' | 'presenca:ausente' | 'presenca:escolher'>;
+type EventoComResposta = Exclude<keyof EventosCliente, 'digitando' | 'lido:marcar' | 'presenca:ausente' | 'presenca:escolher' | 'presenca:atividade'>;
 
 type AckValor<K extends EventoComResposta> = Parameters<Parameters<EventosCliente[K]>[1]>[0] extends infer R
   ? R extends { ok: true; valor: infer V }
@@ -106,6 +109,7 @@ export function conectarTempoReal(
   let encerrada = false;
   let ausente = false;
   let escolha: EscolhaStatus = 'auto';
+  let atividade: AtividadeDto | null = null;
   // Servidor criado na mesma instalação (https://x/c/<id>): a conexão vai para a raiz e diz o servidor
   // (o caminho no endereço do Socket.IO seria lido como namespace).
   const { base, comunidade } = separarComunidade(url);
@@ -127,7 +131,10 @@ export function conectarTempoReal(
   };
 
   ouvintes.aoEstado('conectando');
-  socket.on('connect', () => ouvintes.aoEstado('conectado'));
+  socket.on('connect', () => {
+    ouvintes.aoEstado('conectado');
+    if (atividade) socket.emit('presenca:atividade', { atividade });
+  });
   socket.on('ola', (payload) => ouvintes.aoOla(payload));
   socket.on('usuario:criado', (usuario) => ouvintes.aoUsuarioCriado(usuario));
   socket.on('usuario:atualizado', (usuario) => ouvintes.aoUsuarioAtualizado(usuario));
@@ -155,6 +162,7 @@ export function conectarTempoReal(
   socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
   socket.on('tela:iniciada', (t) => ouvintes.aoTelaIniciada(t));
   socket.on('servidor:atualizado', (s) => ouvintes.aoServidorAtualizado?.(s));
+  socket.on('atividade:atualizada', ({ id, atividade: a }) => ouvintes.aoAtividade?.(id, a));
   socket.on('tela:parada', ({ canalVozId, usuarioId }) => ouvintes.aoTelaParada(canalVozId, usuarioId));
   socket.on('tela:espectadores', ({ canalVozId, usuarioId, espectadores }) => ouvintes.aoTelaEspectadores?.(canalVozId, usuarioId, espectadores));
   socket.on('musica:estado', (estado) => ouvintes.aoMusica?.(estado));
@@ -194,6 +202,11 @@ export function conectarTempoReal(
       if (valor === escolha) return;
       escolha = valor;
       if (socket.connected) socket.emit('presenca:escolher', { status: valor });
+    },
+    avisarAtividade(valor) {
+      if (JSON.stringify(valor) === JSON.stringify(atividade)) return;
+      atividade = valor;
+      if (socket.connected) socket.emit('presenca:atividade', { atividade: valor });
     },
     avisarAusente(valor) {
       ausente = valor;

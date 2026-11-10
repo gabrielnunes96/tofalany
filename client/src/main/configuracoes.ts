@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
+import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela,
+  mesclarAtividade, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
   ler(): ConfiguracoesLocais;
@@ -29,6 +30,7 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('sons' in obj) resultado.sons = mesclarSons(base.sons, obj.sons);
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
   if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
+  if ('atividade' in obj) resultado.atividade = mesclarAtividade(base.atividade, obj.atividade);
   if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
   if (obj.aoFechar === 'perguntar' || obj.aoFechar === 'bandeja' || obj.aoFechar === 'sair') resultado.aoFechar = obj.aoFechar;
   if (Array.isArray(obj.servidores)) {

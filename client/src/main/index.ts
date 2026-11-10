@@ -10,12 +10,13 @@ import { criarArquivos } from './arquivos';
 import { criarNotificacoes } from './notificacoes';
 import { criarAtalhos, type Modificadores } from './atalhos';
 import { criarOciosidade } from './ociosidade';
+import { criarAtividade } from './atividade';
 import { registrarCaptura } from './captura';
 import { filtrarRede } from './rede';
 import { integrarSistema } from './integracao';
 import { iniciarAtualizacao } from './atualizacao';
 import { criarBandeja } from './bandeja';
-import { normalizarUrlServidor } from '@tofalando/shared';
+import { ATIVIDADE_PADRAO, normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -187,6 +188,15 @@ if (links.principal) {
     );
     app.on('will-quit', () => ociosidade.parar());
     ipcMain.handle('presenca:ausente', () => ociosidade.ausente());
+    // Atividade (jogo da Steam, música do Spotify): só o que a pessoa ligou nas configurações.
+    const atividade = criarAtividade(
+      () => configuracoes.ler().atividade ?? ATIVIDADE_PADRAO,
+      (a) => {
+        if (janelaPrincipal && !janelaPrincipal.isDestroyed()) janelaPrincipal.webContents.send('atividade:mudou', a);
+      },
+    );
+    app.on('will-quit', () => atividade.parar());
+    ipcMain.handle('atividade:atual', () => atividade.atual());
     // E2E: o Playwright não gera teclas do sistema nem ociosidade; simula o que o sistema entregaria (só fora do empacotado).
     if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
       (globalThis as { __teclaGlobal?: unknown }).__teclaGlobal = (tipo: 'down' | 'up', codigo: string, mods: Modificadores = {}) => atalhos.tratarCodigo(tipo, codigo, mods);
@@ -215,7 +225,11 @@ if (links.principal) {
         () => configuracoes.ler().servidorUrl,
       ),
       criarNotificacoes(() => janelaPrincipal),
-      (c) => atalhos.definir(c.atalhos),
+      (c) => {
+        atalhos.definir(c.atalhos);
+        // Ligou ou desligou a atividade: confere na hora (desligar apaga o que aparecia).
+        void atividade.verificar();
+      },
     );
     criarJanela();
 

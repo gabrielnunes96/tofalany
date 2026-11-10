@@ -1,4 +1,4 @@
-import { AUDIO_PADRAO, NOTIFICACOES_PADRAO, QUALIDADES_TELA, SONS_PADRAO, TELA_PADRAO, type PreferenciasTela, type QualidadeTela, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
+import { ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, AUDIO_PADRAO, NOTIFICACOES_PADRAO, QUALIDADES_TELA, SONS_PADRAO, TELA_PADRAO, type PreferenciasTela, type QualidadeTela, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
 import { MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, NOME_SOM_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
@@ -256,5 +256,38 @@ export function mesclarTela(base: PreferenciasTela = TELA_PADRAO, bruto: unknown
   if (QUALIDADES_TELA.includes(o.qualidade as QualidadeTela)) r.qualidade = o.qualidade as QualidadeTela;
   if (o.codec === 'h264' || o.codec === 'vp9') r.codec = o.codec;
   if (typeof o.audio === 'boolean') r.audio = o.audio;
+  return r;
+}
+
+/** Texto curto de atividade: sem controle, espaços juntados, cortado no limite; vazio = undefined. */
+function textoAtividade(v: unknown, max: number): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  // eslint-disable-next-line no-control-regex
+  const limpo = v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  return limpo ? [...limpo].slice(0, max).join('') : undefined;
+}
+
+/** Atividade vinda do app (ou do arquivo de preferências): só jogo e música, com tamanho limitado. */
+export function lerAtividade(bruto: unknown): AtividadeDto | null {
+  if (!bruto || typeof bruto !== 'object') return null;
+  const o = bruto as Record<string, unknown>;
+  const r: AtividadeDto = {};
+  const jogo = textoAtividade(o.jogo, 100);
+  if (jogo) r.jogo = jogo;
+  if (o.musica && typeof o.musica === 'object') {
+    const m = o.musica as Record<string, unknown>;
+    const titulo = textoAtividade(m.titulo, 120);
+    const artista = textoAtividade(m.artista, 120);
+    if (titulo) r.musica = artista ? { titulo, artista } : { titulo };
+  }
+  return r.jogo || r.musica ? r : null;
+}
+
+export function mesclarAtividade(base: PreferenciasAtividade = ATIVIDADE_PADRAO, bruto: unknown): PreferenciasAtividade {
+  const r = { ...base };
+  if (!bruto || typeof bruto !== 'object') return r;
+  const o = bruto as Record<string, unknown>;
+  if (typeof o.jogos === 'boolean') r.jogos = o.jogos;
+  if (typeof o.musica === 'boolean') r.musica = o.musica;
   return r;
 }

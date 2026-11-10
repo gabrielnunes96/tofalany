@@ -48,6 +48,14 @@ const api: ApiTofalando = {
       return () => ipcRenderer.removeListener('presenca:ociosidade', ouvinte);
     },
   },
+  atividade: {
+    atual: () => ipcRenderer.invoke('atividade:atual'),
+    aoMudar: (fn) => {
+      const ouvinte = (_e: IpcRendererEvent, a: unknown) => fn((a ?? null) as never);
+      ipcRenderer.on('atividade:mudou', ouvinte);
+      return () => ipcRenderer.removeListener('atividade:mudou', ouvinte);
+    },
+  },
   captura: {
     fontes: () => ipcRenderer.invoke('captura:fontes'),
     escolher: (fonteId, audio) => ipcRenderer.invoke('captura:escolher', { fonteId, audio }),

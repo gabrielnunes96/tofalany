@@ -23,6 +23,7 @@ export function MenuPessoa({
   aoRemoverAmizade,
   aoFechar,
   moderacao,
+  atividade = [],
 }: {
   usuario: UsuarioDto;
   x: number;
@@ -39,6 +40,8 @@ export function MenuPessoa({
   aoAceitarAmizade: () => void;
   aoRemoverAmizade: () => void;
   aoFechar: () => void;
+  /** "🎮 Jogando X", "🎵 Ouvindo Y" (se a pessoa mostra). */
+  atividade?: string[];
   /** Quem pode moderar esta pessoa (administrador ou "Moderar membros"; ela não é administradora). */
   moderacao?: { castigoAte: number | null; aoAbrir: (tipo: 'castigo' | 'expulsar' | 'banir') => void; aoTirarCastigo: () => void };
 }) {
@@ -73,6 +76,11 @@ export function MenuPessoa({
         <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={32} />
         <strong>{usuario.nomeExibicao}</strong>
       </div>
+      {atividade.map((t) => (
+        <p key={t} className="menu-pessoa-atividade">
+          {t}
+        </p>
+      ))}
       {!eu && (
         <>
           <label className="menu-pessoa-volume">

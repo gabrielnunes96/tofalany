@@ -15,6 +15,8 @@ import {
   type StatusVisivel,
   COMUNIDADE_PRINCIPAL,
   caminhoComunidade,
+  lerAtividade,
+  type AtividadeDto,
 } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
@@ -155,6 +157,16 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   const status = new Map<number, StatusVisivel>();
   const ausentes = new Set<string>();
   const escolhas = new Map<number, EscolhaStatus>();
+  /** Atividade (jogo, música) de quem está conectado e escolheu mostrar; quem fica invisível não mostra. */
+  const atividades = new Map<number, AtividadeDto>();
+  const atividadeVisivel = (id: number) => (escolhas.get(id) === 'invisivel' ? undefined : atividades.get(id));
+  function definirAtividade(id: number, a: AtividadeDto | null) {
+    const antes = JSON.stringify(atividadeVisivel(id) ?? null);
+    if (a) atividades.set(id, a);
+    else atividades.delete(id);
+    const depois = atividadeVisivel(id) ?? null;
+    if (JSON.stringify(depois) !== antes) io.emit('atividade:atualizada', { id, atividade: depois });
+  }
   function recalcularStatus(usuarioId: number) {
     const conexoes = [...io.of('/').sockets.values()].filter((s) => s.data.usuarioId === usuarioId);
     if (conexoes.length === 0) return;
@@ -305,6 +317,9 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     if (escolhaInicial) escolhas.set(eu.id, escolhaInicial);
     recalcularStatus(eu.id);
     ola.presencas = Object.fromEntries([...status].filter(([id]) => ids.has(id) || amigos.has(id)));
+    ola.atividades = Object.fromEntries(
+      [...atividades.keys()].filter((id) => ids.has(id) || amigos.has(id)).flatMap((id) => (atividadeVisivel(id) ? [[String(id), atividadeVisivel(id)!]] : [])),
+    );
     socket.emit('ola', ola);
     socket.on('presenca:ausente', (dados) => {
       const ausente = typeof dados === 'object' && dados !== null && (dados as { ausente?: unknown }).ausente === true;
@@ -317,12 +332,21 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     socket.on('presenca:escolher', (dados) => {
       const escolha = lerEscolha(typeof dados === 'object' && dados !== null ? (dados as { status?: unknown }).status : undefined);
       if (!escolha) return;
+      const atividadeAntes = JSON.stringify(atividadeVisivel(eu.id) ?? null);
       escolhas.set(eu.id, escolha);
       recalcularStatus(eu.id);
+      // Ficar invisível esconde a atividade (e voltar mostra de novo).
+      const atividadeDepois = atividadeVisivel(eu.id) ?? null;
+      if (JSON.stringify(atividadeDepois) !== atividadeAntes) io.emit('atividade:atualizada', { id: eu.id, atividade: atividadeDepois });
+    });
+    socket.on('presenca:atividade', (dados) => {
+      definirAtividade(eu.id, lerAtividade(typeof dados === 'object' && dados !== null ? (dados as { atividade?: unknown }).atividade : null));
     });
     socket.on('disconnect', () => {
       ausentes.delete(socket.id);
       presenca.saiu(eu.id);
+      // Sem nenhuma conexão: a atividade some (não fica "jogando" offline).
+      if (![...io.of('/').sockets.values()].some((s) => s.data.usuarioId === eu.id)) definirAtividade(eu.id, null);
       // Ainda há outro computador conectado: o status passa a ser o dele.
       recalcularStatus(eu.id);
     });

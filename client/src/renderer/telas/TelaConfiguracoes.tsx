@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema , type AcaoFechar } from '@tofalando/shared';
+import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -62,6 +62,9 @@ interface Props {
   /** Backlog v2, 1e: fechar a janela deixa o app na bandeja. */
   aoFechar?: AcaoFechar;
   aoMudarAoFechar?: (acao: AcaoFechar) => void;
+  /** Atividade (jogo da Steam, música do Spotify): desligada até a pessoa ligar. */
+  atividade?: PreferenciasAtividade;
+  aoMudarAtividade?: (a: PreferenciasAtividade) => void;
   /** RF-28, R-3: qualidade padrão (só o que o cargo permite) e codec da transmissão de tela. */
   tela?: PreferenciasTela;
   aoMudarTela?: (t: PreferenciasTela) => void;
@@ -80,7 +83,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -339,6 +342,21 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
             </label>
           ))}
           <p className="suave">Na bandeja, para sair de vez: clique direito no ícone → Sair.</p>
+        </fieldset>
+      )}
+
+      {atividade && aoMudarAtividade && (
+        <fieldset className="opcoes">
+          <legend>Atividade (como no Discord)</legend>
+          <label>
+            <input type="checkbox" checked={atividade.jogos} onChange={(e) => aoMudarAtividade({ ...atividade, jogos: e.target.checked })} /> Mostrar o jogo que estou
+            jogando (jogos da Steam)
+          </label>
+          <label>
+            <input type="checkbox" checked={atividade.musica} onChange={(e) => aoMudarAtividade({ ...atividade, musica: e.target.checked })} /> Mostrar a música que
+            estou ouvindo no Spotify
+          </label>
+          <p className="suave">Aparece ao lado do seu nome para quem está nos seus servidores. Fica escondido quando você está invisível.</p>
         </fieldset>
       )}
 

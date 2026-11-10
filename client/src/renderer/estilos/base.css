@@ -683,3 +683,8 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .banido-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .banido-info small { overflow-wrap: anywhere; }
 .selo-castigo { color: var(--erro); border-color: var(--erro); }
+
+/* Atividade (jogo, música): embaixo do nome na lista de membros e no menu da pessoa. */
+.atividade-membro { flex-basis: 100%; order: 10; margin-left: 36px; font-size: 0.75rem; color: var(--texto-suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-pessoa-atividade { margin: 2px 0 6px; font-size: 0.8rem; color: var(--texto-suave); overflow-wrap: anywhere; }
+.coluna-direita .lista-membros li { flex-wrap: wrap; row-gap: 0; }

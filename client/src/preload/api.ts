@@ -1,4 +1,4 @@
-import type { AcaoAtalho, ConfiguracoesLocais, ConviteLink } from '@tofalando/shared';
+import type { AcaoAtalho, ConfiguracoesLocais, ConviteLink, AtividadeDto } from '@tofalando/shared';
 
 /** Sessão guardada no computador: o token vale só para o servidor em que foi criado. */
 export interface SessaoLocal {
@@ -47,6 +47,11 @@ export interface ApiTofalando {
   presenca: {
     ausente(): Promise<boolean>;
     aoMudar(fn: (ausente: boolean) => void): () => void;
+  };
+  /** Atividade (jogo, música) detectada no computador; null = nada ou desligada. */
+  atividade?: {
+    atual(): Promise<AtividadeDto | null>;
+    aoMudar(fn: (a: AtividadeDto | null) => void): () => void;
   };
   /** RF-26: fontes para transmitir (telas e janelas, com miniatura) e a escolhida. */
   captura: {
