@@ -7,4 +7,9 @@ describe('avisoDeRevogacao', () => {
     expect(avisoDeRevogacao('sessao_invalida')).toBe('Sua sessão foi encerrada. Entre de novo.');
     expect(avisoDeRevogacao('conta_removida')).toBe('Sua conta foi removida deste servidor.');
   });
+
+  it('expulso e banido: nome do servidor e motivo, quando houver', () => {
+    expect(avisoDeRevogacao('expulso', 'flood', 'Turma')).toBe('Você foi expulso de Turma. Motivo: flood Para voltar, peça um convite.');
+    expect(avisoDeRevogacao('banido', null)).toBe('Você foi banido do servidor.');
+  });
 });

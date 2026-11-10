@@ -13,9 +13,11 @@ export interface LinhaUsuario {
   avatar_arquivo: string | null;
   cargo: Cargo;
   funcao_id: number | null;
+  /** Moderação: castigo neste servidor (só nas consultas pelo membro). */
+  castigo_ate?: number | null;
 }
 
-export function paraDto(u: LinhaUsuario): UsuarioDto {
+export function paraDto(u: LinhaUsuario, agora: number = Date.now()): UsuarioDto {
   return {
     id: u.id,
     usuario: u.usuario,
@@ -24,6 +26,7 @@ export function paraDto(u: LinhaUsuario): UsuarioDto {
     avatarUrl: u.avatar_arquivo ? `/files/${u.avatar_arquivo}` : null,
     cargo: u.cargo,
     funcaoId: u.funcao_id ?? null,
+    ...(u.castigo_ate && u.castigo_ate > agora ? { castigoAte: u.castigo_ate } : {}),
   };
 }
 
@@ -35,7 +38,7 @@ export function listarAtivos(banco: Banco): LinhaUsuario[] {
 export function listarMembros(banco: Banco, comunidadeId: number): LinhaUsuario[] {
   return banco
     .prepare(
-      `SELECT u.*, m.cargo AS cargo, m.funcao_id AS funcao_id FROM usuarios u JOIN membros m ON m.usuario_id = u.id
+      `SELECT u.*, m.cargo AS cargo, m.funcao_id AS funcao_id, m.castigo_ate AS castigo_ate FROM usuarios u JOIN membros m ON m.usuario_id = u.id
        WHERE m.comunidade_id = ? AND u.removido_em IS NULL ORDER BY u.nome_exibicao COLLATE NOCASE, u.id`,
     )
     .all(comunidadeId) as LinhaUsuario[];
@@ -45,7 +48,7 @@ export function listarMembros(banco: Banco, comunidadeId: number): LinhaUsuario[
 export function buscarNa(banco: Banco, id: number, comunidadeId: number): LinhaUsuario | undefined {
   return banco
     .prepare(
-      `SELECT u.*, m.cargo AS cargo, m.funcao_id AS funcao_id FROM usuarios u JOIN membros m ON m.usuario_id = u.id
+      `SELECT u.*, m.cargo AS cargo, m.funcao_id AS funcao_id, m.castigo_ate AS castigo_ate FROM usuarios u JOIN membros m ON m.usuario_id = u.id
        WHERE u.id = ? AND m.comunidade_id = ? AND u.removido_em IS NULL`,
     )
     .get(id, comunidadeId) as LinhaUsuario | undefined;

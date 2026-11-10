@@ -18,6 +18,7 @@ interface LinhaComunidade {
 export interface Membro {
   cargo: Cargo;
   funcao_id: number | null;
+  castigo_ate?: number | null;
 }
 
 /** O nome do principal vem da configuração (NOME_SERVIDOR); os outros, do banco. */
@@ -43,7 +44,7 @@ export function donoDa(banco: Banco, id: number): number | null {
 }
 
 export function membroDe(banco: Banco, comunidadeId: number, usuarioId: number): Membro | undefined {
-  return banco.prepare('SELECT cargo, funcao_id FROM membros WHERE comunidade_id = ? AND usuario_id = ?').get(comunidadeId, usuarioId) as Membro | undefined;
+  return banco.prepare('SELECT cargo, funcao_id, castigo_ate FROM membros WHERE comunidade_id = ? AND usuario_id = ?').get(comunidadeId, usuarioId) as Membro | undefined;
 }
 
 export function idsDosMembros(banco: Banco, comunidadeId: number): number[] {

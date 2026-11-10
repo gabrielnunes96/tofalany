@@ -228,20 +228,39 @@ export function App() {
     [retomar],
   );
 
-  const sessaoRevogada = useCallback((motivo: MotivoRevogacao) => {
-    const atual = estadoRef.current;
-    if (motivo === 'fora_do_servidor' && atual.fase === 'principal') {
-      void esquecerServidor(atual.url);
-      return;
-    }
-    if (atual.fase === 'principal')
-      void ponte()
-        .sessao.apagar(atual.url)
-        .catch(() => undefined);
-    setEstado((atual) =>
-      atual.fase === 'principal' ? { fase: 'entrar', url: atual.url, aviso: avisoDeRevogacao(motivo) } : atual,
-    );
-  }, [esquecerServidor]);
+  /** Moderação: expulso ou banido — a pessoa vê o motivo numa janela, por cima de tudo. */
+  const [avisoModeracao, setAvisoModeracao] = useState<string | null>(null);
+  const sessaoRevogada = useCallback(
+    (motivo: MotivoRevogacao, detalhe?: string | null, url?: string) => {
+      const atual = estadoRef.current;
+      const daTela = url ?? (atual.fase === 'principal' ? atual.url : undefined);
+      const moderacao = motivo === 'expulso' || motivo === 'banido';
+      if (moderacao) setAvisoModeracao(avisoDeRevogacao(motivo, detalhe, servidoresRef.current.find((s) => s.url === daTela)?.nome) ?? null);
+      const saiuDoServidor = motivo === 'fora_do_servidor' || moderacao;
+      // A tela escondida (voz em outro servidor) foi a revogada: some a voz dela, sem tirar a pessoa de onde está.
+      if (daTela && !(atual.fase === 'principal' && atual.url === daTela)) {
+        setVozViva((v) => (v?.url === daTela ? null : v));
+        if (saiuDoServidor) {
+          const resto = servidoresRef.current.filter((s) => s.url !== daTela);
+          setServidores(resto);
+          void ponte()
+            .config.gravar({ servidores: resto })
+            .catch(() => undefined);
+        }
+        return;
+      }
+      if (saiuDoServidor && atual.fase === 'principal') {
+        void esquecerServidor(atual.url);
+        return;
+      }
+      if (atual.fase === 'principal')
+        void ponte()
+          .sessao.apagar(atual.url)
+          .catch(() => undefined);
+      setEstado((atual) => (atual.fase === 'principal' ? { fase: 'entrar', url: atual.url, aviso: avisoDeRevogacao(motivo) } : atual));
+    },
+    [esquecerServidor],
+  );
 
   const trocarServidor = () => setEstado((atual) => ({ fase: 'escolher-servidor', voltar: atual }));
 
@@ -335,9 +354,25 @@ export function App() {
     };
   }, [servidores, urlAtiva]);
   /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
+  const janelaModeracao = avisoModeracao && (
+    <div className="dialogo-fundo" role="presentation">
+      <div className="dialogo cartao" role="alertdialog" aria-label="Aviso da moderação" aria-describedby="texto-moderacao">
+        <h2>Aviso da moderação</h2>
+        <p id="texto-moderacao">{avisoModeracao}</p>
+        <div className="dialogo-acoes">
+          <button type="button" autoFocus onClick={() => setAvisoModeracao(null)}>
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+  );
   const comColuna = (tela: ReactNode) =>
     servidores.length === 0 ? (
-      tela
+      <>
+        {tela}
+        {janelaModeracao}
+      </>
     ) : (
       <div className="app-com-servidores">
         <ColunaServidores
@@ -349,6 +384,7 @@ export function App() {
           aoCriar={podeCriar && urlAtiva && separarComunidade(urlAtiva).base === podeCriar ? criarServidor : undefined}
         />
         <div className="app-tela">{tela}</div>
+        {janelaModeracao}
       </div>
     );
 

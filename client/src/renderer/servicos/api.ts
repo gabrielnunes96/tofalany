@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas, ComunidadeDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas, ComunidadeDto, BanimentoDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -35,6 +35,13 @@ export interface ClienteApi {
   excluirComunidade(): Promise<void>;
   /** Administrador: nome e imagem do servidor do endereço. */
   renomearComunidade(nome: string): Promise<ComunidadeDto>;
+  /** Moderação (administrador ou cargo com "Moderar membros"). */
+  castigar(id: number, minutos: number, motivo: string | null): Promise<UsuarioDto>;
+  tirarCastigo(id: number): Promise<UsuarioDto>;
+  expulsar(id: number, motivo: string | null): Promise<void>;
+  banir(id: number, motivo: string | null): Promise<void>;
+  banidos(): Promise<BanimentoDto[]>;
+  desbanir(id: number): Promise<void>;
   enviarIconeComunidade(arquivo: Blob, nome: string): Promise<ComunidadeDto>;
   removerIconeComunidade(): Promise<ComunidadeDto>;
   /** ToOuvini: cookies do YouTube (administrador do principal). */
@@ -126,6 +133,12 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     sairComunidade: () => chamar('POST', '/api/comunidade/sair'),
     excluirComunidade: () => chamar('DELETE', '/api/comunidade'),
     renomearComunidade: (nome) => chamar('PATCH', '/api/comunidade', { nome }),
+    castigar: (id, minutos, motivo) => chamar('POST', `/api/moderacao/${id}/castigo`, { minutos, motivo }),
+    tirarCastigo: (id) => chamar('DELETE', `/api/moderacao/${id}/castigo`),
+    expulsar: (id, motivo) => chamar('POST', `/api/moderacao/${id}/expulsar`, { motivo }),
+    banir: (id, motivo) => chamar('POST', `/api/moderacao/${id}/banir`, { motivo }),
+    banidos: () => chamar('GET', '/api/moderacao/banidos'),
+    desbanir: (id) => chamar('DELETE', `/api/moderacao/banidos/${id}`),
     enviarIconeComunidade: (arquivo, nome) => {
       const form = new FormData();
       form.append('arquivo', arquivo, nome);

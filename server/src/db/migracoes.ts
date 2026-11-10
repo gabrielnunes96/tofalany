@@ -199,5 +199,18 @@ export const MIGRACOES: readonly string[] = [
   `
   ALTER TABLE comunidades ADD COLUMN icone_arquivo TEXT;
   `,
+  // 015 — moderação: castigo por tempo (no membro) e banimentos por servidor (com motivo).
+  `
+  ALTER TABLE membros ADD COLUMN castigo_ate INTEGER;
+  ALTER TABLE membros ADD COLUMN castigo_motivo TEXT;
+  CREATE TABLE banimentos (
+    comunidade_id INTEGER NOT NULL REFERENCES comunidades(id) ON DELETE CASCADE,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    motivo TEXT,
+    por_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    em INTEGER NOT NULL,
+    PRIMARY KEY (comunidade_id, usuario_id)
+  );
+  `,
 ];
 

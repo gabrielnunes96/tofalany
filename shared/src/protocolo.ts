@@ -34,6 +34,8 @@ export interface UsuarioDto {
   cargo: Cargo;
   /** Backlog v2, item 10c: cargo personalizado (ex.: Moderador), com nome, cor e permissões; null/ausente = nenhum. */
   funcaoId?: number | null;
+  /** Moderação: de castigo neste servidor até (ms); sem valor = não está. */
+  castigoAte?: number | null;
 }
 
 /**
@@ -54,7 +56,8 @@ export type Permissao =
   | 'gerenciar_sons'
   | 'transmitir_1080p'
   | 'transmitir_1440p'
-  | 'ver_auditoria';
+  | 'ver_auditoria'
+  | 'moderar_membros';
 
 export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basica?: boolean }[] = [
   { id: 'enviar_mensagens', nome: 'Enviar mensagens', descricao: 'escrever nos canais de texto', basica: true },
@@ -71,6 +74,7 @@ export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basic
   { id: 'transmitir_1080p', nome: 'Transmitir em 1080p', descricao: 'transmitir a tela em 1080p60' },
   { id: 'transmitir_1440p', nome: 'Transmitir em 2K', descricao: 'transmitir a tela em 1440p60 (se o monitor tiver)' },
   { id: 'ver_auditoria', nome: 'Ver auditoria', descricao: 'ver o registro de entradas, saídas e ações' },
+  { id: 'moderar_membros', nome: 'Moderar membros', descricao: 'pôr de castigo, expulsar e banir (não vale para administradores)' },
 ];
 
 /** O que todo membro sem cargo personalizado faz (e o que um cargo novo traz marcado). */
@@ -86,11 +90,18 @@ export interface FuncaoDto {
 }
 
 /** O que alguém pode fazer: administrador tudo; com cargo personalizado, o que ele libera; sem, as básicas. */
-export function permissoesDe(usuario: Pick<UsuarioDto, 'cargo' | 'funcaoId'> | undefined, funcoes: FuncaoDto[]): Set<Permissao> {
+export function permissoesDe(
+  usuario: Pick<UsuarioDto, 'cargo' | 'funcaoId' | 'castigoAte'> | undefined,
+  funcoes: FuncaoDto[],
+  agora: number = Date.now(),
+): Set<Permissao> {
   if (!usuario) return new Set();
   if (usuario.cargo === 'admin') return new Set(PERMISSOES.map((p) => p.id));
   const funcao = usuario.funcaoId ? funcoes.find((f) => f.id === usuario.funcaoId) : undefined;
-  return new Set(funcao ? funcao.permissoes : PERMISSOES_BASICAS);
+  const todas = new Set(funcao ? funcao.permissoes : PERMISSOES_BASICAS);
+  // De castigo: não participa (mensagens, voz, câmera, tela, sons, ToOuvini) até acabar.
+  if (usuario.castigoAte && usuario.castigoAte > agora) for (const p of PERMISSOES_SEM_CASTIGO) todas.delete(p);
+  return todas;
 }
 
 /** Visão do administrador: inclui contas removidas (para a auditoria). */
@@ -304,7 +315,28 @@ export type Tema = 'neon' | 'breu' | 'aurora';
 export const TEMAS: Tema[] = ['neon', 'breu', 'aurora'];
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */
-export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida' | 'fora_do_servidor';
+export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida' | 'fora_do_servidor' | 'expulso' | 'banido';
+
+/** Moderação: o que a pessoa participa enquanto está de castigo deixa de valer (no servidor do castigo). */
+export const PERMISSOES_SEM_CASTIGO: Permissao[] = ['enviar_mensagens', 'enviar_anexos', 'entrar_voz', 'usar_camera', 'transmitir_tela', 'tocar_sons', 'usar_toouvini'];
+/** Durações do castigo oferecidas no app, em minutos (o servidor aceita de 1 minuto a 28 dias). */
+export const DURACOES_CASTIGO = [
+  { minutos: 1, texto: '1 minuto' },
+  { minutos: 5, texto: '5 minutos' },
+  { minutos: 10, texto: '10 minutos' },
+  { minutos: 60, texto: '1 hora' },
+  { minutos: 1440, texto: '1 dia' },
+  { minutos: 10080, texto: '1 semana' },
+] as const;
+export const CASTIGO_MAX_MINUTOS = 40_320;
+export const MOTIVO_MODERACAO_MAX = 300;
+
+export interface BanimentoDto {
+  usuario: Pick<UsuarioDto, 'id' | 'nomeExibicao' | 'usuario' | 'cor' | 'avatarUrl'>;
+  motivo: string | null;
+  em: number;
+  porNome: string | null;
+}
 
 /** Esquema do link que abre o app (RF-1a): tofalany://convite?servidor=<url>&codigo=<código>. */
 export const ESQUEMA_LINK = 'tofalany';
@@ -450,6 +482,8 @@ export interface OlaPayload {
   /** Servidor desta conexão: nome, id (1 = principal) e quem criou (só quem criou exclui; servidor antigo não manda). */
   servidor: { nome: string; id?: number; donoId?: number | null; iconeUrl?: string | null };
   /** Link de convite vigente, que qualquer membro pode copiar (RF-1a). */
+  /** Moderação: o meu castigo aqui, com o motivo (só eu recebo o motivo). */
+  meuCastigo?: { ate: number; motivo: string | null } | null;
   convite: { link: string };
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
@@ -477,7 +511,9 @@ export interface OlaPayload {
 /** Eventos servidor → cliente. */
 export interface EventosServidor {
   ola: (payload: OlaPayload) => void;
-  'sessao:revogada': (payload: { motivo: MotivoRevogacao }) => void;
+  'sessao:revogada': (payload: { motivo: MotivoRevogacao; detalhe?: string | null }) => void;
+  /** Moderação: o meu castigo neste servidor começou (com motivo) ou acabou (null). */
+  'moderacao:castigo': (payload: { ate: number; motivo: string | null } | null) => void;
   /** Conta nova no servidor: aparece na lista de todos sem reconectar. */
   'usuario:criado': (usuario: UsuarioDto) => void;
   /** Perfil mudou (nome, cor, avatar, cargo). */
@@ -501,7 +537,7 @@ export interface EventosServidor {
   /** RF-13: lista inteira de quem está na voz (até 20 pessoas), a cada mudança. */
   'voz:estados': (estados: VozEstadoDto[]) => void;
   /** A mesma pessoa entrou na voz por outro computador: este sai da sala. */
-  'voz:tirado': (payload: { motivo: 'outro_computador' }) => void;
+  'voz:tirado': (payload: { motivo: 'outro_computador' | 'castigo' }) => void;
   /** RF-23: alguém tocou um som do soundboard; chega só para quem está naquele canal de voz. */
   'som:tocado': (payload: { somId: number; porUsuarioId: number; canalVozId: number }) => void;
   /** RN-10: transmissão de tela começou ou parou (para todos: a barra mostra quem transmite). */

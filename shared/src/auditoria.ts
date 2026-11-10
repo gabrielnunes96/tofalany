@@ -28,6 +28,11 @@ export const TIPOS_AUDITORIA = [
   'entrou_no_servidor',
   'saiu_do_servidor',
   'tirado_do_servidor',
+  'castigo_aplicado',
+  'castigo_removido',
+  'expulso',
+  'banido',
+  'desbanido',
 ] as const;
 
 export type TipoAuditoria = (typeof TIPOS_AUDITORIA)[number];
@@ -62,6 +67,11 @@ export const ROTULOS_AUDITORIA: Record<TipoAuditoria, string> = {
   entrou_no_servidor: 'entrou no servidor',
   saiu_do_servidor: 'saiu do servidor',
   tirado_do_servidor: 'tirou do servidor',
+  castigo_aplicado: 'pôs de castigo',
+  castigo_removido: 'tirou o castigo de',
+  expulso: 'expulsou',
+  banido: 'baniu',
+  desbanido: 'desbaniu',
 };
 
 export const PRAZO_AUDITORIA_DIAS_PADRAO = 30;

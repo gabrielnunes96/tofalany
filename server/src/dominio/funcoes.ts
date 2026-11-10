@@ -72,5 +72,5 @@ export function temPermissao(banco: Banco, usuarioId: number, permissao: Permiss
   const m = membroDe(banco, comunidadeId, usuarioId);
   if (!m) return false;
   const funcao = m.funcao_id ? buscarFuncao(banco, m.funcao_id, comunidadeId) : undefined;
-  return permissoesDe({ cargo: m.cargo, funcaoId: m.funcao_id }, funcao ? [funcao] : []).has(permissao);
+  return permissoesDe({ cargo: m.cargo, funcaoId: m.funcao_id, castigoAte: m.castigo_ate ?? null }, funcao ? [funcao] : []).has(permissao);
 }

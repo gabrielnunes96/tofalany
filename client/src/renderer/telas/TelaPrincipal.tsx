@@ -13,6 +13,7 @@ import { GradeVideos } from '../componentes/GradeVideos';
 import { SeletorTela, type FonteTela } from '../componentes/SeletorTela';
 import { PainelTransmissao } from '../componentes/PainelTransmissao';
 import { TelaEditarServidor } from './TelaEditarServidor';
+import { DialogoModeracao, type TipoModeracao } from '../componentes/DialogoModeracao';
 import { Espectadores } from '../componentes/Espectadores';
 import { PainelMusica } from '../componentes/PainelMusica';
 import { Icone } from '../componentes/Icone';
@@ -54,7 +55,8 @@ interface Props {
   usuarioInicial: UsuarioDto;
   aoSair: () => void;
   aoTrocarServidor: () => void;
-  aoSessaoRevogada: (motivo: MotivoRevogacao) => void;
+  /** A sessão acabou (com o detalhe da moderação, se houver) — `url` diz de qual tela (a da voz pode estar escondida). */
+  aoSessaoRevogada: (motivo: MotivoRevogacao, detalhe?: string | null, url?: string) => void;
   /** Saí deste servidor ou ele foi excluído: a coluna tira o ícone e vai para outro. */
   aoSairDoServidor?: () => void;
 }
@@ -186,6 +188,9 @@ function TelaDoServidor({
   // RF-13: sala de voz (uma por vez) e o canal em que estou.
   const salaVozRef = useRef<SalaVoz | null>(null);
   const minhaVozRef = useRef<number | null>(null);
+  /** Moderação: o meu castigo aqui (com o motivo, que só eu recebo). */
+  const [meuCastigo, setMeuCastigo] = useState<{ ate: number; motivo: string | null } | null>(null);
+  const [dialogoModeracao, setDialogoModeracao] = useState<{ tipo: TipoModeracao; usuarioId: number } | null>(null);
   const [minhaVoz, setMinhaVozEstado] = useState<number | null>(null);
   const [avisoVoz, setAvisoVoz] = useState<string | null>(null);
   const [entrandoVoz, setEntrandoVoz] = useState(false);
@@ -721,6 +726,7 @@ function TelaDoServidor({
       aoOla: (ola) => {
         olaEmRef.current = Date.now();
         acoes.aplicarOla(ola);
+        setMeuCastigo(ola.meuCastigo ?? null);
         // Reconectou com a voz ligada: a presença volta para todos.
         const canal = minhaVozRef.current;
         if (canal === null) return;
@@ -829,14 +835,15 @@ function TelaDoServidor({
           if (tocou) document.documentElement.dataset.somSoundboard = `${somId}:${Date.now()}`;
         });
       },
-      aoVozTirado: () => {
+      aoVozTirado: (motivo) => {
         if (minhaVozRef.current !== null) tocar('sair');
         minhaVozRef.current = null;
         setMinhaVozEstado(null);
-        setAvisoVoz('Você entrou na voz por outro computador; aqui a voz foi desligada.');
+        setAvisoVoz(motivo === 'castigo' ? 'Você foi posto de castigo e saiu da voz.' : 'Você entrou na voz por outro computador; aqui a voz foi desligada.');
         void salaVozRef.current?.sair();
       },
-      aoRevogada: aoSessaoRevogada,
+      aoRevogada: (motivo, detalhe) => aoSessaoRevogada(motivo, detalhe, servidorUrl),
+      aoCastigo: setMeuCastigo,
     });
     conexaoRef.current = conexao;
     conexao.escolherStatus(escolhaRef.current);
@@ -901,7 +908,17 @@ function TelaDoServidor({
   const buscarPrevia = useMemo(() => criarBuscaPrevia((url) => api.previa(url)), [api]);
   const ehAdmin = usuario.cargo === 'admin';
   // Backlog v2, item 10c: o que o cargo personalizado libera (administrador: tudo).
-  const permissoes = useMemo(() => permissoesDe(usuario, funcoes), [usuario, funcoes]);
+  // O castigo acaba sozinho: na hora marcada as permissões voltam (e o aviso some).
+  const [fimDoCastigo, setFimDoCastigo] = useState(0);
+  const castigoAte = Math.max(usuario.castigoAte ?? 0, meuCastigo?.ate ?? 0);
+  useEffect(() => {
+    if (!castigoAte || castigoAte <= Date.now()) return;
+    const t = setTimeout(() => setFimDoCastigo(Date.now()), Math.min(castigoAte - Date.now() + 250, 2_147_000_000));
+    return () => clearTimeout(t);
+  }, [castigoAte]);
+  const deCastigo = castigoAte > Math.max(fimDoCastigo, Date.now() - 1) && castigoAte > Date.now();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const permissoes = useMemo(() => permissoesDe(usuario, funcoes), [usuario, funcoes, fimDoCastigo]);
   const podeVer = (v: Vista) =>
     v === 'membros' ? ehAdmin : v === 'auditoria' ? permissoes.has('ver_auditoria') : v === 'convite' ? permissoes.has('gerenciar_convite') : v === 'sons' ? permissoes.has('gerenciar_sons') : true;
   const vistaAtual: Vista = !podeVer(vista) ? 'canal' : vista;
@@ -1173,6 +1190,19 @@ function TelaDoServidor({
           {conexao === 'conectando' ? 'Conectando…' : 'Sem conexão com o servidor. Reconectando…'}
         </div>
       )}
+      {dialogoModeracao && (
+        <DialogoModeracao
+          tipo={dialogoModeracao.tipo}
+          nome={usuarios.find((u) => u.id === dialogoModeracao.usuarioId)?.nomeExibicao ?? 'alguém'}
+          aoFechar={() => setDialogoModeracao(null)}
+          aoConfirmar={async ({ minutos, motivo }) => {
+            const id = dialogoModeracao.usuarioId;
+            if (dialogoModeracao.tipo === 'castigo') acoes.atualizarUsuario(await api.castigar(id, minutos, motivo));
+            else if (dialogoModeracao.tipo === 'expulsar') await api.expulsar(id, motivo);
+            else await api.banir(id, motivo);
+          }}
+        />
+      )}
       {menuPessoa && pessoas.find((p) => p.id === menuPessoa.usuarioId) && (
         <MenuPessoa
           usuario={pessoas.find((p) => p.id === menuPessoa.usuarioId)!}
@@ -1190,6 +1220,21 @@ function TelaDoServidor({
           aoAceitarAmizade={() => aceitarAmizade(menuPessoa.usuarioId)}
           aoRemoverAmizade={() => removerAmizade(menuPessoa.usuarioId)}
           aoFechar={fecharMenuPessoa}
+          moderacao={(() => {
+            const alvoMod = usuarios.find((u) => u.id === menuPessoa.usuarioId);
+            if (!alvoMod || alvoMod.id === usuario.id || alvoMod.cargo === 'admin' || alvoMod.id === donoServidor || !permissoes.has('moderar_membros')) return undefined;
+            // Quem não é administrador não modera outro moderador (o servidor também confere).
+            if (!ehAdmin && permissoesDe({ ...alvoMod, castigoAte: null }, funcoes).has('moderar_membros')) return undefined;
+            return {
+              castigoAte: alvoMod.castigoAte && alvoMod.castigoAte > Date.now() ? alvoMod.castigoAte : null,
+              aoAbrir: (tipo: TipoModeracao) => setDialogoModeracao({ tipo, usuarioId: alvoMod.id }),
+              aoTirarCastigo: () =>
+                void api
+                  .tirarCastigo(alvoMod.id)
+                  .then(acoes.atualizarUsuario)
+                  .catch((e: unknown) => setAvisoVoz(e instanceof Error ? e.message : 'Não foi possível tirar o castigo.')),
+            };
+          })()}
         />
       )}
       <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
@@ -1485,6 +1530,27 @@ function TelaDoServidor({
 
         <ContextoPrevia.Provider value={buscarPrevia}>
         <main className="conteudo">
+          {deCastigo && (
+            <section className="aviso-castigo" role="status" aria-label="Você está de castigo">
+              <span>
+                ⏳ Você está de castigo neste servidor até{' '}
+                <strong>
+                  {new Date(castigoAte).toLocaleString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    ...(new Date(castigoAte).toDateString() !== new Date().toDateString() ? { day: '2-digit', month: '2-digit' } : {}),
+                  })}
+                </strong>
+                . Enquanto isso, não dá para escrever, entrar na voz nem transmitir.
+                {meuCastigo?.motivo && (
+                  <>
+                    {' '}
+                    Motivo: <em>{meuCastigo.motivo}</em>
+                  </>
+                )}
+              </span>
+            </section>
+          )}
           {vozEmOutro && minhaVoz === null && (
             <section className="aviso-voz-outro" aria-label="Voz em outro servidor">
               <span>
@@ -1599,7 +1665,7 @@ function TelaDoServidor({
               key={canalAtivo ?? 'nenhum'}
               canal={canais.find((c) => c.id === canalAtivo)}
               ehAdmin={ehAdmin}
-              somenteLeitura={permissoes.has('enviar_mensagens') ? undefined : 'Seu cargo não permite enviar mensagens nos canais.'}
+              somenteLeitura={permissoes.has('enviar_mensagens') ? undefined : deCastigo ? 'Você está de castigo: não dá para escrever até ele acabar.' : 'Seu cargo não permite enviar mensagens nos canais.'}
               aoRenomear={renomearCanal}
               aoRemover={removerCanal}
               usuarios={usuarios}
@@ -1658,6 +1724,14 @@ function TelaDoServidor({
                     {item.u.nomeExibicao}
                   </span>
                   {item.u.cargo === 'admin' && <span className="selo">admin</span>}
+                  {item.u.castigoAte && item.u.castigoAte > Date.now() && (
+                    <span
+                      className="selo selo-castigo"
+                      title={`De castigo até ${new Date(item.u.castigoAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+                    >
+                      ⏳ castigo
+                    </span>
+                  )}
                   {funcoes.find((f) => f.id === item.u.funcaoId) && (
                     <span className="selo selo-funcao" style={{ color: funcoes.find((f) => f.id === item.u.funcaoId)!.cor, borderColor: funcoes.find((f) => f.id === item.u.funcaoId)!.cor }}>
                       {funcoes.find((f) => f.id === item.u.funcaoId)!.nome}

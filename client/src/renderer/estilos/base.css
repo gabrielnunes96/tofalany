@@ -669,3 +669,17 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .aviso-voz-outro { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: none; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--destaque); border-radius: var(--raio); background: color-mix(in srgb, var(--destaque) 10%, transparent); }
 .aviso-voz-outro span { flex: 1; }
 .aviso-voz-outro button { margin: 0; }
+
+/* Moderação: aviso de castigo e diálogos (motivo, duração, aviso de expulsão/banimento). */
+.aviso-castigo { display: flex; align-items: center; gap: 10px; flex: none; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--erro); border-radius: var(--raio); background: color-mix(in srgb, var(--erro) 10%, transparent); }
+.dialogo-fundo { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.55); }
+.dialogo { width: min(440px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.dialogo h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.dialogo textarea { width: 100%; resize: vertical; }
+.dialogo-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.dialogo-acoes button { margin: 0; }
+.duracoes-castigo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; border: 1px solid var(--borda); border-radius: var(--raio); padding: 6px 10px; }
+.duracoes-castigo label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.banido-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.banido-info small { overflow-wrap: anywhere; }
+.selo-castigo { color: var(--erro); border-color: var(--erro); }

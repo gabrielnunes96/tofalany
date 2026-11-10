@@ -40,6 +40,8 @@ import { conhecidosDe, registrarEventosAmizades } from './amizades.js';
 import { listarAmizades } from '../dominio/amizades.js';
 import { criarMusica } from './musica.js';
 import { criarTela } from './tela.js';
+import { meuCastigo } from '../dominio/moderacao.js';
+import { comunidadeDoCanal } from '../dominio/canais.js';
 
 interface DadosSocket {
   usuarioId: number;
@@ -74,8 +76,12 @@ export interface TempoReal {
   ): Promise<boolean>;
   /** RN-17: o cargo de alguém mudou (transmissão acima de 720p30 de quem não é mais admin para). */
   cargoMudou(usuarioId: number, comunidadeId?: number): void;
-  /** Derruba as conexões de alguém num servidor (saiu ou foi tirado de lá). */
-  tirarDaComunidade(usuarioId: number, comunidadeId: number): void;
+  /** Derruba as conexões de alguém num servidor (saiu, foi tirado, expulso ou banido; com o motivo para a pessoa). */
+  tirarDaComunidade(usuarioId: number, comunidadeId: number, motivo?: MotivoRevogacao, detalhe?: string | null): void;
+  /** Moderação: tira a pessoa da voz deste servidor (castigo). */
+  tirarDaVoz(usuarioId: number, comunidadeId: number): void;
+  /** Moderação: avisa só a pessoa (nas conexões dela neste servidor) que o castigo começou ou acabou. */
+  avisarCastigo(usuarioId: number, comunidadeId: number, castigo: { ate: number; motivo: string | null } | null): void;
   /** Derruba todas as conexões de um servidor (excluído). */
   fecharComunidade(comunidadeId: number): void;
 }
@@ -270,7 +276,8 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       },
       convite: { link: montarLinkConvite(socket.data.baseServidor, conviteDa(banco, comunidadeId) ?? '') },
       eu: paraDto(membros.find((m) => m.id === eu.id) ?? eu),
-      usuarios: membros.map(paraDto),
+      meuCastigo: meuCastigo(banco, comunidadeId, eu.id),
+      usuarios: membros.map((m) => paraDto(m)),
       funcoes: listarFuncoes(banco, comunidadeId),
       canais,
       dms,
@@ -321,9 +328,9 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     });
   }
 
-  function derrubar(socket: SocketTofalando, motivo: MotivoRevogacao) {
+  function derrubar(socket: SocketTofalando, motivo: MotivoRevogacao, detalhe?: string | null) {
     voz.revogar(socket.data.usuarioId, socket.id);
-    socket.emit('sessao:revogada', { motivo });
+    socket.emit('sessao:revogada', detalhe !== undefined ? { motivo, detalhe } : { motivo });
     socket.disconnect(true);
   }
 
@@ -336,8 +343,17 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       return true;
     },
     cargoMudou: (usuarioId) => tela.cargoMudou(usuarioId),
-    tirarDaComunidade(usuarioId, comunidadeId) {
-      for (const s of io.of('/').sockets.values()) if (s.data.usuarioId === usuarioId && s.data.comunidadeId === comunidadeId) derrubar(s, 'fora_do_servidor');
+    tirarDaComunidade(usuarioId, comunidadeId, motivo = 'fora_do_servidor', detalhe) {
+      for (const s of io.of('/').sockets.values()) if (s.data.usuarioId === usuarioId && s.data.comunidadeId === comunidadeId) derrubar(s, motivo, detalhe);
+    },
+    tirarDaVoz(usuarioId, comunidadeId) {
+      const p = voz.presenca(usuarioId);
+      if (!p || (comunidadeDoCanal(banco, p.canalVozId) ?? 1) !== comunidadeId) return;
+      io.to(p.socketId).emit('voz:tirado', { motivo: 'castigo' });
+      voz.revogar(usuarioId, p.socketId);
+    },
+    avisarCastigo(usuarioId, comunidadeId, castigo) {
+      for (const s of io.of('/').sockets.values()) if (s.data.usuarioId === usuarioId && s.data.comunidadeId === comunidadeId) s.emit('moderacao:castigo', castigo);
     },
     fecharComunidade(comunidadeId) {
       for (const s of io.of('/').sockets.values()) if (s.data.comunidadeId === comunidadeId) derrubar(s, 'fora_do_servidor');

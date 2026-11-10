@@ -25,6 +25,7 @@ import type { Armazem } from '../arquivos/armazem.js';
 import { baseServidor } from './convite.js';
 import { arquivosDoCanal } from '../dominio/anexos.js';
 import { processarAvatar } from './perfil.js';
+import { estaBanido } from '../dominio/moderacao.js';
 
 /**
  * Vários servidores na mesma instalação (como no Discord): listar os meus, criar um, entrar com convite, sair e
@@ -62,6 +63,7 @@ export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, co
     async (req): Promise<ComunidadeDto> => {
       const id = comunidadeDoConvite(banco, (req.body as { codigo: string }).codigo);
       if (id === undefined) throw new ErroHttp(403, 'convite_invalido', 'Código de convite inválido.');
+      if (estaBanido(banco, id, req.usuarioId!)) throw new ErroHttp(403, 'sem_permissao', 'Você foi banido deste servidor.');
       if (!membroDe(banco, id, req.usuarioId!)) {
         adicionarMembro(banco, id, req.usuarioId!, 'membro');
         registrarAuditoria(banco, { tipo: 'entrou_no_servidor', atorId: req.usuarioId!, comunidadeId: id });

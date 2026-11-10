@@ -4,12 +4,14 @@ import type { Cargo, FuncaoDto, RedefinicaoDto, UsuarioDto } from '@tofalando/sh
 import type { ClienteApi } from '../servicos/api';
 import { Avatar } from '../componentes/Avatar';
 import { GerenciarCargos } from '../componentes/GerenciarCargos';
+import { ListaBanidos } from '../componentes/ListaBanidos';
 
 interface Props {
   eu: UsuarioDto;
   usuarios: UsuarioDto[];
   servidorUrl: string;
-  api: Pick<ClienteApi, 'mudarCargo' | 'removerConta' | 'gerarRedefinicao'> & Partial<Pick<ClienteApi, 'definirFuncao' | 'criarFuncao' | 'editarFuncao' | 'removerFuncao'>>;
+  api: Pick<ClienteApi, 'mudarCargo' | 'removerConta' | 'gerarRedefinicao'> &
+    Partial<Pick<ClienteApi, 'definirFuncao' | 'criarFuncao' | 'editarFuncao' | 'removerFuncao' | 'banidos' | 'desbanir'>>;
   /** Backlog v2, item 10c: cargos personalizados (sem eles, a tela fica como antes). */
   funcoes?: FuncaoDto[];
   /** Copia o código para a área de transferência (padrão: a do navegador). */
@@ -151,6 +153,7 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
       {funcoes && api.criarFuncao && api.editarFuncao && api.removerFuncao && (
         <GerenciarCargos funcoes={funcoes} api={{ criarFuncao: api.criarFuncao, editarFuncao: api.editarFuncao, removerFuncao: api.removerFuncao }} />
       )}
+      {api.banidos && api.desbanir && <ListaBanidos api={{ banidos: api.banidos, desbanir: api.desbanir }} servidorUrl={servidorUrl} />}
       <p className="suave">
         {principal
           ? 'Remover uma conta desconecta a pessoa na hora e libera a vaga. As mensagens dela continuam, com o autor "conta removida".'

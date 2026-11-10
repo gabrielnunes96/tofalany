@@ -25,7 +25,9 @@ export interface OuvintesTempoReal {
   aoSonsAtualizados(sons: SomDto[]): void;
   aoVozEstados(estados: VozEstadoDto[]): void;
   /** Entrei na voz por outro computador: este sai da sala. */
-  aoVozTirado(): void;
+  aoVozTirado(motivo?: 'outro_computador' | 'castigo'): void;
+  /** Moderação: o meu castigo neste servidor começou (com motivo) ou acabou (null). */
+  aoCastigo?(castigo: { ate: number; motivo: string | null } | null): void;
   /** RF-23: som do soundboard tocado no meu canal de voz. */
   aoSomTocado(p: { somId: number; porUsuarioId: number; canalVozId: number }): void;
   /** RF-37: status de alguém mudou. */
@@ -40,7 +42,7 @@ export interface OuvintesTempoReal {
   /** Amigos e pedidos mudaram (servidor antigo nunca manda). */
   aoAmizades?(amizades: AmizadeDto[], conhecidos: UsuarioDto[]): void;
   /** A sessão não vale mais: não tenta reconectar. */
-  aoRevogada(motivo: MotivoRevogacao): void;
+  aoRevogada(motivo: MotivoRevogacao, detalhe?: string | null): void;
 }
 
 export type SocketTofalando = Socket<EventosServidor, EventosCliente>;
@@ -117,11 +119,11 @@ export function conectarTempoReal(
     timeout: 10_000,
   });
 
-  const revogar = (motivo: MotivoRevogacao) => {
+  const revogar = (motivo: MotivoRevogacao, detalhe?: string | null) => {
     if (encerrada) return;
     encerrada = true;
     socket.disconnect();
-    ouvintes.aoRevogada(motivo);
+    ouvintes.aoRevogada(motivo, detalhe);
   };
 
   ouvintes.aoEstado('conectando');
@@ -148,7 +150,7 @@ export function conectarTempoReal(
   });
   socket.on('sons:atualizados', (sons) => ouvintes.aoSonsAtualizados(sons));
   socket.on('voz:estados', (estados) => ouvintes.aoVozEstados(estados));
-  socket.on('voz:tirado', () => ouvintes.aoVozTirado());
+  socket.on('voz:tirado', (p) => ouvintes.aoVozTirado(p?.motivo));
   socket.on('som:tocado', (p) => ouvintes.aoSomTocado(p));
   socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
   socket.on('tela:iniciada', (t) => ouvintes.aoTelaIniciada(t));
@@ -157,7 +159,8 @@ export function conectarTempoReal(
   socket.on('tela:espectadores', ({ canalVozId, usuarioId, espectadores }) => ouvintes.aoTelaEspectadores?.(canalVozId, usuarioId, espectadores));
   socket.on('musica:estado', (estado) => ouvintes.aoMusica?.(estado));
   socket.on('amizades:atualizadas', ({ amizades, conhecidos }) => ouvintes.aoAmizades?.(amizades, conhecidos));
-  socket.on('sessao:revogada', ({ motivo }) => revogar(motivo));
+  socket.on('sessao:revogada', ({ motivo, detalhe }) => revogar(motivo, detalhe));
+  socket.on('moderacao:castigo', (castigo) => ouvintes.aoCastigo?.(castigo));
   socket.on('connect_error', (erro) => {
     if (erro.message === ERRO_HANDSHAKE_NAO_AUTENTICADO) revogar('sessao_invalida');
     else if (erro.message === 'nao_membro') revogar('fora_do_servidor');

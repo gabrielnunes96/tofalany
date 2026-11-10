@@ -70,12 +70,24 @@ describe('conectarTempoReal', () => {
     expect(ouvintes.aoRevogada).not.toHaveBeenCalled();
   });
 
+  it('expulso ou banido: o motivo da moderação chega junto; castigo e saída da voz chegam com o motivo', () => {
+    const { s, ouvintes } = montar();
+    const aoCastigo = vi.fn();
+    Object.assign(ouvintes, { aoCastigo });
+    s.disparar('moderacao:castigo', { ate: 123, motivo: 'flood' });
+    expect(aoCastigo).toHaveBeenLastCalledWith({ ate: 123, motivo: 'flood' });
+    s.disparar('voz:tirado', { motivo: 'castigo' });
+    expect(ouvintes.aoVozTirado).toHaveBeenLastCalledWith('castigo');
+    s.disparar('sessao:revogada', { motivo: 'banido', detalhe: 'spam' });
+    expect(ouvintes.aoRevogada).toHaveBeenCalledWith('banido', 'spam');
+  });
+
   it('sessão revogada pelo servidor para de tentar e avisa uma vez', () => {
     const { s, ouvintes } = montar();
     s.disparar('sessao:revogada', { motivo: 'saiu' });
     s.disparar('disconnect', 'io server disconnect');
     expect(ouvintes.aoRevogada).toHaveBeenCalledTimes(1);
-    expect(ouvintes.aoRevogada).toHaveBeenCalledWith('saiu');
+    expect(ouvintes.aoRevogada).toHaveBeenCalledWith('saiu', undefined);
     expect(s.disconnect).toHaveBeenCalled();
     expect(s.connect).not.toHaveBeenCalled();
   });
@@ -83,7 +95,7 @@ describe('conectarTempoReal', () => {
   it('token recusado no handshake conta como sessão inválida', () => {
     const { s, ouvintes } = montar();
     s.disparar('connect_error', new Error('nao_autenticado'));
-    expect(ouvintes.aoRevogada).toHaveBeenCalledWith('sessao_invalida');
+    expect(ouvintes.aoRevogada).toHaveBeenCalledWith('sessao_invalida', undefined);
   });
 
   it('servidor encerrando sem revogar: reconecta', () => {

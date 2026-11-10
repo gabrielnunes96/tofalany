@@ -7,6 +7,7 @@ import multipart from '@fastify/multipart';
 import { criarArmazem, type Armazem } from './arquivos/armazem.js';
 import { registrarRotasArquivos } from './routes/arquivos.js';
 import { registrarRotasPerfil } from './routes/perfil.js';
+import { registrarRotasModeracao } from './routes/moderacao.js';
 import { registrarRotasAdmin } from './routes/admin.js';
 import { registrarRotasConvite } from './routes/convite.js';
 import { registrarRotasMensagens } from './routes/mensagens.js';
@@ -140,6 +141,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasArquivos(app, armazem);
   registrarRotasPerfil(app, banco, armazem, tempoReal);
   registrarRotasAdmin(app, banco, config, tempoReal, armazem);
+  registrarRotasModeracao(app, banco, tempoReal);
   registrarRotasMensagens(app, banco);
   registrarRotasAnexos(app, banco, armazem);
   registrarRotasSons(app, banco, armazem, tempoReal);

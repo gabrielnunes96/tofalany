@@ -22,6 +22,7 @@ export function MenuPessoa({
   aoAceitarAmizade,
   aoRemoverAmizade,
   aoFechar,
+  moderacao,
 }: {
   usuario: UsuarioDto;
   x: number;
@@ -38,6 +39,8 @@ export function MenuPessoa({
   aoAceitarAmizade: () => void;
   aoRemoverAmizade: () => void;
   aoFechar: () => void;
+  /** Quem pode moderar esta pessoa (administrador ou "Moderar membros"; ela não é administradora). */
+  moderacao?: { castigoAte: number | null; aoAbrir: (tipo: 'castigo' | 'expulsar' | 'banir') => void; aoTirarCastigo: () => void };
 }) {
   const caixa = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -58,7 +61,7 @@ export function MenuPessoa({
   // Não sai da janela (perto da borda, abre para o outro lado).
   const largura = 250;
   const esquerda = Math.min(x, window.innerWidth - largura - 8);
-  const topo = Math.min(y, window.innerHeight - 280);
+  const topo = Math.min(y, window.innerHeight - (moderacao ? 400 : 280));
   const fazer = (acao: () => void) => () => {
     acao();
     aoFechar();
@@ -113,6 +116,26 @@ export function MenuPessoa({
             <button type="button" role="menuitem" className="perigo-texto" onClick={fazer(aoRemoverAmizade)}>
               Desfazer amizade
             </button>
+          )}
+          {moderacao && (
+            <>
+              <hr />
+              {moderacao.castigoAte ? (
+                <button type="button" role="menuitem" onClick={fazer(moderacao.aoTirarCastigo)}>
+                  Tirar castigo (até {new Date(moderacao.castigoAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})
+                </button>
+              ) : (
+                <button type="button" role="menuitem" onClick={fazer(() => moderacao.aoAbrir('castigo'))}>
+                  Pôr de castigo…
+                </button>
+              )}
+              <button type="button" role="menuitem" className="perigo-texto" onClick={fazer(() => moderacao.aoAbrir('expulsar'))}>
+                Expulsar…
+              </button>
+              <button type="button" role="menuitem" className="perigo-texto" onClick={fazer(() => moderacao.aoAbrir('banir'))}>
+                Banir…
+              </button>
+            </>
           )}
         </>
       )}
