@@ -17,3 +17,6 @@ copia-banco-*.db
 keys/
 *.key
 *.pem
+
+# Menu de desenvolvimento (npm run dev): dados e logs locais
+.dev/
