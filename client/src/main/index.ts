@@ -34,6 +34,9 @@ if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
 
 // Testes E2E: a janela abre sem roubar o foco de quem está usando o PC (o som vai para uma saída falsa: e2e/silencio.ts).
 const testeDiscreto = process.env.TOFALANDO_E2E === '1' && !app.isPackaged;
+// E o app de teste não toca som nenhum para fora (o retorno do teste de som e o apito do microfone falso chegavam aos
+// fones de quem estava usando o PC): o Chromium muta a saída; os níveis de áudio continuam medidos por dentro.
+if (testeDiscreto) app.commandLine.appendSwitch('mute-audio');
 
 let janelaPrincipal: BrowserWindow | undefined;
 /** Backlog v2, 1e: com a bandeja ativa, fechar a janela pergunta (ou faz o que a pessoa escolheu): bandeja ou sair. */
