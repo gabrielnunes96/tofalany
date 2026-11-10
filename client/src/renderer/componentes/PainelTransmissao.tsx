@@ -13,14 +13,28 @@ export function PainelTransmissao({
   espectadores = [],
   aoAssistir,
   conectado = true,
+  aoSom,
 }: {
   nome: string;
   faixa: FaixaVideo | undefined;
   espectadores?: string[];
   aoAssistir?: (assistindo: boolean) => void;
   conectado?: boolean;
+  /** Som da transmissão aqui: toca só assistindo, no volume escolhido (0 = mudo). */
+  aoSom?: (o: { assistindo: boolean; volume: number }) => void;
 }) {
   const [assistindo, setAssistindo] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [mudo, setMudo] = useState(false);
+  const som = useRef(aoSom);
+  useEffect(() => {
+    som.current = aoSom;
+  }, [aoSom]);
+  useEffect(() => {
+    som.current?.({ assistindo, volume: mudo ? 0 : volume });
+  }, [assistindo, volume, mudo]);
+  // Painel some (a pessoa parou): o som dela para de tocar aqui.
+  useEffect(() => () => som.current?.({ assistindo: false, volume: 1 }), []);
   const avisar = useRef(aoAssistir);
   useEffect(() => {
     avisar.current = aoAssistir;
@@ -62,6 +76,32 @@ export function PainelTransmissao({
       <div className="transmissao-acoes">
         <span>🖥️ {nome}</span>
         <Espectadores nomes={espectadores} />
+        <div className="transmissao-volume">
+          <button
+            type="button"
+            className="secundario"
+            aria-pressed={mudo || volume === 0}
+            aria-label={mudo || volume === 0 ? 'Ligar o som da transmissão' : 'Mutar o som da transmissão'}
+            title={mudo || volume === 0 ? 'Ligar o som' : 'Mutar'}
+            onClick={() => (volume === 0 ? (setVolume(1), setMudo(false)) : setMudo(!mudo))}
+          >
+            {mudo || volume === 0 ? '🔇' : volume < 0.5 ? '🔈' : '🔊'}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={200}
+            step={5}
+            value={mudo ? 0 : Math.round(volume * 100)}
+            aria-label="Volume da transmissão"
+            aria-valuetext={`${mudo ? 0 : Math.round(volume * 100)}%`}
+            title={`${mudo ? 0 : Math.round(volume * 100)}%`}
+            onChange={(e) => {
+              setVolume(Number(e.target.value) / 100);
+              setMudo(false);
+            }}
+          />
+        </div>
         <button type="button" className="secundario" onClick={() => alternarTelaCheia(caixa.current)}>
           {cheia ? 'Sair da tela cheia' : 'Tela cheia'}
         </button>

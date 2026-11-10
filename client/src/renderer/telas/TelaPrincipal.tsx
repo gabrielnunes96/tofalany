@@ -1444,6 +1444,7 @@ export function TelaPrincipal({ servidorUrl, token, usuarioInicial, aoSair, aoTr
                 faixa={telasRemotas.find((v) => v.usuarioId === t.usuarioId)?.faixa}
                 espectadores={nomesDeIds(t.espectadores)}
                 conectado={conexao === 'conectado'}
+                aoSom={(o) => salaVozRef.current?.somDaTela(t.usuarioId, o)}
                 aoAssistir={(assistindo) =>
                   void conexaoRef.current?.pedir('tela:assistir', { canalVozId: t.canalVozId, usuarioId: t.usuarioId, assistindo }).catch(() => undefined)
                 }

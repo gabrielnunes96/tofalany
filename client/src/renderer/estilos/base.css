@@ -649,3 +649,8 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .espectadores-lista ul { margin: 0; padding: 0; list-style: none; }
 .espectadores-lista li { padding: 4px 2px; }
 @media (prefers-reduced-motion: reduce) { .espectadores-lista { animation: none; } }
+
+/* Volume do som da transmissão (só para quem assiste). */
+.transmissao-volume { display: flex; align-items: center; gap: 6px; flex: none; }
+.transmissao-acoes .transmissao-volume input[type="range"] { width: 110px; margin: 0; }
+.transmissao-acoes .transmissao-volume button { min-width: 34px; }

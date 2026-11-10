@@ -108,4 +108,22 @@ describe('PainelTransmissao (RF-30)', () => {
     expect(aoAssistir).toHaveBeenLastCalledWith(false);
     expect(aoAssistir).toHaveBeenCalledTimes(2);
   });
+
+  it('volume da transmissão: só assistindo; mutar, voltar e arrastar', () => {
+    const faixa = { attach: vi.fn(), detach: vi.fn() };
+    const aoSom = vi.fn();
+    const { unmount } = render(<PainelTransmissao nome="dono" faixa={faixa} aoSom={aoSom} />);
+    expect(aoSom).toHaveBeenLastCalledWith({ assistindo: false, volume: 1 });
+    expect(screen.queryByLabelText('Volume da transmissão')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Assistir' }));
+    expect(aoSom).toHaveBeenLastCalledWith({ assistindo: true, volume: 1 });
+    fireEvent.change(screen.getByLabelText('Volume da transmissão'), { target: { value: '40' } });
+    expect(aoSom).toHaveBeenLastCalledWith({ assistindo: true, volume: 0.4 });
+    fireEvent.click(screen.getByRole('button', { name: 'Mutar o som da transmissão' }));
+    expect(aoSom).toHaveBeenLastCalledWith({ assistindo: true, volume: 0 });
+    fireEvent.click(screen.getByRole('button', { name: 'Ligar o som da transmissão' }));
+    expect(aoSom).toHaveBeenLastCalledWith({ assistindo: true, volume: 0.4 });
+    unmount();
+    expect(aoSom).toHaveBeenLastCalledWith({ assistindo: false, volume: 1 });
+  });
 });

@@ -80,6 +80,11 @@ export interface SalaVoz {
   faixaMinhaTela(): MediaStreamTrack | undefined;
   /** RF-19/RF-38: volume (0 a 2) de cada pessoa e quem está silenciado, só neste computador. */
   definirPessoas(p: { volumes: Record<string, number>; silenciados: number[] }): void;
+  /**
+   * Som da transmissão de alguém: só toca para quem está assistindo, no volume escolhido no painel (0 = mudo),
+   * separado do volume da voz da pessoa.
+   */
+  somDaTela(usuarioId: number, o: { assistindo?: boolean; volume?: number }): void;
   sair(): Promise<void>;
   /** Sessão de mídia atual (participant.sid), para o servidor reconhecer a saída certa. */
   sid(): string | undefined;
@@ -190,9 +195,19 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
   /** Volume escolhido por pessoa (RF-19) e silenciados (RF-38); deafen e silêncio zeram sem perder o volume. */
   let volumes: Record<string, number> = {};
   let silenciados = new Set<string>();
+  /** Som das transmissões (por quem transmite): só com o painel aberto, no volume do painel. */
+  const somTelas = new Map<string, { assistindo: boolean; volume: number }>();
   function aplicarVolume(elemento: HTMLMediaElement, faixa: RemoteTrack) {
     const id = elemento.dataset.participante ?? '';
-    const v = controles.surdo || silenciados.has(id) ? 0 : (volumes[id] ?? (id === IDENTIDADE_BOT_MUSICA ? VOLUME_BOT_PADRAO : 1));
+    const tela = somTelas.get(id);
+    const v =
+      elemento.dataset.tela === '1'
+        ? controles.surdo || !tela?.assistindo
+          ? 0
+          : tela.volume
+        : controles.surdo || silenciados.has(id)
+          ? 0
+          : (volumes[id] ?? (id === IDENTIDADE_BOT_MUSICA ? VOLUME_BOT_PADRAO : 1));
     const ajustar = (faixa as RemoteTrack & { setVolume?(v: number): void }).setVolume?.bind(faixa);
     try {
       ajustar?.(v);
@@ -340,7 +355,9 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
           return;
         }
         if (track.kind !== 'audio') return;
-        if (participante && track.mediaStreamTrack) {
+        const somDeTela = track.source === Track.Source.ScreenShareAudio;
+        // O som da tela não acende a bolinha de quem fala.
+        if (participante && track.mediaStreamTrack && !somDeTela) {
           try {
             ctxFala ??= new AudioContext();
             fala.adicionar(participante.identity, fonteDeFaixa(ctxFala, track.mediaStreamTrack));
@@ -350,6 +367,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         }
         const elemento = track.attach();
         elemento.dataset.participante = participante?.identity ?? '';
+        if (somDeTela) elemento.dataset.tela = '1';
         faixas.set(elemento, track);
         caixa.appendChild(elemento);
         aplicarVolume(elemento, track);
@@ -538,6 +556,12 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         if (ligar) ouvintes.aoAviso('Não foi possível abrir a câmera.');
         return false;
       }
+    },
+    somDaTela(usuarioId, o) {
+      const id = String(usuarioId);
+      const atual = somTelas.get(id) ?? { assistindo: false, volume: 1 };
+      somTelas.set(id, { assistindo: o.assistindo ?? atual.assistindo, volume: Math.max(0, Math.min(2, o.volume ?? atual.volume)) });
+      for (const [elemento, t] of faixas) if (elemento.dataset.participante === id && elemento.dataset.tela === '1') aplicarVolume(elemento, t);
     },
     definirPessoas(p) {
       volumes = { ...p.volumes };

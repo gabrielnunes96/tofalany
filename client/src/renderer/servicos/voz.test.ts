@@ -227,6 +227,36 @@ describe('sala de voz (RF-13)', () => {
     expect(faixa('4').f.setVolume).toHaveBeenLastCalledWith(0.2);
   });
 
+  it('som da transmissão: só toca para quem assiste, no volume do painel, separado da voz da pessoa', async () => {
+    const { sala, emitir } = salaFalsa();
+    const voz = criarSalaVoz(ouvintesVoz(), () => sala, vi.fn(async () => microfone()));
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    const faixa = (id: string, source: string) => {
+      const el = document.createElement('audio');
+      const f = { kind: 'audio', source, attach: () => el, detach: vi.fn(() => []), setVolume: vi.fn() };
+      emitir(RoomEvent.TrackSubscribed, f, {}, { identity: id });
+      return { el, f };
+    };
+    voz.definirPessoas({ volumes: { '2': 0.5 }, silenciados: [] });
+    const voz2 = faixa('2', 'microphone');
+    const tela2 = faixa('2', 'screen_share_audio');
+    // Sem assistir, o som da tela fica mudo; a voz segue no volume dela.
+    expect(tela2.f.setVolume).toHaveBeenLastCalledWith(0);
+    expect(voz2.f.setVolume).toHaveBeenLastCalledWith(0.5);
+    voz.somDaTela(2, { assistindo: true });
+    expect(tela2.f.setVolume).toHaveBeenLastCalledWith(1);
+    voz.somDaTela(2, { volume: 1.5 });
+    expect(tela2.f.setVolume).toHaveBeenLastCalledWith(1.5);
+    expect(voz2.f.setVolume).toHaveBeenLastCalledWith(0.5);
+    voz.controlar({ surdo: true });
+    expect(tela2.f.setVolume).toHaveBeenLastCalledWith(0);
+    voz.controlar({ surdo: false });
+    voz.somDaTela(2, { volume: 0 });
+    expect(tela2.f.setVolume).toHaveBeenLastCalledWith(0);
+    voz.somDaTela(2, { assistindo: false, volume: 1 });
+    expect(tela2.f.setVolume).toHaveBeenLastCalledWith(0);
+  });
+
   it('RF-25: câmera ligada e desligada; vídeos dos outros aparecem e somem', async () => {
     const { sala, emitir } = salaFalsa();
     const minha = { attach: vi.fn(), detach: vi.fn() };
