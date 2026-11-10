@@ -446,7 +446,14 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       try {
         const pub = await (atual.localParticipant as unknown as CameraLocal).setScreenShareEnabled(
           true,
-          { audio, resolution: RESOLUCOES_TELA[qualidade], contentHint: 'motion', selfBrowserSurface: 'exclude' },
+          {
+            // Som do sistema sem o som do próprio app (Windows/macOS, Electron 43.4+ usa a captura sem o processo do app):
+            // sem isso, quem assiste ouve a própria voz de volta pela transmissão. E sem tratamento de voz (é música/jogo).
+            audio: audio ? { restrictOwnAudio: true, echoCancellation: false, noiseSuppression: false, autoGainControl: false } : false,
+            resolution: RESOLUCOES_TELA[qualidade],
+            contentHint: 'motion',
+            selfBrowserSurface: 'exclude',
+          },
           // Sem simulcast na tela (técnica §5): uma camada só, na qualidade pedida; H.264 por padrão (R-3).
           // backupCodec desligado: VP9 sem VP8 de reserva (pesaria na CPU em 1440p60 sem codificação por hardware).
           {

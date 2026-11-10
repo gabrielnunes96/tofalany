@@ -320,6 +320,8 @@ describe('sala de voz (RF-13)', () => {
     (sala.localParticipant as unknown as { getTrackPublication: unknown }).getTrackPublication = (f: string) => publicacoes.get(f);
     o.aoAviso.mockClear();
     expect(await voz.transmitir('720p30', true)).toBe(true);
+    // O som do sistema vai sem o som do próprio app (senão quem assiste ouve a própria voz).
+    expect(setScreenShareEnabled).toHaveBeenLastCalledWith(true, expect.objectContaining({ audio: expect.objectContaining({ restrictOwnAudio: true }) }), expect.anything());
     expect(o.aoAviso).toHaveBeenLastCalledWith('A tela está indo, mas sem o som do computador (o sistema não entregou o áudio).');
     await voz.pararTela();
     o.aoAviso.mockClear();

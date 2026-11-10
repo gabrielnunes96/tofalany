@@ -1,5 +1,5 @@
 {
-  "$schema": "/dados/b2-dev-flow/plugins/fluxo/schema/projeto.schema.json",
+  "$schema": "/dados/repos/dev-flow/plugins/fluxo/schema/projeto.schema.json",
   "nome": "to-falando",
   "descricao": "ToFalany: app desktop privado (estilo Discord) de texto, voz, vídeo e transmissão de tela para até 4 pessoas. Monorepo client (Electron) + server (Node) + deploy (docker-compose/LiveKit).",
   "stacks": [
