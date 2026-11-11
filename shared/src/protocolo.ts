@@ -669,6 +669,8 @@ export interface EstadoMusica {
   conectado?: boolean;
   /** Buscando o áudio da música atual no YouTube (ainda sem som). */
   carregando?: boolean;
+  /** Por que a última música não tocou (ex.: o YouTube pediu login); null quando está tudo bem. */
+  erro?: string | null;
 }
 
 export type ComandoMusica =

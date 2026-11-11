@@ -18,6 +18,32 @@ export interface FluxoAudio {
   /** PCM s16le, 48 kHz, estéreo. */
   audio: Readable;
   parar(): void;
+  /** Depois que o áudio acabou sem som nenhum: por que o download falhou, ou undefined se não falhou. */
+  falha?(): Promise<string | undefined>;
+}
+
+/** Mensagem do YouTube pedindo login: os cookies faltam ou venceram. */
+const RECUSA_YOUTUBE = /not a bot|sign in to confirm/i;
+export const MSG_COOKIES = 'O YouTube pediu login para este servidor. O administrador precisa enviar cookies novos do YouTube (menu → Bot de música).';
+
+/** O que o stderr do yt-dlp (ou do ffmpeg) quer dizer, em texto para quem está no canal. */
+export function explicarFalha(erro: string): string {
+  if (RECUSA_YOUTUBE.test(erro)) return MSG_COOKIES;
+  return 'Não consegui tocar essa música (o YouTube recusou ou está fora).';
+}
+
+/** Guarda o fim do stderr de um processo e diz, quando ele sai, se saiu com erro (corte do bot não conta). */
+function acompanhar(p: ReturnType<typeof spawn>): () => Promise<string | undefined> {
+  let erro = '';
+  p.stderr?.setEncoding('utf8').on('data', (d: string) => {
+    erro = (erro + d).slice(-4000);
+  });
+  const fim = new Promise<string | undefined>((resolver) => {
+    p.on('error', (e) => resolver(e.message));
+    p.on('close', (codigo, sinal) => resolver(codigo === 0 || sinal === 'SIGKILL' ? undefined : erro.trim() || `saiu com ${codigo}`));
+  });
+  // Não espera para sempre por um processo que demora a sair.
+  return () => Promise.race([fim, new Promise<undefined>((r) => setTimeout(() => r(undefined), 3000).unref())]);
 }
 
 export interface FonteMusica {
@@ -177,12 +203,12 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
         );
       } catch (erro) {
         opcoes.registrarErro?.(erro);
-        const recusa = /not a bot|sign in to confirm/i.test(String((erro as Error)?.message));
+        const recusa = RECUSA_YOUTUBE.test(String((erro as Error)?.message));
         throw new ErroHttp(
           502,
           'musica_indisponivel',
           recusa
-            ? 'O YouTube pediu login para este servidor. O administrador precisa enviar os cookies do YouTube (menu → Bot de música).'
+            ? MSG_COOKIES
             : 'Não consegui abrir essa música agora (o YouTube recusou ou está fora).',
         );
       }
@@ -219,9 +245,15 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
       const converter = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', caminho, '-vn', '-af', 'volume=0.5', '-f', 's16le', '-ac', '2', '-ar', '48000', 'pipe:1'], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
-      converter.stderr.resume();
-      converter.on('error', (e) => opcoes.registrarErro?.(e));
-      return { audio: converter.stdout, parar: () => void converter.kill('SIGKILL') };
+      const fimConverter = acompanhar(converter);
+      return {
+        audio: converter.stdout,
+        parar: () => void converter.kill('SIGKILL'),
+        async falha() {
+          const erro = await fimConverter();
+          return erro === undefined ? undefined : `ffmpeg: ${erro}`;
+        },
+      };
     },
     abrir(url) {
       const baixar = spawn(ytdlp, [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '-o', '-', url], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -231,15 +263,18 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
       baixar.stdout.pipe(converter.stdin);
       // Fim antecipado (pular): o pipe quebra; não é erro.
       converter.stdin.on('error', () => undefined);
-      baixar.stderr.resume();
-      converter.stderr.resume();
-      baixar.on('error', (e) => opcoes.registrarErro?.(e));
-      converter.on('error', (e) => opcoes.registrarErro?.(e));
+      const fimBaixar = acompanhar(baixar);
+      const fimConverter = acompanhar(converter);
       return {
         audio: converter.stdout,
         parar() {
           baixar.kill('SIGKILL');
           converter.kill('SIGKILL');
+        },
+        async falha() {
+          const [erroBaixar, erroConverter] = await Promise.all([fimBaixar(), fimConverter()]);
+          if (erroBaixar !== undefined) return `yt-dlp: ${erroBaixar}`;
+          return erroConverter === undefined ? undefined : `ffmpeg: ${erroConverter}`;
         },
       };
     },

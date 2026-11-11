@@ -2,7 +2,7 @@ import type { Readable } from 'node:stream';
 import { LIMITE_CANAIS_MUSICA, LIMITE_FILA_MUSICA, type EstadoMusica, type MusicaDto } from '@tofalando/shared';
 import { ErroHttp } from '../erros.js';
 import { rm } from 'node:fs/promises';
-import type { FluxoAudio, FonteMusica, InfoMusica } from './fonte.js';
+import { explicarFalha, type FluxoAudio, type FonteMusica, type InfoMusica } from './fonte.js';
 
 /** Para onde o bot manda o áudio (no servidor de verdade, um participante do LiveKit). */
 export interface SaidaAudio {
@@ -32,6 +32,8 @@ interface Canal {
   proxima?: { url: string; arquivo: Promise<string | undefined> };
   /** Cortes pedidos (pular, parar): distingue "a música acabou sem som" de "mandaram cortar". */
   cortes: number;
+  /** Por que a última música não tocou (o YouTube recusou, por exemplo); some quando alguma toca ou alguém pede outra. */
+  erro: string | null;
 }
 
 /** Quanto o ToOuvini espera na sala, sem tocar nada, antes de sair sozinho. */
@@ -64,6 +66,7 @@ export function criarBotMusica(deps: {
       pausado: c?.pausado ?? false,
       conectado: !!c?.saida,
       carregando: c?.carregando ?? false,
+      erro: c?.erro ?? null,
     };
   };
   const avisar = (canalVozId: number) => deps.aoMudar(estado(canalVozId));
@@ -139,6 +142,7 @@ export function criarBotMusica(deps: {
             // O relógio da música começa no primeiro som; e já prepara a seguinte.
             comecou = true;
             c.carregando = false;
+            c.erro = null;
             c.desde = agora();
             avisar(canalVozId);
             prepararProxima(c);
@@ -155,6 +159,14 @@ export function criarBotMusica(deps: {
             c.fluxo.parar();
             c.fluxo = deps.fonte.abrir(musica.url);
             await c.saida.tocar(c.fluxo.audio, aoComecar);
+          }
+          // Acabou sem som e ninguém cortou: o download falhou. Conta o porquê (antes ficava calado e parava).
+          if (!comecou && c.cortes === cortesAntes && c.tocando === musica) {
+            const motivo = await c.fluxo.falha?.();
+            if (motivo) {
+              deps.registrarErro(new Error(`ToOuvini: "${musica.titulo}" não tocou: ${motivo}`));
+              c.erro = explicarFalha(motivo);
+            }
           }
         } catch (erro) {
           deps.registrarErro(erro);
@@ -197,9 +209,10 @@ export function criarBotMusica(deps: {
       if (infos.length === 0) throw new ErroHttp(404, 'nao_encontrado', 'Não achei essa música.');
       let c = canais.get(canalVozId);
       if (!c) {
-        c = { fila: [], tocando: null, desde: null, pausado: false, carregando: false, decorrido: 0, rodando: false, cortes: 0 };
+        c = { fila: [], tocando: null, desde: null, pausado: false, carregando: false, decorrido: 0, rodando: false, cortes: 0, erro: null };
         canais.set(canalVozId, c);
       }
+      c.erro = null;
       c.fila.push(...infos.slice(0, espaco).map((i) => ({ ...i, pedidoPor: usuarioId })));
       if (!c.rodando) void rodar(canalVozId, c);
       else {

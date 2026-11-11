@@ -1,8 +1,11 @@
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough, type Readable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 import { lerComandoMusica, type EstadoMusica } from '@tofalando/shared';
 import { criarBotMusica, type SaidaAudio } from '../src/musica/bot.js';
-import { alvoDaBusca, ehPlaylist, idDoVideo, infoPorOembed, lerInfo, lerPlaylist, type FonteMusica } from '../src/musica/fonte.js';
+import { MSG_COOKIES, alvoDaBusca, criarFonteYtDlp, ehPlaylist, explicarFalha, idDoVideo, infoPorOembed, lerInfo, lerPlaylist, type FonteMusica } from '../src/musica/fonte.js';
 import { quadros, urlDaSala } from '../src/musica/saida-livekit.js';
 import { ErroHttp } from '../src/erros.js';
 
@@ -73,7 +76,52 @@ describe('ToOuvini, o bot de música (backlog v2, item 14)', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(fechar).toHaveBeenCalledTimes(1);
     expect(bot.estados()).toEqual([]);
-    expect(estados.at(-1)).toEqual({ canalVozId: 7, tocando: null, desde: null, fila: [], pausado: false, conectado: false, carregando: false });
+    expect(estados.at(-1)).toEqual({ canalVozId: 7, tocando: null, desde: null, fila: [], pausado: false, conectado: false, carregando: false, erro: null });
+  });
+
+  it('quando o YouTube recusa o download, conta o motivo no painel e no log (não fica calado)', async () => {
+    const { conectar } = saidaFalsa();
+    const registrarErro = vi.fn();
+    let falhar = true;
+    const fonte: FonteMusica = {
+      buscar: vi.fn(async (busca: string) => ({ titulo: `Música ${busca}`, url: `https://youtu.be/${busca}`, duracao: 180 })),
+      abrir: vi.fn(() => {
+        const audio = new PassThrough();
+        const deuErro = falhar;
+        if (deuErro) audio.end();
+        else setTimeout(() => audio.end('som'), 5);
+        return { audio, parar: () => audio.end(), falha: async () => (deuErro ? "yt-dlp: ERROR: [youtube] x: Sign in to confirm you're not a bot." : undefined) };
+      }),
+    };
+    const bot = criarBotMusica({ fonte, conectar, registrarErro, aoMudar: () => undefined, agora: () => 1000, esperaOciosoMs: 10_000 });
+    await bot.tocar(3, 'a', 1);
+    await esperar();
+    expect(bot.estado(3)).toMatchObject({ tocando: null, conectado: true, erro: MSG_COOKIES });
+    expect(String(registrarErro.mock.calls[0]?.[0])).toMatch(/Música a.*not a bot/);
+
+    // Pedir outra limpa o aviso; tocando de verdade, ele não volta.
+    falhar = false;
+    await bot.tocar(3, 'b', 1);
+    expect(bot.estado(3).erro).toBeNull();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(bot.estado(3).erro).toBeNull();
+    await bot.expulsar(3);
+  });
+
+  it.skipIf(process.platform === 'win32')('fonte de verdade: o yt-dlp saindo com erro vira o motivo da falha', async () => {
+    const pasta = mkdtempSync(join(tmpdir(), 'ytdlp-falso-'));
+    const ytdlp = join(pasta, 'yt-dlp');
+    writeFileSync(ytdlp, "#!/bin/sh\necho \"ERROR: [youtube] x: Sign in to confirm you're not a bot.\" >&2\nexit 1\n");
+    chmodSync(ytdlp, 0o755);
+    const fluxo = criarFonteYtDlp({ ytdlp, ffmpeg: 'cat' }).abrir('https://youtu.be/x');
+    fluxo.audio.resume();
+    await new Promise((r) => fluxo.audio.on('close', r));
+    expect(await fluxo.falha?.()).toMatch(/^yt-dlp: .*not a bot/);
+  });
+
+  it('explica a falha do download em texto para o canal', () => {
+    expect(explicarFalha('ERROR: Sign in to confirm you’re not a bot')).toBe(MSG_COOKIES);
+    expect(explicarFalha('HTTP Error 403: Forbidden')).toMatch(/Não consegui tocar/);
   });
 
   it('pausa e continua; stop limpa e espera; kick sai na hora; canais diferentes têm filas separadas', async () => {

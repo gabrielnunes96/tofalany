@@ -103,9 +103,9 @@ export function PainelMusica({
           ⏏
         </button>
       </div>
-      {erro && (
+      {(erro ?? estado.erro) && (
         <p className="erro" role="alert">
-          {erro}
+          {erro ?? estado.erro}
         </p>
       )}
     </div>
