@@ -74,10 +74,11 @@ describe('TelaAuditoria', () => {
       return { registros: [reg(1)], fim: true };
     });
     render(<TelaAuditoria api={{ auditoria }} pessoas={pessoas} canais={[{ id: 7, tipo: 'voz', nome: 'Sala 1', posicao: 1 }]} aoVoltar={vi.fn()} />);
-    await screen.findByText('Carregar mais antigos');
+    // Esperas maiores que o padrão (1 s): com a suíte inteira rodando em paralelo, o jsdom fica lento.
+    await screen.findByText('Carregar mais antigos', undefined, { timeout: 5000 });
 
     avisar(true);
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Sem conexão com o servidor.');
+    expect(await screen.findByRole('alert', undefined, { timeout: 5000 })).toHaveProperty('textContent', 'Sem conexão com o servidor.');
     const chamadas = auditoria.mock.calls.length;
     avisar(true);
     avisar(true);
@@ -86,9 +87,9 @@ describe('TelaAuditoria', () => {
 
     falhar = false;
     fireEvent.click(screen.getByRole('button', { name: 'Carregar mais antigos' }));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Carregar mais antigos' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Carregar mais antigos' })).toBeNull(), { timeout: 5000 });
     vi.unstubAllGlobals();
-  });
+  }, 20_000);
 
   it('mostra o erro do servidor', async () => {
     const auditoria = vi.fn(async (): Promise<PaginaAuditoria> => {
