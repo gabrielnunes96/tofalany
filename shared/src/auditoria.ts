@@ -34,6 +34,8 @@ export const TIPOS_AUDITORIA = [
   'banido',
   'desbanido',
   'loja_compra',
+  'dois_fatores_ligado',
+  'dois_fatores_desligado',
 ] as const;
 
 export type TipoAuditoria = (typeof TIPOS_AUDITORIA)[number];
@@ -74,6 +76,8 @@ export const ROTULOS_AUDITORIA: Record<TipoAuditoria, string> = {
   banido: 'baniu',
   desbanido: 'desbaniu',
   loja_compra: 'comprou na loja',
+  dois_fatores_ligado: 'ligou a autenticação em dois fatores',
+  dois_fatores_desligado: 'desligou a autenticação em dois fatores de',
 };
 
 export const PRAZO_AUDITORIA_DIAS_PADRAO = 30;

@@ -110,6 +110,8 @@ export function permissoesDe(
 /** Visão do administrador: inclui contas removidas (para a auditoria). */
 export interface UsuarioAdminDto extends UsuarioDto {
   removido: boolean;
+  /** Tem autenticação em dois fatores ligada (servidor antigo não manda). */
+  doisFatores?: boolean;
 }
 
 /** Backlog v2, item 10b: prévia de um link do chat (buscada pelo servidor; a imagem vem embutida). */
@@ -158,6 +160,21 @@ export interface CadastroRequest {
 export interface LoginRequest {
   usuario: string;
   senha: string;
+  /** Autenticação em dois fatores: código do app (6 dígitos) ou de recuperação (XXXX-XXXX), quando a conta tem. */
+  codigo?: string;
+}
+
+/** Autenticação em dois fatores da minha conta. */
+export interface DoisFatoresDto {
+  ativo: boolean;
+  /** Códigos de recuperação ainda não usados. */
+  codigosRestantes: number;
+}
+
+/** Configuração começando: o segredo (para digitar à mão) e o endereço do QR code. */
+export interface InicioDoisFatoresDto {
+  segredo: string;
+  otpauth: string;
 }
 
 export interface SessaoResponse {
@@ -192,6 +209,8 @@ export type CodigoErro =
   | 'item_invalido'
   | 'item_ja_comprado'
   | 'tudo_liberado'
+  | 'codigo_2fa_necessario'
+  | 'codigo_2fa_invalido'
   | 'erro_interno';
 
 export interface ErroApi {
@@ -252,7 +271,7 @@ export interface ConfiguracoesLocais {
   tema?: Tema;
   /** Backlog v2, item 2: status escolhido em cada servidor (chave = URL do servidor). */
   statusEscolhido?: Record<string, EscolhaStatus>;
-  /** Atividade (como no Discord): mostrar o jogo e a música do Spotify. Desligado até a pessoa ligar. */
+  /** Atividade: mostrar o jogo e a música do Spotify. Desligado até a pessoa ligar. */
   atividade?: PreferenciasAtividade;
   /** Versão cujas notas ("Novidades") a pessoa já viu. */
   novidadesVistas?: string;
@@ -766,7 +785,7 @@ export function acaoAoFechar(c: { aoFechar?: AcaoFechar; fecharParaBandeja?: boo
 }
 
 /**
- * Servidores (comunidades) na mesma instalação, como no Discord: uma conta, vários servidores. O principal (id 1)
+ * Servidores (comunidades) na mesma instalação: uma conta, vários servidores. O principal (id 1)
  * fica no endereço raiz; os outros em <endereço>/c/<id>. Cada um tem canais, cargos, sons e convite próprios.
  */
 export const COMUNIDADE_PRINCIPAL = 1;

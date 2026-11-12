@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas, ComunidadeDto, BanimentoDto, CatalogoLojaDto, ItemLoja, LojaEstadoDto, MovimentoDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas, ComunidadeDto, BanimentoDto, CatalogoLojaDto, ItemLoja, LojaEstadoDto, MovimentoDto, DoisFatoresDto, InicioDoisFatoresDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -80,6 +80,12 @@ export interface ClienteApi {
   loja(): Promise<CatalogoLojaDto>;
   comprarNaLoja(item: ItemLoja): Promise<LojaEstadoDto>;
   extratoLoja(antes?: number): Promise<{ movimentos: MovimentoDto[] }>;
+  /** Autenticação em dois fatores da minha conta; o administrador desliga a de alguém. */
+  doisFatores(): Promise<DoisFatoresDto>;
+  iniciarDoisFatores(senha: string): Promise<InicioDoisFatoresDto>;
+  ativarDoisFatores(codigo: string): Promise<{ codigos: string[] }>;
+  desativarDoisFatores(senha: string, codigo: string): Promise<DoisFatoresDto>;
+  desligarDoisFatoresDe(usuarioId: number): Promise<void>;
 }
 
 function consulta(filtro: object): string {
@@ -189,6 +195,13 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     loja: () => chamar('GET', '/api/loja'),
     comprarNaLoja: (item) => chamar('POST', '/api/loja/comprar', item),
     extratoLoja: (antes) => chamar('GET', `/api/loja/extrato${consulta({ antes })}`),
+    doisFatores: () => chamar('GET', '/api/conta/2fa'),
+    iniciarDoisFatores: (senha) => chamar('POST', '/api/conta/2fa/iniciar', { senha }),
+    ativarDoisFatores: (codigo) => chamar('POST', '/api/conta/2fa/ativar', { codigo }),
+    desativarDoisFatores: (senha, codigo) => chamar('POST', '/api/conta/2fa/desativar', { senha, codigo }),
+    desligarDoisFatoresDe: async (usuarioId) => {
+      await chamar('POST', `/api/admin/usuarios/${usuarioId}/2fa/desligar`);
+    },
     mensagensDm: (dmId, antes) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes })}`),
     mensagensCanal: (canalId, antes) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes })}`),
     enviarAvatar: (arquivo, nome) => {

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
-import { noMenu } from './menu';
+import { noMenu, fecharConfig } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -61,7 +61,7 @@ test('CA-8: avatar 1000×800 vira 256×256; nome e cor mudam; o outro membro vê
   await dono.janela.getByLabel('Cor do perfil').fill('#ff8800');
   await dono.janela.getByRole('button', { name: 'Salvar' }).click();
   await expect(dono.janela.getByRole('status')).toHaveText('Perfil salvo.');
-  await dono.janela.getByRole('button', { name: 'Voltar' }).click();
+  await fecharConfig(dono.janela);
   await expect(dono.janela.getByTestId('usuario-logado')).toHaveText('Olá, Dono do Grupo');
 
   // A cor ficou gravada (ela aparece no avatar de quem não tem foto).

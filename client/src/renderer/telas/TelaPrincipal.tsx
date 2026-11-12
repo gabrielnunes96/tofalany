@@ -28,7 +28,9 @@ import { TelaConvite } from './TelaConvite';
 import { TelaSons } from './TelaSons';
 import { TelaLoja } from './TelaLoja';
 import { TelaToOuvini } from './TelaToOuvini';
-import { TelaConfiguracoes } from './TelaConfiguracoes';
+import { TelaConfiguracoes, type SecaoConfig } from './TelaConfiguracoes';
+import { SegurancaConta } from '../componentes/SegurancaConta';
+import { NotasDasVersoes } from '../componentes/JanelaNovidades';
 import { Avatar } from '../componentes/Avatar';
 import { StatusPonto, TEXTO_STATUS } from '../componentes/StatusPonto';
 import { ContextoPrevia, criarBuscaPrevia } from '../componentes/Previa';
@@ -83,7 +85,7 @@ interface GravacaoAdiada {
 const valesDe = (pontos: LojaEstadoDto | null): QualidadeTela[] =>
   !pontos ? [] : pontos.tudoLiberado ? QUALIDADES_VALE : qualidadesDosVales(pontos.vales, Date.now());
 
-type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes' | 'toouvini' | 'servidor' | 'loja';
+type Vista = 'canal' | 'auditoria' | 'membros' | 'convite' | 'sons' | 'toouvini' | 'servidor' | 'loja';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
 const destinoDe = (chave: Chave): Destino => {
@@ -250,6 +252,8 @@ function TelaDoServidor({
   const { servidorId, donoServidor } = useLoja(useShallow((s) => ({ servidorId: s.servidorId, donoServidor: s.donoServidor })));
   /** Pontos e loja: saldo e itens da conta (null = servidor sem loja, a loja some). */
   const pontos = useLoja((s) => s.pontos);
+  /** Janela de configurações aberta (e em qual seção); null = fechada. */
+  const [configAberta, setConfigAberta] = useState<SecaoConfig | null>(null);
   async function sairDoServidor() {
     if (!window.confirm(`Sair do servidor ${nomeServidor ?? ''}? Para voltar, você vai precisar de um convite.`)) return;
     try {
@@ -1502,10 +1506,10 @@ function TelaDoServidor({
             {/* Backlog v2, item 8: as opções saíram do canto (eram 10 botões soltos) para este menu. */}
             {menuAberto && (
               <div id="menu-usuario" className="menu-usuario" onClick={() => setMenuAberto(false)}>
-                <button type="button" onClick={() => setVista('perfil')}>
+                <button type="button" onClick={() => setConfigAberta('conta')}>
                   Meu perfil
                 </button>
-                <button type="button" onClick={() => setVista('configuracoes')}>
+                <button type="button" onClick={() => setConfigAberta('voz')}>
                   Configurações
                 </button>
                 {pontos && (
@@ -1513,6 +1517,9 @@ function TelaDoServidor({
                     Loja
                   </button>
                 )}
+                <button type="button" onClick={() => setConfigAberta('novidades')}>
+                  Novidades
+                </button>
                 {linkConvite && (
                   <button
                     type="button"
@@ -1674,32 +1681,6 @@ function TelaDoServidor({
               copiar={(texto) => ponte().areaTransferencia.copiar(texto)}
               funcoes={funcoes}
             />
-          ) : vistaAtual === 'configuracoes' ? (
-            <TelaConfiguracoes
-              audio={audio}
-              aoMudarAudio={mudarAudio}
-              aoTestarSom={testarSom}
-              atalhos={atalhos}
-              aoMudarAtalhos={mudarAtalhos}
-              aoCapturar={pausarAtalhos}
-              sons={prefSons}
-              aoMudarSons={mudarSons}
-              notificacoes={notif}
-              aoMudarNotificacoes={mudarNotificacoes}
-              tema={tema}
-              aoMudarTema={mudarTema}
-              aoFechar={aoFechar}
-              aoMudarAoFechar={mudarAoFechar}
-              atividade={prefAtividade}
-              aoMudarAtividade={mudarAtividade}
-              tela={telaPrefs}
-              aoMudarTela={mudarTela}
-              qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
-              comLoja={pontos !== null}
-              temasLiberados={pontos ? (pontos.tudoLiberado ? TEMAS_LOJA : pontos.temas) : undefined}
-              aoAbrirLoja={() => setVista('loja')}
-              aoVoltar={voltar}
-            />
           ) : vistaAtual === 'servidor' ? (
             <TelaEditarServidor api={api} nome={nomeServidor ?? ''} iconeUrl={iconeServidor} servidorUrl={separarComunidade(servidorUrl).base} aoVoltar={voltar} />
           ) : vistaAtual === 'toouvini' ? (
@@ -1710,8 +1691,6 @@ function TelaDoServidor({
             <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
           ) : vistaAtual === 'convite' ? (
             <TelaConvite api={api} aoVoltar={voltar} />
-          ) : vistaAtual === 'perfil' ? (
-            <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={acoes.atualizarUsuario} aoVoltar={voltar} />
           ) : dmAtiva !== null && dms.some((d) => d.id === dmAtiva) ? (
             <DmAberta
               extras={barraVisao}
@@ -1755,6 +1734,46 @@ function TelaDoServidor({
           )}
         </main>
         </ContextoPrevia.Provider>
+
+        {/* Configurações numa janela sobre o app (seções à esquerda); fecha com Esc ou no X. */}
+        {configAberta && !oculta && (
+        <TelaConfiguracoes
+          audio={audio}
+          aoMudarAudio={mudarAudio}
+          aoTestarSom={testarSom}
+          atalhos={atalhos}
+          aoMudarAtalhos={mudarAtalhos}
+          aoCapturar={pausarAtalhos}
+          sons={prefSons}
+          aoMudarSons={mudarSons}
+          notificacoes={notif}
+          aoMudarNotificacoes={mudarNotificacoes}
+          tema={tema}
+          aoMudarTema={mudarTema}
+          aoFechar={aoFechar}
+          aoMudarAoFechar={mudarAoFechar}
+          atividade={prefAtividade}
+          aoMudarAtividade={mudarAtividade}
+          tela={telaPrefs}
+          aoMudarTela={mudarTela}
+          qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
+          comLoja={pontos !== null}
+          temasLiberados={pontos ? (pontos.tudoLiberado ? TEMAS_LOJA : pontos.temas) : undefined}
+          aoAbrirLoja={() => {
+            setConfigAberta(null);
+            setVista('loja');
+          }}
+          secaoInicial={configAberta ?? 'voz'}
+          conta={
+            <>
+              <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={acoes.atualizarUsuario} />
+              <SegurancaConta api={api} copiar={(t) => ponte().areaTransferencia.copiar(t)} />
+            </>
+          }
+          novidades={<NotasDasVersoes versaoAtual={ponte().versao} />}
+          aoVoltar={() => setConfigAberta(null)}
+        />
+        )}
 
         {seletorTela && (
           <SeletorTela

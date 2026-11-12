@@ -9,7 +9,8 @@ interface Props {
   api: Pick<ClienteApi, 'atualizarPerfil' | 'enviarAvatar'>;
   /** Atualiza a loja na hora (o evento do servidor também chega, para os outros). */
   aoAtualizar: (usuario: UsuarioDto) => void;
-  aoVoltar: () => void;
+  /** Sem ele, a tela vem embutida (seção "Minha conta" das Configurações), sem o botão de voltar. */
+  aoVoltar?: () => void;
 }
 
 const FORMATOS = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
@@ -65,12 +66,16 @@ export function TelaPerfil({ usuario, servidorUrl, api, aoAtualizar, aoVoltar }:
 
   return (
     <section className="painel" aria-labelledby="titulo-perfil">
-      <div className="painel-topo">
-        <h1 id="titulo-perfil">Meu perfil</h1>
-        <button type="button" className="secundario" onClick={aoVoltar}>
-          Voltar
-        </button>
-      </div>
+      {aoVoltar ? (
+        <div className="painel-topo">
+          <h1 id="titulo-perfil">Meu perfil</h1>
+          <button type="button" className="secundario" onClick={aoVoltar}>
+            Voltar
+          </button>
+        </div>
+      ) : (
+        <h2 id="titulo-perfil">Perfil</h2>
+      )}
       <div className="perfil-foto">
         <Avatar usuario={{ ...usuario, nomeExibicao: nome, cor }} servidorUrl={servidorUrl} tamanho={96} />
         <button type="button" onClick={() => arquivo.current?.click()} disabled={ocupado}>

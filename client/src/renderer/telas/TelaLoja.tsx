@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 import {
   ITENS_TEMA,
   QUALIDADES_VALE,
@@ -11,13 +11,13 @@ import {
   type QualidadeVale,
   type Tema,
   type TemaLoja,
-} from "@tofalando/shared";
-import type { ClienteApi } from "../servicos/api";
+} from '@tofalando/shared';
+import type { ClienteApi } from '../servicos/api';
 
 interface Props {
   /** Saldo e itens da conta (chega no ola e a cada crédito ou compra). */
   estado: LojaEstadoDto;
-  api: Pick<ClienteApi, "loja" | "comprarNaLoja" | "extratoLoja">;
+  api: Pick<ClienteApi, 'loja' | 'comprarNaLoja' | 'extratoLoja'>;
   /** Tema em uso (a prévia volta para ele). */
   temaAtual: Tema;
   aoUsarTema: (tema: Tema) => void;
@@ -27,55 +27,39 @@ interface Props {
 }
 
 const NOME_VALE: Record<QualidadeVale, string> = {
-  "720p60": "Transmitir em 720p60",
-  "1080p30": "Transmitir em 1080p30",
-  "1080p60": "Transmitir em 1080p60",
+  '720p60': 'Transmitir em 720p60',
+  '1080p30': 'Transmitir em 1080p30',
+  '1080p60': 'Transmitir em 1080p60',
 };
 const DETALHE_VALE: Record<QualidadeVale, string> = {
-  "720p60": "tela mais fluida, ótima para jogos",
-  "1080p30": "mais nitidez, ótima para texto e código",
-  "1080p60": "nítida e fluida; também libera 720p60 e 1080p30",
+  '720p60': 'tela mais fluida, ótima para jogos',
+  '1080p30': 'mais nitidez, ótima para texto e código',
+  '1080p60': 'nítida e fluida; também libera 720p60 e 1080p30',
 };
-const nomeTema = (id: TemaLoja) =>
-  ITENS_TEMA.find((t) => t.id === id)?.nome ?? id;
-const nomeItem = (item: ItemLoja) =>
-  item.tipo === "tema"
-    ? `o tema ${nomeTema(item.tema)}`
-    : `o vale ${NOME_VALE[item.qualidade]}`;
+const nomeTema = (id: TemaLoja) => ITENS_TEMA.find((t) => t.id === id)?.nome ?? id;
+const nomeItem = (item: ItemLoja) => (item.tipo === 'tema' ? `o tema ${nomeTema(item.tema)}` : `o vale ${NOME_VALE[item.qualidade]}`);
 /** Junta páginas do extrato sem repetir (por id), do mais novo para o mais antigo. */
-const juntar = (a: MovimentoDto[], b: MovimentoDto[]) =>
-  [...new Map([...a, ...b].map((m) => [m.id, m])).values()].sort(
-    (x, y) => y.id - x.id,
-  );
-const formatoData = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeStyle: "short",
+const juntar = (a: MovimentoDto[], b: MovimentoDto[]) => [...new Map([...a, ...b].map((m) => [m.id, m])).values()].sort((x, y) => y.id - x.id);
+const formatoData = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
 });
-const pontos = (n: number) =>
-  `${n.toLocaleString("pt-BR")} ${Math.abs(n) === 1 ? "ponto" : "pontos"}`;
+const pontos = (n: number) => `${n.toLocaleString('pt-BR')} ${Math.abs(n) === 1 ? 'ponto' : 'pontos'}`;
 
 /** Texto de uma linha do extrato. */
 function descreverMovimento(m: MovimentoDto): string {
-  if (m.tipo === "ganho") return "Tempo em voz";
-  const [tipo, id] = (m.item ?? "").split(":");
-  if (tipo === "tema") return `Tema ${nomeTema(id as TemaLoja)}`;
-  if (tipo === "vale")
-    return `Vale de ${VALE_DIAS} dias: ${NOME_VALE[id as QualidadeVale] ?? id}`;
-  return "Compra";
+  if (m.tipo === 'ganho') return 'Tempo em voz';
+  const [tipo, id] = (m.item ?? '').split(':');
+  if (tipo === 'tema') return `Tema ${nomeTema(id as TemaLoja)}`;
+  if (tipo === 'vale') return `Vale de ${VALE_DIAS} dias: ${NOME_VALE[id as QualidadeVale] ?? id}`;
+  return 'Compra';
 }
 
 /**
  * Pontos e loja: temas (para sempre) e vales de transmissão (7 dias, somam), com prévia do tema, confirmação e
  * extrato. Os preços vêm do servidor; o saldo também (o app nunca calcula pontos).
  */
-export function TelaLoja({
-  estado,
-  api,
-  temaAtual,
-  aoUsarTema,
-  aoComprar,
-  aoVoltar,
-}: Props) {
+export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVoltar }: Props) {
   const [catalogo, setCatalogo] = useState<CatalogoLojaDto | null>(null);
   const [tentativa, setTentativa] = useState(0);
   const [erroCatalogo, setErroCatalogo] = useState<string | null>(null);
@@ -100,13 +84,7 @@ export function TelaLoja({
     api
       .loja()
       .then((c) => vivo && setCatalogo(c))
-      .catch(
-        (e: unknown) =>
-          vivo &&
-          setErroCatalogo(
-            e instanceof Error ? e.message : "Não foi possível abrir a loja.",
-          ),
-      );
+      .catch((e: unknown) => vivo && setErroCatalogo(e instanceof Error ? e.message : 'Não foi possível abrir a loja.'));
     return () => {
       vivo = false;
     };
@@ -141,12 +119,7 @@ export function TelaLoja({
     };
   }, [previa, temaAtual]);
 
-  const precoDe = (item: ItemLoja): number | undefined =>
-    catalogo
-      ? item.tipo === "tema"
-        ? catalogo.precos.tema
-        : catalogo.precos.vales[item.qualidade]
-      : undefined;
+  const precoDe = (item: ItemLoja): number | undefined => (catalogo ? (item.tipo === 'tema' ? catalogo.precos.tema : catalogo.precos.vales[item.qualidade]) : undefined);
 
   async function confirmar() {
     if (!confirmando) return;
@@ -156,15 +129,11 @@ export function TelaLoja({
     try {
       const novo = await api.comprarNaLoja(item);
       aoComprar(novo);
-      setAviso(
-        item.tipo === "tema"
-          ? `${nomeTema(item.tema)} é seu.`
-          : `${NOME_VALE[item.qualidade]} liberado.`,
-      );
+      setAviso(item.tipo === 'tema' ? `${nomeTema(item.tema)} é seu.` : `${NOME_VALE[item.qualidade]} liberado.`);
       fecharConfirmacao();
       setPrevia(null);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível comprar.");
+      setErro(e instanceof Error ? e.message : 'Não foi possível comprar.');
       fecharConfirmacao();
     } finally {
       setComprando(false);
@@ -224,13 +193,21 @@ export function TelaLoja({
         <span className="loja-estrela" aria-hidden="true" />
         <div>
           <strong data-testid="saldo-loja">{pontos(estado.saldo)}</strong>
-          <span className="suave">
-            {estado.tudoLiberado
-              ? "Você é o administrador: tudo liberado."
-              : `Ganhe ${pontos(catalogo?.pontosPorMinuto ?? 1)} por minuto em voz com mais alguém no canal (sem o fone desligado).`}
-          </span>
+          <span className="suave">{estado.tudoLiberado ? 'Você é o administrador: tudo liberado.' : 'Seu saldo vale em todos os servidores e não expira.'}</span>
         </div>
       </div>
+      <section className="loja-como" aria-labelledby="titulo-como-ganhar">
+        <h2 id="titulo-como-ganhar">Como ganhar pontos</h2>
+        <ul>
+          <li>
+            <strong>{pontos(catalogo?.pontosPorMinuto ?? 1)} por minuto</strong> numa sala de voz com pelo menos mais uma pessoa. Conta só o minuto completo.
+          </li>
+          <li>Microfone mudo também conta. Com o fone desligado (sem ouvir), não conta.</li>
+          <li>Sozinho na sala, ou só com o ToOuvini, não conta.</li>
+          <li>Se a sua conexão cair, a contagem para até você voltar.</li>
+          <li>Os pontos aparecem no seu painel, ao lado da estrela, assim que entram.</li>
+        </ul>
+      </section>
       {erro && (
         <p className="erro" role="alert">
           {erro}
@@ -258,27 +235,18 @@ export function TelaLoja({
           </button>
         </div>
       )}
-      {!catalogo && !erroCatalogo && (
-        <p className="suave">Carregando a loja…</p>
-      )}
+      {!catalogo && !erroCatalogo && <p className="suave">Carregando a loja…</p>}
 
       {catalogo && (
         <>
           <h2>Temas</h2>
-          <p className="suave">
-            São seus para sempre. Troque quando quiser em Configurações,
-            Aparência.
-          </p>
+          <p className="suave">São seus para sempre. Troque quando quiser em Configurações, Aparência.</p>
           <ul className="loja-grade">
             {ITENS_TEMA.map((t) => {
               const meu = estado.tudoLiberado || estado.temas.includes(t.id);
               return (
                 <li key={t.id} className="loja-item">
-                  <div
-                    className="loja-amostra"
-                    data-tema={t.id}
-                    aria-hidden="true"
-                  >
+                  <div className="loja-amostra" data-tema={t.id} aria-hidden="true">
                     <span className="loja-amostra-titulo">{t.nome}</span>
                     <span className="loja-amostra-barra" />
                     <span className="loja-amostra-botao">Aa</span>
@@ -290,11 +258,7 @@ export function TelaLoja({
                   <div className="linha-botoes">
                     {meu ? (
                       <>
-                        <span className="selo">
-                          {estado.tudoLiberado
-                            ? "Liberado (administrador)"
-                            : "Seu"}
-                        </span>
+                        <span className="selo">{estado.tudoLiberado ? 'Liberado (administrador)' : 'Seu'}</span>
                         {temaAtual === t.id ? (
                           <span className="suave">Em uso</span>
                         ) : (
@@ -312,14 +276,10 @@ export function TelaLoja({
                       </>
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          className="secundario"
-                          onClick={() => setPrevia(t.id)}
-                        >
+                        <button type="button" className="secundario" onClick={() => setPrevia(t.id)}>
                           Ver prévia
                         </button>
-                        {botaoComprar({ tipo: "tema", tema: t.id })}
+                        {botaoComprar({ tipo: 'tema', tema: t.id })}
                       </>
                     )}
                   </div>
@@ -330,9 +290,7 @@ export function TelaLoja({
 
           <h2>Vales de transmissão</h2>
           <p className="suave">
-            Cada vale dura {VALE_DIAS} dias; comprar de novo soma mais{" "}
-            {VALE_DIAS} dias. Os cargos que já liberam a qualidade continuam
-            valendo.
+            Cada vale dura {VALE_DIAS} dias; comprar de novo soma mais {VALE_DIAS} dias. Os cargos que já liberam a qualidade continuam valendo.
           </p>
           <ul className="loja-grade">
             {QUALIDADES_VALE.map((q) => {
@@ -342,19 +300,9 @@ export function TelaLoja({
                   <div className="loja-item-texto">
                     <h3>{NOME_VALE[q]}</h3>
                     <p className="suave">{DETALHE_VALE[q]}</p>
-                    {vale && (
-                      <p className="loja-validade">
-                        Vale até {formatoData.format(vale.expiraEm)}
-                      </p>
-                    )}
+                    {vale && <p className="loja-validade">Vale até {formatoData.format(vale.expiraEm)}</p>}
                   </div>
-                  <div className="linha-botoes">
-                    {estado.tudoLiberado ? (
-                      <span className="selo">Liberado (administrador)</span>
-                    ) : (
-                      botaoComprar({ tipo: "vale", qualidade: q })
-                    )}
-                  </div>
+                  <div className="linha-botoes">{estado.tudoLiberado ? <span className="selo">Liberado (administrador)</span> : botaoComprar({ tipo: 'vale', qualidade: q })}</div>
                 </li>
               );
             })}
@@ -368,11 +316,7 @@ export function TelaLoja({
           <p className="erro" role="alert">
             Não foi possível carregar o extrato.
           </p>
-          <button
-            type="button"
-            className="secundario"
-            onClick={() => setTentativaExtrato((n) => n + 1)}
-          >
+          <button type="button" className="secundario" onClick={() => setTentativaExtrato((n) => n + 1)}>
             Tentar de novo
           </button>
         </div>
@@ -380,31 +324,21 @@ export function TelaLoja({
       {extrato === null ? (
         !erroExtrato && <p className="suave">Carregando…</p>
       ) : extrato.length === 0 ? (
-        <p className="suave">
-          Nada por aqui ainda. Entre numa sala de voz com alguém para começar a
-          ganhar.
-        </p>
+        <p className="suave">Nada por aqui ainda. Entre numa sala de voz com alguém para começar a ganhar.</p>
       ) : (
         <ul className="loja-extrato" aria-label="Extrato">
           {extrato.map((m) => (
             <li key={m.id} className={m.tipo}>
               <time>{formatoData.format(m.em)}</time>
               <span>{descreverMovimento(m)}</span>
-              <strong>
-                {m.valor > 0 ? `+${m.valor}` : `−${Math.abs(m.valor)}`}
-              </strong>
+              <strong>{m.valor > 0 ? `+${m.valor}` : `−${Math.abs(m.valor)}`}</strong>
             </li>
           ))}
         </ul>
       )}
       {temMais && (
-        <button
-          type="button"
-          className="secundario"
-          disabled={carregandoMais}
-          onClick={() => void carregarMais()}
-        >
-          {carregandoMais ? "Carregando…" : "Ver mais"}
+        <button type="button" className="secundario" disabled={carregandoMais} onClick={() => void carregarMais()}>
+          {carregandoMais ? 'Carregando…' : 'Ver mais'}
         </button>
       )}
 
@@ -413,12 +347,8 @@ export function TelaLoja({
           <span>
             Prévia: <strong>{nomeTema(previa)}</strong>
           </span>
-          {botaoComprar({ tipo: "tema", tema: previa })}
-          <button
-            type="button"
-            className="secundario"
-            onClick={() => setPrevia(null)}
-          >
+          {botaoComprar({ tipo: 'tema', tema: previa })}
+          <button type="button" className="secundario" onClick={() => setPrevia(null)}>
             Sair da prévia
           </button>
         </div>
@@ -429,46 +359,27 @@ export function TelaLoja({
           className="dialogo-fundo"
           role="presentation"
           onKeyDown={(e) => {
-            if (e.key === "Escape" && !comprando) {
+            if (e.key === 'Escape' && !comprando) {
               e.stopPropagation();
               fecharConfirmacao();
             }
           }}
         >
-          <div
-            className="dialogo cartao"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Confirmar compra"
-          >
+          <div className="dialogo cartao" role="dialog" aria-modal="true" aria-label="Confirmar compra">
             <h2>Confirmar compra</h2>
             <p>
-              Comprar <strong>{nomeItem(confirmando)}</strong> por{" "}
-              {pontos(precoDe(confirmando) ?? 0)}?
+              Comprar <strong>{nomeItem(confirmando)}</strong> por {pontos(precoDe(confirmando) ?? 0)}?
             </p>
             <p className="suave">
               Compra não tem devolução.
-              {confirmando.tipo === "vale"
-                ? ` O vale dura ${VALE_DIAS} dias (soma ao que você já tem).`
-                : ""}
+              {confirmando.tipo === 'vale' ? ` O vale dura ${VALE_DIAS} dias (soma ao que você já tem).` : ''}
             </p>
             <div className="dialogo-acoes">
-              <button
-                type="button"
-                className="secundario"
-                autoFocus
-                onClick={fecharConfirmacao}
-                disabled={comprando}
-              >
+              <button type="button" className="secundario" autoFocus onClick={fecharConfirmacao} disabled={comprando}>
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={() => void confirmar()}
-                disabled={comprando}
-                data-item={chaveItem(confirmando)}
-              >
-                {comprando ? "Comprando…" : "Comprar"}
+              <button type="button" onClick={() => void confirmar()} disabled={comprando} data-item={chaveItem(confirmando)}>
+                {comprando ? 'Comprando…' : 'Comprar'}
               </button>
             </div>
           </div>

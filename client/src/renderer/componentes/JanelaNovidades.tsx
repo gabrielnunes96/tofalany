@@ -1,5 +1,5 @@
 import { useEffect, type CSSProperties } from 'react';
-import type { NotasVersao } from '@tofalando/shared';
+import { NOVIDADES, type NotasVersao } from '@tofalando/shared';
 import { tocarFanfarra } from '../servicos/fanfarra';
 
 /** Pedacinhos de confete: posição, cor, atraso e giro vêm do índice (mesma festa toda vez). */
@@ -40,3 +40,36 @@ export function JanelaNovidades({ notas, versao, aoFechar, tocar = tocarFanfarra
     </div>
   );
 }
+
+/** "0.15.0" > "0.14.0" (números, não texto). */
+const compararVersoes = (a: string, b: string) => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pb[i] ?? 0) - (pa[i] ?? 0);
+  return 0;
+};
+
+/** Notas de todas as versões, da mais nova para a mais antiga (seção "Novidades" das configurações). */
+export function NotasDasVersoes({ versaoAtual, notas = NOVIDADES }: { versaoAtual: string; notas?: Record<string, NotasVersao> }) {
+  const versoes = Object.keys(notas).sort(compararVersoes);
+  return (
+    <div className="notas-versoes">
+      {versoes.map((v) => (
+        <section key={v} className="nota-versao" aria-label={`Versão ${v}`}>
+          <h3>
+            Versão {v} {v === versaoAtual && <span className="selo">Instalada</span>}
+          </h3>
+          {notas[v]!.chamada && <p className="nota-chamada">{notas[v]!.chamada}</p>}
+          <ul>
+            {notas[v]!.itens.map((item) => (
+              <li key={item.titulo}>
+                <strong>{item.titulo}</strong>: {item.texto}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+

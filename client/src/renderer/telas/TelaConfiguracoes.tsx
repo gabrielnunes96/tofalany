@@ -1,7 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ACOES_ATALHO, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
-import { Icone } from '../componentes/Icone';
+import { Icone, type NomeIcone } from '../componentes/Icone';
+
+/** Seções da janela de configurações (navegação à esquerda). */
+export type SecaoConfig = 'conta' | 'voz' | 'atalhos' | 'transmissao' | 'notificacoes' | 'aparencia' | 'atividade' | 'janela' | 'novidades';
+const GRUPOS = ['Conta', 'App', 'Sobre'] as const;
+const SECOES: { id: SecaoConfig; nome: string; grupo: (typeof GRUPOS)[number]; icone: NomeIcone }[] = [
+  { id: 'conta', nome: 'Minha conta', grupo: 'Conta', icone: 'perfil' },
+  { id: 'voz', nome: 'Voz e áudio', grupo: 'App', icone: 'microfone' },
+  { id: 'atalhos', nome: 'Atalhos', grupo: 'App', icone: 'teclado' },
+  { id: 'transmissao', nome: 'Transmissão', grupo: 'App', icone: 'tela' },
+  { id: 'notificacoes', nome: 'Notificações', grupo: 'App', icone: 'sino' },
+  { id: 'aparencia', nome: 'Aparência', grupo: 'App', icone: 'paleta' },
+  { id: 'atividade', nome: 'Atividade', grupo: 'App', icone: 'sons' },
+  { id: 'janela', nome: 'Janela', grupo: 'App', icone: 'janela' },
+  { id: 'novidades', nome: 'Novidades', grupo: 'Sobre', icone: 'estrela' },
+];
 
 export interface DependenciasConfiguracoes {
   listarDispositivos(): Promise<MediaDeviceInfo[]>;
@@ -38,6 +53,13 @@ const doNavegador: DependenciasConfiguracoes = {
 };
 
 interface Props {
+  /** Seção aberta ao abrir a janela (padrão: Voz e áudio). */
+  secaoInicial?: SecaoConfig;
+  aoMudarSecao?: (secao: SecaoConfig) => void;
+  /** Conteúdo de "Minha conta" (perfil e segurança); sem ele, a seção não aparece. */
+  conta?: ReactNode;
+  /** Conteúdo de "Novidades" (notas das versões); sem ele, a seção não aparece. */
+  novidades?: ReactNode;
   audio: PreferenciasAudio;
   /** Grava (RN-14) e aplica na chamada, se houver (RF-17); resolve quando a chamada já usa a escolha. */
   aoMudarAudio: (audio: PreferenciasAudio) => Promise<void> | void;
@@ -90,7 +112,8 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, temasLiberados, aoAbrirLoja, comLoja = false, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, temasLiberados, aoAbrirLoja, comLoja = false, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, secaoInicial = 'voz', aoMudarSecao, conta, novidades, deps = doNavegador }: Props) {
+  const [secao, setSecao] = useState<SecaoConfig>(secaoInicial);
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -229,283 +252,361 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
   const saidas = dispositivos.filter((d) => d.kind === 'audiooutput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
   const nome = (d: MediaDeviceInfo, i: number, tipo: string) => d.label || `${tipo} ${i + 1}`;
 
+  const nomeSecao = SECOES.find((x) => x.id === secao)?.nome ?? '';
+  const trocarSecao = (nova: SecaoConfig) => {
+    if (testando) {
+      encerrarTeste();
+      setTestando(false);
+      setNivel(-100);
+    }
+    setSecao(nova);
+    aoMudarSecao?.(nova);
+  };
+  const disponivel = (id: SecaoConfig) =>
+    id === 'conta' ? !!conta : id === 'transmissao' ? !!(tela && aoMudarTela) : id === 'notificacoes' ? !!(notificacoes && aoMudarNotificacoes) : id === 'aparencia' ? !!(tema && aoMudarTema) : id === 'atividade' ? !!(atividade && aoMudarAtividade) : id === 'janela' ? aoFechar !== undefined && !!aoMudarAoFechar : id === 'novidades' ? !!novidades : true;
+
   return (
-    <section className="painel" aria-labelledby="titulo-config">
-      <div className="painel-topo">
-        <h1 id="titulo-config">Configurações</h1>
-        <button type="button" className="secundario" onClick={aoVoltar}>
-          Voltar
-        </button>
-      </div>
-      <p className="suave">Valem só neste computador.</p>
-
-      <h2>Áudio</h2>
-      <div className="perfil-form">
-        <label htmlFor="cfg-entrada">Microfone</label>
-        <select id="cfg-entrada" value={audio.entradaId ?? ''} onChange={(e) => mudar({ entradaId: e.target.value || null })}>
-          <option value="">Padrão do sistema</option>
-          {entradas.map((d, i) => (
-            <option key={d.deviceId} value={d.deviceId}>
-              {nome(d, i, 'Microfone')}
-            </option>
-          ))}
-          {audio.entradaId && !entradas.some((d) => d.deviceId === audio.entradaId) && <option value={audio.entradaId}>Dispositivo desconectado</option>}
-        </select>
-
-        <label htmlFor="cfg-saida">Saída de áudio</label>
-        <select id="cfg-saida" value={audio.saidaId ?? ''} onChange={(e) => mudar({ saidaId: e.target.value || null })}>
-          <option value="">Padrão do sistema</option>
-          {saidas.map((d, i) => (
-            <option key={d.deviceId} value={d.deviceId}>
-              {nome(d, i, 'Saída')}
-            </option>
-          ))}
-          {audio.saidaId && !saidas.some((d) => d.deviceId === audio.saidaId) && <option value={audio.saidaId}>Dispositivo desconectado</option>}
-        </select>
-
-        <fieldset className="opcoes">
-          <legend>Tratamento do microfone</legend>
-          <label>
-            <input type="checkbox" checked={audio.supressaoRuido} onChange={(e) => mudar({ supressaoRuido: e.target.checked })} /> Supressão de ruído
-          </label>
-          <label>
-            <input type="checkbox" checked={audio.cancelamentoEco} onChange={(e) => mudar({ cancelamentoEco: e.target.checked })} /> Cancelamento de eco
-          </label>
-          <label>
-            <input type="checkbox" checked={audio.ganhoAutomatico} onChange={(e) => mudar({ ganhoAutomatico: e.target.checked })} /> Controle automático de ganho
-          </label>
-        </fieldset>
-      </div>
-
-      <fieldset className="opcoes">
-        <legend>Modo do microfone</legend>
-        <label>
-          <input type="radio" name="cfg-modo" checked={audio.modoMicrofone === 'deteccao'} onChange={() => mudar({ modoMicrofone: 'deteccao' })} /> Detecção de voz
-        </label>
-        <label>
-          <input type="radio" name="cfg-modo" checked={audio.modoMicrofone === 'ptt'} onChange={() => mudar({ modoMicrofone: 'ptt' })} /> Push-to-talk (segure o atalho
-          para falar)
-        </label>
-        {audio.modoMicrofone === 'ptt' && !atalhos.ptt && <p className="erro">Defina o atalho de push-to-talk abaixo; sem ele o microfone não abre.</p>}
-      </fieldset>
-
-      {sons && aoMudarSons && (
-        <fieldset className="opcoes">
-          <legend>Sons</legend>
-          <label>
-            <input type="checkbox" checked={sons.voz} onChange={(e) => aoMudarSons({ ...sons, voz: e.target.checked })} /> Sons de entrar e sair da voz e de mute
-          </label>
-        </fieldset>
-      )}
-
-      {notificacoes && aoMudarNotificacoes && (
-        <fieldset className="opcoes">
-          <legend>Notificações</legend>
-          <label>
-            <input type="checkbox" checked={notificacoes.mensagens} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, mensagens: e.target.checked })} /> Notificações de
-            mensagens
-          </label>
-          <label>
-            <input type="checkbox" checked={notificacoes.entradaSaidaSom} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, entradaSaidaSom: e.target.checked })} /> Som
-            quando alguém entra ou sai do servidor
-          </label>
-          <label>
-            <input type="checkbox" checked={notificacoes.entradaSaidaAviso} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, entradaSaidaAviso: e.target.checked })} />{' '}
-            Notificação quando alguém entra ou sai do servidor
-          </label>
-          <p className="suave">Desligar não zera os contadores de não lidas. Para silenciar um canal ou conversa, use o 🔔 no topo dela.</p>
-        </fieldset>
-      )}
-
-      {tema && aoMudarTema && (
-        <fieldset className="opcoes">
-          <legend>Aparência</legend>
-          {(
-            [
-              ['neon', 'Neon da Madrugada', 'noite roxa com ciano e rosa'],
-              ['breu', 'Breu', 'escuro neutro e calmo'],
-              ['aurora', 'Aurora', 'céu polar com luz verde e violeta'],
-            ] as const
-          ).map(([valor, nome, descricao]) => (
-            <label key={valor}>
-              <input type="radio" name="tema" checked={tema === valor} onChange={() => aoMudarTema(valor)} /> {nome} <span className="suave">({descricao})</span>
-            </label>
-          ))}
-          {temasLiberados &&
-            ITENS_TEMA.filter((t) => TEMAS_LOJA.includes(t.id)).map((t) => {
-              const liberado = temasLiberados.includes(t.id);
-              return (
-                <div key={t.id} className={`tema-loja${liberado ? '' : ' bloqueado'}`}>
-                  <label>
-                    <input
-                      type="radio"
-                      name="tema"
-                      checked={tema === t.id}
-                      disabled={!liberado}
-                      aria-describedby={liberado ? undefined : `tema-loja-${t.id}`}
-                      onChange={() => aoMudarTema(t.id)}
-                    />{' '}
-                    {t.nome}{' '}
-                    <span className="suave">({t.descricao})</span>
-                  </label>
-                  {!liberado && (
-                    <button type="button" id={`tema-loja-${t.id}`} className="secundario tema-cadeado" onClick={aoAbrirLoja} aria-label={`${t.nome}: liberar na loja`}>
-                      <Icone nome="cadeado" tamanho={14} /> Na loja
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-        </fieldset>
-      )}
-
-      {aoFechar !== undefined && aoMudarAoFechar && (
-        <fieldset className="opcoes">
-          <legend>Janela: ao fechar</legend>
-          {(
-            [
-              ['perguntar', 'Perguntar o que fazer'],
-              ['bandeja', 'Minimizar para a bandeja (a voz e as notificações continuam)'],
-              ['sair', 'Fechar o ToFalany'],
-            ] as const
-          ).map(([valor, texto]) => (
-            <label key={valor}>
-              <input type="radio" name="ao-fechar" checked={aoFechar === valor} onChange={() => aoMudarAoFechar(valor)} /> {texto}
-            </label>
-          ))}
-          <p className="suave">Na bandeja, para sair de vez: clique direito no ícone → Sair.</p>
-        </fieldset>
-      )}
-
-      {atividade && aoMudarAtividade && (
-        <fieldset className="opcoes">
-          <legend>Atividade</legend>
-          <label>
-            <input type="checkbox" checked={atividade.jogos} onChange={(e) => aoMudarAtividade({ ...atividade, jogos: e.target.checked })} /> Mostrar o jogo que estou
-            jogando (jogos da Steam)
-          </label>
-          <label>
-            <input type="checkbox" checked={atividade.musica} onChange={(e) => aoMudarAtividade({ ...atividade, musica: e.target.checked })} /> Mostrar a música que
-            estou ouvindo no Spotify
-          </label>
-          <p className="suave">Aparece ao lado do seu nome para quem está nos seus servidores. Fica escondido quando você está invisível.</p>
-        </fieldset>
-      )}
-
-      {tela && aoMudarTela && (
-        <>
-          <h2>Transmissão de tela</h2>
+    <div
+      className="config-fundo"
+      role="presentation"
+      onKeyDown={(e) => {
+        // Esc fecha (menos durante a captura de um atalho, em que o Esc cancela a captura).
+        if (e.key === 'Escape' && !capturando) {
+          e.stopPropagation();
+          aoVoltar();
+        }
+      }}
+    >
+      <div className="config-janela" role="dialog" aria-modal="true" aria-labelledby="titulo-config">
+        <nav className="config-nav" aria-label="Seções das configurações">
+          <h1 id="titulo-config">Configurações</h1>
+          {GRUPOS.map((g) => {
+            const itens = SECOES.filter((x) => x.grupo === g && disponivel(x.id));
+            if (itens.length === 0) return null;
+            return (
+              <div key={g} className="config-grupo">
+                <p className="config-grupo-titulo">{g}</p>
+                {itens.map((x) => (
+                  <button key={x.id} type="button" className={`config-item${secao === x.id ? ' ativo' : ''}`} aria-current={secao === x.id ? 'page' : undefined} onClick={() => trocarSecao(x.id)}>
+                    <Icone nome={x.icone} tamanho={16} />
+                    {x.nome}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+          <p className="suave config-nota">As preferências valem só neste computador.</p>
+        </nav>
+        <section className="config-conteudo" aria-labelledby="titulo-secao-config">
+          <div className="config-topo">
+            <h2 id="titulo-secao-config">{nomeSecao}</h2>
+            <button type="button" className="icone config-fechar" aria-label="Fechar as configurações" title="Fechar (Esc)" onClick={aoVoltar}>
+              <Icone nome="fechar" tamanho={20} />
+            </button>
+          </div>
+          {secao === 'conta' && conta}
+          {secao === 'voz' && (
+            <>
           <div className="perfil-form">
-            <label htmlFor="cfg-qualidade-tela">Qualidade padrão</label>
-            <select id="cfg-qualidade-tela" value={qualidadesTela.includes(tela.qualidade) ? tela.qualidade : '720p30'} onChange={(e) => aoMudarTela({ ...tela, qualidade: e.target.value as QualidadeTela })}>
-              {QUALIDADES_TELA.map((q) => (
-                <option key={q} value={q} disabled={!qualidadesTela.includes(q)}>
-                  {q}
+            <label htmlFor="cfg-entrada">Microfone</label>
+            <select id="cfg-entrada" value={audio.entradaId ?? ''} onChange={(e) => mudar({ entradaId: e.target.value || null })}>
+              <option value="">Padrão do sistema</option>
+              {entradas.map((d, i) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {nome(d, i, 'Microfone')}
                 </option>
               ))}
+              {audio.entradaId && !entradas.some((d) => d.deviceId === audio.entradaId) && <option value={audio.entradaId}>Dispositivo desconectado</option>}
             </select>
-            {comLoja
-              ? !qualidadesTela.includes('1080p60') && <p className="suave">As bloqueadas você libera na loja (vales de 7 dias) ou com o cargo que libera; 2K só pelo cargo.</p>
-              : qualidadesTela.length === 1 && <p className="suave">Acima de 720p30, só com o cargo que libera.</p>}
-            <label htmlFor="cfg-codec-tela">Codec</label>
-            <select id="cfg-codec-tela" value={tela.codec} onChange={(e) => aoMudarTela({ ...tela, codec: e.target.value as 'h264' | 'vp9' })}>
-              <option value="h264">H.264 (recomendado: usa a placa de vídeo)</option>
-              <option value="vp9">VP9</option>
-            </select>
-          </div>
-        </>
-      )}
 
-      <h2>Atalhos</h2>
-      <p className="suave">Funcionam com o app em segundo plano.</p>
-      <ul className="lista-admin" aria-label="Atalhos">
-        {ACOES_ATALHO.map((acao) => (
-          <li key={acao} aria-label={NOME_ACAO[acao]}>
-            <span className="nome">{NOME_ACAO[acao]}</span>
-            <kbd data-testid={`atalho-${acao}`} aria-live="polite">{capturando === acao ? 'Pressione a combinação… (Esc cancela)' : textoAtalho(atalhos[acao])}</kbd>
-            <button
-              type="button"
-              className="secundario"
-              aria-label={capturando === acao ? `Cancelar a troca do atalho de ${NOME_ACAO[acao]}` : `Alterar atalho de ${NOME_ACAO[acao]}`}
-              onClick={() => {
-                setErroAtalho(null);
-                setCapturando(capturando === acao ? null : acao);
-              }}
+            <label htmlFor="cfg-saida">Saída de áudio</label>
+            <select id="cfg-saida" value={audio.saidaId ?? ''} onChange={(e) => mudar({ saidaId: e.target.value || null })}>
+              <option value="">Padrão do sistema</option>
+              {saidas.map((d, i) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {nome(d, i, 'Saída')}
+                </option>
+              ))}
+              {audio.saidaId && !saidas.some((d) => d.deviceId === audio.saidaId) && <option value={audio.saidaId}>Dispositivo desconectado</option>}
+            </select>
+
+            <fieldset className="opcoes">
+              <legend>Tratamento do microfone</legend>
+              <label>
+                <input type="checkbox" checked={audio.supressaoRuido} onChange={(e) => mudar({ supressaoRuido: e.target.checked })} /> Supressão de ruído
+              </label>
+              <label>
+                <input type="checkbox" checked={audio.cancelamentoEco} onChange={(e) => mudar({ cancelamentoEco: e.target.checked })} /> Cancelamento de eco
+              </label>
+              <label>
+                <input type="checkbox" checked={audio.ganhoAutomatico} onChange={(e) => mudar({ ganhoAutomatico: e.target.checked })} /> Controle automático de ganho
+              </label>
+            </fieldset>
+          </div>
+
+          <fieldset className="opcoes">
+            <legend>Modo do microfone</legend>
+            <label>
+              <input type="radio" name="cfg-modo" checked={audio.modoMicrofone === 'deteccao'} onChange={() => mudar({ modoMicrofone: 'deteccao' })} /> Detecção de voz
+            </label>
+            <label>
+              <input type="radio" name="cfg-modo" checked={audio.modoMicrofone === 'ptt'} onChange={() => mudar({ modoMicrofone: 'ptt' })} /> Push-to-talk (segure o atalho
+              para falar)
+            </label>
+            {audio.modoMicrofone === 'ptt' && !atalhos.ptt && <p className="erro">Defina o atalho de push-to-talk em Atalhos; sem ele o microfone não abre.</p>}
+          </fieldset>
+
+          {sons && aoMudarSons && (
+            <fieldset className="opcoes">
+              <legend>Sons</legend>
+              <label>
+                <input type="checkbox" checked={sons.voz} onChange={(e) => aoMudarSons({ ...sons, voz: e.target.checked })} /> Sons de entrar e sair da voz e de mute
+              </label>
+            </fieldset>
+          )}
+
+          <h3>Teste de microfone</h3>
+          <div className="teste-mic">
+            <div
+              className="medidor"
+              role="meter"
+              aria-label="Nível do microfone"
+              aria-valuemin={-100}
+              aria-valuemax={0}
+              aria-valuenow={Math.round(nivel)}
+              aria-valuetext={testando ? `${Math.round(nivel)} dB` : 'sem teste'}
+              aria-describedby="cfg-sensibilidade-texto"
             >
-              {capturando === acao ? 'Cancelar' : 'Alterar'}
-            </button>
-            {atalhos[acao] && (
-              <button type="button" className="secundario" aria-label={`Remover atalho de ${NOME_ACAO[acao]}`} onClick={() => aoMudarAtalhos({ ...atalhos, [acao]: null })}>
-                Remover
+              <div className={`medidor-nivel${nivel >= audio.sensibilidadeDb ? ' acima' : ''}`} style={{ width: `${testando ? porcento(nivel) : 0}%` }} />
+              <div className="medidor-marca" style={{ left: `${porcento(audio.sensibilidadeDb)}%` }} title="Sensibilidade da detecção de voz" aria-hidden="true" />
+            </div>
+            <label htmlFor="cfg-sensibilidade">
+              Sensibilidade da detecção de voz: <span className="suave">{audio.sensibilidadeDb} dB</span>
+            </label>
+            <input
+              id="cfg-sensibilidade"
+              type="range"
+              min={-100}
+              max={0}
+              step={1}
+              value={audio.sensibilidadeDb}
+              onChange={(e) => mudar({ sensibilidadeDb: Number(e.target.value) })}
+            />
+            <p className="suave" id="cfg-sensibilidade-texto">
+              Marca da sensibilidade em {audio.sensibilidadeDb} dB: acima dela, a detecção de voz transmite.
+            </p>
+            {testando ? (
+              <button
+                type="button"
+                className="secundario"
+                onClick={() => {
+                  encerrarTeste();
+                  setTestando(false);
+                  setNivel(-100);
+                }}
+              >
+                Parar teste
+              </button>
+            ) : (
+              <button type="button" onClick={() => void iniciarTeste(audio)}>
+                Testar microfone
               </button>
             )}
-          </li>
-        ))}
-      </ul>
-      {erroAtalho && (
-        <p className="erro" role="alert">
-          {erroAtalho}
-        </p>
-      )}
+            <p className="suave">Use fone de ouvido no teste: pelas caixas de som, a sua voz volta para o microfone (microfonia).</p>
+            {/* Região viva sempre presente: o leitor de tela anuncia quando o texto muda. */}
+            <p className="suave" role="status" data-dispositivo={testando ? dispositivoEmUso : undefined}>
+              {testando && supressao ? `Você está se ouvindo; na chamada, fica mudo e sem áudio até parar o teste. ${TEXTO_SUPRESSAO[supressao]}` : ''}
+            </p>
+            {erro && (
+              <p className="erro" role="alert">
+                {erro}
+              </p>
+            )}
+          </div>
 
-      <h2>Teste de microfone</h2>
-      <div className="teste-mic">
-        <div
-          className="medidor"
-          role="meter"
-          aria-label="Nível do microfone"
-          aria-valuemin={-100}
-          aria-valuemax={0}
-          aria-valuenow={Math.round(nivel)}
-          aria-valuetext={testando ? `${Math.round(nivel)} dB` : 'sem teste'}
-          aria-describedby="cfg-sensibilidade-texto"
-        >
-          <div className={`medidor-nivel${nivel >= audio.sensibilidadeDb ? ' acima' : ''}`} style={{ width: `${testando ? porcento(nivel) : 0}%` }} />
-          <div className="medidor-marca" style={{ left: `${porcento(audio.sensibilidadeDb)}%` }} title="Sensibilidade da detecção de voz" aria-hidden="true" />
-        </div>
-        <label htmlFor="cfg-sensibilidade">
-          Sensibilidade da detecção de voz: <span className="suave">{audio.sensibilidadeDb} dB</span>
-        </label>
-        <input
-          id="cfg-sensibilidade"
-          type="range"
-          min={-100}
-          max={0}
-          step={1}
-          value={audio.sensibilidadeDb}
-          onChange={(e) => mudar({ sensibilidadeDb: Number(e.target.value) })}
-        />
-        <p className="suave" id="cfg-sensibilidade-texto">
-          Marca da sensibilidade em {audio.sensibilidadeDb} dB: acima dela, a detecção de voz transmite.
-        </p>
-        {testando ? (
-          <button
-            type="button"
-            className="secundario"
-            onClick={() => {
-              encerrarTeste();
-              setTestando(false);
-              setNivel(-100);
-            }}
-          >
-            Parar teste
-          </button>
-        ) : (
-          <button type="button" onClick={() => void iniciarTeste(audio)}>
-            Testar microfone
-          </button>
-        )}
-        <p className="suave">Use fone de ouvido no teste: pelas caixas de som, a sua voz volta para o microfone (microfonia).</p>
-        {/* Região viva sempre presente: o leitor de tela anuncia quando o texto muda. */}
-        <p className="suave" role="status" data-dispositivo={testando ? dispositivoEmUso : undefined}>
-          {testando && supressao ? `Você está se ouvindo; na chamada, fica mudo e sem áudio até parar o teste. ${TEXTO_SUPRESSAO[supressao]}` : ''}
-        </p>
-        {erro && (
-          <p className="erro" role="alert">
-            {erro}
-          </p>
-        )}
+            </>
+          )}
+          {secao === 'atalhos' && (
+            <>
+          <p className="suave">Funcionam com o app em segundo plano.</p>
+          <ul className="lista-admin" aria-label="Atalhos">
+            {ACOES_ATALHO.map((acao) => (
+              <li key={acao} aria-label={NOME_ACAO[acao]}>
+                <span className="nome">{NOME_ACAO[acao]}</span>
+                <kbd data-testid={`atalho-${acao}`} aria-live="polite">{capturando === acao ? 'Pressione a combinação… (Esc cancela)' : textoAtalho(atalhos[acao])}</kbd>
+                <button
+                  type="button"
+                  className="secundario"
+                  aria-label={capturando === acao ? `Cancelar a troca do atalho de ${NOME_ACAO[acao]}` : `Alterar atalho de ${NOME_ACAO[acao]}`}
+                  onClick={() => {
+                    setErroAtalho(null);
+                    setCapturando(capturando === acao ? null : acao);
+                  }}
+                >
+                  {capturando === acao ? 'Cancelar' : 'Alterar'}
+                </button>
+                {atalhos[acao] && (
+                  <button type="button" className="secundario" aria-label={`Remover atalho de ${NOME_ACAO[acao]}`} onClick={() => aoMudarAtalhos({ ...atalhos, [acao]: null })}>
+                    Remover
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {erroAtalho && (
+            <p className="erro" role="alert">
+              {erroAtalho}
+            </p>
+          )}
+
+
+            </>
+          )}
+          {secao === 'transmissao' && (
+            <>
+          {tela && aoMudarTela && (
+            <>
+              <div className="perfil-form">
+                <label htmlFor="cfg-qualidade-tela">Qualidade padrão</label>
+                <select id="cfg-qualidade-tela" value={qualidadesTela.includes(tela.qualidade) ? tela.qualidade : '720p30'} onChange={(e) => aoMudarTela({ ...tela, qualidade: e.target.value as QualidadeTela })}>
+                  {QUALIDADES_TELA.map((q) => (
+                    <option key={q} value={q} disabled={!qualidadesTela.includes(q)}>
+                      {q}
+                    </option>
+                  ))}
+                </select>
+                {comLoja
+                  ? !qualidadesTela.includes('1080p60') && <p className="suave">As bloqueadas você libera na loja (vales de 7 dias) ou com o cargo que libera; 2K só pelo cargo.</p>
+                  : qualidadesTela.length === 1 && <p className="suave">Acima de 720p30, só com o cargo que libera.</p>}
+                <label htmlFor="cfg-codec-tela">Codec</label>
+                <select id="cfg-codec-tela" value={tela.codec} onChange={(e) => aoMudarTela({ ...tela, codec: e.target.value as 'h264' | 'vp9' })}>
+                  <option value="h264">H.264 (recomendado: usa a placa de vídeo)</option>
+                  <option value="vp9">VP9</option>
+                </select>
+              </div>
+            </>
+          )}
+
+
+            </>
+          )}
+          {secao === 'notificacoes' && (
+            <>
+          {notificacoes && aoMudarNotificacoes && (
+            <fieldset className="opcoes">
+              <legend>Notificações</legend>
+              <label>
+                <input type="checkbox" checked={notificacoes.mensagens} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, mensagens: e.target.checked })} /> Notificações de
+                mensagens
+              </label>
+              <label>
+                <input type="checkbox" checked={notificacoes.entradaSaidaSom} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, entradaSaidaSom: e.target.checked })} /> Som
+                quando alguém entra ou sai do servidor
+              </label>
+              <label>
+                <input type="checkbox" checked={notificacoes.entradaSaidaAviso} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, entradaSaidaAviso: e.target.checked })} />{' '}
+                Notificação quando alguém entra ou sai do servidor
+              </label>
+              <p className="suave">Desligar não zera os contadores de não lidas. Para silenciar um canal ou conversa, use o sino <Icone nome="sino" tamanho={14} /> no topo dela.</p>
+            </fieldset>
+          )}
+
+
+            </>
+          )}
+          {secao === 'aparencia' && (
+            <>
+          {tema && aoMudarTema && (
+            <fieldset className="opcoes">
+              <legend>Aparência</legend>
+              {(
+                [
+                  ['neon', 'Neon da Madrugada', 'noite roxa com ciano e rosa'],
+                  ['breu', 'Breu', 'escuro neutro e calmo'],
+                  ['aurora', 'Aurora', 'céu polar com luz verde e violeta'],
+                ] as const
+              ).map(([valor, nome, descricao]) => (
+                <label key={valor}>
+                  <input type="radio" name="tema" checked={tema === valor} onChange={() => aoMudarTema(valor)} /> {nome} <span className="suave">({descricao})</span>
+                </label>
+              ))}
+              {temasLiberados &&
+                ITENS_TEMA.filter((t) => TEMAS_LOJA.includes(t.id)).map((t) => {
+                  const liberado = temasLiberados.includes(t.id);
+                  return (
+                    <div key={t.id} className={`tema-loja${liberado ? '' : ' bloqueado'}`}>
+                      <label>
+                        <input
+                          type="radio"
+                          name="tema"
+                          checked={tema === t.id}
+                          disabled={!liberado}
+                          aria-describedby={liberado ? undefined : `tema-loja-${t.id}`}
+                          onChange={() => aoMudarTema(t.id)}
+                        />{' '}
+                        {t.nome}{' '}
+                        <span className="suave">({t.descricao})</span>
+                      </label>
+                      {!liberado && (
+                        <button type="button" id={`tema-loja-${t.id}`} className="secundario tema-cadeado" onClick={aoAbrirLoja} aria-label={`${t.nome}: liberar na loja`}>
+                          <Icone nome="cadeado" tamanho={14} /> Na loja
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+            </fieldset>
+          )}
+
+
+            </>
+          )}
+          {secao === 'atividade' && (
+            <>
+          {atividade && aoMudarAtividade && (
+            <fieldset className="opcoes">
+              <legend>Atividade</legend>
+              <label>
+                <input type="checkbox" checked={atividade.jogos} onChange={(e) => aoMudarAtividade({ ...atividade, jogos: e.target.checked })} /> Mostrar o jogo que estou
+                jogando (jogos da Steam)
+              </label>
+              <label>
+                <input type="checkbox" checked={atividade.musica} onChange={(e) => aoMudarAtividade({ ...atividade, musica: e.target.checked })} /> Mostrar a música que
+                estou ouvindo no Spotify
+              </label>
+              <p className="suave">Aparece ao lado do seu nome para quem está nos seus servidores. Fica escondido quando você está invisível.</p>
+            </fieldset>
+          )}
+
+
+            </>
+          )}
+          {secao === 'janela' && (
+            <>
+          {aoFechar !== undefined && aoMudarAoFechar && (
+            <fieldset className="opcoes">
+              <legend>Janela: ao fechar</legend>
+              {(
+                [
+                  ['perguntar', 'Perguntar o que fazer'],
+                  ['bandeja', 'Minimizar para a bandeja (a voz e as notificações continuam)'],
+                  ['sair', 'Fechar o ToFalany'],
+                ] as const
+              ).map(([valor, texto]) => (
+                <label key={valor}>
+                  <input type="radio" name="ao-fechar" checked={aoFechar === valor} onChange={() => aoMudarAoFechar(valor)} /> {texto}
+                </label>
+              ))}
+              <p className="suave">Na bandeja, para sair de vez: clique direito no ícone → Sair.</p>
+            </fieldset>
+          )}
+
+
+            </>
+          )}
+          {secao === 'novidades' && novidades}
+        </section>
       </div>
-    </section>
+    </div>
   );
 }

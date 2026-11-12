@@ -150,6 +150,7 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
     const { aoMudarAudio, aoMudarAtalhos } = montar();
     fireEvent.click(screen.getByRole('radio', { name: /Push-to-talk/ }));
     expect(aoMudarAudio).toHaveBeenLastCalledWith({ ...AUDIO_PADRAO, modoMicrofone: 'ptt' });
+    fireEvent.click(screen.getByRole('button', { name: 'Atalhos' }));
 
     const ptt = screen.getByRole('listitem', { name: 'Push-to-talk' });
     expect(within(ptt).getByText('Nenhum')).toBeTruthy();
@@ -180,7 +181,7 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
 
   it('backlog v2, 1e: ao fechar a janela, perguntar, bandeja ou sair', () => {
     const aoMudarAoFechar = vi.fn();
-    montar(AUDIO_PADRAO, 'forte', { aoFechar: 'perguntar', aoMudarAoFechar });
+    montar(AUDIO_PADRAO, 'forte', { aoFechar: 'perguntar', aoMudarAoFechar, secaoInicial: 'janela' });
     expect(screen.getByLabelText('Perguntar o que fazer')).toHaveProperty('checked', true);
     fireEvent.click(screen.getByLabelText(/Minimizar para a bandeja/));
     expect(aoMudarAoFechar).toHaveBeenCalledWith('bandeja');
@@ -193,7 +194,7 @@ describe('Aparência com a loja (pontos-e-loja)', () => {
   it('CA-19: tema da loja sem compra fica com cadeado e leva à loja; comprado pode ser escolhido', () => {
     const aoMudarTema = vi.fn();
     const aoAbrirLoja = vi.fn();
-    montar(AUDIO_PADRAO, 'forte', { tema: 'neon', aoMudarTema, temasLiberados: ['gibi'], aoAbrirLoja });
+    montar(AUDIO_PADRAO, 'forte', { tema: 'neon', aoMudarTema, temasLiberados: ['gibi'], aoAbrirLoja, secaoInicial: 'aparencia' });
     const cinzas = screen.getByRole('radio', { name: /Cinzas do Trono/ }) as HTMLInputElement;
     expect(cinzas.disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Cinzas do Trono: liberar na loja' }));
@@ -206,17 +207,40 @@ describe('Aparência com a loja (pontos-e-loja)', () => {
   });
 
   it('servidor sem loja: os temas da loja nem aparecem', () => {
-    montar(AUDIO_PADRAO, 'forte', { tema: 'neon', aoMudarTema: vi.fn() });
+    montar(AUDIO_PADRAO, 'forte', { tema: 'neon', aoMudarTema: vi.fn(), secaoInicial: 'aparencia' });
     expect(screen.queryByRole('radio', { name: /Cinzas do Trono/ })).toBeNull();
     expect(screen.getByLabelText(/Aurora/)).toBeTruthy();
   });
 
   it('dica da qualidade: com loja fala dos vales; sem loja, só com um cargo que libera', () => {
     const tela = { qualidade: '720p30' as const, codec: 'h264' as const };
-    montar(AUDIO_PADRAO, 'forte', { tela, aoMudarTela: vi.fn(), qualidadesTela: ['720p30'], comLoja: true });
+    montar(AUDIO_PADRAO, 'forte', { tela, aoMudarTela: vi.fn(), qualidadesTela: ['720p30'], comLoja: true, secaoInicial: 'transmissao' });
     expect(screen.getByText(/libera na loja \(vales de 7 dias\)/)).toBeTruthy();
     cleanup();
-    montar(AUDIO_PADRAO, 'forte', { tela, aoMudarTela: vi.fn(), qualidadesTela: ['720p30', '1440p60'] });
+    montar(AUDIO_PADRAO, 'forte', { tela, aoMudarTela: vi.fn(), qualidadesTela: ['720p30', '1440p60'], secaoInicial: 'transmissao' });
     expect(screen.queryByText(/Acima de 720p30/)).toBeNull();
   });
 });
+
+describe('janela de configurações com seções', () => {
+  it('navega pelas seções, mostra conta e novidades quando há, e fecha com Esc ou no X', () => {
+    const aoVoltar = vi.fn();
+    montar(AUDIO_PADRAO, 'forte', { aoVoltar, conta: <p>conteúdo da conta</p>, novidades: <p>notas das versões</p>, tema: 'neon', aoMudarTema: vi.fn() });
+    const dialogo = screen.getByRole('dialog', { name: 'Configurações' });
+    expect(within(dialogo).getByRole('heading', { name: 'Voz e áudio' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Voz e áudio' }).getAttribute('aria-current')).toBe('page');
+    fireEvent.click(screen.getByRole('button', { name: 'Minha conta' }));
+    expect(screen.getByText('conteúdo da conta')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Novidades' }));
+    expect(screen.getByText('notas das versões')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Aparência' }));
+    expect(screen.getByRole('radio', { name: /Aurora/ })).toBeTruthy();
+    // Sem as preferências de uma seção, ela não aparece.
+    expect(screen.queryByRole('button', { name: 'Transmissão' })).toBeNull();
+    fireEvent.keyDown(dialogo, { key: 'Escape' });
+    expect(aoVoltar).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar as configurações' }));
+    expect(aoVoltar).toHaveBeenCalledTimes(2);
+  });
+});
+

@@ -173,7 +173,7 @@ export const MIGRACOES: readonly string[] = [
   ALTER TABLE funcoes ADD COLUMN comunidade_id INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE auditoria ADD COLUMN comunidade_id INTEGER;
   `,
-  // 012 — amigos (como no Discord): pedido, aceite. Vale para a conta, em todos os servidores da instalação.
+  // 012 — amigos: pedido, aceite. Vale para a conta, em todos os servidores da instalação.
   `
   CREATE TABLE amizades (
     usuario_a INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -247,6 +247,24 @@ export const MIGRACOES: readonly string[] = [
     expira_em INTEGER NOT NULL,
     PRIMARY KEY (usuario_id, qualidade)
   );
+  `,
+  // 018 — autenticação em dois fatores (opcional): segredo do app (ativado_em nulo enquanto configura) e códigos de
+  // recuperação de uso único (só o hash).
+  `
+  CREATE TABLE dois_fatores (
+    usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+    segredo TEXT NOT NULL,
+    ativado_em INTEGER,
+    ultimo_passo INTEGER NOT NULL DEFAULT 0,
+    criado_em INTEGER NOT NULL
+  );
+  CREATE TABLE codigos_recuperacao (
+    id INTEGER PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    hash TEXT NOT NULL,
+    usado_em INTEGER
+  );
+  CREATE INDEX codigos_recuperacao_usuario ON codigos_recuperacao (usuario_id);
   `,
 ];
 

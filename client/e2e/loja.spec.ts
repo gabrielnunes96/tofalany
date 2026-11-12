@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
-import { noMenu } from './menu';
+import { noMenu, secaoConfig, fecharConfig } from './menu';
 
 /** Pontos e loja: saldo no painel, compra de tema pela loja, prévia, saldo ao vivo e Aparência com cadeado. */
 const principal = join(__dirname, '../out/main/index.js');
@@ -62,8 +62,9 @@ test('pontos e loja: saldo no painel, prévia, compra, saldo ao vivo e Aparênci
   const j = await entrarComoAna();
   // CA-19 (antes de comprar): os temas da loja aparecem com cadeado.
   await noMenu(j, 'Configurações');
+  await secaoConfig(j, 'Aparência');
   await expect(j.getByRole('radio', { name: /Cinzas do Trono/ })).toBeDisabled();
-  await j.getByRole('button', { name: 'Voltar' }).first().click();
+  await fecharConfig(j);
   await creditar(anaId, 700);
   const cartao = (nome: string) => j.getByRole('listitem').filter({ has: j.getByRole('heading', { name: nome, level: 3 }) });
   // CA-8: o saldo aparece no painel sem reabrir.
@@ -99,6 +100,7 @@ test('pontos e loja: saldo no painel, prévia, compra, saldo ao vivo e Aparênci
 
   // CA-19: em Aparência, o tema comprado se escolhe; o outro tem cadeado e leva à loja.
   await noMenu(j, 'Configurações');
+  await secaoConfig(j, 'Aparência');
   await expect(j.getByRole('radio', { name: /Arcano Dourado/ })).toBeDisabled();
   await j.getByRole('radio', { name: /Cinzas do Trono/ }).check();
   await expect.poll(() => j.evaluate(() => document.documentElement.dataset.tema)).toBe('cinzas');

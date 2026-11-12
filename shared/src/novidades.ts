@@ -9,6 +9,15 @@ export interface NotasVersao {
 }
 
 export const NOVIDADES: Record<string, NotasVersao> = {
+  '0.15.1': {
+    itens: [
+      { titulo: 'Configurações em janela', texto: 'abrem sobre o app, com as seções à esquerda (Minha conta, Voz e áudio, Atalhos, Aparência e outras). Esc fecha.' },
+      { titulo: 'Autenticação em dois fatores', texto: 'opcional: ligue em Configurações, Minha conta, com um app de autenticação no celular. O código é pedido só ao entrar numa conta.' },
+      { titulo: 'Códigos de recuperação', texto: 'ao ligar, você recebe 8 códigos de uso único para entrar se ficar sem o celular; o administrador também pode desligar.' },
+      { titulo: 'Novidades de novo', texto: 'as notas de todas as versões ficam em Configurações, Novidades (e no menu do seu painel).' },
+      { titulo: 'Como ganhar pontos', texto: 'a Loja agora explica direitinho como os pontos entram.' },
+    ],
+  },
   '0.15.0': {
     chamada: 'O ToFalany está de cara nova',
     itens: [

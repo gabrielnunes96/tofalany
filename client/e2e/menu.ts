@@ -14,3 +14,14 @@ export async function itensDoMenu(janela: Page): Promise<string[]> {
   await janela.keyboard.press('Escape');
   return nomes.map((n) => n.trim());
 }
+
+/** Configurações abertas: vai a uma seção da navegação à esquerda. */
+export async function secaoConfig(janela: Page, nome: string): Promise<void> {
+  await janela.getByRole('dialog', { name: 'Configurações' }).getByRole('button', { name: nome, exact: true }).click();
+}
+
+/** Fecha a janela de configurações (o app por trás volta a receber cliques). */
+export async function fecharConfig(janela: Page): Promise<void> {
+  await janela.getByRole('button', { name: 'Fechar as configurações' }).click();
+  await janela.getByRole('dialog', { name: 'Configurações' }).waitFor({ state: 'detached' });
+}

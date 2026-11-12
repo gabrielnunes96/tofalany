@@ -1044,3 +1044,77 @@ button.saldo-pontos .loja-estrela { width: 11px; height: 11px; }
 .tema-loja { display: flex; align-items: center; justify-content: space-between; gap: var(--e-2); flex-wrap: wrap; }
 .tema-loja.bloqueado label { color: var(--cor-texto-suave); }
 button.tema-cadeado { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 3px 10px; font-size: var(--texto-xs); }
+
+/* ==========================================================================
+   Configurações numa janela sobre o app: seções à esquerda, conteúdo à direita.
+   ========================================================================== */
+.config-fundo { position: fixed; inset: 0; z-index: 65; display: grid; place-items: center; padding: 24px; background: var(--cor-veu); backdrop-filter: blur(8px);
+  animation: novidades-veu var(--dur-media) var(--curva-entrada); }
+.config-janela { width: min(1080px, 100%); height: min(760px, calc(100vh - 48px)); display: grid; grid-template-columns: 240px minmax(0, 1fr);
+  border-radius: var(--raio-painel); overflow: hidden; border: 1px solid var(--cor-borda); box-shadow: var(--sombra-flutuante), var(--sombra-painel);
+  background: var(--cor-superficie); animation: surgir var(--dur-lenta) var(--curva-entrada); }
+.config-nav { display: flex; flex-direction: column; gap: 2px; padding: var(--e-5) var(--e-3) var(--e-4); background: color-mix(in srgb, var(--cor-fundo) 70%, var(--cor-superficie)); border-right: 1px solid var(--cor-borda); overflow-y: auto; }
+.config-nav h1 { font-size: var(--texto-xl); margin: 0 var(--e-2) var(--e-3); }
+.config-grupo { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--e-3); }
+.config-grupo-titulo { margin: var(--e-2) var(--e-2) var(--e-1); font-size: 10.5px; font-weight: var(--peso-forte); letter-spacing: 0.08em; text-transform: uppercase; color: var(--cor-texto-suave); }
+button.config-item { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 10px; border-radius: var(--raio-p); text-align: left; font-weight: var(--peso-medio);
+  background: transparent; color: var(--cor-texto-suave); box-shadow: none; border: 0; }
+button.config-item:hover:not(:disabled) { background: var(--cor-sutil); color: var(--cor-texto); box-shadow: none; transform: none; }
+button.config-item.ativo, button.config-item.ativo:hover:not(:disabled) { background: var(--cor-acento-suave); color: var(--cor-texto); }
+button.config-item.ativo .icone-svg { color: var(--cor-acento); }
+.config-nota { margin: auto var(--e-2) 0; font-size: var(--texto-xs); }
+.config-conteudo { overflow-y: auto; padding: 0 var(--e-6) var(--e-6); }
+.config-topo { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--e-3);
+  margin: 0 calc(-1 * var(--e-6)) var(--e-4); padding: var(--e-5) var(--e-6) var(--e-3); background: linear-gradient(var(--cor-superficie) 70%, transparent); }
+.config-topo h2 { margin: 0; font-size: var(--texto-2xl); }
+button.config-fechar { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--cor-borda-forte); color: var(--cor-texto-suave); }
+button.config-fechar:hover:not(:disabled) { color: var(--cor-texto); background: var(--cor-sutil); }
+.config-conteudo > .painel { max-width: none; margin: 0; }
+.config-conteudo h2 { font-size: var(--texto-xl); }
+.config-conteudo h3 { margin: var(--e-5) 0 var(--e-2); font-size: var(--texto-lg); }
+.config-conteudo .opcoes { margin: var(--e-3) 0; padding: var(--e-3) var(--e-4); border-radius: var(--raio-m); background: var(--cor-sutil); }
+.config-conteudo .perfil-form { max-width: 520px; }
+@media (max-width: 760px) {
+  .config-fundo { padding: 0; }
+  .config-janela { height: 100vh; border-radius: 0; grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .config-nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; padding: var(--e-2); border-right: 0; border-bottom: 1px solid var(--cor-borda); }
+  .config-nav h1, .config-grupo-titulo, .config-nota { display: none; }
+  .config-grupo { flex-direction: row; margin: 0; }
+  button.config-item { white-space: nowrap; }
+  .config-conteudo { padding: 0 var(--e-4) var(--e-4); }
+  .config-topo { margin: 0 calc(-1 * var(--e-4)) var(--e-3); padding: var(--e-3) var(--e-4); }
+}
+@media (prefers-reduced-motion: reduce) { .config-fundo, .config-janela { animation: none; } }
+
+/* Opções com descrição: rótulo e descrição na mesma linha, alinhados. */
+.opcoes label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: var(--peso-medio); }
+.opcoes label .suave { margin: 0; font-weight: 400; }
+.opcoes > p.suave { margin: 4px 0 0; }
+
+/* Segurança da conta: autenticação em dois fatores. */
+.seguranca-conta { margin-top: var(--e-6); padding-top: var(--e-5); border-top: 1px solid var(--cor-borda); }
+.seguranca-conta h2 { margin: 0 0 var(--e-1); }
+.seguranca-conta > .suave { max-width: 640px; }
+.seguranca-conta .linha-botoes { align-items: center; flex-wrap: wrap; }
+.seguranca-conta .linha-botoes button { margin: 0; }
+.selo.selo-ok { color: var(--cor-sucesso); background: color-mix(in srgb, var(--cor-sucesso) 14%, transparent); }
+.seguranca-passos ol { margin: 0 0 var(--e-3); padding-left: 20px; display: grid; gap: 4px; }
+.seguranca-passos label { display: block; margin-top: var(--e-3); }
+.seguranca-passos input { width: 160px; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; }
+.seguranca-qr { display: flex; align-items: center; gap: var(--e-4); flex-wrap: wrap; }
+.seguranca-qr img { border-radius: var(--raio-m); background: #fff; padding: 6px; }
+.seguranca-qr code { display: block; margin-top: 4px; font-family: var(--fonte-mono); font-size: var(--texto-lg); letter-spacing: 0.08em; color: var(--cor-texto); word-break: break-all; }
+.seguranca-codigos ul { list-style: none; padding: 0; margin: var(--e-3) 0; display: grid; grid-template-columns: repeat(2, max-content); gap: 6px 24px; }
+.seguranca-codigos code { font-family: var(--fonte-mono); font-size: var(--texto-lg); letter-spacing: 0.06em; }
+
+/* Novidades: notas de todas as versões. */
+.notas-versoes { display: flex; flex-direction: column; gap: var(--e-4); }
+.nota-versao { padding: var(--e-4); border-radius: var(--raio-g); background: var(--cor-sutil); border: 1px solid var(--cor-borda); }
+.nota-versao h3 { margin: 0 0 var(--e-1); display: flex; align-items: center; gap: var(--e-2); }
+.nota-chamada { margin: 0 0 var(--e-2); font-weight: var(--peso-forte); color: var(--cor-acento); }
+.nota-versao ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+/* Loja: como ganhar pontos. */
+.loja-como { margin-top: var(--e-4); padding: var(--e-3) var(--e-4); border-radius: var(--raio-g); background: var(--cor-sutil); border: 1px solid var(--cor-borda); }
+.tela-loja .loja-como h2 { margin: 0 0 var(--e-2); font-size: var(--texto-lg); }
+.loja-como ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.config-conteudo .perfil-form > button, .config-conteudo .perfil-foto button { align-self: flex-start; }

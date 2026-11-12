@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { COMUNIDADE_PRINCIPAL, separarComunidade } from '@tofalando/shared';
 import type { Cargo, FuncaoDto, RedefinicaoDto, UsuarioDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
@@ -11,7 +11,7 @@ interface Props {
   usuarios: UsuarioDto[];
   servidorUrl: string;
   api: Pick<ClienteApi, 'mudarCargo' | 'removerConta' | 'gerarRedefinicao'> &
-    Partial<Pick<ClienteApi, 'definirFuncao' | 'criarFuncao' | 'editarFuncao' | 'removerFuncao' | 'banidos' | 'desbanir'>>;
+    Partial<Pick<ClienteApi, 'definirFuncao' | 'criarFuncao' | 'editarFuncao' | 'removerFuncao' | 'banidos' | 'desbanir' | 'usuariosAdmin' | 'desligarDoisFatoresDe'>>;
   /** Backlog v2, item 10c: cargos personalizados (sem eles, a tela fica como antes). */
   funcoes?: FuncaoDto[];
   /** Copia o código para a área de transferência (padrão: a do navegador). */
@@ -32,6 +32,20 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
   // Backlog v2, item 3: o código aparece só aqui, uma vez, para o administrador mandar à pessoa.
   const [codigo, setCodigo] = useState<(RedefinicaoDto & { nome: string }) | null>(null);
   const [copiado, setCopiado] = useState(false);
+  /** Contas com autenticação em dois fatores ligada (só o administrador do servidor principal desliga). */
+  const [comDoisFatores, setComDoisFatores] = useState<Set<number>>(new Set());
+  const [avisoDoisFatores, setAvisoDoisFatores] = useState<string | null>(null);
+  useEffect(() => {
+    if (!principal || !api.usuariosAdmin) return;
+    let vivo = true;
+    api
+      .usuariosAdmin()
+      .then((lista) => vivo && setComDoisFatores(new Set(lista.filter((x) => x.doisFatores).map((x) => x.id))))
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, [api, principal]);
 
   async function agir(id: number, acao: () => Promise<unknown>) {
     setErro(null);
@@ -52,6 +66,12 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
       setCopiado(false);
       setCodigo({ ...(await api.gerarRedefinicao(u.id)), nome: u.nomeExibicao });
     });
+  const desligarDoisFatores = (u: UsuarioDto) =>
+    agir(u.id, async () => {
+      await api.desligarDoisFatoresDe!(u.id);
+      setComDoisFatores((atual) => new Set([...atual].filter((id) => id !== u.id)));
+      setAvisoDoisFatores(`Autenticação em dois fatores de ${u.nomeExibicao} desligada. A pessoa entra só com a senha e pode ligar de novo.`);
+    });
   const remover = (u: UsuarioDto) =>
     agir(u.id, async () => {
       await api.removerConta(u.id);
@@ -66,6 +86,11 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
           Voltar
         </button>
       </div>
+      {avisoDoisFatores && (
+        <p className="aviso-ok" role="status">
+          {avisoDoisFatores}
+        </p>
+      )}
       {erro && (
         <p className="erro" role="alert">
           {erro}
@@ -131,6 +156,11 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
             {principal && (
               <button type="button" className="secundario" disabled={ocupado !== null} onClick={() => void gerarCodigo(u)}>
                 Gerar código de senha
+              </button>
+            )}
+            {principal && api.desligarDoisFatoresDe && comDoisFatores.has(u.id) && u.id !== eu.id && (
+              <button type="button" className="secundario" disabled={ocupado !== null} title="Para quem perdeu o celular e os códigos de recuperação" onClick={() => void desligarDoisFatores(u)}>
+                Desligar 2 fatores
               </button>
             )}
             {confirmando === u.id ? (

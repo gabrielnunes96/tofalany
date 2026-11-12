@@ -14,6 +14,7 @@ import type { Armazem } from '../arquivos/armazem.js';
 import { baseServidor } from './convite.js';
 import { montarLinkConvite } from '../dominio/convite.js';
 import { gerarRedefinicao } from '../dominio/redefinicoes.js';
+import { temDoisFatores } from '../dominio/dois-fatores.js';
 import { buscarFuncao, criarFuncao, editarFuncao, listarFuncoes, removerFuncao, validarFuncao } from '../dominio/funcoes.js';
 
 const paramId = { type: 'object', required: ['id'], properties: { id: { type: 'integer', minimum: 1 } } } as const;
@@ -45,7 +46,7 @@ export function registrarRotasAdmin(app: FastifyInstance, banco: Banco, config: 
     if (req.comunidadeId !== COMUNIDADE_PRINCIPAL) return listarMembros(banco, req.comunidadeId).map((u) => ({ ...paraDto(u), removido: false }));
     return listarParaAdmin(banco, Date.now() - config.prazoAuditoriaDias * 86_400_000).map((u) => {
       const daqui = u.removido_em === null ? buscarNa(banco, u.id, COMUNIDADE_PRINCIPAL) : undefined;
-      return { ...paraDto(daqui ?? u), removido: u.removido_em !== null };
+      return { ...paraDto(daqui ?? u), removido: u.removido_em !== null, doisFatores: temDoisFatores(banco, u.id) };
     });
   });
 

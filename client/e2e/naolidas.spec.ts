@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
-import { noMenu } from './menu';
+import { noMenu, secaoConfig, fecharConfig } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const PRINTS = join(__dirname, '../../docs/demandas/to-falando-v1/prints');
@@ -157,7 +157,9 @@ test('CA-59, CA-60, CA-61: conversa silenciada, notificações desligadas e avis
 
   // CA-59: notificações de mensagem desligadas — só conta.
   await noMenu(a, 'Configurações');
+  await secaoConfig(a, 'Notificações');
   await a.getByLabel('Notificações de mensagens').uncheck();
+  await fecharConfig(a);
   await escrever('ruido', 'de novo');
   await expect(canal(a, 'ruido')).toContainText('2');
   await a.waitForTimeout(500);
@@ -175,9 +177,12 @@ test('CA-59, CA-60, CA-61: conversa silenciada, notificações desligadas e avis
   expect(await somDa()).toMatch(/^servidor-saiu:/);
 
   // Desligados os dois: a bia volta, o status muda, mas nada toca nem aparece.
+  await noMenu(a, 'Configurações');
+  await secaoConfig(a, 'Notificações');
   await a.getByLabel('Som quando alguém entra ou sai do servidor').uncheck();
   await a.getByLabel('Notificação quando alguém entra ou sai do servidor').uncheck();
   await a.screenshot({ path: join(PRINTS, 'T29-configuracoes-notificacoes.png') });
+  await fecharConfig(a);
   const quantas = (await notificacoesDaAna()).length;
   const somAntes = await somDa();
   const bia2 = await abrirLogado('bia');

@@ -9,6 +9,7 @@ import { registrarRotasArquivos } from './routes/arquivos.js';
 import { registrarRotasPerfil } from './routes/perfil.js';
 import { registrarRotasModeracao } from './routes/moderacao.js';
 import { registrarRotasLoja } from './routes/loja.js';
+import { registrarRotasDoisFatores } from './routes/dois-fatores.js';
 import { registrarRotasAdmin } from './routes/admin.js';
 import { registrarRotasConvite } from './routes/convite.js';
 import { registrarRotasMensagens } from './routes/mensagens.js';
@@ -144,6 +145,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasAdmin(app, banco, config, tempoReal, armazem);
   registrarRotasModeracao(app, banco, tempoReal);
   registrarRotasLoja(app, banco, config, tempoReal);
+  registrarRotasDoisFatores(app, banco, config);
   registrarRotasMensagens(app, banco);
   registrarRotasAnexos(app, banco, armazem);
   registrarRotasSons(app, banco, armazem, tempoReal);

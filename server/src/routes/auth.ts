@@ -14,6 +14,7 @@ import { usarRedefinicao } from '../dominio/redefinicoes.js';
 import { hashToken } from '../auth/tokens.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
+import { conferirSegundoFator, temDoisFatores } from '../dominio/dois-fatores.js';
 
 const texto = { type: 'string', maxLength: 512 } as const;
 const corpoCadastro = {
@@ -24,7 +25,7 @@ const corpoCadastro = {
 const corpoLogin = {
   type: 'object',
   required: ['usuario', 'senha'],
-  properties: { usuario: texto, senha: texto },
+  properties: { usuario: texto, senha: texto, codigo: { type: 'string', maxLength: 32 } },
 } as const;
 
 const corpoRedefinir = {
@@ -70,6 +71,11 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
     hashFicticio ??= gerarHashSenha('senha-que-nao-existe');
     const confere = await conferirSenha(corpo.senha, linha?.senha_hash ?? (await hashFicticio));
     if (!linha || !confere) throw new ErroHttp(401, 'credenciais_invalidas', 'Usuário ou senha incorretos.');
+    // Autenticação em dois fatores: só no login (a sessão salva continua entrando direto).
+    if (temDoisFatores(banco, linha.id)) {
+      if (!corpo.codigo?.trim()) throw new ErroHttp(401, 'codigo_2fa_necessario', 'Digite o código do app de autenticação.');
+      if (!conferirSegundoFator(banco, linha.id, corpo.codigo)) throw new ErroHttp(401, 'codigo_2fa_invalido', 'Código incorreto. Use o código atual do app ou um código de recuperação.');
+    }
     const token = banco.transaction(() => {
       const novo = criarSessao(banco, linha.id);
       registrarAuditoria(banco, { tipo: 'login', atorId: linha.id });

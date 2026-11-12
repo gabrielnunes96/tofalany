@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { REGRAS_SENHA, validarSenha, validarUsuario, type SessaoResponse } from '@tofalando/shared';
 import { criarApi, ErroApiCliente, type ClienteApi } from '../servicos/api';
 
@@ -16,7 +16,7 @@ interface Props {
 }
 
 type Modo = 'entrar' | 'cadastrar' | 'redefinir';
-type Campo = 'convite' | 'usuario' | 'senha' | 'confirmar' | 'codigo';
+type Campo = 'convite' | 'usuario' | 'senha' | 'confirmar' | 'codigo' | 'codigo2fa';
 
 /** Login e cadastro com código de convite (RF-2, RF-3). */
 export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTrocarServidor, aoCancelarConvite, api }: Props) {
@@ -26,6 +26,12 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
   const [senha, setSenha] = useState('');
   const [confirmar, setConfirmar] = useState('');
   const [codigo, setCodigo] = useState('');
+  /** Autenticação em dois fatores: o servidor pediu o código do app (só no login). */
+  const [pedirCodigo2fa, setPedirCodigo2fa] = useState(false);
+  const [codigo2fa, setCodigo2fa] = useState('');
+  useEffect(() => {
+    if (pedirCodigo2fa) document.getElementById('entrar-codigo2fa')?.focus();
+  }, [pedirCodigo2fa]);
   const [avisoLocal, setAvisoLocal] = useState<string | null>(null);
   const [errosCampo, setErrosCampo] = useState<Partial<Record<Campo, string>>>({});
   const [erro, setErro] = useState<string | null>(null);
@@ -33,6 +39,8 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
 
   function trocarModo(novo: Modo) {
     setModo(novo);
+    setPedirCodigo2fa(false);
+    setCodigo2fa('');
     setErro(null);
     setAvisoLocal(null);
     setErrosCampo({});
@@ -56,6 +64,7 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
     } else {
       if (!usuario.trim()) novos.usuario = 'Informe o nome de usuário.';
       if (!senha) novos.senha = 'Informe a senha.';
+      if (pedirCodigo2fa && !codigo2fa.trim()) novos.codigo2fa = 'Digite o código do app de autenticação.';
     }
     setErrosCampo(novos);
     return Object.keys(novos).length === 0;
@@ -81,9 +90,16 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
       const sessao =
         modo === 'cadastrar'
           ? await cliente.cadastrar({ convite: convite.trim(), usuario: usuario.trim(), senha })
-          : await cliente.entrar({ usuario: usuario.trim(), senha });
+          : await cliente.entrar({ usuario: usuario.trim(), senha, ...(pedirCodigo2fa ? { codigo: codigo2fa.trim() } : {}) });
       await aoEntrar(sessao);
     } catch (e) {
+      if (e instanceof ErroApiCliente && e.codigo === 'codigo_2fa_necessario') {
+        // Senha certa e a conta tem dois fatores: aparece o campo do código (o resto continua preenchido).
+        setPedirCodigo2fa(true);
+        setErro(null);
+        setEnviando(false);
+        return;
+      }
       setErro(e instanceof ErroApiCliente ? e.message : 'Não foi possível concluir. Tente de novo.');
       setEnviando(false);
     }
@@ -131,6 +147,14 @@ export function TelaEntrar({ servidorUrl, aviso, conviteInicial, aoEntrar, aoTro
         {campo('usuario', 'Nome de usuário', usuario, setUsuario, { autoComplete: 'username' })}
         {modo === 'redefinir' && campo('codigo', 'Código de redefinição', codigo, setCodigo, { autoComplete: 'off' })}
         {campo('senha', modo === 'redefinir' ? 'Senha nova' : 'Senha', senha, setSenha, { type: 'password', autoComplete: modo === 'entrar' ? 'current-password' : 'new-password' })}
+        {modo === 'entrar' && pedirCodigo2fa && (
+          <>
+            <p className="aviso" role="status">
+              Esta conta usa autenticação em dois fatores. Abra o app de autenticação no celular e digite o código de 6 dígitos (ou um código de recuperação).
+            </p>
+            {campo('codigo2fa', 'Código de autenticação', codigo2fa, setCodigo2fa, { autoComplete: 'one-time-code', inputMode: 'numeric' })}
+          </>
+        )}
         {modo !== 'entrar' && (
           <>
             {campo('confirmar', 'Confirmar senha', confirmar, setConfirmar, { type: 'password', autoComplete: 'new-password' })}

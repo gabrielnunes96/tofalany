@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import type { FastifyInstance } from 'fastify';
-import { noMenu } from './menu';
+import { noMenu, secaoConfig, fecharConfig } from './menu';
 
 const principal = join(__dirname, '../out/main/index.js');
 const CONVITE = 'convite-e2e';
@@ -111,7 +111,7 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
   // O microfone falso é um apito: o RNNoise o abafa e a detecção de voz quase não abre. Sem supressão, ele passa.
   await noMenu(dono.janela, 'Configurações');
   await dono.janela.getByLabel('Supressão de ruído').uncheck();
-  await dono.janela.getByRole('button', { name: 'Voltar' }).click();
+  await fecharConfig(dono.janela);
 
   for (const p of [dono, ana]) {
     await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
@@ -172,6 +172,7 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   await expect.poll(async () => Number(await medidor.getAttribute('aria-valuenow')), { timeout: 10_000 }).toBeGreaterThan(-90);
   await print(j, 'T15-configuracoes-teste-microfone');
   await j.getByRole('button', { name: 'Parar teste' }).click();
+  await fecharConfig(j);
 
   // Na chamada, troca o microfone (e desliga o eco): continua conectado e a ana continua ouvindo.
   await j.getByRole('button', { name: 'Criar canal de voz' }).click();
@@ -182,6 +183,7 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
     await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
   }
   await expect(ana.janela.locator('[data-testid="audios-voz"] audio')).toHaveCount(1, { timeout: 15_000 });
+  await noMenu(j, 'Configurações');
   // Em chamada, o teste de som me deixa mudo e sem áudio (eu me ouço; ninguém me ouve testando).
   await j.getByRole('button', { name: 'Testar microfone' }).click();
   const status = j.getByRole('status').filter({ hasText: 'Você está se ouvindo' });
@@ -252,6 +254,7 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
   // O apito do microfone falso é abafado pelo RNNoise: desliga a supressão para medir o portão.
   await noMenu(j, 'Configurações');
   await j.getByLabel('Supressão de ruído').uncheck();
+  await fecharConfig(j);
   await j.getByRole('button', { name: 'Criar canal de voz' }).click();
   await j.getByLabel('Nome do novo canal de voz').fill('Papo');
   await j.getByRole('button', { name: 'Criar', exact: true }).click();
@@ -261,6 +264,7 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
   }
 
   // CA-21: sensibilidade no máximo (0 dB) — o apito não abre o portão; baixando, abre.
+  await noMenu(j, 'Configurações');
   await j.getByLabel(/Sensibilidade da detecção de voz/).fill('0');
   await ana.janela.waitForTimeout(1500);
   await semFalar(3000);
@@ -270,6 +274,7 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
 
   // CA-22: push-to-talk com a tecla ` (crase) definida pela tela; a tecla vem do sistema (janela sem foco).
   await j.getByRole('radio', { name: /Push-to-talk/ }).check();
+  await secaoConfig(j, 'Atalhos');
   const linhaPtt = j.getByRole('listitem', { name: 'Push-to-talk' });
   await linhaPtt.getByRole('button', { name: /^Alterar atalho/ }).click();
   await j.keyboard.press('Backquote');
@@ -302,6 +307,7 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
   await teclaGlobal(dono.app, 'down', 'F8');
   await teclaGlobal(dono.app, 'up', 'F8');
   await expect(botaoMute).toHaveAttribute('aria-pressed', 'false');
+  await fecharConfig(j);
 
   // CA-24: deafen pelo atalho (Ctrl+Shift+D): microfone também muda, e a ana vê os ícones.
   await teclaGlobal(dono.app, 'down', 'KeyD', { ctrl: true, shift: true });
@@ -326,9 +332,10 @@ test('CA-21, CA-22, CA-23, CA-24: sensibilidade, push-to-talk pelo atalho global
   await dono.app.close();
   const reaberto = await abrirApp('dono');
   await noMenu(reaberto.janela, 'Configurações');
+  await expect(reaberto.janela.getByRole('radio', { name: /Push-to-talk/ })).toBeChecked();
+  await secaoConfig(reaberto.janela, 'Atalhos');
   await expect(reaberto.janela.getByTestId('atalho-mudo')).toHaveText('F8');
   await expect(reaberto.janela.getByTestId('atalho-ptt')).toHaveText('`');
-  await expect(reaberto.janela.getByRole('radio', { name: /Push-to-talk/ })).toBeChecked();
   await print(reaberto.janela, 'T16-atalhos-depois-de-reiniciar');
   await reaberto.app.close();
   await ana.app.close();
@@ -394,6 +401,7 @@ test('CA-27, CA-29, CA-58: volume por pessoa só para quem ajustou, sons de entr
   // Sons desligados nas Configurações: o dono sai e a ana não ouve nada.
   await noMenu(ana2.janela, 'Configurações');
   await ana2.janela.getByLabel('Sons de entrar e sair da voz e de mute').uncheck();
+  await fecharConfig(ana2.janela);
   const semSom = await somDa(ana2.janela);
   await dono.janela.getByRole('button', { name: 'Sair da voz' }).click();
   await expect(ana2.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem')).toHaveCount(1);
@@ -777,9 +785,10 @@ test('CA-39a, RF-28: membro só 720p30; administrador escolhe 1080p60 (e VP9) e 
   const d = dono.janela;
   const a = ana.janela;
   await noMenu(d, 'Configurações');
+  await secaoConfig(d, 'Transmissão');
   await d.getByLabel('Codec').selectOption('vp9');
   await d.getByLabel('Qualidade padrão').selectOption('1080p60');
-  await d.getByRole('button', { name: 'Voltar' }).click();
+  await fecharConfig(d);
   await d.getByRole('button', { name: 'Criar canal de voz' }).click();
   await d.getByLabel('Nome do novo canal de voz').fill('Papo');
   await d.getByRole('button', { name: 'Criar', exact: true }).click();
