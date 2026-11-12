@@ -15,6 +15,9 @@ describe('JanelaNovidades', () => {
     const janela = screen.getByRole('dialog', { name: 'Novidades da versão 0.15.0' });
     expect(screen.getByRole('heading', { name: 'O ToFalany está de cara nova' })).toBeTruthy();
     expect(janela.textContent).toContain('Temas refeitos');
+    // CA-25: a nota da versão explica a loja e como ganhar pontos.
+    expect(janela.textContent).toContain('Loja de pontos');
+    expect(janela.textContent).toContain('1 ponto por minuto em voz');
     rerender(<JanelaNovidades notas={NOVIDADES['0.15.0']!} versao="0.15.0" aoFechar={aoFechar} tocar={tocar} />);
     expect(tocar).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Entendi' }));

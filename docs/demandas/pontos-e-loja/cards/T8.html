@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, CA-14, CA-15, CA-19, RN-9, RN-10, RN-15 e R-8.</p>
+<h3>Padrão</h3>
+<p>Telas recebem as listas prontas por props; regra pura no shared com teste (temaPermitido).</p>
+
+<h3>Implementação (12/11/2026, commit 2c779eb)</h3>
+<ul><li>Aparência: temas da loja aparecem só com loja no servidor; não comprados com rádio desligado e botão com cadeado &#x27;Na loja&#x27; (descrito pelo rádio), comprados escolhíveis.</li><li>Seletor de transmissão e qualidade padrão somam os vales ativos (admin da instalação: todos os vales); as bloqueadas dizem &#x27;(libere na loja)&#x27;, menos o 2K.</li><li>Parada por mudança de perfil: só se nem cargo nem vales cobrem e a transmissão não começou por vale (RN-15).</li><li>R-8: ao chegar o ola, a tela visível volta ao neon se o tema em uso é da loja e a conta não o tem (temaPermitido).</li><li>Ícone de cadeado em Icone.tsx; CSS .tema-loja.</li></ul>
+
+<h3>Testes unitários</h3>
+<p>TelaConfiguracoes.test.tsx (CA-19, sem loja, dicas com e sem loja), transmissao.test.tsx (CA-14, CA-15), protocolo.test.ts (temaPermitido). Suíte: 523 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint</td><td>ok</td><td>sem erros</td></tr><tr><td>npm test</td><td>ok</td><td>92 arquivos, 523 testes</td></tr><tr><td>npm run build</td><td>ok</td><td>shared, server e client</td></tr><tr><td>App de verdade</td><td>adiado</td><td>E2E na T9</td></tr>
+</table>

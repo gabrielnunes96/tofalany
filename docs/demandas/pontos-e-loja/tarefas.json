@@ -157,9 +157,9 @@
         "CA-19"
       ],
       "validacao": "TelaConfiguracoes.test.tsx: cadeado e clique abre a loja, comprado escolhível; transmissao.test.tsx: com vale 1080p60 as 4 primeiras liberadas e 1440p60 bloqueada, sem vale só 720p30 e as outras com 'Libere na loja'; tema não comprado volta ao neon",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "2c779eb"
     },
     {
       "id": "T9",
@@ -179,7 +179,7 @@
         "CA-9"
       ],
       "validacao": "npm run test:e2e verde com loja.spec.ts; JanelaNovidades mostra os itens da loja; npm test e lint verdes",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     }
