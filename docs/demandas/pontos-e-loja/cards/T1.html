@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, CA-18 e RN-10 (técnica, seção 3: QualidadeTela e qualidadesPermitidas).</p>
+<h3>Padrão</h3>
+<p>Contratos em shared/src/protocolo.ts; listas de qualidade derivadas de QUALIDADES_TELA; servidor confere em realtime/tela.ts.</p>
+
+<h3>Implementação (12/11/2026, commit 3f320be)</h3>
+<ul><li>QualidadeTela com 720p60 e 1080p30 (ordem 720p30, 720p60, 1080p30, 1080p60, 1440p60) e DIMENSOES_TELA.</li><li>qualidadesPermitidas(cargo, permissoes, vales?): transmitir_1080p libera 720p60, 1080p30 e 1080p60; vales somam.</li><li>SeletorTela e Configurações usam QUALIDADES_TELA; TAXAS_TELA com as duas taxas; textos de bloqueio sem &#x27;só administradores&#x27;.</li><li>Servidor aceita as novas; recusa com &#x27;Seu cargo não libera essa qualidade.&#x27;; risco 30/60 quadros comentado (R-1).</li></ul>
+
+<h3>Testes unitários</h3>
+<p>protocolo.test.ts (qualidadesPermitidas), validacao.test.ts (mesclarTela), transmissao.test.tsx (cinco qualidades e maior que cabe), tela.test.ts (CA-18 no servidor). Suíte: 472 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint</td><td>ok</td><td>sem erros</td></tr><tr><td>npm test</td><td>ok</td><td>88 arquivos, 472 testes</td></tr><tr><td>npm run build</td><td>ok</td><td>shared, server e client</td></tr><tr><td>E2E</td><td>adiado</td><td>roda na T9 com a demanda inteira</td></tr>
+</table>

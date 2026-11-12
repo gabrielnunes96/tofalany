@@ -217,5 +217,36 @@ export const MIGRACOES: readonly string[] = [
   ALTER TABLE mensagens ADD COLUMN mencoes TEXT;
   ALTER TABLE mensagens ADD COLUMN menciona_todos INTEGER NOT NULL DEFAULT 0;
   `,
+  // 017 — pontos e loja: saldo por conta, extrato (ganho por sessão de voz e compras), temas comprados e vales.
+  // Nascem vazias: sem pontos retroativos (RN-17).
+  `
+  CREATE TABLE pontos_saldos (
+    usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+    saldo INTEGER NOT NULL DEFAULT 0 CHECK (saldo >= 0),
+    atualizado_em INTEGER NOT NULL
+  );
+  CREATE TABLE pontos_movimentos (
+    id INTEGER PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    tipo TEXT NOT NULL CHECK (tipo IN ('ganho', 'compra')),
+    item TEXT,
+    valor INTEGER NOT NULL,
+    criado_em INTEGER NOT NULL,
+    atualizado_em INTEGER NOT NULL
+  );
+  CREATE INDEX pontos_movimentos_usuario ON pontos_movimentos (usuario_id, id DESC);
+  CREATE TABLE loja_temas (
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    tema TEXT NOT NULL,
+    comprado_em INTEGER NOT NULL,
+    PRIMARY KEY (usuario_id, tema)
+  );
+  CREATE TABLE loja_vales (
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    qualidade TEXT NOT NULL CHECK (qualidade IN ('720p60', '1080p30', '1080p60')),
+    expira_em INTEGER NOT NULL,
+    PRIMARY KEY (usuario_id, qualidade)
+  );
+  `,
 ];
 

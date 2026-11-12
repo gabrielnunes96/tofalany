@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CARENCIA_OFFLINE_MS_PADRAO, LIMITE_CONTAS_PADRAO, PRAZO_AUDITORIA_DIAS_PADRAO } from '@tofalando/shared';
+import { CARENCIA_OFFLINE_MS_PADRAO, LIMITE_CONTAS_PADRAO, PRAZO_AUDITORIA_DIAS_PADRAO, type PrecosLoja } from '@tofalando/shared';
 
 export interface Config {
   porta: number;
@@ -42,6 +42,11 @@ export interface Config {
    * MUSICA_YTDLP_ARGS são argumentos a mais do yt-dlp (na imagem: o runtime de JavaScript).
    */
   musica: { ligada: boolean; ytdlp: string; ffmpeg: string; extras: string[]; cookies: string | undefined };
+  /**
+   * Pontos e loja (RN-6): ganho por minuto em voz e preços, mudados na configuração sem nova versão do app.
+   * `minutoMs` e `tiqueMs` existem para os testes (minuto curto); em produção, 60 s e 15 s.
+   */
+  pontos: { porMinuto: number; precos: PrecosLoja; minutoMs: number; tiqueMs: number };
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -87,6 +92,19 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
       extras: (ambiente.MUSICA_YTDLP_ARGS ?? '').split(/\s+/).filter(Boolean),
       // Cookies de uma conta do YouTube (o YouTube recusa IP de datacenter sem login). O administrador envia pelo app.
       cookies: ambiente.MUSICA_COOKIES || ((ambiente.BANCO || 'data/tofalando.db') === ':memory:' ? undefined : join(dirname(ambiente.BANCO || 'data/tofalando.db'), 'musica-cookies.txt')),
+    },
+    pontos: {
+      porMinuto: inteiro('PONTOS_POR_MINUTO', ambiente.PONTOS_POR_MINUTO, 1, 1, 1000),
+      precos: {
+        tema: inteiro('PRECO_TEMA', ambiente.PRECO_TEMA, 600, 1, 100_000),
+        vales: {
+          '720p60': inteiro('PRECO_VALE_720P60', ambiente.PRECO_VALE_720P60, 200, 1, 100_000),
+          '1080p30': inteiro('PRECO_VALE_1080P30', ambiente.PRECO_VALE_1080P30, 300, 1, 100_000),
+          '1080p60': inteiro('PRECO_VALE_1080P60', ambiente.PRECO_VALE_1080P60, 600, 1, 100_000),
+        },
+      },
+      minutoMs: inteiro('PONTOS_MINUTO_MS', ambiente.PONTOS_MINUTO_MS, 60_000, 50),
+      tiqueMs: inteiro('PONTOS_TIQUE_MS', ambiente.PONTOS_TIQUE_MS, 15_000, 20),
     },
   };
 }

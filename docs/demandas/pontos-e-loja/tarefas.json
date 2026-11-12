@@ -14,9 +14,9 @@
         "CA-18"
       ],
       "validacao": "unitário de qualidadesPermitidas (cargo com transmitir_1080p, admin, membro) e de mesclarTela; tela.test.ts: tela:pedir 720p60 aceito com o cargo de 1080p e recusado sem; npm test e build verdes",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "3f320be"
     },
     {
       "id": "T2",
@@ -32,7 +32,7 @@
         "CA-26"
       ],
       "validacao": "dominio/loja.test.ts com relógio fixo (vale dia 1→8, dia 3→15, vencido dia 10→17; soma do extrato = saldo); banco.test.ts: versão 17 e tabelas vazias; npm test verde",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

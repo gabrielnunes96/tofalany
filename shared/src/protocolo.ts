@@ -187,6 +187,10 @@ export type CodigoErro =
   | 'som_longo'
   | 'arquivo_grande'
   | 'formato_invalido'
+  | 'saldo_insuficiente'
+  | 'item_invalido'
+  | 'item_ja_comprado'
+  | 'tudo_liberado'
   | 'erro_interno';
 
 export interface ErroApi {
@@ -331,9 +335,13 @@ export interface PartesOcultas {
   cameras: boolean;
 }
 
-/** Backlog v2, item 9: temas (o nome na tela fica no app). */
-export type Tema = 'neon' | 'breu' | 'aurora';
-export const TEMAS: Tema[] = ['neon', 'breu', 'aurora'];
+/** Backlog v2, item 9: temas (o nome na tela fica no app). Os de loja (pontos-e-loja) só para quem comprou. */
+export type TemaGratis = 'neon' | 'breu' | 'aurora';
+export type TemaLoja = 'cinzas' | 'arcano' | 'gibi';
+export type Tema = TemaGratis | TemaLoja;
+export const TEMAS_GRATIS: TemaGratis[] = ['neon', 'breu', 'aurora'];
+export const TEMAS_LOJA: TemaLoja[] = ['cinzas', 'arcano', 'gibi'];
+export const TEMAS: Tema[] = [...TEMAS_GRATIS, ...TEMAS_LOJA];
 
 /** Por que o servidor encerrou a conexão em tempo real de uma sessão. */
 export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida' | 'fora_do_servidor' | 'expulso' | 'banido';

@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { abrirBanco, migrar, versaoBanco } from '../src/db/banco.js';
 import { MIGRACOES } from '../src/db/migracoes.js';
@@ -27,6 +28,21 @@ describe('banco e migrations', () => {
     const reaberto = abrirBanco(arquivo);
     expect(reaberto.prepare("SELECT valor FROM configuracoes WHERE chave = 'x'").get()).toEqual({ valor: '1' });
     reaberto.close();
+  });
+
+  it('pontos-e-loja (CA-26): banco na versão 16 com histórico migra para a 17 com a loja vazia', () => {
+    const arquivo = join(pastaTemp(), 'tofalando.db');
+    const banco = new Database(arquivo);
+    migrar(banco, arquivo, MIGRACOES.slice(0, 16));
+    expect(versaoBanco(banco)).toBe(16);
+    banco.prepare("INSERT INTO configuracoes VALUES ('historico', 'antes da loja')").run();
+    migrar(banco, arquivo);
+    expect(versaoBanco(banco)).toBe(MIGRACOES.length);
+    expect(banco.prepare("SELECT valor FROM configuracoes WHERE chave = 'historico'").get()).toEqual({ valor: 'antes da loja' });
+    for (const tabela of ['pontos_saldos', 'pontos_movimentos', 'loja_temas', 'loja_vales']) {
+      expect(banco.prepare(`SELECT COUNT(*) AS n FROM ${tabela}`).get()).toEqual({ n: 0 });
+    }
+    banco.close();
   });
 
   it('faz backup antes de migrar um banco existente', () => {
