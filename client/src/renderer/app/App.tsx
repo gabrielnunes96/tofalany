@@ -9,6 +9,7 @@ import { TelaPrincipal } from '../telas/TelaPrincipal';
 import { avisoDeRevogacao } from './avisos';
 import { ColunaServidores } from '../componentes/ColunaServidores';
 import { INTERVALO_OUTROS_MS, naoLidasDosOutros } from '../servicos/naolidas-servidores';
+import { JanelaNovidades } from '../componentes/JanelaNovidades';
 
 type Estado =
   | { fase: 'carregando' }
@@ -364,32 +365,16 @@ export function App() {
   }, [servidores, urlAtiva]);
   /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
   const janelaNovidades = notas && (
-    <div className="dialogo-fundo" role="presentation">
-      <div className="dialogo cartao novidades" role="dialog" aria-label={`Novidades da versão ${ponte().versao}`}>
-        <h2>Novidades da versão {ponte().versao}</h2>
-        <ul>
-          {notas.itens.map((i) => (
-            <li key={i.titulo}>
-              <strong>{i.titulo}</strong>: {i.texto}
-            </li>
-          ))}
-        </ul>
-        <div className="dialogo-acoes">
-          <button
-            type="button"
-            autoFocus
-            onClick={() => {
-              setNotas(null);
-              void ponte()
-                .config.gravar({ novidadesVistas: ponte().versao })
-                .catch(() => undefined);
-            }}
-          >
-            Entendi
-          </button>
-        </div>
-      </div>
-    </div>
+    <JanelaNovidades
+      notas={notas}
+      versao={ponte().versao}
+      aoFechar={() => {
+        setNotas(null);
+        void ponte()
+          .config.gravar({ novidadesVistas: ponte().versao })
+          .catch(() => undefined);
+      }}
+    />
   );
   const janelaModeracao = avisoModeracao && (
     <div className="dialogo-fundo" role="presentation">

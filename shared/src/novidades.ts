@@ -3,10 +3,24 @@
  * O texto de cada versão é aprovado antes de gerar a versão. Sem emojis.
  */
 export interface NotasVersao {
+  /** Frase grande no topo da janela (opcional): a versão que merece festa. */
+  chamada?: string;
   itens: { titulo: string; texto: string }[];
 }
 
 export const NOVIDADES: Record<string, NotasVersao> = {
+  '0.15.0': {
+    chamada: 'O ToFalany está de cara nova',
+    itens: [
+      { titulo: 'Visual novo', texto: 'painéis flutuando sobre um fundo com luz que se mexe devagar, cantos suaves e animações curtas em tudo.' },
+      { titulo: 'Temas refeitos', texto: 'Neon da Madrugada, Breu e Aurora, que agora é escura, com luz verde e violeta (Configurações, Aparência).' },
+      { titulo: 'Quem fala brilha', texto: 'o anel em volta de quem está falando pulsa no canal de voz.' },
+      { titulo: 'Ícones novos', texto: 'no lugar dos emojis, ícones desenhados que seguem a cor do tema.' },
+      { titulo: 'Letra nova', texto: 'a fonte Inter, igual no Windows e no Linux.' },
+      { titulo: 'ToOuvini explica', texto: 'quando a música não toca, ele diz o porquê em vez de ficar calado.' },
+      { titulo: 'Prefere tudo parado?', texto: 'ligue "reduzir movimento" no sistema e as animações somem.' },
+    ],
+  },
   '0.14.0': {
     itens: [
       { titulo: 'Transmissão sem eco', texto: 'quem assiste não ouve mais a própria voz voltando pela transmissão (Windows 11).' },
