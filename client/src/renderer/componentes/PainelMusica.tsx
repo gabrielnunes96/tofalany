@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ComandoMusica, EstadoMusica, UsuarioDto } from '@tofalando/shared';
+import { Icone } from './Icone';
 
 function tempo(segundos: number): string {
   if (!segundos) return 'ao vivo';
@@ -40,7 +41,7 @@ export function PainelMusica({
   return (
     <div className={`painel-musica${pausado ? ' pausado' : ''}`} role="region" aria-label="Música no canal">
       <p className="musica-bot">
-        <span aria-hidden="true">🎵</span> <strong>ToOuvini</strong>
+        <Icone nome="sons" tamanho={14} /> <strong>ToOuvini</strong>
         <span className="suave">{tocando ? (carregando ? ' · carregando…' : pausado ? ' · pausado' : ' · tocando') : ' · na sala, sem música (/play para pedir)'}</span>
       </p>
       {tocando && (
@@ -70,7 +71,7 @@ export function PainelMusica({
       )}
       {aoVolume && (
         <label className="musica-volume" title="Volume do ToOuvini (só para você)">
-          <span aria-hidden="true">{volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}</span>
+          <Icone nome={volume === 0 ? 'volumeMudo' : volume < 0.5 ? 'volumeBaixo' : 'altoFalante'} tamanho={16} />
           <input type="range" min={0} max={100} step={5} value={Math.round(volume * 100)} aria-label="Volume do ToOuvini" onChange={(e) => aoVolume(Number(e.target.value) / 100)} />
           <span className="suave musica-volume-valor">{Math.round(volume * 100)}%</span>
         </label>

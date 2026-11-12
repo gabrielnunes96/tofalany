@@ -71,7 +71,7 @@ function Silenciada() {
   return (
     <>
       <span className="silenciada" title="Notificações silenciadas" aria-hidden="true">
-        🔕
+        <Icone nome="sinoDesligado" tamanho={14} />
       </span>
       <span className="so-leitor">, silenciada</span>
     </>
@@ -177,27 +177,27 @@ function PresentesVoz({
             <span className="nome">{usuario.nomeExibicao}</span>
             {silenciado && aqui && (
               <span role="img" title="Silenciado por você" aria-label="silenciado por você" className="silenciado">
-                🔕
+                <Icone nome="sinoDesligado" tamanho={14} />
               </span>
             )}
             {transmite && (
               <span role="img" title="Transmitindo a tela" aria-label="transmitindo a tela">
-                🖥️
+                <Icone nome="tela" tamanho={14} />
               </span>
             )}
             {estado.camera && (
               <span role="img" title="Câmera ligada" aria-label="câmera ligada">
-                📹
+                <Icone nome="camera" tamanho={14} />
               </span>
             )}
             {estado.surdo ? (
               <span role="img" title="Sem áudio" aria-label="sem áudio">
-                🔇
+                <Icone nome="foneDesligado" tamanho={14} />
               </span>
             ) : (
               estado.mudo && (
                 <span role="img" title="Microfone desligado" aria-label="microfone desligado">
-                  🎙️✕
+                  <Icone nome="microfoneDesligado" tamanho={14} />
                 </span>
               )
             )}
@@ -263,12 +263,12 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes
           if (!aqui) aoEntrarVoz?.(canal.id);
         }}
       >
-        <span aria-hidden="true">🔊</span> {canal.nome}
+        <Icone nome="altoFalante" tamanho={16} /> {canal.nome}
       </button>
       {modo === 'ver' ? (
         <span className="item-acoes">
           <button type="button" className="icone" aria-label={`Renomear canal de voz ${canal.nome}`} title="Renomear" onClick={() => setModo('renomear')}>
-            ✎
+            <Icone nome="lapis" tamanho={14} />
           </button>
           {ehAdmin && (
             <button type="button" className="icone" aria-label={`Remover canal de voz ${canal.nome}`} title="Remover" onClick={() => setModo('remover')}>

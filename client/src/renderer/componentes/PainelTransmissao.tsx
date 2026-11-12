@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FaixaVideo } from '../servicos/voz';
 import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
 import { Espectadores } from './Espectadores';
+import { Icone } from './Icone';
 
 /**
  * RF-30: a transmissão de alguém do meu canal — aviso com "Assistir", e grande com tela cheia ao assistir.
@@ -61,7 +62,7 @@ export function PainelTransmissao({
     return (
       <section className="aviso-transmissao" aria-label={`Transmissão de ${nome}`}>
         <span>
-          🖥️ <strong>{nome}</strong> está transmitindo a tela.
+          <Icone nome="tela" tamanho={16} /> <strong>{nome}</strong> está transmitindo a tela.
         </span>
         <Espectadores nomes={espectadores} />
         <button type="button" onClick={() => setAssistindo(true)} disabled={!faixa}>
@@ -74,7 +75,7 @@ export function PainelTransmissao({
     <section ref={caixa} className="transmissao-grande" aria-label={`Transmissão de ${nome}`}>
       <video ref={ref} autoPlay playsInline muted aria-label={`Tela de ${nome}`} onDoubleClick={() => alternarTelaCheia(caixa.current)} />
       <div className="transmissao-acoes">
-        <span>🖥️ {nome}</span>
+        <span className="com-icone"><Icone nome="tela" tamanho={16} /> {nome}</span>
         <Espectadores nomes={espectadores} />
         <div className="transmissao-volume">
           <button
@@ -85,7 +86,7 @@ export function PainelTransmissao({
             title={mudo || volume === 0 ? 'Ligar o som' : 'Mutar'}
             onClick={() => (volume === 0 ? (setVolume(1), setMudo(false)) : setMudo(!mudo))}
           >
-            {mudo || volume === 0 ? '🔇' : volume < 0.5 ? '🔈' : '🔊'}
+            <Icone nome={mudo || volume === 0 ? 'volumeMudo' : volume < 0.5 ? 'volumeBaixo' : 'altoFalante'} tamanho={16} />
           </button>
           <input
             type="range"

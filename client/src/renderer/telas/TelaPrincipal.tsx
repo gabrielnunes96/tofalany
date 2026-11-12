@@ -1583,7 +1583,7 @@ function TelaDoServidor({
           {vozEmOutro && minhaVoz === null && (
             <section className="aviso-voz-outro" aria-label="Voz em outro servidor">
               <span>
-                🔊 Na voz em <strong>{vozEmOutro.canal}</strong> · {vozEmOutro.servidor}
+                <Icone nome="altoFalante" tamanho={16} /> Na voz em <strong>{vozEmOutro.canal}</strong> · {vozEmOutro.servidor}
               </span>
               <button type="button" className="secundario" onClick={vozEmOutro.aoVoltar}>
                 Voltar
@@ -1595,7 +1595,7 @@ function TelaDoServidor({
           )}
           {minhaTela && (
             <section className="aviso-transmissao" aria-label="Sua transmissão">
-              <span>🖥️ Você está transmitindo a tela.</span>
+              <span className="com-icone"><Icone nome="tela" tamanho={16} /> Você está transmitindo a tela.</span>
               <Espectadores nomes={nomesDeIds(transmissoes.find((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id)?.espectadores)} />
               {faixaPrevia && (
                 <button type="button" className="secundario" aria-pressed={verPrevia} onClick={() => setVerPrevia(!verPrevia)}>
@@ -1845,7 +1845,7 @@ function PreviaLocal({ faixa, telaInteira, mesmaTela }: { faixa: MediaStreamTrac
     <figure className="previa-minha-tela" onDoubleClick={() => setAmpliada(true)}>
       {video}
       <button type="button" className="icone quadro-tela-cheia" aria-label="Ampliar prévia" title="Ampliar (ou duplo clique)" onClick={() => setAmpliada(true)}>
-        ⛶
+        <Icone nome="ampliar" tamanho={16} />
       </button>
     </figure>
   );

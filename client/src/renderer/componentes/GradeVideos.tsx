@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as EventoPonteiro } from
 import type { UsuarioDto } from '@tofalando/shared';
 import type { FaixaVideo, VideoSala } from '../servicos/voz';
 import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
+import { Icone } from './Icone';
 
 /** Um vídeo: prende a faixa no <video> enquanto estiver na tela. Duplo clique (ou o botão) = tela cheia. */
 function Quadro({ faixa, nome, meu }: { faixa: FaixaVideo; nome: string; meu: boolean }) {
@@ -29,7 +30,7 @@ function Quadro({ faixa, nome, meu }: { faixa: FaixaVideo; nome: string; meu: bo
         title={cheia ? 'Sair da tela cheia (ou Esc)' : 'Tela cheia (ou duplo clique)'}
         onClick={telaCheia}
       >
-        {cheia ? '🗗' : '⛶'}
+        <Icone nome={cheia ? 'reduzir' : 'ampliar'} tamanho={16} />
       </button>
     </figure>
   );
@@ -112,7 +113,7 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
           title={modo.flutuante ? 'Voltar as câmeras para o topo da conversa' : 'Soltar as câmeras numa janelinha que dá para arrastar'}
           onClick={() => guardar({ ...modo, flutuante: !modo.flutuante })}
         >
-          {modo.flutuante ? '📌' : '🗗'}
+          <Icone nome={modo.flutuante ? 'alfinete' : 'janela'} tamanho={16} />
         </button>
       </div>
       {videos.map((v) => (

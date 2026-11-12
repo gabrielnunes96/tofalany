@@ -315,9 +315,9 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
           <legend>Aparência</legend>
           {(
             [
-              ['neon', 'Neon da Madrugada', 'escuro, com ciano e magenta'],
-              ['breu', 'Breu', 'escuro e neutro, sem brilho'],
-              ['aurora', 'Aurora', 'claro'],
+              ['neon', 'Neon da Madrugada', 'noite roxa com ciano e rosa'],
+              ['breu', 'Breu', 'escuro neutro e calmo'],
+              ['aurora', 'Aurora', 'céu polar com luz verde e violeta'],
             ] as const
           ).map(([valor, nome, descricao]) => (
             <label key={valor}>
