@@ -91,14 +91,30 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
     guardar(modo);
   };
 
+  // A posição guardada pode ter ficado fora da janela (outro monitor, janela menor): na tela, a janelinha fica sempre
+  // dentro da janela do app (senão as câmeras parecem ter sumido); redimensionar recalcula.
+  const [, setTamanhoJanela] = useState(0);
+  useEffect(() => {
+    if (!modo.flutuante) return;
+    const aoRedimensionar = () => setTamanhoJanela(window.innerWidth * 10_000 + window.innerHeight);
+    window.addEventListener('resize', aoRedimensionar);
+    return () => window.removeEventListener('resize', aoRedimensionar);
+  }, [modo.flutuante]);
+
   if (videos.length === 0) return null;
+  // Na tela: sem ler o tamanho real (largura do CSS da janelinha e uma altura mínima), só para nunca ficar fora.
+  const larguraFlutuante = Math.min(360, window.innerWidth * 0.4);
+  const posicao = {
+    x: Math.min(Math.max(8, modo.x), Math.max(8, window.innerWidth - larguraFlutuante - 8)),
+    y: Math.min(Math.max(8, modo.y), Math.max(8, window.innerHeight - 160)),
+  };
   const nome = (id: number) => usuarios.find((u) => u.id === id)?.nomeExibicao ?? 'Alguém';
   return (
     <section
       ref={caixa}
       className={`grade-videos${modo.flutuante ? ' flutuante' : ''}`}
       aria-label="Câmeras"
-      style={modo.flutuante ? { left: modo.x, top: modo.y } : undefined}
+      style={modo.flutuante ? { left: posicao.x, top: posicao.y } : undefined}
       onPointerDown={comecar}
       onPointerMove={mover}
       onPointerUp={soltar}

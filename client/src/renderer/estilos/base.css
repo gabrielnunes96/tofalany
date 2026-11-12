@@ -1118,3 +1118,9 @@ button.config-fechar:hover:not(:disabled) { color: var(--cor-texto); background:
 .tela-loja .loja-como h2 { margin: 0 0 var(--e-2); font-size: var(--texto-lg); }
 .loja-como ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .config-conteudo .perfil-form > button, .config-conteudo .perfil-foto button { align-self: flex-start; }
+
+/* 0.15.2: barra da transmissão com folga — o contador de quem assiste não fica cortado (foco e hover dentro). */
+.transmissao-acoes { padding: 8px 12px; min-height: 48px; flex-wrap: wrap; row-gap: 6px; }
+.transmissao-acoes button:hover:not(:disabled), .transmissao-acoes button:active:not(:disabled) { transform: none; }
+.transmissao-acoes button:focus-visible, .aviso-transmissao button:focus-visible { outline-offset: -2px; }
+.espectadores-botao { flex: none; min-width: 52px; justify-content: center; line-height: 1.4; }

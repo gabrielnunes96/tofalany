@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ClienteApi } from '../servicos/api';
+import { Icone } from '../componentes/Icone';
 
 /**
  * Backlog v2, item 14: o administrador do servidor principal envia os cookies de uma conta do YouTube para o
@@ -53,7 +54,9 @@ export function TelaToOuvini({
   return (
     <section className="tela-admin" aria-labelledby="titulo-toouvini">
       <header className="canal-topo">
-        <h2 id="titulo-toouvini">🎵 ToOuvini</h2>
+        <h2 id="titulo-toouvini" className="com-icone">
+          <Icone nome="sons" tamanho={20} /> ToOuvini
+        </h2>
         <button type="button" className="secundario" onClick={aoVoltar}>
           Voltar
         </button>
@@ -70,10 +73,16 @@ export function TelaToOuvini({
             : 'Sem cookies: o YouTube deve recusar as músicas neste servidor.'}
       </p>
       <ol className="passos">
-        <li>No Chrome ou no Firefox, instale a extensão &quot;Get cookies.txt LOCALLY&quot;.</li>
-        <li>Abra o youtube.com com a conta secundária logada.</li>
-        <li>Na extensão, exporte os cookies do youtube.com (formato Netscape) e salve o cookies.txt.</li>
-        <li>Envie o arquivo aqui. Ele fica só no servidor, legível apenas pelo ToFalany.</li>
+        <li>No Chrome ou no Firefox, instale a extensão &quot;Get cookies.txt LOCALLY&quot; e permita que ela rode em janelas anônimas.</li>
+        <li>
+          Abra uma <strong>janela anônima</strong> e entre no youtube.com com a conta secundária.
+        </li>
+        <li>Na mesma aba, abra youtube.com/robots.txt e, pela extensão, exporte os cookies do youtube.com (formato Netscape).</li>
+        <li>
+          <strong>Feche a janela anônima na hora</strong>, sem navegar mais nem sair da conta. Se a sessão continuar aberta, o YouTube troca os cookies e os
+          enviados param de valer em pouco tempo.
+        </li>
+        <li>Envie o arquivo aqui. Ele fica só no servidor, legível apenas pelo ToFalany, que renova os cookies sozinho a cada uso.</li>
       </ol>
       <label className="botao-arquivo">
         <input

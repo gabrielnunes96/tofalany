@@ -9,6 +9,13 @@ export interface NotasVersao {
 }
 
 export const NOVIDADES: Record<string, NotasVersao> = {
+  '0.15.2': {
+    itens: [
+      { titulo: 'Câmeras de volta', texto: 'a janelinha flutuante das câmeras não some mais para fora da tela depois de ocultar e mostrar ou de mudar o tamanho da janela.' },
+      { titulo: 'Quem está assistindo', texto: 'o número de quem assiste a transmissão não fica mais cortado.' },
+      { titulo: 'Cookies do ToOuvini', texto: 'novo passo a passo (janela anônima, fechada logo depois) para os cookies durarem bem mais.' },
+    ],
+  },
   '0.15.1': {
     itens: [
       { titulo: 'Configurações em janela', texto: 'abrem sobre o app, com as seções à esquerda (Minha conta, Voz e áudio, Atalhos, Aparência e outras). Esc fecha.' },

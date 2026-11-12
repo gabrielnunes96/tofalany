@@ -673,6 +673,38 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
   await cameras.getByRole('button', { name: 'Prender as câmeras no topo' }).click();
   await expect(cameras).not.toHaveClass(/flutuante/);
 
+  // Ocultar e mostrar as câmeras: o vídeo volta e continua tocando (não fica parado nem preto).
+  await ana.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
+  await expect(cameras).toHaveCount(0);
+  await ana.janela.waitForTimeout(1500);
+  await ana.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
+  await expect(videoNaAna).toBeVisible();
+  const tempo = () => videoNaAna.evaluate((v: HTMLVideoElement) => ({ largura: v.videoWidth, tempo: v.currentTime, pausado: v.paused }));
+  await expect.poll(async () => (await tempo()).largura, { timeout: 15_000 }).toBeGreaterThan(0);
+  const t0 = (await tempo()).tempo;
+  await expect.poll(async () => (await tempo()).tempo, { timeout: 10_000 }).toBeGreaterThan(t0 + 0.5);
+  // Janelinha guardada fora da tela (outro monitor, janela menor): ao mostrar de novo, ela aparece dentro da janela.
+  await ana.janela.evaluate(() => localStorage.setItem('tofalany.cameras', JSON.stringify({ flutuante: true, x: 9000, y: 6000 })));
+  await ana.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
+  await ana.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
+  const caixa = (await cameras.boundingBox())!;
+  const tamanho = await ana.janela.evaluate(() => ({ l: window.innerWidth, a: window.innerHeight }));
+  expect(caixa.x + 40).toBeLessThan(tamanho.l);
+  expect(caixa.y + 40).toBeLessThan(tamanho.a);
+  await cameras.getByRole('button', { name: 'Prender as câmeras no topo' }).click();
+
+  // A minha própria câmera também volta (prévia local).
+  const minha = dono.janela.getByLabel('Vídeo de dono');
+  await dono.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
+  await expect(minha).toHaveCount(0);
+  await dono.janela.waitForTimeout(1500);
+  await dono.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
+  await expect(minha).toBeVisible();
+  const tempoMinha = () => minha.evaluate((v: HTMLVideoElement) => ({ largura: v.videoWidth, tempo: v.currentTime }));
+  await expect.poll(async () => (await tempoMinha()).largura, { timeout: 15_000 }).toBeGreaterThan(0);
+  const m0 = (await tempoMinha()).tempo;
+  await expect.poll(async () => (await tempoMinha()).tempo, { timeout: 10_000 }).toBeGreaterThan(m0 + 0.5);
+
   await dono.janela.getByRole('button', { name: 'Câmera', exact: true }).click();
   await expect(videoNaAna).toHaveCount(0, { timeout: 15_000 });
   await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('câmera ligada')).toHaveCount(0);
