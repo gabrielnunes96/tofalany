@@ -2,9 +2,9 @@
  * Redesenho visual (docs/demandas/redesenho-visual/01-direcao.md, aprovado em 12/11/2026).
  * Duas camadas: (1) comum a todos os temas — texto, espaço, movimento; (2) tema — cores semânticas + assinatura.
  * Componentes usam SÓ estes nomes; um tema novo (inclusive os da loja) é só mais um bloco [data-tema='x'].
- * Contraste conferido no protótipo: texto, texto suave e texto sobre acento/destaque ≥ 4,5:1 nos três temas.
+ * Contraste conferido no protótipo: texto, texto suave e texto sobre acento/destaque ≥ 4,5:1 em todos os temas.
  */
-:root {
+:root, [data-tema='neon'] {
   --fonte-texto: 'Inter Variable', 'Inter', system-ui, 'Segoe UI', Ubuntu, 'Noto Sans', sans-serif;
   --fonte-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', monospace;
   --texto-xs: 11px; --texto-sm: 12.5px; --texto-md: 14px; --texto-lg: 16px; --texto-xl: 20px; --texto-2xl: 24px;
@@ -47,8 +47,17 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Assinatura padrão de todo tema: um tema dentro de outro (amostra da loja, prévia) não herda a fonte de título nem
+ * os cantos do tema de fora. Cada bloco abaixo troca só o que é dele.
+ */
+[data-tema] {
+  --fonte-titulo: var(--fonte-texto); --caixa-titulo: none; --espaco-titulo: -0.01em;
+  --raio-p: 10px; --raio-m: 12px; --raio-g: 16px; --raio-painel: 18px;
+}
+
 /* Breu: escuro neutro e calmo. */
-:root[data-tema='breu'] {
+[data-tema='breu'] {
   color-scheme: dark;
   --cor-fundo: #0f1013; --cor-superficie: #17181c; --cor-superficie-2: #1f2025; --cor-campo: #131418;
   --cor-sutil: rgba(255, 255, 255, 0.045);
@@ -67,7 +76,7 @@
 }
 
 /* Aurora: céu polar escuro, faixas de luz verde e violeta. */
-:root[data-tema='aurora'] {
+[data-tema='aurora'] {
   color-scheme: dark;
   --cor-fundo: #06111a; --cor-superficie: #0c1a25; --cor-superficie-2: #122533; --cor-campo: #091621;
   --cor-sutil: rgba(74, 242, 161, 0.05);
@@ -85,6 +94,90 @@
     radial-gradient(700px 180px at 72% 22%, rgba(155, 123, 255, 0.22), transparent 70%),
     radial-gradient(800px 300px at 50% 110%, rgba(40, 160, 200, 0.14), transparent 70%);
 }
+
+/* ==========================================================================
+   Temas da loja (pontos-e-loja, RN-12): originais, só no clima — nenhum nome, logo, arte, personagem, fonte ou
+   som oficial de franquia. Todos escuros. Fontes de título OFL embutidas (@fontsource), baixadas só quando usadas.
+   ========================================================================== */
+
+/* Cinzas do Trono: fantasia sombria — ouro gasto, brasa e pedra. */
+[data-tema='cinzas'] {
+  color-scheme: dark;
+  --cor-fundo: #0d0b09; --cor-superficie: #171410; --cor-superficie-2: #201b16; --cor-campo: #120f0c;
+  --cor-sutil: rgba(240, 208, 138, 0.05);
+  --cor-borda: rgba(212, 162, 76, 0.16); --cor-borda-forte: rgba(212, 162, 76, 0.35);
+  --cor-texto: #efe6d6; --cor-texto-suave: #b5a68e;
+  --cor-acento: #d9a54e; --cor-acento-2: #e06a2c; --cor-acento-hover: #ecbe6e; --cor-sobre-acento: #140f08;
+  --cor-acento-suave: rgba(217, 165, 78, 0.13);
+  --cor-destaque: #f07a3a; --cor-sobre-destaque: #140a04;
+  --cor-foco: #f0d08a; --cor-sucesso: #9cc874; --cor-perigo: #e8603f; --cor-sobre-perigo: #140a04; --cor-aviso: #e0b44c; --cor-falando: #f0a040;
+  --fonte-titulo: 'Cinzel', Georgia, serif; --caixa-titulo: none; --espaco-titulo: 0.05em;
+  --raio-p: 6px; --raio-m: 8px; --raio-g: 10px; --raio-painel: 14px;
+  --vidro: 0.78;
+  --sombra-painel: inset 0 1px 0 rgba(240, 208, 138, 0.08), 0 24px 60px -24px rgba(0, 0, 0, 0.85);
+  --brilho-acento: 0 6px 26px -4px rgba(240, 122, 58, 0.55);
+  --arte-fundo:
+    radial-gradient(900px 420px at 50% 115%, rgba(240, 122, 58, 0.30), transparent 65%),
+    radial-gradient(500px 300px at 85% 5%, rgba(217, 165, 78, 0.12), transparent 65%),
+    radial-gradient(600px 400px at 0% 20%, rgba(181, 166, 142, 0.08), transparent 65%);
+}
+
+/* Arcano Dourado: arena arcana — azul profundo, ouro e luz ciano. */
+[data-tema='arcano'] {
+  color-scheme: dark;
+  --cor-fundo: #070f1c; --cor-superficie: #0e1a2c; --cor-superficie-2: #13233a; --cor-campo: #0a1424;
+  --cor-sutil: rgba(47, 211, 224, 0.06);
+  --cor-borda: rgba(200, 170, 110, 0.20); --cor-borda-forte: rgba(200, 170, 110, 0.45);
+  --cor-texto: #eee9da; --cor-texto-suave: #a6b0c0;
+  --cor-acento: #cfb072; --cor-acento-2: #2fd3e0; --cor-acento-hover: #e0c68e; --cor-sobre-acento: #0a0f18;
+  --cor-acento-suave: rgba(207, 176, 114, 0.13);
+  --cor-destaque: #2fd3e0; --cor-sobre-destaque: #031418;
+  --cor-foco: #2fd3e0; --cor-sucesso: #3fd39a; --cor-perigo: #ef5a70; --cor-sobre-perigo: #16040b; --cor-aviso: #e8c15a; --cor-falando: #2fd3e0;
+  --fonte-titulo: 'Marcellus SC', Georgia, serif; --caixa-titulo: none; --espaco-titulo: 0.06em;
+  --raio-p: 6px; --raio-m: 8px; --raio-g: 12px; --raio-painel: 16px;
+  --vidro: 0.76;
+  --sombra-painel: inset 0 1px 0 rgba(207, 176, 114, 0.22), 0 24px 60px -24px rgba(0, 0, 0, 0.8);
+  --brilho-acento: 0 6px 24px -4px rgba(47, 211, 224, 0.5);
+  --arte-fundo:
+    radial-gradient(650px 460px at 92% 8%, rgba(47, 211, 224, 0.22), transparent 65%),
+    radial-gradient(700px 460px at 5% 100%, rgba(207, 176, 114, 0.15), transparent 65%),
+    radial-gradient(400px 300px at 50% 50%, rgba(60, 90, 200, 0.12), transparent 70%);
+}
+
+/* Gibi: HQ de super-herói à noite — tinta azul-escura, amarelo de balão, vermelho de impacto e retícula. */
+[data-tema='gibi'] {
+  color-scheme: dark;
+  --cor-fundo: #0e1120; --cor-superficie: #171b2e; --cor-superficie-2: #1f2440; --cor-campo: #121628;
+  --cor-sutil: rgba(255, 210, 63, 0.06);
+  --cor-borda: rgba(245, 239, 224, 0.12); --cor-borda-forte: rgba(245, 239, 224, 0.35);
+  --cor-texto: #f5efe0; --cor-texto-suave: #bab3a4;
+  --cor-acento: #ffd23f; --cor-acento-2: #ff4b4b; --cor-acento-hover: #ffe07a; --cor-sobre-acento: #111111;
+  --cor-acento-suave: rgba(255, 210, 63, 0.13);
+  --cor-destaque: #ff4b4b; --cor-sobre-destaque: #16040b;
+  --cor-foco: #4cc9ff; --cor-sucesso: #4ade80; --cor-perigo: #ff6464; --cor-sobre-perigo: #16040b; --cor-aviso: #ffb347; --cor-falando: #4cc9ff;
+  --fonte-titulo: 'Bangers', Impact, sans-serif; --caixa-titulo: uppercase; --espaco-titulo: 0.05em;
+  --raio-painel: 20px;
+  --vidro: 0.8;
+  --sombra-painel: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 60px -24px rgba(0, 0, 0, 0.8);
+  --brilho-acento: 4px 4px 0 #ff4b4b;
+  --arte-fundo:
+    radial-gradient(circle at 1px 1px, rgba(245, 239, 224, 0.07) 1px, transparent 1.7px) 0 0 / 11px 11px,
+    radial-gradient(600px 420px at 88% 5%, rgba(255, 75, 75, 0.24), transparent 65%),
+    radial-gradient(600px 420px at 5% 100%, rgba(76, 201, 255, 0.18), transparent 65%),
+    radial-gradient(420px 320px at 50% 50%, rgba(255, 210, 63, 0.08), transparent 70%);
+}
+
+/* Botão principal do gibi: contorno de tinta e sombra chapada que afunda ao clicar. Especificidade baixa (:where):
+   os componentes com estilo próprio (ícones, abas, menus, servidores, fontes de tela) continuam mandando. */
+[data-tema='gibi'] button:where(:not(.icone, .secundario, .canal, .link, .servidor-icone, .fonte-tela, .previa-assistir, .seletor-status-botao, .anexo-imagem, .espectadores-botao, [role='menuitem'], .abas button, .abas-barra button, .menu-usuario button)) { border: 1.5px solid #111; }
+[data-tema='gibi'] button:where(:not(.icone, .secundario, .canal, .link, .servidor-icone, .fonte-tela, .previa-assistir, .seletor-status-botao, .anexo-imagem, .espectadores-botao, [role='menuitem'], .abas button, .abas-barra button, .menu-usuario button)):hover:not(:disabled) { box-shadow: 4px 4px 0 var(--cor-destaque); }
+[data-tema='gibi'] button:where(:not(.icone, .secundario, .canal, .link, .servidor-icone, .fonte-tela, .previa-assistir, .seletor-status-botao, .anexo-imagem, .espectadores-botao, [role='menuitem'], .abas button, .abas-barra button, .menu-usuario button)):active:not(:disabled) { transform: translate(3px, 3px); box-shadow: none; }
+/* Marcellus SC e Bangers só têm o peso normal: sem negrito sintético nos títulos. */
+[data-tema='arcano'] :is(h1, h2, h3), [data-tema='gibi'] :is(h1, h2, h3) { font-weight: 400; }
+
+/* Tema dentro de um elemento (amostra da loja): texto e fonte do tema; o tamanho vem de quem contém. O fundo fica
+   com o próprio cartão (var(--arte-fundo), var(--cor-fundo)). */
+[data-tema]:not(:root) { color: var(--cor-texto); font-family: var(--fonte-texto); font-size: inherit; line-height: inherit; }
 
 * { box-sizing: border-box; }
 

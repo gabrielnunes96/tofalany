@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, RN-1 a RN-4, RN-14; CA-1 a CA-8 (técnica, seção 1, R-3, R-4, R-5, R-11, R-12).</p>
+<h3>Padrão</h3>
+<p>Módulo de tempo real criado em criarTempoReal; tique com setInterval unref limpo no preClose; minuto configurável para os testes.</p>
+
+<h3>Implementação (12/11/2026, commit 4c36c98)</h3>
+<ul><li>voz.ts: participantes() (canal, surdo, em carência) e o aviso aoMudar em cada mudança e quando a conexão cai.</li><li>realtime/pontos.ts: trecho válido por conta (em voz, sem surdo, fora da carência, com mais alguém); credita minutos completos a cada mudança e a cada tique de 15 s; sair descarta o minuto incompleto; voltar abre outra linha no extrato.</li><li>Robustez: o início só avança depois de gravar; erro numa conta não para as outras.</li><li>tempo-real.ts: contador ligado à voz, aviso &#x27;loja:estado&#x27; a cada crédito.</li><li>Decisão registrada: quem está na carência também deixa de contar como companhia (o parceiro sozinho para de ganhar até a pessoa voltar).</li></ul>
+
+<h3>Testes unitários</h3>
+<p>pontos.test.ts (unitário com relógio fixo: contas válidas, minutos completos, sessão nova, sem crédito duplo, troca de canal mantém a sessão, surdo no meio recomeça, falha ao gravar; integração com minuto de 200 ms: CA-1, CA-2, CA-4, CA-5, CA-6 com voz:tirado, CA-7 e CA-8 em duas conexões e dois servidores, carência). CA-3 coberto por construção: o ToOuvini nunca entra na presença de voz. Suíte: 505 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint</td><td>ok</td><td>sem erros</td></tr><tr><td>npm test</td><td>ok</td><td>91 arquivos, 505 testes; pontos.test.ts 3 vezes seguidas sem falha</td></tr><tr><td>npm run build</td><td>ok</td><td>shared, server e client</td></tr><tr><td>Voz real com o grupo</td><td>pendente</td><td>pare_e_pergunte: conferir o ganho depois de publicar</td></tr>
+</table>

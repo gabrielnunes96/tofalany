@@ -77,9 +77,9 @@
         "CA-8"
       ],
       "validacao": "server/test/pontos.test.ts com minuto de 200 ms: dois no canal +5 cada; sozinho 0; surdo 0 e o outro +5; mudo +5; segundo aparelho não dobra; voz no servidor 1 e no /c/2 somam no saldo único; loja:estado chega a cada crédito",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "4c36c98"
     },
     {
       "id": "T5",
@@ -114,7 +114,7 @@
         "CA-24"
       ],
       "validacao": "build verde; conferência no navegador dos 3 temas aplicados ao app (prints) e do contraste AA de texto e acento; revisão de originalidade",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
