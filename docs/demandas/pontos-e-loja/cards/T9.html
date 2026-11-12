@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, RF-11 e CA-25; E2E de ponta a ponta para CA-8, CA-9, CA-19 e CA-20.</p>
+<h3>Padrão</h3>
+<p>Notas em shared/src/novidades.ts (sem emojis); E2E Playwright com servidor em memória (server/dist), como as outras specs.</p>
+
+<h3>Implementação (12/11/2026, commit fbd3613)</h3>
+<ul><li>Nota da 0.15.0 (ainda não publicada) com a loja: como ganhar pontos (fone ligado, mudo conta), temas da loja e vales de 7 dias que somam.</li><li>client/e2e/loja.spec.ts: ana entra pelo app; cadeado antes da compra; pontos creditados no servidor de teste chegam ao painel sem reabrir; prévia e volta ao tema; compra com confirmação; saldo ao vivo; Aparência com o tema comprado escolhível e o outro com cadeado levando à loja.</li><li>Prints em docs/demandas/pontos-e-loja/prints (loja, prévia do Arcano, Aparência e loja com Cinzas do Trono).</li></ul>
+
+<h3>Testes unitários</h3>
+<p>JanelaNovidades.test.tsx confere a nota da loja (CA-25). Suíte: 523 testes passando. À parte, commit &#x27;test(auditoria)&#x27; com esperas maiores no teste de rolagem, que falhava com a suíte cheia.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint, npm test, npm run build</td><td>ok</td><td>523 testes</td></tr><tr><td>E2E loja.spec.ts</td><td>ok</td><td>passou depois do ajuste da comparação do tema (o app grava &#x27;neon&#x27; explícito ao sair da prévia)</td></tr><tr><td>E2E completo (isolado)</td><td>ok com 1 intermitente</td><td>38 passaram e 4 foram pulados (captura de tela, como sempre). A primeira rodada passou inteira; na segunda, anexos.spec (CA-16) falhou por tempo e depois passou sozinho em 48 s: lento e intermitente, sem relação com a loja</td></tr><tr><td>Voz e transmissão reais com o grupo</td><td>pendente</td><td>pare_e_pergunte: validar depois de publicar</td></tr>
+</table>

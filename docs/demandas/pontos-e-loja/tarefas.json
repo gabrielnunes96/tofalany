@@ -179,9 +179,9 @@
         "CA-9"
       ],
       "validacao": "npm run test:e2e verde com loja.spec.ts; JanelaNovidades mostra os itens da loja; npm test e lint verdes",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "fbd3613"
     }
   ]
 }
