@@ -347,7 +347,7 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
 
       {atividade && aoMudarAtividade && (
         <fieldset className="opcoes">
-          <legend>Atividade (como no Discord)</legend>
+          <legend>Atividade</legend>
           <label>
             <input type="checkbox" checked={atividade.jogos} onChange={(e) => aoMudarAtividade({ ...atividade, jogos: e.target.checked })} /> Mostrar o jogo que estou
             jogando (jogos da Steam)
