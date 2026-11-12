@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
+import { ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, qualidadesDosVales, QUALIDADES_VALE, TEMAS_LOJA, temaPermitido, type LojaEstadoDto, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -78,6 +78,10 @@ interface GravacaoAdiada {
   audio?: PreferenciasAudio;
   sons?: PreferenciasSons;
 }
+
+/** Qualidades que a loja libera agora: vales ativos; o administrador da instalação, todos os vales (2K só por cargo). */
+const valesDe = (pontos: LojaEstadoDto | null): QualidadeTela[] =>
+  !pontos ? [] : pontos.tudoLiberado ? QUALIDADES_VALE : qualidadesDosVales(pontos.vales, Date.now());
 
 type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes' | 'toouvini' | 'servidor' | 'loja';
 
@@ -211,6 +215,7 @@ function TelaDoServidor({
   const [telaPrefs, setTelaPrefs] = useState<PreferenciasTela>(TELA_PADRAO);
   const telaRef = useRef(telaPrefs);
   const qualidadeAtualRef = useRef<QualidadeTela>('720p30');
+  const telaPorValeRef = useRef(false);
   function mudarTela(novo: PreferenciasTela) {
     telaRef.current = novo;
     setTelaPrefs(novo);
@@ -316,7 +321,10 @@ function TelaDoServidor({
   }, [menuAberto]);
   // Backlog v2, item 9: tema (aplicado no <html>; main.tsx já aplica o guardado ao abrir).
   const [tema, setTema] = useState<Tema>((document.documentElement.dataset.tema as Tema | undefined) ?? 'neon');
+  /** Tema em uso (não o da prévia da loja, que só troca o atributo do <html>). */
+  const temaRef = useRef(tema);
   function mudarTema(novo: Tema) {
+    temaRef.current = novo;
     setTema(novo);
     document.documentElement.dataset.tema = novo;
     void ponte()
@@ -756,6 +764,9 @@ function TelaDoServidor({
       aoOla: (ola) => {
         olaEmRef.current = Date.now();
         acoes.aplicarOla(ola);
+        // R-8: tema da loja em uso neste computador, mas esta conta não o tem (outra conta ou instalação): volta ao
+        // neon. Só a tela visível decide (a escondida, que mantém a voz de outro servidor, não mexe no tema).
+        if (!ocultaRef.current && !temaPermitido(temaRef.current, ola.loja)) mudarTema('neon');
         setMeuCastigo(ola.meuCastigo ?? null);
         // Reconectou com a voz ligada: a presença volta para todos.
         const canal = minhaVozRef.current;
@@ -786,7 +797,13 @@ function TelaDoServidor({
         if (u.id === useLoja.getState().eu?.id) {
           const minhas = permissoesDe(u, useLoja.getState().funcoes);
           // RN-17: transmitindo numa qualidade que o cargo não libera mais — para (o servidor também libera).
-          if (salaVozRef.current?.transmitindoTela() && !qualidadesPermitidas(u.cargo, minhas).includes(qualidadeAtualRef.current)) {
+          // Os vales da loja também cobrem; transmissão que começou por um vale segue até parar, mesmo com ele vencido
+          // (RN-15: este aviso chega em qualquer mudança do meu perfil, não só do cargo).
+          if (
+            salaVozRef.current?.transmitindoTela() &&
+            !telaPorValeRef.current &&
+            !qualidadesPermitidas(u.cargo, minhas, valesDe(useLoja.getState().pontos)).includes(qualidadeAtualRef.current)
+          ) {
             void salaVozRef.current.pararTela();
             setAvisoVoz('Sua transmissão parou: seu cargo não libera mais essa qualidade.');
           }
@@ -1180,6 +1197,8 @@ function TelaDoServidor({
         if (!ok && somVirtual) void ponte().captura.pararSom().catch(() => undefined);
         if (ok) {
           qualidadeAtualRef.current = qualidade;
+          // Liberada por um vale (o cargo sozinho não cobria): segue até parar, mesmo se o vale vencer (RN-15).
+          telaPorValeRef.current = !qualidadesPermitidas(usuario.cargo, permissoes).includes(qualidade);
           setPreviaMinhaTela(sala.faixaMinhaTela());
           setPreviaDaTelaInteira(fonte.tipo === 'tela');
           // Transmitindo a tela em que o app está: a prévia viraria espelho infinito, então não é desenhada.
@@ -1675,7 +1694,10 @@ function TelaDoServidor({
               aoMudarAtividade={mudarAtividade}
               tela={telaPrefs}
               aoMudarTela={mudarTela}
-              qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes)}
+              qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
+              comLoja={pontos !== null}
+              temasLiberados={pontos ? (pontos.tudoLiberado ? TEMAS_LOJA : pontos.temas) : undefined}
+              aoAbrirLoja={() => setVista('loja')}
               aoVoltar={voltar}
             />
           ) : vistaAtual === 'servidor' ? (
@@ -1739,7 +1761,8 @@ function TelaDoServidor({
             listar={ponte().captura.fontes}
             audioDisponivel={ponte().captura.audioDisponivel}
             audioPadrao={telaPrefs.audio ?? true}
-            qualidades={qualidadesPermitidas(usuario.cargo, permissoes)}
+            qualidades={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
+            comLoja={pontos !== null}
             qualidadePadrao={telaPrefs.qualidade}
             aoEscolher={(f, a, q) => {
               // Lembra a escolha do som para a próxima vez.

@@ -1040,3 +1040,7 @@ button.saldo-pontos .loja-estrela { width: 11px; height: 11px; }
 .loja-previa { max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; }
 .tela-loja:has(.loja-previa) { padding-bottom: 96px; }
 @media (max-width: 520px) { .loja-previa { left: 12px; right: 12px; transform: none; border-radius: var(--raio-g); } }
+/* Aparência: temas da loja com cadeado (os não comprados levam à loja). */
+.tema-loja { display: flex; align-items: center; justify-content: space-between; gap: var(--e-2); flex-wrap: wrap; }
+.tema-loja.bloqueado label { color: var(--cor-texto-suave); }
+button.tema-cadeado { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 3px 10px; font-size: var(--texto-xs); }

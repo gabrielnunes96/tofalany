@@ -73,6 +73,25 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     expect(aoEscolher).toHaveBeenCalledWith(fonte, false, '1080p60');
   });
 
+  it('CA-15: com loja e sem vale, só 720p30; as outras dizem que dá para liberar na loja (2K só pelo cargo)', async () => {
+    render(<SeletorTela listar={async () => fontes} audioDisponivel={false} comLoja qualidades={['720p30']} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    await screen.findByText('Tela 1');
+    for (const q of ['720p60', '1080p30', '1080p60']) {
+      const opcao = screen.getByLabelText(new RegExp(q)) as HTMLInputElement;
+      expect(opcao.disabled).toBe(true);
+      expect(opcao.closest('label')!.textContent).toContain('(libere na loja)');
+    }
+    expect(screen.getByLabelText(/1440p60/).closest('label')!.textContent).not.toContain('loja');
+    expect(screen.getByText('Acima de 720p30: com um vale da loja ou com o cargo que libera.')).toBeTruthy();
+  });
+
+  it('CA-14: com o vale de 1080p60, as quatro primeiras liberadas e o 2K bloqueado', async () => {
+    render(<SeletorTela listar={async () => fontes} audioDisponivel={false} comLoja qualidades={['720p30', '720p60', '1080p30', '1080p60']} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    await screen.findByText('Tela 1');
+    for (const q of ['720p30', '720p60', '1080p30', '1080p60']) expect((screen.getByLabelText(new RegExp(q)) as HTMLInputElement).disabled).toBe(false);
+    expect((screen.getByLabelText(/1440p60/) as HTMLInputElement).disabled).toBe(true);
+  });
+
   it('Windows: áudio do sistema pode ir junto; erro ao listar aparece', async () => {
     const aoEscolher = vi.fn();
     const { unmount } = render(

@@ -188,3 +188,35 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
     expect(aoMudarAoFechar).toHaveBeenCalledWith('sair');
   });
 });
+
+describe('Aparência com a loja (pontos-e-loja)', () => {
+  it('CA-19: tema da loja sem compra fica com cadeado e leva à loja; comprado pode ser escolhido', () => {
+    const aoMudarTema = vi.fn();
+    const aoAbrirLoja = vi.fn();
+    montar(AUDIO_PADRAO, 'forte', { tema: 'neon', aoMudarTema, temasLiberados: ['gibi'], aoAbrirLoja });
+    const cinzas = screen.getByRole('radio', { name: /Cinzas do Trono/ }) as HTMLInputElement;
+    expect(cinzas.disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Cinzas do Trono: liberar na loja' }));
+    expect(aoAbrirLoja).toHaveBeenCalled();
+    const gibi = screen.getByRole('radio', { name: /Gibi/ }) as HTMLInputElement;
+    expect(gibi.disabled).toBe(false);
+    fireEvent.click(gibi);
+    expect(aoMudarTema).toHaveBeenCalledWith('gibi');
+    expect(screen.queryByRole('button', { name: 'Gibi: liberar na loja' })).toBeNull();
+  });
+
+  it('servidor sem loja: os temas da loja nem aparecem', () => {
+    montar(AUDIO_PADRAO, 'forte', { tema: 'neon', aoMudarTema: vi.fn() });
+    expect(screen.queryByRole('radio', { name: /Cinzas do Trono/ })).toBeNull();
+    expect(screen.getByLabelText(/Aurora/)).toBeTruthy();
+  });
+
+  it('dica da qualidade: com loja fala dos vales; sem loja, só com um cargo que libera', () => {
+    const tela = { qualidade: '720p30' as const, codec: 'h264' as const };
+    montar(AUDIO_PADRAO, 'forte', { tela, aoMudarTela: vi.fn(), qualidadesTela: ['720p30'], comLoja: true });
+    expect(screen.getByText(/libera na loja \(vales de 7 dias\)/)).toBeTruthy();
+    cleanup();
+    montar(AUDIO_PADRAO, 'forte', { tela, aoMudarTela: vi.fn(), qualidadesTela: ['720p30', '1440p60'] });
+    expect(screen.queryByText(/Acima de 720p30/)).toBeNull();
+  });
+});

@@ -20,6 +20,8 @@ interface Props {
   audioDisponivel: boolean;
   /** Última escolha de "Incluir o áudio do sistema" (sem valor: marcada). */
   audioPadrao?: boolean;
+  /** Pontos e loja: há loja neste servidor (as bloqueadas dizem que dá para liberar lá). */
+  comLoja?: boolean;
   /** RF-28: qualidades que o cargo permite (membro: só 720p30) e a já selecionada. */
   qualidades?: QualidadeTela[];
   qualidadePadrao?: QualidadeTela;
@@ -28,7 +30,7 @@ interface Props {
 }
 
 /** RF-26: seletor próprio com miniaturas das telas e janelas abertas. */
-export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
+export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, comLoja = false, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
   const [fontes, setFontes] = useState<FonteTela[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [audio, setAudio] = useState(audioDisponivel && audioPadrao);
@@ -119,7 +121,9 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, quali
               key={q}
               title={
                 !qualidades.includes(q)
-                  ? 'Seu cargo não libera esta qualidade'
+                  ? comLoja && q !== '1440p60'
+                    ? 'Libere na loja (vale de 7 dias) ou com o cargo que libera'
+                    : 'Seu cargo não libera esta qualidade'
                   : semMonitor(q)
                     ? `Não encontramos um monitor com ${DIMENSOES_TELA[q].altura}p: a transmissão fica em até ${maiorMonitor?.altura ?? '?'}p`
                     : undefined
@@ -127,11 +131,12 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, quali
             >
               <input type="radio" name="qualidade-tela" checked={qualidadeVista === q} disabled={!qualidades.includes(q) || semMonitor(q)} onChange={() => setQualidade(q)} /> {q}
               {qualidades.includes(q) && semMonitor(q) && <span className="suave"> (monitor não tem)</span>}
+              {!qualidades.includes(q) && comLoja && q !== '1440p60' && <span className="suave"> (libere na loja)</span>}
             </label>
           ))}
           {qualidades.length === 1 && (
             <p className="suave" id="qualidade-tela-motivo">
-              Acima de 720p30, só com o cargo que libera.
+              {comLoja ? 'Acima de 720p30: com um vale da loja ou com o cargo que libera.' : 'Acima de 720p30, só com o cargo que libera.'}
             </p>
           )}
         </fieldset>

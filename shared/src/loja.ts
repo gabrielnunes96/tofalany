@@ -82,5 +82,14 @@ export function qualidadesDosVales(vales: readonly ValeDto[], agora: number): Qu
   return QUALIDADES_TELA.filter((q) => ativos.has(q));
 }
 
+/**
+ * R-8: o tema pode ficar? Grátis sempre; de loja só se a conta comprou ou tem tudo liberado (sem loja no servidor,
+ * não). Usado ao chegar o ola, para um tema salvo no computador por outra conta ou instalação voltar ao neon.
+ */
+export function temaPermitido(tema: string, loja: { temas: readonly string[]; tudoLiberado: boolean } | null | undefined): boolean {
+  if (!(TEMAS_LOJA as string[]).includes(tema)) return true;
+  return !!loja && (loja.tudoLiberado || loja.temas.includes(tema));
+}
+
 /** Nova validade de um vale comprado agora (RN-8): soma ao fim do atual, ou começa agora se já venceu. */
 export const novaValidade = (expiraAtual: number | undefined, agora: number): number => Math.max(agora, expiraAtual ?? 0) + VALE_MS;

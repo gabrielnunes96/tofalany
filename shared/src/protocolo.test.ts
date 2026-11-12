@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { acaoAoFechar, qualidadesPermitidas, QUALIDADES_TELA } from './protocolo.js';
+import { temaPermitido } from './loja.js';
 
 describe('acaoAoFechar', () => {
   it('a escolha nova vale; a antiga só quando a pessoa tinha desligado a bandeja; padrão: perguntar', () => {
@@ -37,5 +38,15 @@ describe('qualidadesPermitidas (pontos-e-loja, RN-9/RN-10)', () => {
   it('vales somam ao cargo', () => {
     expect(qualidadesPermitidas('membro', new Set(), ['1080p30'])).toEqual(['720p30', '1080p30']);
     expect(qualidadesPermitidas('membro', new Set(['transmitir_1440p']), ['720p60'])).toEqual(['720p30', '720p60', '1440p60']);
+  });
+});
+
+describe('temaPermitido (pontos-e-loja, R-8)', () => {
+  it('grátis sempre; de loja só comprado, com tudo liberado; sem loja no servidor, não', () => {
+    expect(temaPermitido('aurora', null)).toBe(true);
+    expect(temaPermitido('gibi', { temas: ['gibi'], tudoLiberado: false })).toBe(true);
+    expect(temaPermitido('cinzas', { temas: ['gibi'], tudoLiberado: false })).toBe(false);
+    expect(temaPermitido('cinzas', { temas: [], tudoLiberado: true })).toBe(true);
+    expect(temaPermitido('cinzas', undefined)).toBe(false);
   });
 });

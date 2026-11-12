@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, QUALIDADES_TELA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
+import { ACOES_ATALHO, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
+import { Icone } from '../componentes/Icone';
 
 export interface DependenciasConfiguracoes {
   listarDispositivos(): Promise<MediaDeviceInfo[]>;
@@ -59,6 +60,12 @@ interface Props {
   /** Backlog v2, item 9: tema da interface. */
   tema?: Tema;
   aoMudarTema?: (tema: Tema) => void;
+  /** Pontos e loja: temas da loja liberados para a conta (sem loja no servidor: undefined, e eles não aparecem). */
+  temasLiberados?: Tema[];
+  /** Abre a loja (tema com cadeado). */
+  aoAbrirLoja?: () => void;
+  /** Há loja: a dica das qualidades bloqueadas fala dos vales. */
+  comLoja?: boolean;
   /** Backlog v2, 1e: fechar a janela deixa o app na bandeja. */
   aoFechar?: AcaoFechar;
   aoMudarAoFechar?: (acao: AcaoFechar) => void;
@@ -83,7 +90,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, temasLiberados, aoAbrirLoja, comLoja = false, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, deps = doNavegador }: Props) {
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
 
@@ -324,6 +331,31 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
               <input type="radio" name="tema" checked={tema === valor} onChange={() => aoMudarTema(valor)} /> {nome} <span className="suave">({descricao})</span>
             </label>
           ))}
+          {temasLiberados &&
+            ITENS_TEMA.filter((t) => TEMAS_LOJA.includes(t.id)).map((t) => {
+              const liberado = temasLiberados.includes(t.id);
+              return (
+                <div key={t.id} className={`tema-loja${liberado ? '' : ' bloqueado'}`}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="tema"
+                      checked={tema === t.id}
+                      disabled={!liberado}
+                      aria-describedby={liberado ? undefined : `tema-loja-${t.id}`}
+                      onChange={() => aoMudarTema(t.id)}
+                    />{' '}
+                    {t.nome}{' '}
+                    <span className="suave">({t.descricao})</span>
+                  </label>
+                  {!liberado && (
+                    <button type="button" id={`tema-loja-${t.id}`} className="secundario tema-cadeado" onClick={aoAbrirLoja} aria-label={`${t.nome}: liberar na loja`}>
+                      <Icone nome="cadeado" tamanho={14} /> Na loja
+                    </button>
+                  )}
+                </div>
+              );
+            })}
         </fieldset>
       )}
 
@@ -372,7 +404,9 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
                 </option>
               ))}
             </select>
-            {qualidadesTela.length === 1 && <p className="suave">Acima de 720p30, só com o cargo que libera.</p>}
+            {comLoja
+              ? !qualidadesTela.includes('1080p60') && <p className="suave">As bloqueadas você libera na loja (vales de 7 dias) ou com o cargo que libera; 2K só pelo cargo.</p>
+              : qualidadesTela.length === 1 && <p className="suave">Acima de 720p30, só com o cargo que libera.</p>}
             <label htmlFor="cfg-codec-tela">Codec</label>
             <select id="cfg-codec-tela" value={tela.codec} onChange={(e) => aoMudarTela({ ...tela, codec: e.target.value as 'h264' | 'vp9' })}>
               <option value="h264">H.264 (recomendado: usa a placa de vídeo)</option>
