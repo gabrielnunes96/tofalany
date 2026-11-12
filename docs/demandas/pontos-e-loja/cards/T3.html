@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, CA-8 (compra), CA-9, CA-10, CA-11, CA-21, CA-23 e R-7 (técnica, seções 3, 6 e 7).</p>
+<h3>Padrão</h3>
+<p>Rotas Fastify da conta com exigirSessao daConta; erros ErroHttp { erro, mensagem }; aviso em tempo real para salaUsuario.</p>
+
+<h3>Implementação (12/11/2026, commit b597f9e)</h3>
+<ul><li>GET /api/loja: preços da config, pontos por minuto e o estado da conta.</li><li>POST /api/loja/comprar: o schema só descarta campos extras (o preço do app é ignorado) e lerItemLoja decide (item_invalido 400); saldo_insuficiente, item_ja_comprado e tudo_liberado 409.</li><li>GET /api/loja/extrato?antes&amp;limite.</li><li>TempoReal.avisarLoja emite &#x27;loja:estado&#x27; a todas as conexões da conta; OlaPayload.loja preenchido.</li><li>Auditoria loja_compra (rótulo &#x27;comprou na loja&#x27;, item e pontos), no servidor principal; log info por compra e warn por saldo insuficiente.</li><li>Client: api.loja, comprarNaLoja e extratoLoja.</li></ul>
+
+<h3>Testes unitários</h3>
+<p>loja.test.ts: catálogo e 401, CA-9 com extrato e auditoria, CA-10 e item_invalido (4 corpos), vale e tema repetido, CA-11, CA-21, CA-23, CA-8 com conexões no principal e em /c/2, rota pelo endereço de outro servidor sem ser membro e auditoria só no principal. Suíte: 489 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint</td><td>ok</td><td>sem erros</td></tr><tr><td>npm test</td><td>ok</td><td>90 arquivos, 489 testes (TelaAuditoria falhou uma vez com a suíte cheia e passou sozinho 3 vezes e na suíte de novo: intermitente, sem relação)</td></tr><tr><td>npm run build</td><td>ok</td><td>shared, server e client</td></tr><tr><td>E2E</td><td>adiado</td><td>roda na T9</td></tr>
+</table>

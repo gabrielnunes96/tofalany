@@ -53,9 +53,9 @@
         "CA-23"
       ],
       "validacao": "server/test/loja.test.ts: compra com 700 → 100; 500 → 409 saldo_insuficiente; duas compras de 600 em paralelo → uma passa e saldo 0; admin da instalação → 409 tudo_liberado; PRECO_TEMA=800 cobra 800; evento loja:estado chega nas duas conexões da conta; auditoria loja_compra gravada",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "b597f9e"
     },
     {
       "id": "T4",
@@ -97,7 +97,7 @@
         "CA-17"
       ],
       "validacao": "tela.test.ts: membro com vale 1080p60 pede 1080p60 → aceito e 1440p60 → recusado; sem vale 1080p60 → recusado; vale vence durante a transmissão → continua; novo pedido → recusado",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

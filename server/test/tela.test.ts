@@ -4,6 +4,8 @@ import type { FastifyInstance } from 'fastify';
 import { io as conectar, type Socket } from 'socket.io-client';
 import { LIMITE_TELAS_POR_CANAL, type CanalDto, type EventosCliente, type EventosServidor, type OlaPayload, type TransmissaoDto } from '@tofalando/shared';
 import { listarAuditoria } from '../src/dominio/auditoria.js';
+import { comprar, creditar } from '../src/dominio/loja.js';
+import { lerConfig } from '../src/config.js';
 import { appTeste, cadastrar } from './apoio.js';
 
 type Cliente = Socket<EventosServidor, EventosCliente>;
@@ -209,3 +211,64 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
     expect(listarAuditoria(app!.banco).registros.find((r) => r.tipo === 'tela_parou')?.detalhes?.motivo).toBe('cargo_alterado');
   });
 });
+
+describe('transmissão de tela: vales da loja (pontos-e-loja)', () => {
+  const comprarVale = (qualidade: '720p60' | '1080p30' | '1080p60') => {
+    creditar(app!.banco, 2, 600, null);
+    comprar(app!.banco, 2, { tipo: 'vale', qualidade }, lerConfig({}).pontos.precos);
+  };
+  const conferir = (c: number, largura: number, altura: number) => app!.tempoReal.conferirFaixaTela(2, c, { sid: 'TR_1', largura, altura }, async () => undefined);
+
+  it('CA-14/CA-16: sem vale, 1080p60 é recusado; com o vale de 1080p60, 1080p60 passa (e a faixa 1080p também), 2K não', async () => {
+    const { b, jogo } = await preparar();
+    await naVoz(b.s, jogo);
+    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1080p60' })).toEqual({ ok: false, erro: 'Seu cargo não libera essa qualidade.' });
+    comprarVale('1080p60');
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1440p60' })).ok).toBe(false);
+    for (const qualidade of ['720p60', '1080p30']) {
+      expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade })).ok).toBe(true);
+      await pedir(b.s, 'tela:parar', { canalVozId: jogo });
+    }
+    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1080p60' })).toMatchObject({ ok: true, valor: { qualidade: '1080p60' } });
+    expect(await conferir(jogo, 1920, 1080)).toBe(false);
+    expect(await conferir(jogo, 2560, 1440)).toBe(true);
+    // Sem dimensões, com a transmissão acima de 720p30 liberada pelo vale: passa.
+    expect(await conferir(jogo, 0, 0)).toBe(false);
+  });
+
+  it('CA-16: com vale de 720p60, uma faixa 1080p é silenciada; em 720p30 sem dimensões continua suspeita', async () => {
+    const { b, jogo } = await preparar();
+    await naVoz(b.s, jogo);
+    comprarVale('720p60');
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '720p60' })).ok).toBe(true);
+    expect(await conferir(jogo, 1920, 1080)).toBe(true);
+    await pedir(b.s, 'tela:parar', { canalVozId: jogo });
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '720p30' })).ok).toBe(true);
+    expect(await conferir(jogo, 0, 0)).toBe(true);
+  });
+
+  it('o vale de 1080p30 libera só 1080p30 (além de 720p30)', async () => {
+    const { b, jogo } = await preparar();
+    await naVoz(b.s, jogo);
+    comprarVale('1080p30');
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1080p60' })).ok).toBe(false);
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '720p60' })).ok).toBe(false);
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1080p30' })).ok).toBe(true);
+  });
+
+  it('CA-17: o vale vence no meio — a transmissão continua (mesmo republicada); a próxima já sai limitada', async () => {
+    const { b, jogo } = await preparar();
+    await naVoz(b.s, jogo);
+    comprarVale('1080p60');
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1080p60' })).ok).toBe(true);
+    app!.banco.prepare('UPDATE loja_vales SET expira_em = 1 WHERE usuario_id = 2').run();
+    app!.tempoReal.cargoMudou(2);
+    const doCanal = (await abrir((await cadastrar(app!, 'caio')).json().token as string)).ola.transmissoes;
+    expect(doCanal).toEqual([expect.objectContaining({ usuarioId: 2, qualidade: '1080p60' })]);
+    expect(await conferir(jogo, 1920, 1080)).toBe(false);
+    expect(await conferir(jogo, 0, 0)).toBe(false);
+    expect((await pedir(b.s, 'tela:parar', { canalVozId: jogo })).ok).toBe(true);
+    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1080p60' })).toEqual({ ok: false, erro: 'Seu cargo não libera essa qualidade.' });
+  });
+});
+
