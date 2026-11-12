@@ -1,6 +1,6 @@
 {
   "name": "@tofalando/client",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "private": true,
   "description": "ToFalany: voz, chat e tela para o seu grupo",
   "main": "./out/main/index.js",
@@ -17,7 +17,8 @@
     "@playwright/test": "^1.64.1",
     "@sapphi-red/web-noise-suppressor": "^0.4.1",
     "@testing-library/react": "^16.3.3",
-    "@tofalando/shared": "0.15.0",
+    "@tofalando/shared": "0.15.1",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
@@ -40,6 +41,7 @@
     "@fontsource/cinzel": "^5.3.0",
     "@fontsource/marcellus-sc": "^5.3.0",
     "electron-updater": "^6.8.11",
+    "qrcode": "^1.5.4",
     "uiohook-napi": "^1.5.5"
   },
   "author": "ToFalany",
