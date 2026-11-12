@@ -77,7 +77,7 @@
         "CA-8"
       ],
       "validacao": "server/test/pontos.test.ts com minuto de 200 ms: dois no canal +5 cada; sozinho 0; surdo 0 e o outro +5; mudo +5; segundo aparelho não dobra; voz no servidor 1 e no /c/2 somam no saldo único; loja:estado chega a cada crédito",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
@@ -97,9 +97,9 @@
         "CA-17"
       ],
       "validacao": "tela.test.ts: membro com vale 1080p60 pede 1080p60 → aceito e 1440p60 → recusado; sem vale 1080p60 → recusado; vale vence durante a transmissão → continua; novo pedido → recusado",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "c2d261b"
     },
     {
       "id": "T6",

@@ -20,6 +20,8 @@ export interface Voz {
   /** Conexões de quem está num canal de voz (para mandar só a eles). */
   conexoesNoCanal(canalVozId: number): string[];
   registrar(socket: SocketTofalando): void;
+  /** Pontos e loja: quem está em voz agora, se está surdo e se está na carência de queda (a conexão caiu). */
+  participantes(): { usuarioId: number; canalVozId: number; surdo: boolean; emCarencia: boolean }[];
   /** Canal de voz removido: todos saem dele. */
   canalRemovido(canal: { id: number; nome: string }): void;
   /** Webhook: a sessão de mídia `sid` saiu da sala do LiveKit (fechou, caiu, foi derrubada). */
@@ -59,7 +61,13 @@ export function criarVoz(
   io: ServidorTempoReal,
   banco: Banco,
   registrarErro: (e: unknown) => void,
-  opcoes: { carenciaMs: number; removerDaMidia?: RemoverDaMidia; aoSair?: (usuarioId: number, canalVozId: number) => void },
+  opcoes: {
+    carenciaMs: number;
+    removerDaMidia?: RemoverDaMidia;
+    aoSair?: (usuarioId: number, canalVozId: number) => void;
+    /** Pontos e loja: a presença na voz mudou (entrou, saiu, surdo, conexão caiu ou voltou). */
+    aoMudar?: () => void;
+  },
 ): Voz {
   const presentes = new Map<number, Presente>();
 
@@ -68,6 +76,7 @@ export function criarVoz(
   const avisar = () => {
     // Servidor fechando (carência que venceu depois do fechamento): não há a quem avisar.
     if (!banco.open) return;
+    opcoes.aoMudar?.();
     const todos = estados();
     const porComunidade = new Map<number, VozEstadoDto[]>();
     for (const e of todos) {
@@ -105,6 +114,8 @@ export function criarVoz(
 
   return {
     estados,
+    participantes: () =>
+      [...presentes.values()].map((p) => ({ usuarioId: p.estado.usuarioId, canalVozId: p.estado.canalVozId, surdo: p.estado.surdo, emCarencia: p.pendente !== undefined })),
     presenca(usuarioId) {
       const p = presentes.get(usuarioId);
       return p && { canalVozId: p.estado.canalVozId, socketId: p.socketId };
@@ -165,6 +176,8 @@ export function criarVoz(
           avisar();
         }, opcoes.carenciaMs);
         p.pendente.unref();
+        // A conexão caiu: os pontos param de contar já (a carência não conta, técnica R-4).
+        if (banco.open) opcoes.aoMudar?.();
       });
     },
     canalRemovido(canal) {

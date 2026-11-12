@@ -1,5 +1,6 @@
 import { listarFuncoes } from '../dominio/funcoes.js';
-import { estadoLoja } from '../dominio/loja.js';
+import { creditar, estadoLoja } from '../dominio/loja.js';
+import { criarPontos } from './pontos.js';
 import type { FastifyInstance } from 'fastify';
 import { Server, type Socket } from 'socket.io';
 import {
@@ -223,8 +224,17 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       tela.saiuDaVoz(u, c);
       musica.saiuDaVoz(c);
     },
+    aoMudar: () => pontos.atualizar(),
   });
   const tela = criarTela(io, banco, voz, (e) => app.log.error(e));
+  const pontos = criarPontos({
+    participantes: () => voz.participantes(),
+    minutoMs: config.pontos.minutoMs,
+    porMinuto: config.pontos.porMinuto,
+    creditar: (u, n, movimentoId) => creditar(banco, u, n, movimentoId),
+    avisar: (u) => io.to(salaUsuario(u)).emit('loja:estado', estadoLoja(banco, u)),
+    registrarErro: (e) => app.log.error(e),
+  });
   const soundboard = criarSoundboard(io, banco, voz, (e) => app.log.error(e));
   const musica = criarMusica(io, config, voz, (e) => app.log.error(e), banco);
 
@@ -408,10 +418,16 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     }
   }, config.intervaloSessaoMs);
   relogio.unref();
+  // Pontos e loja: credita os minutos completos de quem continua em voz sem mudar nada.
+  const tiquePontos = setInterval(() => {
+    if (banco.open) pontos.atualizar();
+  }, config.pontos.tiqueMs);
+  tiquePontos.unref();
 
   // Fecha as conexões antes do servidor HTTP; o engine não tenta fechar o servidor do Fastify.
   app.addHook('preClose', async () => {
     clearInterval(relogio);
+    clearInterval(tiquePontos);
     voz.fechar();
     presenca.iniciarFechamento();
     io.local.disconnectSockets(true);
