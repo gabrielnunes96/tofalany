@@ -172,6 +172,8 @@ describe('mesclarTela (RF-28)', () => {
   it('aceita qualidade e codec conhecidos', () => {
     expect(mesclarTela(undefined, { qualidade: '1440p60', codec: 'vp9' })).toEqual({ qualidade: '1440p60', codec: 'vp9' });
     expect(mesclarTela(undefined, { qualidade: '4k', codec: 'av1' })).toEqual({ qualidade: '720p30', codec: 'h264' });
+    expect(mesclarTela(undefined, { qualidade: '720p60' }).qualidade).toBe('720p60');
+    expect(mesclarTela(undefined, { qualidade: '1080p30' }).qualidade).toBe('1080p30');
   });
 });
 

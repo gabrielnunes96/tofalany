@@ -30,7 +30,7 @@ export interface OuvintesVoz {
 export const PUBLICACAO_VOZ = { audioPreset: { maxBitrate: 64_000 }, dtx: true, red: true };
 
 /** Taxa máxima por qualidade (bits/s): a banda que cada espectador recebe (R-10). */
-export const TAXAS_TELA: Record<QualidadeTela, number> = { '720p30': 2_500_000, '1080p60': 6_000_000, '1440p60': 10_000_000 };
+export const TAXAS_TELA: Record<QualidadeTela, number> = { '720p30': 2_500_000, '720p60': 4_000_000, '1080p30': 4_500_000, '1080p60': 6_000_000, '1440p60': 10_000_000 };
 
 /** RF-28: resolução e quadros de cada qualidade (as mesmas dimensões que o servidor confere). */
 export const RESOLUCOES_TELA = Object.fromEntries(

@@ -38,10 +38,28 @@ async function preparar() {
   const a = await abrir(dono);
   const b = await abrir(ana);
   const criar = async (nome: string) => ((await pedir(a.s, 'canal:criar', { tipo: 'voz', nome })).valor as CanalDto).id;
-  return { a, b, papo: await criar('Papo'), jogo: await criar('Jogo'), ana };
+  return { a, b, papo: await criar('Papo'), jogo: await criar('Jogo'), ana, dono };
 }
 
 describe('transmissão de tela: trava por canal (RN-10)', () => {
+  it('CA-18: o cargo com "Transmitir em 1080p" libera 720p60, 1080p30 e 1080p60; sem ele, recusa', async () => {
+    const { b, jogo, dono } = await preparar();
+    await naVoz(b.s, jogo);
+    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '720p60' })).toEqual({ ok: false, erro: 'Seu cargo não libera essa qualidade.' });
+    const auth = (t: string) => ({ authorization: `Bearer ${t}` });
+    const cargo = await app!.inject({ method: 'POST', url: '/api/admin/funcoes', headers: auth(dono), payload: { nome: 'Streamer', cor: '#ff8800', permissoes: ['transmitir_tela', 'transmitir_1080p'] } });
+    expect(cargo.statusCode).toBe(201);
+    const contas = (await app!.inject({ method: 'GET', url: '/api/admin/usuarios', headers: auth(dono) })).json() as { id: number; usuario: string }[];
+    const anaId = contas.find((c) => c.usuario === 'ana')!.id;
+    const troca = await app!.inject({ method: 'PATCH', url: `/api/admin/usuarios/${anaId}/funcao`, headers: auth(dono), payload: { funcaoId: cargo.json().id } });
+    expect(troca.statusCode).toBe(200);
+    for (const qualidade of ['720p60', '1080p30', '1080p60']) {
+      expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade })).toMatchObject({ ok: true, valor: { qualidade } });
+      await pedir(b.s, 'tela:parar', { canalVozId: jogo });
+    }
+    expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1440p60' })).ok).toBe(false);
+  });
+
   it('CA-38: cada pessoa transmite a sua (várias no canal, até o limite); parar tira só a minha; auditoria (CA-49)', async () => {
     const { a, b, papo, ana } = await preparar();
     await naVoz(a.s, papo);
@@ -160,7 +178,7 @@ describe('transmissão de tela: trava por canal (RN-10)', () => {
     await naVoz(a.s, papo);
     await naVoz(b.s, jogo);
     // ana (membro) pedindo 1440p60 direto ao servidor.
-    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1440p60' })).toEqual({ ok: false, erro: 'Seu cargo só transmite em 720p30.' });
+    expect(await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '1440p60' })).toEqual({ ok: false, erro: 'Seu cargo não libera essa qualidade.' });
     expect((await pedir(b.s, 'tela:pedir', { canalVozId: jogo, qualidade: '720p30' })).ok).toBe(true);
     // dono (admin) em 1440p60.
     expect(await pedir(a.s, 'tela:pedir', { canalVozId: papo, qualidade: '1440p60' })).toMatchObject({ ok: true, valor: { qualidade: '1440p60' } });

@@ -81,7 +81,7 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
           // RN-17: membro transmite só em 720p30 (o servidor aplica, não só a tela).
           const { cargo, alta } = papel(usuarioId, canalVozId);
           if (!qualidadesPermitidas(cargo, alta).includes(qualidade as QualidadeTela)) {
-            throw new ErroHttp(403, 'sem_permissao', 'Seu cargo só transmite em 720p30.');
+            throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não libera essa qualidade.');
           }
           const atual = ativas.get(chaveTela(canalVozId, usuarioId));
           if (atual) return atual;
@@ -130,6 +130,8 @@ export function criarTela(io: ServidorTempoReal, banco: Banco, voz: Pick<Voz, 'p
     /**
      * R-2: confere a faixa de tela publicada no LiveKit (webhook). Silenciar quando quem publicou não tem a
      * trava do canal (segunda tela) ou passou das dimensões da qualidade pedida (membro acima de 720p30).
+     * Só confere largura e altura: o LiveKit não informa os quadros, então 720p30 e 720p60 (e 1080p30 e 1080p60)
+     * passam iguais aqui (risco aceito, técnica pontos-e-loja R-1).
      * As dimensões vêm de quem publica: um app adulterado poderia mentir (risco aceito na técnica).
      */
     faixaForaDaRegra(usuarioId: number, canalVozId: number, largura: number, altura: number, soAudio = false): boolean {

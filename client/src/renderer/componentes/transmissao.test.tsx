@@ -52,6 +52,27 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     expect(aoEscolher).toHaveBeenCalledWith(fonte, false, '1080p60');
   });
 
+  it('cinco qualidades: 720p60 e 1080p30 liberadas; num monitor 1080p com 1440p60 salvo, cai para 1080p60 (não 1080p30)', async () => {
+    const aoEscolher = vi.fn();
+    const fonte = { id: 'screen:1', nome: 'Tela 1', tipo: 'tela' as const, miniatura: 'data:,', largura: 1920, altura: 1080 };
+    render(
+      <SeletorTela
+        listar={async () => [fonte]}
+        audioDisponivel={false}
+        qualidades={['720p30', '720p60', '1080p30', '1080p60', '1440p60']}
+        qualidadePadrao="1440p60"
+        aoEscolher={aoEscolher}
+        aoCancelar={vi.fn()}
+      />,
+    );
+    await screen.findByText('Tela 1');
+    expect((screen.getByLabelText('720p60') as HTMLInputElement).disabled).toBe(false);
+    expect((screen.getByLabelText('1080p30') as HTMLInputElement).disabled).toBe(false);
+    expect((screen.getByLabelText(/1440p60/) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByText('Tela 1'));
+    expect(aoEscolher).toHaveBeenCalledWith(fonte, false, '1080p60');
+  });
+
   it('Windows: áudio do sistema pode ir junto; erro ao listar aparece', async () => {
     const aoEscolher = vi.fn();
     const { unmount } = render(

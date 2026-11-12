@@ -72,7 +72,7 @@ export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basic
   { id: 'apagar_mensagens', nome: 'Apagar mensagens', descricao: 'apagar mensagens dos outros nos canais' },
   { id: 'gerenciar_convite', nome: 'Gerenciar convite', descricao: 'ver e trocar o código de convite' },
   { id: 'gerenciar_sons', nome: 'Gerenciar sons', descricao: 'cadastrar, trocar e remover sons do soundboard' },
-  { id: 'transmitir_1080p', nome: 'Transmitir em 1080p', descricao: 'transmitir a tela em 1080p60' },
+  { id: 'transmitir_1080p', nome: 'Transmitir em 1080p', descricao: 'transmitir a tela em 720p60, 1080p30 e 1080p60' },
   { id: 'transmitir_1440p', nome: 'Transmitir em 2K', descricao: 'transmitir a tela em 1440p60 (se o monitor tiver)' },
   { id: 'ver_auditoria', nome: 'Ver auditoria', descricao: 'ver o registro de entradas, saídas e ações' },
   { id: 'moderar_membros', nome: 'Moderar membros', descricao: 'pôr de castigo, expulsar e banir (não vale para administradores)' },
@@ -460,22 +460,35 @@ export interface VozEstadoPedido {
   sid?: string;
 }
 
-/** RF-26/RF-28: qualidade da transmissão de tela (membro só 720p30, RN-17). */
-export type QualidadeTela = '720p30' | '1080p60' | '1440p60';
-export const QUALIDADES_TELA: QualidadeTela[] = ['720p30', '1080p60', '1440p60'];
+/** RF-26/RF-28: qualidade da transmissão de tela (membro só 720p30, RN-17), da menor para a maior. */
+export type QualidadeTela = '720p30' | '720p60' | '1080p30' | '1080p60' | '1440p60';
+export const QUALIDADES_TELA: QualidadeTela[] = ['720p30', '720p60', '1080p30', '1080p60', '1440p60'];
 
 /** RF-28/RN-17: dimensões máximas de cada qualidade (o servidor confere a faixa publicada). */
 export const DIMENSOES_TELA: Record<QualidadeTela, { largura: number; altura: number; quadros: number }> = {
   '720p30': { largura: 1280, altura: 720, quadros: 30 },
+  '720p60': { largura: 1280, altura: 720, quadros: 60 },
+  '1080p30': { largura: 1920, altura: 1080, quadros: 30 },
   '1080p60': { largura: 1920, altura: 1080, quadros: 60 },
   '1440p60': { largura: 2560, altura: 1440, quadros: 60 },
 };
 
 /** RN-17: o que cada cargo pode escolher. */
-/** Qualidades que o cargo libera: 720p30 com "Transmitir a tela"; 1080p e 2K por permissão própria (administrador: todas). */
-export const qualidadesPermitidas = (cargo: Cargo, permissoes: ReadonlySet<Permissao> = new Set()): QualidadeTela[] => {
+/** Qualidades que a permissão "Transmitir em 1080p" libera (além de 720p30). */
+const QUALIDADES_1080P: readonly QualidadeTela[] = ['720p60', '1080p30', '1080p60'];
+/**
+ * Qualidades liberadas: 720p30 com "Transmitir a tela"; "Transmitir em 1080p" libera 720p60, 1080p30 e 1080p60;
+ * "Transmitir em 2K", 1440p60; administrador, todas. `vales`: qualidades extras dos vales ativos da loja (somam).
+ */
+export const qualidadesPermitidas = (cargo: Cargo, permissoes: ReadonlySet<Permissao> = new Set(), vales: readonly QualidadeTela[] = []): QualidadeTela[] => {
   if (cargo === 'admin') return QUALIDADES_TELA;
-  return QUALIDADES_TELA.filter((q) => q === '720p30' || (q === '1080p60' && permissoes.has('transmitir_1080p')) || (q === '1440p60' && permissoes.has('transmitir_1440p')));
+  return QUALIDADES_TELA.filter(
+    (q) =>
+      q === '720p30' ||
+      vales.includes(q) ||
+      (QUALIDADES_1080P.includes(q) && permissoes.has('transmitir_1080p')) ||
+      (q === '1440p60' && permissoes.has('transmitir_1440p')),
+  );
 };
 
 /** RN-10: quem transmite em cada canal de voz. */

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as TecladoReact } from 'react';
-import { DIMENSOES_TELA, type QualidadeTela } from '@tofalando/shared';
+import { DIMENSOES_TELA, QUALIDADES_TELA, type QualidadeTela } from '@tofalando/shared';
 
 export interface FonteTela {
   id: string;
@@ -114,7 +114,7 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, quali
         </div>
         <fieldset className="opcoes qualidade-tela" aria-describedby={qualidades.length === 1 ? 'qualidade-tela-motivo' : undefined}>
           <legend>Qualidade</legend>
-          {(['720p30', '1080p60', '1440p60'] as const).map((q) => (
+          {QUALIDADES_TELA.map((q) => (
             <label
               key={q}
               title={
@@ -131,7 +131,7 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, quali
           ))}
           {qualidades.length === 1 && (
             <p className="suave" id="qualidade-tela-motivo">
-              Acima de 720p30, só com o cargo que libera (ou administrador).
+              Acima de 720p30, só com o cargo que libera.
             </p>
           )}
         </fieldset>

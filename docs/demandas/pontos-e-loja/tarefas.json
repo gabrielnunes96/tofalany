@@ -10,9 +10,11 @@
       "repo": ".",
       "stack": "front",
       "depende_de": [],
-      "criterios": ["CA-18"],
+      "criterios": [
+        "CA-18"
+      ],
       "validacao": "unitário de qualidadesPermitidas (cargo com transmitir_1080p, admin, membro) e de mesclarTela; tela.test.ts: tela:pedir 720p60 aceito com o cargo de 1080p e recusado sem; npm test e build verdes",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
@@ -23,7 +25,12 @@
       "repo": ".",
       "stack": "node",
       "depende_de": [],
-      "criterios": ["CA-12", "CA-13", "CA-22", "CA-26"],
+      "criterios": [
+        "CA-12",
+        "CA-13",
+        "CA-22",
+        "CA-26"
+      ],
       "validacao": "dominio/loja.test.ts com relógio fixo (vale dia 1→8, dia 3→15, vencido dia 10→17; soma do extrato = saldo); banco.test.ts: versão 17 e tabelas vazias; npm test verde",
       "estado": "a_fazer",
       "wi": null,
@@ -35,8 +42,16 @@
       "descricao": "routes/loja.ts com exigirSessao daConta: GET /api/loja (preços, pontosPorMinuto, estado), POST /api/loja/comprar (JSON schema do ItemLoja; erros saldo_insuficiente, item_invalido, item_ja_comprado, tudo_liberado em CodigoErro) e GET /api/loja/extrato?antes&limite. Registrar em app.ts. Depois de comprar, emitir 'loja:estado' para salaUsuario(id); OlaPayload.loja preenchido no ola. Tipo de auditoria loja_compra com rótulo, gravado no servidor principal. Cliente HTTP em servicos/api.ts.",
       "repo": ".",
       "stack": "node",
-      "depende_de": ["T2"],
-      "criterios": ["CA-9", "CA-10", "CA-11", "CA-21", "CA-23"],
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-9",
+        "CA-10",
+        "CA-11",
+        "CA-21",
+        "CA-23"
+      ],
       "validacao": "server/test/loja.test.ts: compra com 700 → 100; 500 → 409 saldo_insuficiente; duas compras de 600 em paralelo → uma passa e saldo 0; admin da instalação → 409 tudo_liberado; PRECO_TEMA=800 cobra 800; evento loja:estado chega nas duas conexões da conta; auditoria loja_compra gravada",
       "estado": "a_fazer",
       "wi": null,
@@ -48,8 +63,19 @@
       "descricao": "server/src/realtime/pontos.ts criado em criarTempoReal: trecho válido por usuarioId (em voz, sem surdo, outra pessoa em presentes no mesmo canal, sem pendente de carência). A cada avisar() de voz.ts e a cada tique (PONTOS_TIQUE_MS, padrão 15 s, unref, limpo no preClose) credita floor((agora - inicio)/minuto) via dominio/loja.creditar e avança o início; ao sair do trecho, credita os minutos completos e descarta o resto. Emite 'loja:estado' para a conta a cada crédito. PONTOS_MINUTO_MS configurável para os testes.",
       "repo": ".",
       "stack": "node",
-      "depende_de": ["T3"],
-      "criterios": ["CA-1", "CA-2", "CA-3", "CA-4", "CA-5", "CA-6", "CA-7", "CA-8"],
+      "depende_de": [
+        "T3"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-6",
+        "CA-7",
+        "CA-8"
+      ],
       "validacao": "server/test/pontos.test.ts com minuto de 200 ms: dois no canal +5 cada; sozinho 0; surdo 0 e o outro +5; mudo +5; segundo aparelho não dobra; voz no servidor 1 e no /c/2 somam no saldo único; loja:estado chega a cada crédito",
       "estado": "a_fazer",
       "wi": null,
@@ -61,8 +87,15 @@
       "descricao": "tela.ts: papel() passa a trazer os vales ativos da conta (dominio/loja) e, para o admin da instalação, todos; tela:pedir, faixaForaDaRegra e cargoMudou chamam qualidadesPermitidas com os vales. Nenhum timer de vencimento: a transmissão em curso segue (RN-15); o próximo tela:pedir já sai limitado.",
       "repo": ".",
       "stack": "node",
-      "depende_de": ["T1", "T2"],
-      "criterios": ["CA-14", "CA-16", "CA-17"],
+      "depende_de": [
+        "T1",
+        "T2"
+      ],
+      "criterios": [
+        "CA-14",
+        "CA-16",
+        "CA-17"
+      ],
       "validacao": "tela.test.ts: membro com vale 1080p60 pede 1080p60 → aceito e 1440p60 → recusado; sem vale 1080p60 → recusado; vale vence durante a transmissão → continua; novo pedido → recusado",
       "estado": "a_fazer",
       "wi": null,
@@ -74,8 +107,12 @@
       "descricao": "base.css: seletores de tema passam de :root[data-tema='x'] para [data-tema='x'] (amostra dentro de um cartão); blocos dos 3 temas portados do protótipo (docs/demandas/redesenho-visual/prototipo-temas.html), todos escuros. Fontes de título OFL embutidas por @fontsource (Cinzel, Marcellus SC, Bangers), carregadas só quando o tema está em uso. Nenhum nome, logo, arte ou fonte oficial de franquia.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T2"],
-      "criterios": ["CA-24"],
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-24"
+      ],
       "validacao": "build verde; conferência no navegador dos 3 temas aplicados ao app (prints) e do contraste AA de texto e acento; revisão de originalidade",
       "estado": "a_fazer",
       "wi": null,
@@ -87,8 +124,18 @@
       "descricao": "estado/pontos.ts (usePontos) alimentado por ola.loja e pelo evento loja:estado (servicos/tempo-real.ts). Saldo com estrela em painel-usuario; item 'Loja' no menu do usuário; vista 'loja' em TelaPrincipal. telas/TelaLoja.tsx: seções Temas (cartão com amostra via data-tema, 'Seu', 'Ver prévia' que troca o data-tema do html sem gravar e volta ao sair) e Vales (preço, até quando vale); confirmação 'Comprar X por N pontos?'; sem saldo o botão fica desligado com 'faltam N pontos'; admin da instalação vê 'liberado (administrador)'; extrato do mais novo para o mais antigo. Loja escondida se o servidor não mandar ola.loja.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T3", "T6"],
-      "criterios": ["CA-8", "CA-9", "CA-10", "CA-20", "CA-21", "CA-22"],
+      "depende_de": [
+        "T3",
+        "T6"
+      ],
+      "criterios": [
+        "CA-8",
+        "CA-9",
+        "CA-10",
+        "CA-20",
+        "CA-21",
+        "CA-22"
+      ],
       "validacao": "TelaLoja.test.tsx: compra confirma e atualiza saldo; sem saldo botão desligado com 'faltam 100 pontos'; prévia troca e restaura o data-tema sem gravar; admin sem botão de compra; extrato em ordem; npm test verde",
       "estado": "a_fazer",
       "wi": null,
@@ -100,8 +147,15 @@
       "descricao": "TelaConfiguracoes (Aparência): lista de TEMAS com os de loja; não comprados com cadeado que abre a loja; comprados escolhíveis. Tema de loja salvo mas não comprado volta ao neon quando chega o ola (R-8). SeletorTela e a qualidade padrão em Configurações usam qualidadesPermitidas com os vales ativos de usePontos; as bloqueadas mostram 'Libere na loja'. TelaPrincipal.tsx:785 não para a transmissão quando um vale vence.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T1", "T7"],
-      "criterios": ["CA-14", "CA-15", "CA-19"],
+      "depende_de": [
+        "T1",
+        "T7"
+      ],
+      "criterios": [
+        "CA-14",
+        "CA-15",
+        "CA-19"
+      ],
       "validacao": "TelaConfiguracoes.test.tsx: cadeado e clique abre a loja, comprado escolhível; transmissao.test.tsx: com vale 1080p60 as 4 primeiras liberadas e 1440p60 bloqueada, sem vale só 720p30 e as outras com 'Libere na loja'; tema não comprado volta ao neon",
       "estado": "a_fazer",
       "wi": null,
@@ -113,8 +167,17 @@
       "descricao": "Nota de novidades explicando a loja e como ganhar pontos, na versão em que a loja sair (se ainda for a 0.15.0, acrescentar à nota existente). client/e2e/loja.spec.ts: saldo preparado no banco do servidor de teste, compra de tema pela TelaLoja, saldo no painel muda sem reabrir, tema comprado escolhível em Aparência e o não comprado com cadeado.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T4", "T5", "T7", "T8"],
-      "criterios": ["CA-25", "CA-19", "CA-9"],
+      "depende_de": [
+        "T4",
+        "T5",
+        "T7",
+        "T8"
+      ],
+      "criterios": [
+        "CA-25",
+        "CA-19",
+        "CA-9"
+      ],
       "validacao": "npm run test:e2e verde com loja.spec.ts; JanelaNovidades mostra os itens da loja; npm test e lint verdes",
       "estado": "a_fazer",
       "wi": null,

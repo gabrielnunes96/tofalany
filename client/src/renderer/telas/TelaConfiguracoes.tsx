@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACOES_ATALHO, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
+import { ACOES_ATALHO, QUALIDADES_TELA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 
 export interface DependenciasConfiguracoes {
@@ -366,13 +366,13 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
           <div className="perfil-form">
             <label htmlFor="cfg-qualidade-tela">Qualidade padrão</label>
             <select id="cfg-qualidade-tela" value={qualidadesTela.includes(tela.qualidade) ? tela.qualidade : '720p30'} onChange={(e) => aoMudarTela({ ...tela, qualidade: e.target.value as QualidadeTela })}>
-              {(['720p30', '1080p60', '1440p60'] as const).map((q) => (
+              {QUALIDADES_TELA.map((q) => (
                 <option key={q} value={q} disabled={!qualidadesTela.includes(q)}>
                   {q}
                 </option>
               ))}
             </select>
-            {qualidadesTela.length === 1 && <p className="suave">Acima de 720p30, só administradores.</p>}
+            {qualidadesTela.length === 1 && <p className="suave">Acima de 720p30, só com o cargo que libera.</p>}
             <label htmlFor="cfg-codec-tela">Codec</label>
             <select id="cfg-codec-tela" value={tela.codec} onChange={(e) => aoMudarTela({ ...tela, codec: e.target.value as 'h264' | 'vp9' })}>
               <option value="h264">H.264 (recomendado: usa a placa de vídeo)</option>
