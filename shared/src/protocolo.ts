@@ -1,4 +1,5 @@
 import { ATALHOS_PADRAO, type Atalhos } from './atalhos.js';
+import type { LojaEstadoDto } from './loja.js';
 /** Tempo máximo do teste de conexão com o servidor (RF-1). */
 export const TEMPO_TESTE_SERVIDOR_MS = 5000;
 
@@ -554,11 +555,15 @@ export interface OlaPayload {
   amizades?: AmizadeDto[];
   /** Pessoas das amizades e das conversas diretas que não são membros deste servidor (nome, cor, avatar). */
   conhecidos?: UsuarioDto[];
+  /** Pontos e loja: saldo e itens da conta (servidor antigo não manda; sem ele, o app esconde a loja). */
+  loja?: LojaEstadoDto;
 }
 
 /** Eventos servidor → cliente. */
 export interface EventosServidor {
   ola: (payload: OlaPayload) => void;
+  /** Pontos e loja: saldo ou itens da conta mudaram (crédito de voz ou compra), em todas as conexões dela. */
+  'loja:estado': (estado: LojaEstadoDto) => void;
   'sessao:revogada': (payload: { motivo: MotivoRevogacao; detalhe?: string | null }) => void;
   /** Moderação: o meu castigo neste servidor começou (com motivo) ou acabou (null). */
   'moderacao:castigo': (payload: { ate: number; motivo: string | null } | null) => void;

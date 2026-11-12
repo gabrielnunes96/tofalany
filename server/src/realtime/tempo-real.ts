@@ -1,4 +1,5 @@
 import { listarFuncoes } from '../dominio/funcoes.js';
+import { estadoLoja } from '../dominio/loja.js';
 import type { FastifyInstance } from 'fastify';
 import { Server, type Socket } from 'socket.io';
 import {
@@ -86,6 +87,8 @@ export interface TempoReal {
   avisarCastigo(usuarioId: number, comunidadeId: number, castigo: { ate: number; motivo: string | null } | null): void;
   /** Derruba todas as conexões de um servidor (excluído). */
   fecharComunidade(comunidadeId: number): void;
+  /** Pontos e loja: manda o saldo e os itens atuais para todas as conexões da conta. */
+  avisarLoja(usuarioId: number): void;
 }
 
 export const salaUsuario = (id: number) => `usuario:${id}`;
@@ -301,6 +304,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       musica: musica.estados().filter((m) => daqui.has(m.canalVozId)),
       amizades,
       conhecidos: conhecidosDe(banco, eu.id, comunidadeId),
+      loja: estadoLoja(banco, eu.id),
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
@@ -381,6 +385,9 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     },
     fecharComunidade(comunidadeId) {
       for (const s of io.of('/').sockets.values()) if (s.data.comunidadeId === comunidadeId) derrubar(s, 'fora_do_servidor');
+    },
+    avisarLoja(usuarioId) {
+      io.to(salaUsuario(usuarioId)).emit('loja:estado', estadoLoja(banco, usuarioId));
     },
     revogarToken(tokenHash, motivo) {
       for (const s of io.of('/').sockets.values()) if (s.data.tokenHash === tokenHash) derrubar(s, motivo);

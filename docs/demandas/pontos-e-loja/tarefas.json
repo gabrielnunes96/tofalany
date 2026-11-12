@@ -32,9 +32,9 @@
         "CA-26"
       ],
       "validacao": "dominio/loja.test.ts com relógio fixo (vale dia 1→8, dia 3→15, vencido dia 10→17; soma do extrato = saldo); banco.test.ts: versão 17 e tabelas vazias; npm test verde",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "41ab7e6"
     },
     {
       "id": "T3",
@@ -53,7 +53,7 @@
         "CA-23"
       ],
       "validacao": "server/test/loja.test.ts: compra com 700 → 100; 500 → 409 saldo_insuficiente; duas compras de 600 em paralelo → uma passa e saldo 0; admin da instalação → 409 tudo_liberado; PRECO_TEMA=800 cobra 800; evento loja:estado chega nas duas conexões da conta; auditoria loja_compra gravada",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

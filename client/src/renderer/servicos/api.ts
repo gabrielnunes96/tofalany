@@ -1,4 +1,4 @@
-import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas, ComunidadeDto, BanimentoDto } from '@tofalando/shared';
+import type { AnexoDto, AtualizarPerfilRequest, CadastroRequest, Cargo, ConviteDto, ErroApi, PaginaMensagens, UsuarioAdminDto, FiltroAuditoria, LoginRequest, PaginaAuditoria, PreviaLink, RedefinicaoDto, RedefinirSenhaRequest, SessaoResponse, SomDto, TokenVozResponse, UsuarioDto, FuncaoDto, ResumoNaoLidas, ComunidadeDto, BanimentoDto, CatalogoLojaDto, ItemLoja, LojaEstadoDto, MovimentoDto } from '@tofalando/shared';
 
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -76,6 +76,10 @@ export interface ClienteApi {
   removerSom(id: number): Promise<void>;
   /** RF-13: token do LiveKit para o canal de voz. */
   tokenVoz(canalVozId: number): Promise<TokenVozResponse>;
+  /** Pontos e loja: catálogo com preços e o meu estado; comprar; extrato (do mais novo para o mais antigo). */
+  loja(): Promise<CatalogoLojaDto>;
+  comprarNaLoja(item: ItemLoja): Promise<LojaEstadoDto>;
+  extratoLoja(antes?: number): Promise<{ movimentos: MovimentoDto[] }>;
 }
 
 function consulta(filtro: object): string {
@@ -182,6 +186,9 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     },
     removerSom: (id) => chamar('DELETE', `/api/admin/sons/${id}`),
     tokenVoz: (canalVozId) => chamar('POST', '/api/livekit/token', { canalVozId }),
+    loja: () => chamar('GET', '/api/loja'),
+    comprarNaLoja: (item) => chamar('POST', '/api/loja/comprar', item),
+    extratoLoja: (antes) => chamar('GET', `/api/loja/extrato${consulta({ antes })}`),
     mensagensDm: (dmId, antes) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes })}`),
     mensagensCanal: (canalId, antes) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes })}`),
     enviarAvatar: (arquivo, nome) => {

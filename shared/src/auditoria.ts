@@ -33,6 +33,7 @@ export const TIPOS_AUDITORIA = [
   'expulso',
   'banido',
   'desbanido',
+  'loja_compra',
 ] as const;
 
 export type TipoAuditoria = (typeof TIPOS_AUDITORIA)[number];
@@ -72,6 +73,7 @@ export const ROTULOS_AUDITORIA: Record<TipoAuditoria, string> = {
   expulso: 'expulsou',
   banido: 'baniu',
   desbanido: 'desbaniu',
+  loja_compra: 'comprou na loja',
 };
 
 export const PRAZO_AUDITORIA_DIAS_PADRAO = 30;
