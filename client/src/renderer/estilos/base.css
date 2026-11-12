@@ -981,3 +981,62 @@ button.icone:active:not(:disabled) { transform: scale(0.92); }
   .novidades-fundo, .dialogo.cartao.novidades, .novidades-selo, .dialogo.novidades h2, .novidades li, .novidades li::before, .novidades .dialogo-acoes button { animation: none !important; }
   .confetes { display: none; }
 }
+
+/* ==========================================================================
+   Pontos e loja: saldo no painel, tela Loja (cartões com amostra do tema), prévia e extrato.
+   ========================================================================== */
+.loja-estrela {
+  display: inline-block; width: 14px; height: 14px; flex: none;
+  background: linear-gradient(135deg, var(--cor-acento), var(--cor-acento-2));
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+button.saldo-pontos {
+  display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 0; padding: 2px 9px; border-radius: 999px;
+  font-size: var(--texto-xs); font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--cor-acento); background: var(--cor-acento-suave); border: 1px solid color-mix(in srgb, var(--cor-acento) 25%, transparent); box-shadow: none;
+}
+button.saldo-pontos:hover:not(:disabled) { background: color-mix(in srgb, var(--cor-acento) 22%, transparent); box-shadow: none; }
+button.saldo-pontos .loja-estrela { width: 11px; height: 11px; }
+
+.tela-loja h2 { margin: var(--e-5) 0 var(--e-1); font-size: var(--texto-xl); }
+.tela-loja h2 + .suave { margin: 0 0 var(--e-3); }
+.loja-saldo { display: flex; align-items: center; gap: var(--e-3); padding: var(--e-3) var(--e-4); border-radius: var(--raio-g);
+  background: linear-gradient(120deg, var(--cor-acento-suave), color-mix(in srgb, var(--cor-acento-2) 12%, transparent)); border: 1px solid var(--cor-borda); }
+.loja-saldo .loja-estrela { width: 28px; height: 28px; animation: novidades-estrela 3s ease-in-out infinite; }
+.loja-saldo strong { display: block; font-size: var(--texto-xl); font-variant-numeric: tabular-nums; }
+.loja-saldo .suave { margin: 0; font-size: var(--texto-sm); }
+.loja-grade { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--e-3); }
+.loja-item { display: flex; flex-direction: column; gap: var(--e-2); padding: var(--e-3); border-radius: var(--raio-g); background: var(--cor-superficie-2); border: 1px solid var(--cor-borda);
+  transition: transform var(--dur-media) var(--curva-mola), box-shadow var(--dur-media) var(--curva-padrao); }
+.loja-item:hover { transform: translateY(-2px); box-shadow: var(--sombra-flutuante); }
+.loja-item h3 { margin: 0; font-size: var(--texto-lg); }
+.loja-item .suave { margin: 0; font-size: var(--texto-sm); }
+.loja-item .linha-botoes { margin-top: auto; align-items: center; flex-wrap: wrap; }
+.loja-item .linha-botoes button { margin: 0; }
+.loja-validade { margin: 0; font-size: var(--texto-sm); color: var(--cor-sucesso); font-weight: 600; }
+/* Amostra: o próprio tema aplicado no cartão (data-tema no elemento). */
+.loja-amostra { position: relative; height: 96px; border-radius: var(--raio-m); overflow: hidden; padding: 12px; border: 1px solid var(--cor-borda);
+  background: var(--arte-fundo), var(--cor-fundo); display: flex; flex-direction: column; justify-content: space-between; }
+.loja-amostra-titulo { font-family: var(--fonte-titulo); text-transform: var(--caixa-titulo); letter-spacing: var(--espaco-titulo); font-size: 18px; color: var(--cor-texto); }
+.loja-amostra-barra { height: 8px; width: 60%; border-radius: 4px; background: linear-gradient(90deg, var(--cor-acento), var(--cor-acento-2)); }
+.loja-amostra-botao { position: absolute; right: 12px; bottom: 12px; padding: 2px 10px; border-radius: var(--raio-p); font-weight: 700; font-size: 12px;
+  color: var(--cor-sobre-acento); background: var(--cor-acento); box-shadow: var(--brilho-acento); }
+.loja-amostra::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.18) 48%, transparent 66%);
+  transform: translateX(-120%); animation: loja-brilho 3.4s var(--curva-padrao) infinite; pointer-events: none; }
+@keyframes loja-brilho { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.loja-previa { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 55; display: flex; align-items: center; gap: var(--e-2);
+  padding: 10px 14px; border-radius: 999px; background: var(--cor-superficie-2); border: 1px solid var(--cor-borda-forte); box-shadow: var(--sombra-flutuante);
+  animation: surgir var(--dur-media) var(--curva-entrada); }
+.loja-previa button { margin: 0; }
+.loja-extrato { list-style: none; margin: 0 0 var(--e-2); padding: 0; border: 1px solid var(--cor-borda); border-radius: var(--raio-m); }
+.loja-extrato li { display: grid; grid-template-columns: 130px 1fr auto; gap: var(--e-3); padding: 8px 12px; border-bottom: 1px solid var(--cor-borda); }
+.loja-extrato li:last-child { border-bottom: 0; }
+.loja-extrato time { color: var(--cor-texto-suave); font-variant-numeric: tabular-nums; font-size: var(--texto-sm); }
+.loja-extrato strong { font-variant-numeric: tabular-nums; }
+.loja-extrato li.ganho strong { color: var(--cor-sucesso); }
+.loja-extrato li.compra strong { color: var(--cor-texto-suave); }
+@media (prefers-reduced-motion: reduce) { .loja-amostra::after, .loja-saldo .loja-estrela, .loja-previa { animation: none; } }
+@media (max-width: 520px) { .loja-extrato li { grid-template-columns: 1fr auto; } .loja-extrato time { grid-column: 1 / -1; } }
+.loja-previa { max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; }
+.tela-loja:has(.loja-previa) { padding-bottom: 96px; }
+@media (max-width: 520px) { .loja-previa { left: 12px; right: 12px; transform: none; border-radius: var(--raio-g); } }

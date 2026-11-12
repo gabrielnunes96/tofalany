@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, RN-12 e CA-24 (técnica R-10); protótipo aprovado em redesenho-visual.</p>
+<h3>Padrão</h3>
+<p>Tema = bloco [data-tema=&#x27;x&#x27;] de tokens em base.css; componentes só com tokens.</p>
+
+<h3>Implementação (12/11/2026, commit f20130b)</h3>
+<ul><li>Seletores de tema valem em qualquer elemento ([data-tema=&#x27;x&#x27;]; neon também como [data-tema=&#x27;neon&#x27;]), para a amostra na loja.</li><li>Base [data-tema] com a assinatura padrão: um tema dentro de outro não herda fonte de título nem cantos do tema de fora.</li><li>Cinzas do Trono, Arcano Dourado e Gibi, todos escuros, portados do protótipo.</li><li>Gibi: contorno e sombra chapada só no botão principal (especificidade baixa com :where).</li><li>Fontes OFL embutidas: Cinzel 700, Marcellus SC e Bangers (latin), sem negrito sintético nos títulos.</li></ul>
+
+<h3>Testes unitários</h3>
+<p>Sem teste automatizado de CSS (validação visual prevista na tarefa). Suíte: 505 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>Prévia dos 6 temas lado a lado com o CSS compilado</td><td>ok</td><td>prints/T6-seis-temas.jpg; título, acento e botões de cada tema, um tema dentro de outro sem herdar a assinatura</td></tr><tr><td>Contraste AA (revisor, calculado)</td><td>ok</td><td>mínimos: texto 13,0; texto suave 7,16; sobre acento 8,57; sobre destaque 6,02; perigo 4,79</td></tr><tr><td>Originalidade</td><td>ok</td><td>nomes e fontes próprios (OFL), sem marca ou arte oficial</td></tr><tr><td>npm run lint, npm test, npm run build</td><td>ok</td><td>505 testes</td></tr>
+</table>

@@ -114,9 +114,9 @@
         "CA-24"
       ],
       "validacao": "build verde; conferência no navegador dos 3 temas aplicados ao app (prints) e do contraste AA de texto e acento; revisão de originalidade",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "f20130b"
     },
     {
       "id": "T7",
@@ -137,7 +137,7 @@
         "CA-22"
       ],
       "validacao": "TelaLoja.test.tsx: compra confirma e atualiza saldo; sem saldo botão desligado com 'faltam 100 pontos'; prévia troca e restaura o data-tema sem gravar; admin sem botão de compra; extrato em ordem; npm test verde",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

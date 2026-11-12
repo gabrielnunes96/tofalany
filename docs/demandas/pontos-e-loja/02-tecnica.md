@@ -161,7 +161,7 @@ O servidor usa `appTeste(env)` com socket.io-client real (`server/test/apoio.ts`
 | R-10 | Prévia de tema dentro do cartão da loja | aplicar no `:root` ou num elemento | Os seletores de tema em `base.css` passam de `:root[data-tema='x']` para `[data-tema='x']`, e assim o cartão da loja mostra a amostra com o próprio `data-tema`. A prévia completa troca o `data-tema` do `<html>` sem gravar. |
 | R-11 | Desempenho na VM Oracle | tique por pessoa no banco, ou mapa em memória | **Mapa em memória** e tique a cada 15 s. Só grava quando completa um minuto: no máximo ~20 escritas por minuto em SQLite WAL, desprezível. |
 | R-12 | Reinício do servidor | — | O trecho em andamento está em memória e se perde (até 1 minuto por pessoa), como a funcional aceita. A sessão de extrato recomeça numa linha nova. |
-| R-13 | Nome "loja" já usado no client (`estado/loja.ts`, store zustand) | renomear a store, ou nome novo | **Nome novo:** `estado/pontos.ts` / `usePontos`. Renomear a store mexeria em dezenas de arquivos. |
+| R-13 | Nome "loja" já usado no client (`estado/loja.ts`, store zustand) | renomear a store, ou nome novo | **Campo novo na store existente:** `pontos` e `definirPontos` em `estado/loja.ts`, alimentados pelo `ola` como o resto (decidido na T7: um módulo à parte duplicaria o ciclo de conexão). Renomear a store mexeria em dezenas de arquivos. |
 
 ## 10. Implantação e rollback
 

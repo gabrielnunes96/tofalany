@@ -252,3 +252,16 @@ describe('não lidas na loja', () => {
     expect(useLoja.getState().naoLidas['d:2']).toBeUndefined();
   });
 });
+
+describe('pontos na loja (pontos-e-loja)', () => {
+  const eu = { id: 1, usuario: 'ana', nomeExibicao: 'ana', cor: '#ffffff', avatarUrl: null, cargo: 'membro' as const };
+  const ola = { servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [] };
+  it('o ola traz o saldo; o evento atualiza; servidor sem loja deixa null', () => {
+    useLoja.getState().aplicarOla({ ...ola, loja: { saldo: 5, temas: [], vales: [], tudoLiberado: false } });
+    expect(useLoja.getState().pontos?.saldo).toBe(5);
+    useLoja.getState().definirPontos({ saldo: 6, temas: ['gibi'], vales: [], tudoLiberado: false });
+    expect(useLoja.getState().pontos).toMatchObject({ saldo: 6, temas: ['gibi'] });
+    useLoja.getState().aplicarOla(ola);
+    expect(useLoja.getState().pontos).toBeNull();
+  });
+});

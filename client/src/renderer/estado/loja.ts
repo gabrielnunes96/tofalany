@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { create } from 'zustand';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica, AmizadeDto, AtividadeDto } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica, AmizadeDto, AtividadeDto, LojaEstadoDto } from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -60,6 +60,9 @@ interface Loja {
   amizades: AmizadeDto[];
   conhecidos: UsuarioDto[];
   definirAmizades(amizades: AmizadeDto[], conhecidos?: UsuarioDto[]): void;
+  /** Pontos e loja: saldo e itens da conta (null = servidor sem loja). */
+  pontos: LojaEstadoDto | null;
+  definirPontos(estado: LojaEstadoDto): void;
   definirVoz(estados: VozEstadoDto[]): void;
   definirFalando(ids: number[]): void;
   definirSons(sons: SomDto[]): void;
@@ -142,6 +145,7 @@ const inicial = {
   transmissoes: [] as TransmissaoDto[],
   musica: [] as EstadoMusica[],
   amizades: [] as AmizadeDto[],
+  pontos: null as LojaEstadoDto | null,
   conhecidos: [] as UsuarioDto[],
   falando: [] as number[],
 };
@@ -176,6 +180,7 @@ export const criarLoja = () =>
   espectadoresDaTransmissao: (canalVozId, usuarioId, espectadores) =>
     set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId && x.usuarioId === usuarioId ? { ...x, espectadores } : x)) })),
   definirAmizades: (amizades, conhecidos) => set((s) => ({ amizades, conhecidos: conhecidos ?? s.conhecidos })),
+  definirPontos: (pontos) => set({ pontos }),
   definirMusica: (estado) =>
     set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])] })),
   definirPresenca: (id, status) =>
@@ -196,7 +201,7 @@ export const criarLoja = () =>
       else delete atividades[id];
       return { atividades };
     }),
-  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica, amizades, conhecidos, atividades }) =>
+  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica, amizades, conhecidos, atividades, loja }) =>
     set((s) => {
       const ordenados = ordenarCanais(canais);
       return {
@@ -217,6 +222,7 @@ export const criarLoja = () =>
         musica: (musica ?? []).filter((m) => m.tocando || m.fila.length || m.conectado),
         amizades: amizades ?? [],
         conhecidos: conhecidos ?? [],
+        pontos: loja ?? null,
         presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
         atividades: Object.fromEntries(Object.entries(atividades ?? {}).map(([id, a]) => [Number(id), a])),
         dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,

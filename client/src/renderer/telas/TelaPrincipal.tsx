@@ -26,6 +26,7 @@ import { TelaPerfil } from './TelaPerfil';
 import { TelaMembros } from './TelaMembros';
 import { TelaConvite } from './TelaConvite';
 import { TelaSons } from './TelaSons';
+import { TelaLoja } from './TelaLoja';
 import { TelaToOuvini } from './TelaToOuvini';
 import { TelaConfiguracoes } from './TelaConfiguracoes';
 import { Avatar } from '../componentes/Avatar';
@@ -78,7 +79,7 @@ interface GravacaoAdiada {
   sons?: PreferenciasSons;
 }
 
-type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes' | 'toouvini' | 'servidor';
+type Vista = 'canal' | 'auditoria' | 'perfil' | 'membros' | 'convite' | 'sons' | 'configuracoes' | 'toouvini' | 'servidor' | 'loja';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
 const destinoDe = (chave: Chave): Destino => {
@@ -171,6 +172,7 @@ function TelaDoServidor({
       espectadoresDaTransmissao: s.espectadoresDaTransmissao,
       definirMusica: s.definirMusica,
       definirAmizades: s.definirAmizades,
+      definirPontos: s.definirPontos,
       definirPresenca: s.definirPresenca,
       definirFalando: s.definirFalando,
       salvarSom: s.salvarSom,
@@ -241,6 +243,8 @@ function TelaDoServidor({
   }, [alternarParte]);
   // Servidores na mesma instalação: sair (membro) ou excluir (quem criou). O principal não sai nem é excluído.
   const { servidorId, donoServidor } = useLoja(useShallow((s) => ({ servidorId: s.servidorId, donoServidor: s.donoServidor })));
+  /** Pontos e loja: saldo e itens da conta (null = servidor sem loja, a loja some). */
+  const pontos = useLoja((s) => s.pontos);
   async function sairDoServidor() {
     if (!window.confirm(`Sair do servidor ${nomeServidor ?? ''}? Para voltar, você vai precisar de um convite.`)) return;
     try {
@@ -842,6 +846,7 @@ function TelaDoServidor({
       aoTelaEspectadores: acoes.espectadoresDaTransmissao,
       aoMusica: acoes.definirMusica,
       aoAmizades: acoes.definirAmizades,
+      aoLoja: acoes.definirPontos,
       aoPresenca: (id, status) => {
         // RF-41: alguém entrou ou saiu do servidor.
         avisarEntradaSaida(id, useLoja.getState().presencas[id], status);
@@ -948,7 +953,7 @@ function TelaDoServidor({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const permissoes = useMemo(() => permissoesDe(usuario, funcoes), [usuario, funcoes, fimDoCastigo]);
   const podeVer = (v: Vista) =>
-    v === 'membros' ? ehAdmin : v === 'auditoria' ? permissoes.has('ver_auditoria') : v === 'convite' ? permissoes.has('gerenciar_convite') : v === 'sons' ? permissoes.has('gerenciar_sons') : true;
+    v === 'loja' ? pontos !== null : v === 'membros' ? ehAdmin : v === 'auditoria' ? permissoes.has('ver_auditoria') : v === 'convite' ? permissoes.has('gerenciar_convite') : v === 'sons' ? permissoes.has('gerenciar_sons') : true;
   const vistaAtual: Vista = !podeVer(vista) ? 'canal' : vista;
 
   /** Conversa na tela agora (null em perfil/administração). */
@@ -1452,6 +1457,13 @@ function TelaDoServidor({
                   {ehAdmin ? 'Administrador' : (funcoes.find((f) => f.id === usuario.funcaoId)?.nome ?? 'Membro')} · {nomeServidor ?? servidorUrl}
                 </p>
                 <SeletorStatus valor={escolhaStatus} aoMudar={mudarStatus} />
+                {pontos && (
+                  <button type="button" className="saldo-pontos" title="Seus pontos (abre a loja)" onClick={() => setVista('loja')}>
+                    <span className="loja-estrela" aria-hidden="true" />
+                    <span data-testid="saldo-painel">{pontos.saldo.toLocaleString('pt-BR')}</span>
+                    <span className="so-leitor"> pontos, abrir a loja</span>
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -1477,6 +1489,11 @@ function TelaDoServidor({
                 <button type="button" onClick={() => setVista('configuracoes')}>
                   Configurações
                 </button>
+                {pontos && (
+                  <button type="button" onClick={() => setVista('loja')}>
+                    Loja
+                  </button>
+                )}
                 {linkConvite && (
                   <button
                     type="button"
@@ -1665,6 +1682,8 @@ function TelaDoServidor({
             <TelaEditarServidor api={api} nome={nomeServidor ?? ''} iconeUrl={iconeServidor} servidorUrl={separarComunidade(servidorUrl).base} aoVoltar={voltar} />
           ) : vistaAtual === 'toouvini' ? (
             <TelaToOuvini api={api} aoVoltar={voltar} />
+          ) : vistaAtual === 'loja' && pontos ? (
+            <TelaLoja estado={pontos} api={api} temaAtual={tema} aoUsarTema={mudarTema} aoComprar={acoes.definirPontos} aoVoltar={voltar} />
           ) : vistaAtual === 'sons' ? (
             <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
           ) : vistaAtual === 'convite' ? (

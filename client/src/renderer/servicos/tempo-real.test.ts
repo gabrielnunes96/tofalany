@@ -35,6 +35,14 @@ function montar() {
 }
 
 describe('conectarTempoReal', () => {
+  it('pontos e loja (CA-8): saldo novo do servidor chega ao app sem reabrir', () => {
+    const { s, ouvintes } = montar();
+    const aoLoja = vi.fn();
+    Object.assign(ouvintes, { aoLoja });
+    s.disparar('loja:estado', { saldo: 42, temas: [], vales: [], tudoLiberado: false });
+    expect(aoLoja).toHaveBeenCalledWith({ saldo: 42, temas: [], vales: [], tudoLiberado: false });
+  });
+
   it('servidor criado na mesma instalação: conecta na raiz e diz o servidor no handshake', () => {
     const s = socketFalso();
     const fabrica = vi.fn(() => s as unknown as SocketTofalando);
