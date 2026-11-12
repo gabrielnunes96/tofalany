@@ -220,6 +220,7 @@ O código de convite pode ser trocado pelo app (administrador, em **Convite**). 
 - **Voz em outro servidor:** a voz continua enquanto você olha outro servidor; uma faixa "Na voz em …" leva de volta ou desconecta. Uma voz por vez.
 - **Moderação:** o administrador, ou um cargo com **Moderar membros**, clica com o botão direito numa pessoa e escolhe **Pôr de castigo** (1 minuto a 1 semana: não escreve, não entra na voz, não transmite), **Expulsar** (volta com convite) ou **Banir** (não volta nem com convite até desbanir em **Membros → Banidos**). O motivo é opcional e a pessoa vê. Administradores não são moderados, e um moderador não modera outro.
 - **Atividade:** em **Configurações → Atividade**, cada um escolhe mostrar o jogo que está jogando (jogos da Steam) e a música que está ouvindo no Spotify. Vem desligado; some quando a pessoa fica invisível.
+- **Pontos e loja:** quem fica em voz com mais alguém no canal (com o fone ligado; microfone mudo conta) ganha 1 ponto por minuto. O saldo aparece no painel do usuário e abre a **Loja**: temas da loja (Cinzas do Trono, Arcano Dourado e Gibi, para sempre) e vales de transmissão de 7 dias (720p60, 1080p30 e 1080p60; comprar de novo soma mais 7 dias). O administrador da instalação tem tudo liberado. Os preços e o ganho por minuto ficam na configuração do servidor (`PONTOS_POR_MINUTO`, `PRECO_TEMA`, `PRECO_VALE_720P60`, `PRECO_VALE_1080P30`, `PRECO_VALE_1080P60` em `deploy/.env`; mude e reinicie o servidor, sem versão nova do app).
 
 ### Bot de música (ToOuvini)
 
