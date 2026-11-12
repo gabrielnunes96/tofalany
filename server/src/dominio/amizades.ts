@@ -3,7 +3,7 @@ import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarPorId } from './usuarios.js';
 
-/** Amigos (como no Discord): um pede, o outro aceita. Valem em todos os servidores da instalação. */
+/** Amigos: um pede, o outro aceita. Valem em todos os servidores da instalação. */
 interface Linha {
   usuario_a: number;
   usuario_b: number;

@@ -5,7 +5,7 @@ import { ErroHttp } from '../erros.js';
 import { iguaisSeguro } from '../auth/tokens.js';
 
 /**
- * Vários servidores na mesma instalação (comunidades), como no Discord: a conta é uma só e a pessoa participa de
+ * Vários servidores na mesma instalação (comunidades): a conta é uma só e a pessoa participa de
  * vários. O principal (id 1) é o grupo que já existia; os outros são criados pelo app.
  */
 interface LinhaComunidade {

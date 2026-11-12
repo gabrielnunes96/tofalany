@@ -13,7 +13,7 @@ const paramId = { type: 'object', required: ['id'], properties: { id: { type: 'i
 const corpoMotivo = { type: 'object', additionalProperties: false, properties: { motivo: { type: ['string', 'null'], maxLength: 2000 } } } as const;
 
 /**
- * Moderação por servidor (como no Discord): castigo por tempo (a pessoa continua no servidor, mas não fala, não
+ * Moderação por servidor: castigo por tempo (a pessoa continua no servidor, mas não fala, não
  * escreve, não transmite), expulsar (sai; volta com convite) e banir (sai e não volta nem com convite). A pessoa
  * vê o motivo. Quem pode: administrador ou cargo com "Moderar membros"; administradores não são moderados.
  */

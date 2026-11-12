@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { lerAtividade, type AtividadeDto, type PreferenciasAtividade } from '@tofalando/shared';
 
 /**
- * Atividade (como no Discord), só com o que a pessoa ligou nas configurações:
+ * Atividade, só com o que a pessoa ligou nas configurações:
  * - jogo: um processo rodando de dentro de `steamapps/common/<Nome do jogo>/` (Windows e Linux, Proton incluído);
  * - música: o que o Spotify está tocando (Linux pelo MPRIS no D-Bus; Windows pelo título da janela do Spotify).
  * Nada sai do computador sem a pessoa ligar; o nome vem da pasta do jogo, sem lista de jogos.

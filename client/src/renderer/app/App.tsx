@@ -49,7 +49,7 @@ export function App() {
       // Saiu da voz deste servidor: a tela escondida (se era ela) pode ir embora.
       if (!v) return atual?.url === t.url ? null : atual;
       if (atual?.url === t.url && atual.canal === v.canal && atual.servidor === v.servidor) return atual;
-      // Entrou na voz aqui: a de outro servidor (se houver) sai, como no Discord (uma voz por vez).
+      // Entrou na voz aqui: a de outro servidor (se houver) sai (uma voz por vez).
       return { url: t.url, token: t.token, usuario: t.usuario, canal: v.canal, servidor: v.servidor, pedidoSair: atual?.url === t.url ? atual.pedidoSair : 0 };
     });
   }, []);
@@ -412,7 +412,7 @@ export function App() {
 
   /**
    * Voz viva: a tela do servidor em que a pessoa está na voz continua montada (escondida) enquanto ela olha outro
-   * servidor, como no Discord. Cada tela tem a sua conexão e a sua loja.
+   * servidor. Cada tela tem a sua conexão e a sua loja.
    */
   const montarTela = (t: { url: string; token: string; usuario: UsuarioDto }, oculta: boolean) => (
     <TelaPrincipal

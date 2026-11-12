@@ -28,7 +28,7 @@ import { processarAvatar } from './perfil.js';
 import { estaBanido } from '../dominio/moderacao.js';
 
 /**
- * Vários servidores na mesma instalação (como no Discord): listar os meus, criar um, entrar com convite, sair e
+ * Vários servidores na mesma instalação: listar os meus, criar um, entrar com convite, sair e
  * excluir. Criar e entrar valem de qualquer servidor (são da conta); sair e excluir valem para o do endereço.
  */
 export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, config: Config, tempoReal: TempoReal, armazem: Armazem): void {

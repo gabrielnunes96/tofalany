@@ -16,7 +16,7 @@ export function nomeDoCargo(u: Pick<UsuarioDto, 'cargo' | 'funcaoId'>, funcoes: 
 export type LinhaMembros = { grupo: string } | { u: UsuarioDto; status: StatusPessoa };
 
 /**
- * Lista de membros como no Discord: quem está conectado, agrupado por cargo (do que tem mais permissões para o
+ * Lista de membros: quem está conectado, agrupado por cargo (do que tem mais permissões para o
  * que tem menos; empate pelo nome do cargo) e em ordem alfabética dentro de cada um; depois os offline, na mesma ordem.
  */
 export function ordenarMembros(usuarios: UsuarioDto[], presencas: Partial<Record<number, StatusPessoa>>, funcoes: FuncaoDto[]): LinhaMembros[] {
