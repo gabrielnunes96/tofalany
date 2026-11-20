@@ -10,7 +10,8 @@ import { criarArquivos } from './arquivos';
 import { criarNotificacoes } from './notificacoes';
 import { criarAtalhos, type Modificadores } from './atalhos';
 import { criarOciosidade } from './ociosidade';
-import { criarAtividade } from './atividade';
+import { criarAtividade, lerAtividadeDoSistema } from './atividade';
+import { criarRegistro } from './registro';
 import { registrarCaptura } from './captura';
 import { criarEstadoGif, filtrarRede } from './rede';
 import { integrarSistema } from './integracao';
@@ -215,11 +216,14 @@ if (links.principal) {
     app.on('will-quit', () => ociosidade.parar());
     ipcMain.handle('presenca:ausente', () => ociosidade.ausente());
     // Atividade (jogo da Steam, música do Spotify): só o que a pessoa ligou nas configurações.
+    // Falhas da leitura vão para o log do app (tofalany.log na pasta de logs), sem nomes de processo nem músicas.
+    const registrar = criarRegistro(app.getPath('logs'));
     const atividade = criarAtividade(
       () => configuracoes.ler().atividade ?? ATIVIDADE_PADRAO,
       (a) => {
         if (janelaPrincipal && !janelaPrincipal.isDestroyed()) janelaPrincipal.webContents.send('atividade:mudou', a);
       },
+      (p) => lerAtividadeDoSistema(p, process.platform, { registrar }),
     );
     app.on('will-quit', () => atividade.parar());
     let ultimasPrefsAtividade = JSON.stringify(configuracoes.ler().atividade ?? ATIVIDADE_PADRAO);

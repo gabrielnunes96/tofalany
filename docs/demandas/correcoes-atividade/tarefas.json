@@ -59,9 +59,9 @@
         "CA-12"
       ],
       "validacao": "atividade.test.ts: ler com promessa controlada; verificar() durante a leitura gera segunda leitura com as preferências novas; rajada de 3 chamadas vira só uma extra. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "3ce9635"
     },
     {
       "id": "T5",

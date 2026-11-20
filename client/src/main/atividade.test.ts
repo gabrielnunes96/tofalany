@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { criarAtividade, jogoDoProcesso, lerAtividadeDoSistema, musicaDoMpris, musicaDoTituloSpotify } from './atividade';
+import { criarAtividade, jogoDaLinhaDeComando, jogoDoProcesso, lerAtividadeDoSistema, musicaDoMpris, musicaDoTituloSpotify, pastasSteam } from './atividade';
+import { criarNomesSteam } from './steam';
 
 describe('atividade', () => {
   it('jogo pela pasta da Steam (Linux, Proton e Windows); ferramentas da Steam não contam', () => {
@@ -90,5 +91,38 @@ describe('atividade', () => {
     const leituras = ler.mock.calls.length;
     await a.verificar();
     expect(ler).toHaveBeenCalledTimes(leituras);
+  });
+
+  it('CA-8: Wallpaper Engine e Lossless Scaling não são jogos', () => {
+    expect(jogoDoProcesso('C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe')).toBeUndefined();
+    expect(jogoDoProcesso('D:\\SteamLibrary\\steamapps\\common\\Lossless Scaling\\LosslessScaling.exe')).toBeUndefined();
+  });
+
+  it('pasta da biblioteca: Windows em outro disco, Linux e o Z:\\ do Proton', () => {
+    expect(pastasSteam('D:\\SteamLibrary\\steamapps\\common\\dota 2 beta\\game\\bin\\win64\\dota2.exe')).toEqual([
+      { pasta: 'dota 2 beta', steamapps: 'D:\\SteamLibrary\\steamapps' },
+    ]);
+    expect(pastasSteam('Z:\\home\\a\\.steam\\steam\\steamapps\\common\\Hades\\Hades.exe')).toEqual([{ pasta: 'Hades', steamapps: '/home/a/.steam/steam/steamapps' }]);
+  });
+
+  it('CA-9: linha de comando com runtime, Proton e o jogo → o jogo, com o nome oficial', async () => {
+    const cmdline = [
+      '/home/a/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/_v2-entry-point',
+      '--verb=waitforexitandrun',
+      '--',
+      '/home/a/.steam/steam/steamapps/common/Proton 9.0/proton',
+      'waitforexitandrun',
+      'Z:\\home\\a\\.steam\\steam\\steamapps\\common\\Hades\\Hades.exe',
+      '',
+    ].join('\0');
+    const ler = vi.fn(async () => '"AppState" { "appid" "1145360" "name" "Hades" "installdir" "Hades" }');
+    const nomes = criarNomesSteam({ listar: async () => ['appmanifest_1145360.acf'], ler });
+    expect(await jogoDaLinhaDeComando(cmdline, nomes)).toBe('Hades');
+    expect(await jogoDaLinhaDeComando('/usr/bin/firefox\0', nomes)).toBeUndefined();
+  });
+
+  it('CA-6: o nome oficial vem do appmanifest (Dota 2, não "dota 2 beta")', async () => {
+    const nomes = criarNomesSteam({ listar: async () => ['appmanifest_570.acf'], ler: async () => '"AppState" { "appid" "570" "name" "Dota 2" "installdir" "dota 2 beta" }' });
+    expect(await jogoDaLinhaDeComando('/home/a/.steam/steam/steamapps/common/dota 2 beta/game/dota.sh\0', nomes)).toBe('Dota 2');
   });
 });

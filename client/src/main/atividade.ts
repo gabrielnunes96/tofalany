@@ -1,23 +1,53 @@
 import { execFile } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { lerAtividade, type AtividadeDto, type PreferenciasAtividade } from '@tofalando/shared';
+import type { Registrar } from './registro';
+import { criarNomesSteam, type NomesSteam } from './steam';
 
 /**
  * Atividade, só com o que a pessoa ligou nas configurações:
  * - jogo: um processo rodando de dentro de `steamapps/common/<Nome do jogo>/` (Windows e Linux, Proton incluído);
  * - música: o que o Spotify está tocando (Linux pelo MPRIS no D-Bus; Windows pelo título da janela do Spotify).
- * Nada sai do computador sem a pessoa ligar; o nome vem da pasta do jogo, sem lista de jogos.
+ * Nada sai do computador sem a pessoa ligar. O nome é o oficial, do `appmanifest` da Steam (sem ele, o da pasta),
+ * sem lista de jogos; ferramentas da Steam não contam (correcoes-atividade, T-7 e T-8).
  */
 
 /** Pastas de `steamapps/common` que não são jogos (ferramentas da Steam). */
-const NAO_JOGOS = /^(proton\b|steamworks shared|steamlinuxruntime|steam linux runtime|steamvr|steam controller configs)/i;
+const NAO_JOGOS = /^(proton\b|steamworks shared|steamlinuxruntime|steam linux runtime|steamvr|steam controller configs|wallpaper_engine|lossless scaling)/i;
 
-/** Nome do jogo pela linha de comando ou caminho de um processo (undefined = não é um jogo da Steam). */
+/**
+ * Pastas de jogo da Steam num caminho ou argumento (`.../steamapps/common/<pasta>/...`), na ordem em que aparecem, sem
+ * as ferramentas. `steamapps` é a pasta da biblioteca (onde ficam os `appmanifest`); o `Z:\` do Proton vira `/`.
+ */
+export function pastasSteam(texto: string): { pasta: string; steamapps: string }[] {
+  const r: { pasta: string; steamapps: string }[] = [];
+  for (const m of texto.matchAll(/steamapps[\\/]common[\\/]([^\\/\0"]+)[\\/]/gi)) {
+    const pasta = m[1]!.trim();
+    if (!pasta || NAO_JOGOS.test(pasta)) continue;
+    let steamapps = texto.slice(0, m.index + 'steamapps'.length);
+    if (/^z:\\/i.test(steamapps)) steamapps = steamapps.slice(2).replace(/\\/g, '/');
+    r.push({ pasta, steamapps });
+  }
+  return r;
+}
+
+/** Nome da pasta do jogo pela linha de comando ou caminho de um processo (undefined = não é um jogo da Steam). */
 export function jogoDoProcesso(comando: string): string | undefined {
-  const m = /steamapps[\\/]common[\\/]([^\\/\0"]+)[\\/]/i.exec(comando);
-  const nome = m?.[1]?.trim();
-  if (!nome || NAO_JOGOS.test(nome)) return undefined;
-  return nome;
+  return pastasSteam(comando)[0]?.pasta;
+}
+
+/**
+ * Jogo de uma linha de comando do Linux (`/proc/<pid>/cmdline`, argumentos separados por `\0`): cada argumento é olhado
+ * à parte (o runtime e o Proton vêm antes do jogo, RF-6). Devolve o nome oficial, ou undefined.
+ */
+export async function jogoDaLinhaDeComando(cmdline: string, nomes: NomesSteam): Promise<string | undefined> {
+  for (const argumento of cmdline.split('\0')) {
+    for (const { pasta, steamapps } of pastasSteam(argumento)) {
+      const nome = await nomes.nomeDoJogo(steamapps, pasta);
+      if (nome) return nome;
+    }
+  }
+  return undefined;
 }
 
 /** Título da janela do Spotify no Windows ("Artista - Música" tocando; "Spotify…" pausado). */
@@ -43,11 +73,11 @@ const rodar = (cmd: string, args: string[], tempoMs = 5000) =>
     execFile(cmd, args, { timeout: tempoMs, windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (erro, saida) => (erro ? reject(erro) : resolve(String(saida)))),
   );
 
-async function jogoNoLinux(): Promise<string | undefined> {
+async function jogoNoLinux(nomes: NomesSteam): Promise<string | undefined> {
   const pids = (await readdir('/proc')).filter((p) => /^\d+$/.test(p));
   for (const pid of pids) {
     const cmd = await readFile(`/proc/${pid}/cmdline`, 'utf8').catch(() => '');
-    const jogo = cmd && jogoDoProcesso(cmd.replace(/\0/g, ' '));
+    const jogo = cmd && (await jogoDaLinhaDeComando(cmd, nomes));
     if (jogo) return jogo;
   }
   return undefined;
@@ -97,12 +127,26 @@ async function noWindows(prefs: PreferenciasAtividade): Promise<AtividadeDto> {
 }
 
 /** O que está acontecendo agora, só do que foi ligado. */
-export async function lerAtividadeDoSistema(prefs: PreferenciasAtividade, plataforma: NodeJS.Platform = process.platform): Promise<AtividadeDto | null> {
+/** Nomes da Steam guardados entre as leituras (a cada 20 s). */
+const nomesPadrao = criarNomesSteam();
+const naoRegistrar: Registrar = () => undefined;
+
+export async function lerAtividadeDoSistema(
+  prefs: PreferenciasAtividade,
+  plataforma: NodeJS.Platform = process.platform,
+  { nomes = nomesPadrao, registrar = naoRegistrar }: { nomes?: NomesSteam; registrar?: Registrar } = {},
+): Promise<AtividadeDto | null> {
   if (!prefs.jogos && !prefs.musica) return null;
   if (plataforma === 'win32') return lerAtividade(await noWindows(prefs));
   if (plataforma !== 'linux') return null;
   const [jogo, musica] = await Promise.all([
-    prefs.jogos ? jogoNoLinux().catch(() => undefined) : undefined,
+    prefs.jogos
+      ? jogoNoLinux(nomes).catch(() => {
+          // Motivo fixo (RN-9): nada do erro, que pode trazer caminhos e nomes de processos.
+          registrar('atividade', 'jogo: erro ao ler os processos');
+          return undefined;
+        })
+      : undefined,
     prefs.musica ? musicaNoLinux().catch(() => undefined) : undefined,
   ]);
   return lerAtividade({ jogo, musica });
