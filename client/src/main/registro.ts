@@ -14,9 +14,9 @@ export function criarRegistro(pasta: string, { agora = () => new Date(), maxByte
   const arquivo = join(pasta, 'tofalany.log');
   let ultima = '';
   return (area, motivo) => {
-    const linha = `${area}: ${motivo}`;
+    // Uma linha por evento: quebras viram espaço e o motivo tem no máximo 200 caracteres.
+    const linha = `${area}: ${motivo}`.replace(/[\r\n]+/g, ' ').slice(0, 200);
     if (linha === ultima) return;
-    ultima = linha;
     try {
       mkdirSync(pasta, { recursive: true });
       const tamanho = (() => {
@@ -27,9 +27,17 @@ export function criarRegistro(pasta: string, { agora = () => new Date(), maxByte
         }
       })();
       if (tamanho > maxBytes) renameSync(arquivo, join(pasta, 'tofalany.old.log'));
-      appendFileSync(arquivo, `${agora().toISOString()} ${linha}\n`);
+      appendFileSync(arquivo, `${dataLocal(agora())} ${linha}\n`);
+      // Só depois de gravar: uma falha passageira (arquivo travado) não faz a mesma linha ser descartada depois.
+      ultima = linha;
     } catch {
       // Sem onde gravar (pasta sem permissão, disco cheio): segue sem log.
     }
   };
+}
+
+/** "AAAA-MM-DD HH:MM:SS" na hora local (o relato do amigo diz "às 19h", não em UTC). */
+function dataLocal(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
