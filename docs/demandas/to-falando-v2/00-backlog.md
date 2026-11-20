@@ -37,7 +37,7 @@ Decisão de 20/11: **tudo o que está no backlog vai ser feito**, cada bloco com
 | Ordem | Demanda (`docs/demandas/<slug>`) | Itens | Tipo | Tamanho |
 | --- | --- | --- | --- | --- |
 | — | (fora do fluxo, antes dele) | 39 (tela preta ao fechar a transmissão em tela cheia, **feito em 20/11**, 4a88aff); 41 (servidor de endereço antigo, **já estava na 0.17.1**) | Bug | Pequeno |
-| 1 | `correcoes-atividade` | 35 (atividade para os amigos), 36 (Spotify pelo navegador no Linux), 37 (jogo da Steam), 31 só o contorno (som do sistema desmarcado no Windows, com aviso) | Bug | Médio |
+| 1 | `correcoes-atividade` **(T1–T8 feitas em 20/11; falta a T9 manual)** | 35 (atividade para os amigos), 36 (Spotify pelo navegador no Linux), 37 (jogo da Steam), 31 só o contorno (som do sistema desmarcado no Windows, com aviso) | Bug | Médio |
 | 2 | `qualidade-de-vida` | 32 (ToOuvini de qualquer servidor), 44 (convidar pelo cartão da pessoa), 29 parte do app (atualizar na hora), 48 (status só para quem pode ver) | Qualidade de vida | Pequeno |
 | 3 | `volume-da-voz` | 45 (voz baixa: ganho com compressor e volume geral da chamada) | Melhoria | Médio |
 | 4 | `infra-e-atualizacao` | 46 (imagem arm64 no CI), 47 (domínio fixo), 29 parte do servidor (atualizar a VM na hora + trava do `vm.sh atualizar`), 33 (cookies do ToOuvini e gerador de token) | Melhoria | Médio |
@@ -152,7 +152,8 @@ Esses itens vão juntos: o layout precisa nascer pensando na troca de servidor, 
 | O quê | Commit | Sai em |
 | --- | --- | --- |
 | Busca de GIF que some ao trocar de servidor no mesmo endereço (o painel dizia "indisponível" até reabrir o app) | e3f9a37 | 0.17.1 |
-| Item 39: Fechar a transmissão em tela cheia sai da tela cheia (antes ficava tudo preto) | ver git log | próxima |
+| Item 39: Fechar a transmissão em tela cheia sai da tela cheia (antes ficava tudo preto) | 4a88aff | próxima |
+| Demanda `correcoes-atividade` (itens 35, 36, 37 e contorno do 31): atividade só para quem pode ver e na aba Amigos, nome oficial dos jogos da Steam, Spotify pelo navegador (Linux e Windows), log em arquivo, som do sistema desmarcado no Windows | e720f63..ed3832b | atualização grande (falta a T9, validação com os amigos) |
 
 ## Pendências da v1 (antes ou em paralelo)
 

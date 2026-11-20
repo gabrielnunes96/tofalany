@@ -34,3 +34,10 @@
 - **T7 sem Windows aqui:** o script do PowerShell (registro, WinRT) só é testado de verdade na T9. Os testes cobrem a interpretação da saída. Plano B: se o WinRT ou o `RunningAppID` falharem no Windows do amigo, o fallback mantém a leitura de hoje, e o log mostra o motivo.
 - **Chrome no Linux sem `xesam:url`:** a música pelo Chrome não aparece (R-2 da técnica). Registrar se acontecer na T9.
 - **E2E lento ou intermitente** (anexos.spec, rolagem da auditoria): rodar em segundo plano e repetir uma vez antes de investigar.
+
+## Execução (20/11/2026)
+- T1 a T8 feitas e commitadas no main local (sem push). Cada uma passou pelo revisor; as correções das revisões e da passada de segurança (fluxo:seguranca) entraram em commits com o mesmo id (44a2d4c T1, d221ee5 T3, 5336b6b T4, 9316a01 e 334fcc9 T7, ed3832b T8).
+- Segurança: sem achado crítico ou alto. Corrigidos: título forjado na saída do PowerShell (valores limpos, só o primeiro `A:`/`D:`, caminho de rede recusado, motivos de erro por lista fixa); conexão que chega invisível apaga a atividade; leitura só das bibliotecas da Steam conhecidas e de arquivos pequenos; limite de uma mudança de atividade a cada 500 ms no servidor.
+- Validação do perfil (`npm run build && npm test && npm run lint && npm run test:e2e`): build ok; 758 testes ok (o intermitente conhecido `TelaAuditoria.test.tsx` falhou uma vez e passou ao repetir); lint ok; E2E 47 ok e 4 pulados, rodado de novo sobre o código final.
+- Conferido com dados reais no Linux: os `appmanifest` da Steam do Gabriel (ex.: "Baldurs Gate 3" → "Baldur's Gate 3"; runtimes, Proton e Lossless Scaling fora).
+- **Falta a T9** (manual, entre máquinas): vai com a build da atualização grande. Pontos a conferir no Windows de um amigo: o script do PowerShell de verdade (código de saída, BOM, tempo da primeira carga do WinRT), o `RunningAppID`, a aba do Spotify no navegador e o aviso do som do sistema; no Linux, o Gabriel tocando no open.spotify.com pelo Firefox. O `tofalany.log` fica em `%APPDATA%\ToFalany\logs\` (Windows) e `~/.config/ToFalany/logs/` (Linux).
