@@ -1,7 +1,7 @@
 import type { Ack, AmizadeDto, UsuarioDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
-import { aceitarAmizade, listarAmizades, pedirAmizade, removerAmizade } from '../dominio/amizades.js';
+import { aceitarAmizade, listarAmizades, pedirAmizade, removerAmizade, saoAmigos } from '../dominio/amizades.js';
 import { membroDe } from '../dominio/comunidades.js';
 import { listarDms } from '../dominio/dms.js';
 import { buscarPorId, paraDto } from '../dominio/usuarios.js';
@@ -24,7 +24,14 @@ export function conhecidosDe(banco: Banco, eu: number, comunidadeId: number): Us
 }
 
 /** Amigos: pedir, aceitar e recusar/desfazer; as duas pessoas recebem a lista nova em todas as conexões. */
-export function registrarEventosAmizades(io: ServidorTempoReal, socket: SocketTofalando, banco: Banco, registrarErro: (e: unknown) => void) {
+export function registrarEventosAmizades(
+  io: ServidorTempoReal,
+  socket: SocketTofalando,
+  banco: Banco,
+  registrarErro: (e: unknown) => void,
+  /** Amizade aceita ou desfeita: quem vê a atividade de quem pode ter mudado. */
+  aoMudarAmizade?: (a: number, b: number) => void,
+) {
   const eu = socket.data.usuarioId;
 
   const avisar = (usuarioId: number) => {
@@ -34,7 +41,7 @@ export function registrarEventosAmizades(io: ServidorTempoReal, socket: SocketTo
     }
   };
 
-  const tratar = (acao: (outro: number) => void) => (dados: unknown, ack: Ack<AmizadeDto[]>) => {
+  const tratar = (acao: (outro: number) => void, mudaVisibilidade = false) => (dados: unknown, ack: Ack<AmizadeDto[]>) => {
     if (typeof ack !== 'function') return;
     try {
       const outro = typeof dados === 'object' && dados !== null ? (dados as { usuarioId?: unknown }).usuarioId : undefined;
@@ -42,6 +49,8 @@ export function registrarEventosAmizades(io: ServidorTempoReal, socket: SocketTo
       acao(outro);
       avisar(eu);
       avisar(outro);
+      // Pedir a quem já tinha pedido aceita a amizade (pedidos cruzados): reenvia como no aceitar.
+      if (mudaVisibilidade || saoAmigos(banco, eu, outro)) aoMudarAmizade?.(eu, outro);
       ack({ ok: true, valor: listarAmizades(banco, eu) });
     } catch (erro) {
       if (erro instanceof ErroHttp) ack({ ok: false, erro: erro.message });
@@ -53,6 +62,6 @@ export function registrarEventosAmizades(io: ServidorTempoReal, socket: SocketTo
   };
 
   socket.on('amizade:pedir', tratar((outro) => pedirAmizade(banco, eu, outro)));
-  socket.on('amizade:aceitar', tratar((outro) => aceitarAmizade(banco, eu, outro)));
-  socket.on('amizade:remover', tratar((outro) => removerAmizade(banco, eu, outro)));
+  socket.on('amizade:aceitar', tratar((outro) => aceitarAmizade(banco, eu, outro), true));
+  socket.on('amizade:remover', tratar((outro) => removerAmizade(banco, eu, outro), true));
 }

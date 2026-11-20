@@ -26,7 +26,7 @@ import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
 import { buscarPorId, listarMembros, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
-import { conviteDa, donoDa, existeComunidade, membroNaComunidade, nomeComunidade, iconeComunidade } from '../dominio/comunidades.js';
+import { conviteDa, donoDa, existeComunidade, membroDe, membroNaComunidade, nomeComunidade, iconeComunidade } from '../dominio/comunidades.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
 import { listarDms } from '../dominio/dms.js';
@@ -41,7 +41,7 @@ import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
 import { criarSoundboard } from './soundboard.js';
 import { salaComunidade } from './salas.js';
 import { conhecidosDe, registrarEventosAmizades } from './amizades.js';
-import { listarAmizades } from '../dominio/amizades.js';
+import { listarAmizades, saoAmigos } from '../dominio/amizades.js';
 import { criarMusica } from './musica.js';
 import { criarTela } from './tela.js';
 import { meuCastigo } from '../dominio/moderacao.js';
@@ -169,7 +169,29 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     if (a) atividades.set(id, a);
     else atividades.delete(id);
     const depois = atividadeVisivel(id) ?? null;
-    if (JSON.stringify(depois) !== antes) io.emit('atividade:atualizada', { id, atividade: depois });
+    if (JSON.stringify(depois) !== antes) emitirAtividade(id, depois);
+  }
+  /**
+   * Quem pode ver a atividade de `id` nesta conexão (RN-2): a própria pessoa, um membro do servidor da conexão ou um
+   * amigo. É a mesma regra do `ola`.
+   */
+  const podeVerAtividade = (s: SocketTofalando, id: number) =>
+    s.data.usuarioId === id || !!membroDe(banco, s.data.comunidadeId, id) || saoAmigos(banco, s.data.usuarioId, id);
+  function emitirAtividade(id: number, atividade: AtividadeDto | null) {
+    for (const s of io.of('/').sockets.values()) if (podeVerAtividade(s, id)) s.emit('atividade:atualizada', { id, atividade });
+  }
+  /** Amizade aceita ou desfeita: cada um recebe a atividade atual do outro, ou null se deixou de poder ver. */
+  function reenviarAtividades(a: number, b: number) {
+    for (const [de, para] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      const atividade = atividadeVisivel(de) ?? null;
+      for (const s of io.of('/').sockets.values()) {
+        if (s.data.usuarioId !== para) continue;
+        s.emit('atividade:atualizada', { id: de, atividade: podeVerAtividade(s, de) ? atividade : null });
+      }
+    }
   }
   function recalcularStatus(usuarioId: number) {
     const conexoes = [...io.of('/').sockets.values()].filter((s) => s.data.usuarioId === usuarioId);
@@ -322,7 +344,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     musica.registrar(socket);
     tela.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e), config.gif);
-    registrarEventosAmizades(io, socket, banco, (e) => app.log.error(e));
+    registrarEventosAmizades(io, socket, banco, (e) => app.log.error(e), reenviarAtividades);
     presenca.entrou(eu.id);
     // RN-25: quem reconecta já ausente avisa no handshake (sem piscar "online" para os outros).
     if (socket.handshake.auth?.ausente === true) ausentes.add(socket.id);
@@ -351,7 +373,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       recalcularStatus(eu.id);
       // Ficar invisível esconde a atividade (e voltar mostra de novo).
       const atividadeDepois = atividadeVisivel(eu.id) ?? null;
-      if (JSON.stringify(atividadeDepois) !== atividadeAntes) io.emit('atividade:atualizada', { id: eu.id, atividade: atividadeDepois });
+      if (JSON.stringify(atividadeDepois) !== atividadeAntes) emitirAtividade(eu.id, atividadeDepois);
     });
     socket.on('presenca:atividade', (dados) => {
       definirAtividade(eu.id, lerAtividade(typeof dados === 'object' && dados !== null ? (dados as { atividade?: unknown }).atividade : null));
