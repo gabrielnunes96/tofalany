@@ -1,0 +1,155 @@
+{
+  "demanda": "qualidade-de-vida",
+  "titulo": "Qualidade de vida",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Servidor: status só para quem pode ver e reemissão ao mudar quem vê quem",
+      "descricao": "server/src/realtime/tempo-real.ts: podeVerAtividade vira podeVer; os io.emit('presenca:atualizada') (recalcularStatus e criarPresenca) emitem só para quem pode ver (T-8). reenviarAtividades vira reenviarVisibilidade(a, b), com atividade e status (ou null/offline) (T-9), chamada na amizade (realtime/amizades.ts), em tirarDaComunidade (quem saiu × membros que ficaram), num método novo entrouNaComunidade(usuario, comunidade) chamado pela entrada por convite (routes/comunidades.ts) e em fecharComunidade. server/test/dms.test.ts deixa de tratar o status como público.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-11",
+        "CA-12"
+      ],
+      "validacao": "presenca-status.test.ts/atividade.test.ts: conta sem relação não recebe status; sair de B → os dois recebem null e offline; entrar por convite e aceitar amizade reemitem o status; servidor excluído reemite; dms.test.ts sem o filtro. npm test (server), lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Servidor: rotas de convite pela DM",
+      "descricao": "server: GET e POST /api/usuarios/:id/convites (T-2) num arquivo de rotas novo, no padrão de usuarios-perfil.ts; exigem sessão e dividemServidor || saoAmigos (404). Lista: servidores em que eu sou membro com gerenciar_convite (admin tem tudo), o alvo não é membro nem banido, com código. POST repete as checagens, monta o link (montarLinkConvite com a base da comunidade escolhida), abre a DM e grava a mensagem numa transação, e entrega por tempoReal.entregarMensagemDm (conexoesDaConversa e avisarDm saem do closure, T-3). criarLimitador 10/10 min (T-4). Auditoria convite_enviado.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-6"
+      ],
+      "validacao": "server/test/convites.test.ts: lista por permissão, membro, banido e sem código; 404 sem se conhecer; POST cria DM e mensagem e o alvo recebe mensagem:nova; 403, 409 e 429. npm test (server), lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "Convidar para servidor no cartão e no menu da pessoa",
+      "descricao": "client: ClienteApi.convidaveis(id) e convidar(id, comunidadeId) em servicos/api.ts. CartaoPessoa.tsx e MenuPessoa.tsx: item 'Convidar para servidor' com a lista (carregada ao abrir), escondido se vazia; escolher envia e mostra 'Convite enviado' (ou o erro). TelaPrincipal liga as funções.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-3",
+        "CA-4",
+        "CA-5"
+      ],
+      "validacao": "CartaoPessoa.test.tsx e moderacao.test.tsx (menu): lista da API, vazia esconde, envio e confirmação. Conferir no app (npm run dev) com duas contas. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "Link de convite clicável dentro do app, com confirmação",
+      "descricao": "client: ContextoConvite (como ContextoPerfil) provido pela TelaPrincipal com aoConvite do App (abrirConvite). Em TextoComLinks (componentes/Previa.tsx), link que lerQualquerConvite reconhece e é da mesma base do servidor aberto: o clique pede 'Entrar no servidor por este convite?' e chama aoConvite; outro host continua abrindo no navegador (T-5).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-7"
+      ],
+      "validacao": "ItemMensagem.test.tsx/Previa: mesma base → confirmação e aoConvite; outro host → link comum; sem contexto → link comum. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T5",
+      "titulo": "ToOuvini de qualquer servidor para o administrador da instalação",
+      "descricao": "client: App.tsx passa adminDaInstalacao (podeCriar === base) à TelaPrincipal; o menu mostra o grupo Administração e 'Bot de música (ToOuvini)' com ela (no lugar de ehAdmin && servidorId === 1); TelaToOuvini recebe criarApi(separarComunidade(servidorUrl).base, token) (T-1).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-1",
+        "CA-2"
+      ],
+      "validacao": "App.test.tsx/TelaPrincipal: com adminDaInstalacao fora do principal o item aparece e a tela usa a API da base; sem ela, não aparece. Conferir no app num servidor que não é o principal. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T6",
+      "titulo": "Atualizar agora no processo principal: pedido e progresso",
+      "descricao": "client/src/main/atualizacao.ts: IPC atualizacao:agora (pedido = true + procurar), ouvinte download-progress → atualizacao:progresso (percentual), EstadoAtualizacao.pedido esconde o aviso do canto (T-6). preload: atualizacao.agora() e aoProgresso. Falha de download no tofalany.log com motivo fixo.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-8",
+        "CA-9",
+        "CA-10"
+      ],
+      "validacao": "atualizacao.test.ts: pedido esconde o aviso; progresso repassado; resultados indisponivel/atualizado/nova. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T7",
+      "titulo": "Botão 'Atualizar o app' no menu do usuário, com progresso e reinício",
+      "descricao": "client/renderer: componente AtualizarAgora montado uma vez no App (T-7): progresso num aviso fixo; pronta sem voz (vozViva === null) → instalar; em voz → 'Reiniciar agora? Você vai sair da chamada.'; recusar → aviso do canto. Botão no #menu-usuario da TelaPrincipal (perto de Novidades) dispara o pedido. Textos de atualizado e indisponível como os de ProcurarAtualizacao.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T6"
+      ],
+      "criterios": [
+        "CA-8",
+        "CA-8b",
+        "CA-9",
+        "CA-10"
+      ],
+      "validacao": "AtualizarAgora.test.tsx (ponte falsa): progresso; pronta sem voz instala; em voz pergunta; recusar volta o aviso; atualizado e indisponível. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T8",
+      "titulo": "Validação manual: atualização real e convite entre dois apps",
+      "descricao": "Na build da atualização grande: 'Atualizar o app' de verdade no Windows, AppImage e .deb (fora e dentro de chamada); convite pelo cartão entre duas contas em máquinas diferentes, com o clique no link; ToOuvini aberto de um servidor que não é o principal.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-5",
+        "CA-7",
+        "CA-8",
+        "CA-8b"
+      ],
+      "validacao": "Manual (pare_e_pergunte do perfil). Resultado anotado em 03-plano.md.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}
