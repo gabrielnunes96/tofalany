@@ -134,6 +134,47 @@ describe('PainelTransmissao (RF-30)', () => {
     expect(screen.getByRole('button', { name: 'Assistir' })).toBeTruthy();
   });
 
+  it('item 39: Fechar em tela cheia sai da tela cheia e não reaproveita o elemento do vídeo para o aviso', () => {
+    const faixa = { attach: vi.fn(), detach: vi.fn() };
+    let emTelaCheia: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => emTelaCheia });
+    const sair = vi.fn(async () => {
+      emTelaCheia = null;
+    });
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: sair });
+    try {
+      render(<PainelTransmissao nome="dono" faixa={faixa} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Assistir' }));
+      const grande = screen.getByRole('region', { name: 'Transmissão de dono' });
+      emTelaCheia = grande;
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+      expect(sair).toHaveBeenCalledTimes(1);
+      const aviso = screen.getByRole('region', { name: 'Transmissão de dono' });
+      expect(aviso).not.toBe(grande);
+      expect(screen.getByRole('button', { name: 'Assistir' })).toBeTruthy();
+    } finally {
+      delete (document as unknown as Record<string, unknown>).fullscreenElement;
+      delete (document as unknown as Record<string, unknown>).exitFullscreen;
+    }
+  });
+
+  it('item 39: fechar fora da tela cheia (ou com outra coisa em tela cheia) não mexe na tela cheia', () => {
+    const faixa = { attach: vi.fn(), detach: vi.fn() };
+    const outro = document.createElement('div');
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => outro });
+    const sair = vi.fn(async () => undefined);
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: sair });
+    try {
+      render(<PainelTransmissao nome="dono" faixa={faixa} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Assistir' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+      expect(sair).not.toHaveBeenCalled();
+    } finally {
+      delete (document as unknown as Record<string, unknown>).fullscreenElement;
+      delete (document as unknown as Record<string, unknown>).exitFullscreen;
+    }
+  });
+
   it('quem assiste: avisa ao abrir e fechar; olho com o número e a lista de nomes', () => {
     const faixa = { attach: vi.fn(), detach: vi.fn() };
     const aoAssistir = vi.fn();

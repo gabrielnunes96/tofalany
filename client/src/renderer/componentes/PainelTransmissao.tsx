@@ -58,6 +58,15 @@ export function PainelTransmissao({
   };
   useEffect(() => () => clearTimeout(esconder.current), []);
   const cheia = useEmTelaCheia(caixa);
+  // Item 39: ao parar de assistir (Fechar, ou o painel sumir) com o vídeo em tela cheia, sai da tela cheia.
+  // Sem isso a janela ficava em tela cheia, toda preta, só com o aviso "fulano está transmitindo" no meio.
+  useEffect(() => {
+    if (!assistindo) return;
+    const el = caixa.current;
+    return () => {
+      if (el && document.fullscreenElement === el) void document.exitFullscreen().catch(() => undefined);
+    };
+  }, [assistindo]);
   useEffect(() => {
     const el = ref.current;
     if (!assistindo || !el || !faixa) return;
@@ -69,7 +78,7 @@ export function PainelTransmissao({
 
   if (!assistindo) {
     return (
-      <section className="aviso-transmissao" aria-label={`Transmissão de ${nome}`}>
+      <section key="aviso" className="aviso-transmissao" aria-label={`Transmissão de ${nome}`}>
         <span>
           <Icone nome="tela" tamanho={16} /> <strong>{nome}</strong> está transmitindo a tela.
         </span>
@@ -82,6 +91,7 @@ export function PainelTransmissao({
   }
   return (
     <section
+      key="assistindo"
       ref={caixa}
       className={`transmissao-grande${cheia && !controlesVisiveis ? ' controles-ocultos' : ''}`}
       aria-label={`Transmissão de ${nome}`}
