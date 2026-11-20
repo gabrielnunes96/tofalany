@@ -3,6 +3,7 @@ import {
   criarAtividade,
   escolherPlayer,
   jogoDaLinhaDeComando,
+  caminhoLocalWindows,
   lerSaidaWindows,
   musicaDoWindows,
   musicaNoLinux,
@@ -319,6 +320,41 @@ ${meta.split('\n').slice(1).join('\n')}
       );
       expect(peloCaminho).toEqual({ jogo: 'Dota 2' });
       expect(registrar).not.toHaveBeenCalled();
+    });
+
+    it('script: do mais barato ao mais caro (registro, janelas, sessões, processos) e termina com exit 0', () => {
+      const script = scriptWindows({ jogos: true, musica: true });
+      const pos = ["'A:'", "'W:'", "'M:'", "'P:'"].map((m) => script.indexOf(m));
+      expect(pos.every((p) => p >= 0)).toBe(true);
+      expect([...pos].sort((a, b) => a - b)).toEqual(pos);
+      expect(script.trimEnd().endsWith('exit 0')).toBe(true);
+      expect(script).toContain("'E:musica:tempo esgotado'");
+    });
+
+    it('segurança: título forjado não troca a pasta da Steam; caminho de rede (UNC) e motivo desconhecido são recusados', () => {
+      const forjado = lerSaidaWindows(['A:0', 'D:C:\\Steam', 'M:Chrome\tx', 'D:\\\\host\\share', 'A:570', 'E:musica:Oceano de Djavan'].join('\n'));
+      expect(forjado.pastaSteam).toBe('C:\\Steam');
+      expect(forjado.appid).toBe('0');
+      expect(forjado.erros).toEqual(['musica: erro']);
+      expect(lerSaidaWindows('D:\\\\host\\share').pastaSteam).toBeUndefined();
+      expect(lerSaidaWindows('P:\\\\host\\share\\steamapps\\common\\x\\x.exe').caminhos).toEqual([]);
+      expect(lerSaidaWindows('\uFEFFA:570').appid).toBe('570');
+      expect(caminhoLocalWindows('C:\\Steam\\..\\x')).toBe(false);
+      expect(caminhoLocalWindows('D:\\SteamLibrary')).toBe(true);
+    });
+
+    it('processo fora das bibliotecas da Steam desta máquina não conta', async () => {
+      const manifestos = { 'libraryfolders.vdf': '"libraryfolders" { "0" { "path" "C:\\\\Steam" } }' };
+      const r = await noWindows({ jogos: true, musica: false }, nomesFalsos(manifestos), vi.fn(), async () => ({
+        saida: 'A:0\nD:C:\\Steam\nP:E:\\Outro\\steamapps\\common\\Falso\\f.exe',
+      }));
+      expect(r).toEqual({});
+    });
+
+    it('log: uma linha por parte a cada rodada, com os motivos juntos', async () => {
+      const registrar = vi.fn();
+      await noWindows({ jogos: false, musica: true }, nomesFalsos(), registrar, async () => ({ saida: 'E:musica:sessoes de midia indisponiveis', erro: { killed: false } }));
+      expect(registrar.mock.calls).toEqual([['atividade', 'musica: sessoes de midia indisponiveis; erro ao rodar o PowerShell']]);
     });
 
     it('CA-10/CA-11: a parte que falha não apaga a outra; o log recebe a parte e um motivo fixo, sem nomes', async () => {

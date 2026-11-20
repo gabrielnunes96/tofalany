@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 /**
@@ -64,7 +64,13 @@ export function lerManifesto(texto: string): { appid: string; nome: string; past
 }
 
 type Arquivos = { listar: (pasta: string) => Promise<string[]>; ler: (arquivo: string) => Promise<string> };
-const arquivosDoDisco: Arquivos = { listar: (p) => readdir(p), ler: (a) => readFile(a, 'utf8') };
+/** Só arquivo comum e pequeno (um appmanifest tem poucos KB): nada de FIFO que trava a leitura nem arquivo enorme. */
+async function lerPequeno(arquivo: string): Promise<string> {
+  const info = await lstat(arquivo);
+  if (!info.isFile() || info.size > 64 * 1024) throw new Error('arquivo inesperado');
+  return readFile(arquivo, 'utf8');
+}
+const arquivosDoDisco: Arquivos = { listar: (p) => readdir(p), ler: lerPequeno };
 
 /**
  * Nome do jogo pela pasta, com cache por biblioteca (`steamapps`). Uma pasta que não está no cache faz reler a
@@ -112,12 +118,15 @@ export type NomesSteam = ReturnType<typeof criarNomesSteam>;
  * Bibliotecas da Steam (pastas `steamapps`) a partir da pasta da Steam (`SteamPath` no Windows): a própria e as de
  * `steamapps/libraryfolders.vdf` (jogos em outro disco). Sem o arquivo, só a da Steam.
  */
-export async function bibliotecasDaSteam(pastaSteam: string, ler: (arquivo: string) => Promise<string> = (a) => readFile(a, 'utf8')): Promise<string[]> {
+export async function bibliotecasDaSteam(pastaSteam: string, ler: (arquivo: string) => Promise<string> = lerPequeno): Promise<string[]> {
   const raiz = pastaSteam.replace(/[\\/]+$/, '');
   const pastas = [raiz];
-  const vdf = lerKeyValues(await ler(join(raiz, 'steamapps', 'libraryfolders.vdf')).catch(() => '')).libraryfolders;
+  const raizVdf = lerKeyValues(await ler(join(raiz, 'steamapps', 'libraryfolders.vdf')).catch(() => ''));
+  // "libraryfolders" (atual) ou "LibraryFolders" (antigo); as bibliotecas são as chaves numéricas.
+  const vdf = Object.entries(raizVdf).find(([k]) => k.toLowerCase() === 'libraryfolders')?.[1];
   if (vdf && typeof vdf !== 'string') {
-    for (const b of Object.values(vdf)) {
+    for (const [chave, b] of Object.entries(vdf)) {
+      if (!/^\d+$/.test(chave)) continue;
       const caminho = typeof b === 'string' ? b : b.path;
       if (typeof caminho === 'string' && caminho.trim()) pastas.push(caminho.trim().replace(/[\\/]+$/, ''));
     }

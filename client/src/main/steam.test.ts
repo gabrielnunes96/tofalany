@@ -104,4 +104,9 @@ describe('Steam: KeyValues e appmanifest (correcoes-atividade, T-7)', () => {
     expect(bibs[1]).toMatch(/^D:\\SteamLibrary[\\/]steamapps$/);
     expect(await bibliotecasDaSteam('/s', async () => Promise.reject(new Error('sem arquivo')))).toEqual(['/s/steamapps']);
   });
+
+  it('libraryfolders.vdf antigo: chave em maiúscula e só as chaves numéricas são bibliotecas', async () => {
+    const vdf = String.raw`"LibraryFolders" { "TimeNextStatsReport" "123" "ContentStatsID" "-1" "1" "D:\\Jogos" }`;
+    expect(await bibliotecasDaSteam('/s', async () => vdf)).toHaveLength(2);
+  });
 });
