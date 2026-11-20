@@ -1,0 +1,26 @@
+<!-- T19 — Soundboard: tocar no canal de voz -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-23, RF-24, RN-12, RN-13; CA-32 a CA-35.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (som:tocar / som:tocado) e R-4 (cada app toca localmente, com cache).</p>
+
+<h3>Implementação (05/11/2026, commit b14afdb)</h3>
+<ul>
+  <li><b>Servidor</b> (<code>realtime/soundboard.ts</code>): só quem está num canal de voz toca; intervalo de 3 s por pessoa; <code>som:tocado</code> vai só para as conexões presentes naquele canal, com quem tocou. Respostas de erro em texto ("Entre num canal de voz…", "Aguarde N s…"); técnica atualizada.</li>
+  <li><b>App</b>: botão "Tocar sons" no painel do usuário abre o soundboard (desabilitado fora da voz, com o motivo); depois de tocar, descanso de 3 s com contagem (vale mesmo fechando o painel); volume local 0–100% (RF-24). Sons baixados e decodificados ao entrar na voz (cache por arquivo, sons removidos saem do cache); tocam na saída escolhida; deafen não toca e corta o que estiver tocando; sair da voz também para; evento de outro canal é ignorado. Aviso "dono tocou Grilo" numa região viva sempre montada.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/soundboard.test.ts</code> (só o canal, fora da voz, intervalo por pessoa e fim do intervalo), <code>soundboard.test.ts</code> (cache, volume, parar, fechar durante o download), <code>PainelSoundboard.test.tsx</code>; E2E <code>e2e/voz.spec.ts</code> (CA-32 a CA-35 e deafen). Suíte: 322 testes e 23 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-33: dono fora da voz abre o soundboard</td><td>ok</td><td>botão do som desabilitado</td></tr>
+  <tr><td>E2E CA-32: dono toca "Grilo" no canal</td><td>ok</td><td>ana vê "dono tocou Grilo" e o som toca (print T19-ana-ve-quem-tocou)</td></tr>
+  <tr><td>E2E CA-34: logo depois</td><td>ok</td><td>botões descansando (print T19-painel-soundboard)</td></tr>
+  <tr><td>E2E CA-35 e deafen</td><td>ok</td><td>volume 0 ou deafen: aviso aparece, som não toca; vozes seguem</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> ouvir o som em outra máquina; conferir que quem está em outro canal não ouve.</p>
+<p><b>Observação:</b> a revisão achou um defeito real no relógio do intervalo (guardava a referência de <code>Date.now</code>), corrigido. Sons de voz e soundboard usam contextos de áudio separados (cada um segue a saída escolhida).</p>
+<p>Revisão: 12 achados (0 graves, 4 médios, 8 menores), todos corrigidos ou registrados.</p>

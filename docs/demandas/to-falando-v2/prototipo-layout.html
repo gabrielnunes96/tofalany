@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ToFalany — protótipo do layout (P2)</title>
+<style>
+  :root, [data-tema="neon"] {
+    --fundo: #0a0a12; --coluna: #120f1d; --superficie: #191427; --campo: #0d0b17; --borda: #2c2446;
+    --texto: #ece8ff; --suave: #a8a1d1; --destaque: #00f0ff; --destaque-2: #ff2a6d; --ok: #3dffb0; --amarelo: #fcee0a;
+    --brilho: 0 0 12px rgba(0, 240, 255, 0.35);
+  }
+  [data-tema="breu"] {
+    --fundo: #111214; --coluna: #18191c; --superficie: #1f2023; --campo: #141518; --borda: #2b2d31;
+    --texto: #e9eaed; --suave: #9ea1a8; --destaque: #7c8cff; --destaque-2: #f2557a; --ok: #3ccf91; --amarelo: #f0c445;
+    --brilho: none;
+  }
+  [data-tema="aurora"] {
+    --fundo: #f4f5f8; --coluna: #eaecf1; --superficie: #ffffff; --campo: #f0f1f5; --borda: #d9dce4;
+    --texto: #1d2030; --suave: #5f6478; --destaque: #3b5bff; --destaque-2: #e0336b; --ok: #1fa86b; --amarelo: #c99a06;
+    --brilho: none;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--fundo); color: var(--texto); font: 14px/1.4 system-ui, sans-serif; transition: background .25s, color .25s; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  .barra-prototipo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; background: #000; color: #fff; font-size: 12px; }
+  .barra-prototipo b { margin-right: 6px; }
+  .barra-prototipo button { background: #222; border: 1px solid #444; border-radius: 6px; padding: 3px 8px; color: #fff; }
+  .barra-prototipo button[aria-pressed="true"] { background: #fff; color: #000; }
+
+  .app { display: grid; grid-template-columns: 64px 232px 1fr 220px; height: calc(100% - 38px); transition: grid-template-columns .25s; }
+  .app.sem-canais { grid-template-columns: 64px 0 1fr 220px; }
+  .app.sem-membros { grid-template-columns: 64px 232px 1fr 0; }
+  .app.sem-canais.sem-membros { grid-template-columns: 64px 0 1fr 0; }
+  .app > * { min-width: 0; overflow: hidden; }
+
+  /* Coluna de servidores */
+  .servidores { background: var(--fundo); display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; border-right: 1px solid var(--borda); }
+  .srv { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--superficie); display: grid; place-items: center; font-weight: 700; position: relative; transition: border-radius .2s, background .2s; }
+  .srv:hover, .srv.ativo { border-radius: 14px; background: var(--destaque); color: var(--fundo); box-shadow: var(--brilho); }
+  .srv.ativo::before { content: ""; position: absolute; left: -12px; width: 4px; height: 28px; border-radius: 0 4px 4px 0; background: var(--texto); }
+  .srv .contador { position: absolute; right: -4px; bottom: -4px; background: var(--destaque-2); color: #fff; font-size: 10px; border-radius: 10px; padding: 1px 5px; border: 2px solid var(--fundo); }
+  .srv.novo { background: transparent; border: 1px dashed var(--borda); color: var(--ok); font-size: 20px; }
+  .sep { width: 28px; height: 2px; background: var(--borda); border-radius: 2px; }
+
+  /* Canais */
+  .canais { background: var(--coluna); display: flex; flex-direction: column; border-right: 1px solid var(--borda); }
+  .canais header { padding: 14px 14px 10px; font-weight: 700; letter-spacing: .06em; border-bottom: 1px solid var(--borda); display: flex; justify-content: space-between; }
+  .lista { flex: 1; overflow: auto; padding: 10px 8px; }
+  .grupo { color: var(--suave); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 10px 6px 4px; display: flex; justify-content: space-between; }
+  .canal { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 6px 8px; border-radius: 6px; text-align: left; color: var(--suave); }
+  .canal:hover { background: var(--superficie); color: var(--texto); }
+  .canal.ativo { background: var(--superficie); color: var(--texto); }
+  .canal .nl { margin-left: auto; background: var(--destaque-2); color: #fff; border-radius: 10px; font-size: 10px; padding: 0 6px; }
+  .na-voz { margin: 2px 0 6px 26px; display: grid; gap: 3px; color: var(--suave); font-size: 13px; }
+  .na-voz span { display: flex; align-items: center; gap: 6px; }
+  .falando { box-shadow: 0 0 0 2px var(--ok); }
+
+  /* Barra da voz e painel do usuário (canto inferior esquerdo) */
+  .voz { margin: 0 8px 8px; padding: 8px 10px; border-radius: 8px; background: var(--superficie); border: 1px solid var(--borda); }
+  .voz .linha { display: flex; justify-content: space-between; align-items: center; }
+  .voz strong { color: var(--ok); font-size: 12px; }
+  .icones { display: flex; gap: 4px; }
+  .ic { width: 30px; height: 30px; border-radius: 6px; border: 0; background: transparent; display: grid; place-items: center; }
+  .ic:hover { background: var(--campo); }
+  .ic.perigo { color: var(--destaque-2); }
+  .eu { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--fundo); position: relative; }
+  .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; flex: none; position: relative; }
+  .av .st { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; border: 3px solid var(--fundo); }
+  .eu .nomes { flex: 1; min-width: 0; }
+  .eu .nomes div:first-child { font-weight: 600; }
+  .eu .nomes div:last-child { color: var(--suave); font-size: 12px; }
+  .menu { position: absolute; left: 8px; bottom: 56px; width: 216px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.4); display: none; animation: subir .15s ease-out; }
+  .menu.aberto { display: block; }
+  @keyframes subir { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .menu button { display: flex; gap: 10px; align-items: center; width: 100%; border: 0; background: none; padding: 7px 8px; border-radius: 6px; text-align: left; }
+  .menu button:hover { background: var(--campo); }
+  .menu hr { border: 0; border-top: 1px solid var(--borda); margin: 6px 4px; }
+  .menu .titulo { color: var(--suave); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px; }
+
+  /* Conversa */
+  .conversa { display: flex; flex-direction: column; background: var(--fundo); }
+  .topo { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--borda); }
+  .topo h1 { font-size: 15px; margin: 0; flex: 1; }
+  .topo h1 span { color: var(--destaque-2); }
+  .camaras { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 10px 14px 0; }
+  .cam { aspect-ratio: 16/9; border-radius: 10px; background: linear-gradient(135deg, #273050, #50305a); display: flex; align-items: flex-end; padding: 6px; color: #fff; font-size: 12px; }
+  .mensagens { flex: 1; overflow: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { display: flex; gap: 10px; }
+  .msg .t { color: var(--suave); font-size: 11px; margin-left: 6px; }
+  .compositor { margin: 0 14px 14px; display: flex; gap: 8px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 6px; }
+  .compositor input { flex: 1; border: 0; background: none; color: var(--texto); font: inherit; outline: none; padding: 6px; }
+  .tela-cheia .canais, .tela-cheia .membros { display: none; }
+
+  /* Membros */
+  .membros { background: var(--coluna); border-left: 1px solid var(--borda); padding: 14px 10px; overflow: auto; }
+  .membros .pessoa { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 6px; }
+  .membros .pessoa:hover { background: var(--superficie); }
+  .membros .off { opacity: .5; }
+
+  .nota { position: fixed; right: 12px; bottom: 12px; max-width: 320px; background: var(--superficie); border: 1px solid var(--destaque); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--suave); }
+  .nota b { color: var(--texto); }
+</style>
+</head>
+<body>
+<div class="barra-prototipo" role="toolbar" aria-label="Controles do protótipo">
+  <b>Protótipo P2</b>
+  Tema:
+  <button data-tema-btn="neon" aria-pressed="true">Neon da Madrugada</button>
+  <button data-tema-btn="breu" aria-pressed="false">Breu</button>
+  <button data-tema-btn="aurora" aria-pressed="false">Aurora</button>
+  · Mostrar/ocultar:
+  <button id="t-canais" aria-pressed="true">Canais (Ctrl+B)</button>
+  <button id="t-membros" aria-pressed="true">Membros (Ctrl+M)</button>
+  <button id="t-cams" aria-pressed="true">Câmeras</button>
+</div>
+
+<div class="app" id="app">
+  <nav class="servidores" aria-label="Servidores">
+    <button class="srv ativo" title="ToFalany">TF</button>
+    <button class="srv" title="Turma da faculdade">TU<span class="contador">3</span></button>
+    <button class="srv" title="Família">FA</button>
+    <div class="sep"></div>
+    <button class="srv novo" title="Entrar em outro servidor (cole um link de convite)">+</button>
+  </nav>
+
+  <aside class="canais">
+    <header>TOFALANY <span title="Convidar">＋👤</span></header>
+    <div class="lista">
+      <div class="grupo">Canais de texto <span>＋</span></div>
+      <button class="canal ativo"># geral</button>
+      <button class="canal"># jogos <span class="nl">2</span></button>
+      <div class="grupo">Canais de voz <span>＋</span></div>
+      <button class="canal">🔊 Sala 1</button>
+      <div class="na-voz">
+        <span><span class="av falando" style="width:20px;height:20px;background:#9b5cff;font-size:10px">N</span> nunes</span>
+        <span><span class="av" style="width:20px;height:20px;background:#ff2a6d;font-size:10px">T</span> TIOwilsu 🖥️</span>
+      </div>
+      <div class="grupo">Mensagens diretas</div>
+      <button class="canal">✉ TIOwilsu</button>
+    </div>
+    <div class="voz">
+      <div class="linha"><div><strong>Voz conectada</strong><div style="color:var(--suave);font-size:12px">Sala 1</div></div>
+        <button class="ic perigo" title="Sair da voz">⏻</button></div>
+      <div class="icones" style="margin-top:6px">
+        <button class="ic" title="Mutar">🎙️</button><button class="ic" title="Desligar áudio">🎧</button>
+        <button class="ic" title="Câmera">📷</button><button class="ic" title="Transmitir tela">🖥️</button>
+        <button class="ic" title="Soundboard">🔔</button>
+      </div>
+    </div>
+    <div class="eu">
+      <div class="av" style="background:#9b5cff">N<span class="st" style="background:var(--ok)"></span></div>
+      <div class="nomes"><div>nunes</div><div>Online · Admin</div></div>
+      <button class="ic" id="abrir-menu" title="Menu: perfil, status, configurações…">⚙️</button>
+      <div class="menu" id="menu" role="menu">
+        <div class="titulo">Status</div>
+        <button>🟢 Online</button><button>🟡 Ausente</button><button>⛔ Não incomodar</button><button>⚪ Invisível</button>
+        <hr>
+        <button>👤 Meu perfil</button><button>⚙️ Configurações</button><button>🔗 Copiar link de convite</button>
+        <hr>
+        <div class="titulo">Administração</div>
+        <button>👥 Membros e cargos</button><button>🎫 Convite</button><button>🔊 Sons</button><button>📜 Auditoria</button>
+        <hr>
+        <button>🔄 Trocar de servidor</button><button style="color:var(--destaque-2)">⎋ Sair da conta</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="conversa">
+    <div class="topo"><h1><span>#</span> geral</h1><button class="ic" title="Silenciar">🔔</button><button class="ic" title="Ocultar canais">⇤</button><button class="ic" title="Ocultar membros">⇥</button></div>
+    <div class="camaras" id="cams">
+      <div class="cam">nunes (você)</div><div class="cam">TIOwilsu</div>
+    </div>
+    <div class="mensagens">
+      <div class="msg"><div class="av" style="background:#ff2a6d">T</div><div><b>TIOwilsu</b><span class="t">00:12</span><div>Oi</div></div></div>
+      <div class="msg"><div class="av" style="background:#9b5cff">N</div><div><b>nunes</b><span class="t">00:13</span><div>oi</div></div></div>
+    </div>
+    <div class="compositor"><button class="ic">＋</button><input placeholder="Mensagem para #geral"><button class="ic">➤</button></div>
+  </main>
+
+  <aside class="membros">
+    <div class="grupo">Online — 2</div>
+    <div class="pessoa"><div class="av" style="background:#9b5cff">N<span class="st" style="background:var(--ok)"></span></div>nunes</div>
+    <div class="pessoa"><div class="av" style="background:#ff2a6d">T<span class="st" style="background:var(--amarelo)"></span></div>TIOwilsu</div>
+    <div class="grupo">Offline — 1</div>
+    <div class="pessoa off"><div class="av" style="background:#555">B</div>bia</div>
+  </aside>
+</div>
+
+<div class="nota"><b>O que mudou:</b> coluna de servidores à esquerda (+ entra com um link de convite); o canto inferior esquerdo virou um painel compacto: voz com ícones e você com um menu ⚙️ (status, perfil, configurações, convite, administração, trocar servidor, sair); dá para ocultar canais, membros e câmeras; três temas.</div>
+
+<script>
+  const app = document.getElementById('app');
+  document.querySelectorAll('[data-tema-btn]').forEach((b) => b.addEventListener('click', () => {
+    document.documentElement.dataset.tema = b.dataset.temaBtn;
+    document.querySelectorAll('[data-tema-btn]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+  const alternar = (id, classe, alvo = app) => document.getElementById(id).addEventListener('click', (e) => {
+    const oculto = alvo.classList.toggle(classe);
+    e.currentTarget.setAttribute('aria-pressed', String(!oculto));
+  });
+  alternar('t-canais', 'sem-canais');
+  alternar('t-membros', 'sem-membros');
+  document.getElementById('t-cams').addEventListener('click', (e) => {
+    const cams = document.getElementById('cams');
+    cams.hidden = !cams.hidden;
+    e.currentTarget.setAttribute('aria-pressed', String(!cams.hidden));
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key.toLowerCase() === 'b') { e.preventDefault(); document.getElementById('t-canais').click(); }
+    if (e.ctrlKey && e.key.toLowerCase() === 'm') { e.preventDefault(); document.getElementById('t-membros').click(); }
+  });
+  const menu = document.getElementById('menu');
+  document.getElementById('abrir-menu').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('aberto'); });
+  document.addEventListener('click', () => menu.classList.remove('aberto'));
+</script>
+</body>
+</html>

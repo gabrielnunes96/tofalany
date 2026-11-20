@@ -1,0 +1,85 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import type { FastifyInstance } from 'fastify';
+import { construirApp } from '../src/app.js';
+import { lerConfig } from '../src/config.js';
+import { appTeste, cadastrar } from './apoio.js';
+
+let app: FastifyInstance | undefined;
+afterEach(async () => {
+  await app?.close();
+  app = undefined;
+});
+
+describe('GET /api/servidor', () => {
+  it('identifica o servidor ToFalany com nome, versão, contas e limite', async () => {
+    app = await appTeste({ NOME_SERVIDOR: 'Turma' });
+    const antes = await app.inject({ method: 'GET', url: '/api/servidor' });
+    expect(antes.statusCode).toBe(200);
+    expect(antes.json()).toEqual({ app: 'tofalany', nome: 'Turma', versao: (await import('../package.json', { with: { type: 'json' } })).default.version, contas: 0, limiteContas: 20 });
+    await cadastrar(app, 'ana');
+    expect((await app.inject({ method: 'GET', url: '/api/servidor' })).json()).toMatchObject({ contas: 1 });
+  });
+
+  it('libera CORS para o app (origem null do file://)', async () => {
+    app = await appTeste();
+    const resposta = await app.inject({ method: 'GET', url: '/api/servidor', headers: { origin: 'null' } });
+    expect(resposta.headers['access-control-allow-origin']).toBe('null');
+  });
+});
+
+describe('GET /api/saude', () => {
+  it('responde ok com o banco acessível', async () => {
+    app = await appTeste();
+    const resposta = await app.inject({ method: 'GET', url: '/api/saude' });
+    expect(resposta.json()).toEqual({ ok: true, sqlite: true, livekit: 'sem_config' });
+  });
+
+  it('LiveKit respondendo: ok', async () => {
+    const { createServer } = await import('node:http');
+    const lk = createServer((_req, res) => res.end('OK'));
+    await new Promise<void>((r) => lk.listen(0, '127.0.0.1', r));
+    const porta = (lk.address() as { port: number }).port;
+    app = await appTeste({ LIVEKIT_URL: `ws://127.0.0.1:${porta}`, LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 'segredo-de-teste-com-tamanho-suficiente' });
+    expect((await app.inject({ method: 'GET', url: '/api/saude' })).json()).toEqual({ ok: true, sqlite: true, livekit: 'ok' });
+    lk.close();
+  });
+
+  it('LiveKit configurado e fora do ar: o servidor segue ok e informa', async () => {
+    app = await appTeste({ LIVEKIT_URL: 'ws://127.0.0.1:1', LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 'segredo-de-teste-com-tamanho-suficiente' });
+    expect((await app.inject({ method: 'GET', url: '/api/saude' })).json()).toEqual({ ok: true, sqlite: true, livekit: 'fora' });
+  });
+});
+
+describe('subida do servidor', () => {
+  it('exige CODIGO_CONVITE na primeira subida', async () => {
+    await expect(construirApp(lerConfig({ LOG: 'false', BANCO: ':memory:' }))).rejects.toThrow('CODIGO_CONVITE');
+  });
+});
+
+describe('lerConfig', () => {
+  it('recusa números inválidos', () => {
+    expect(() => lerConfig({ LIMITE_CONTAS: '0' })).toThrow('LIMITE_CONTAS');
+    expect(() => lerConfig({ PORTA: 'abc' })).toThrow('PORTA');
+    expect(() => lerConfig({ PORTA: '0' })).toThrow('PORTA');
+    expect(() => lerConfig({ PORTA: '65536' })).toThrow('PORTA');
+  });
+
+  it('usa os padrões', () => {
+    expect(lerConfig({})).toMatchObject({
+      intervaloSessaoMs: 30000,
+      prazoAuditoriaDias: 30,
+      carenciaOfflineMs: 30000,
+      pastaArquivos: undefined,
+      urlPublica: undefined,
+      pastaDownloads: undefined,
+      porta: 3000,
+      host: '0.0.0.0',
+      nomeServidor: 'ToFalany',
+      limiteContas: 20,
+      caminhoBanco: 'data/tofalando.db',
+      codigoConvite: undefined,
+      tentativasPorMinuto: 10,
+      atrasDeProxy: false,
+    });
+  });
+});

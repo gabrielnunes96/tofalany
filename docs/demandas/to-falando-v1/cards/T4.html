@@ -1,0 +1,26 @@
+<!-- T4 — Conexão em tempo real -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-31 e CA-42 (parte do texto; a parte da chamada é da T23). Pendência da T3: derrubar quem está conectado quando a sessão é revogada por outro processo.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (Socket.IO com auth.token no handshake, evento <code>ola</code>, <code>sessao:revogada</code>) e §6 (autorização no servidor).</p>
+
+<h3>Implementação (05/11/2026, commit 8e930ac)</h3>
+<ul>
+  <li><b>Servidor:</b> Socket.IO 4.8 sobre o servidor do Fastify, só websocket; handshake valida o token; sala <code>usuario:&lt;id&gt;</code>; <code>ola</code> com servidor, eu e usuários ativos. Batimento 5 s + 4 s de tolerância (queda de rede percebida em menos de 10 s).</li>
+  <li><b>Revogação:</b> sair pela API derruba na hora só aquela sessão (<code>saiu</code>); reconferência periódica no banco (INTERVALO_SESSAO_MS, padrão 30 s) pega o comando da T3 (<code>sessao_invalida</code>); <code>revogarUsuario</code> pronto para remover conta na T6 (<code>conta_removida</code>).</li>
+  <li><b>Robustez:</b> erro do banco no handshake vira erro transitório (o cliente tenta de novo); erros na conexão e na reconferência são registrados sem derrubar o processo; ao fechar, o servidor encerra as conexões antes do HTTP.</li>
+  <li><b>App:</b> <code>conectarTempoReal</code> com reconexão automática (0,5 a 5 s), estado em zustand, faixa "Sem conexão com o servidor. Reconectando…", aviso de rede do sistema mostrando a faixa na hora; sessão revogada leva ao login com aviso. Tela principal provisória mostra os membros.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/tempo-real.test.ts</code> (handshake, ola, sair só da própria sessão, revogação por outro processo, revogarUsuario, batimento &lt; 10 s, falha do banco, fechamento), <code>client/src/renderer/servicos/tempo-real.test.ts</code>, <code>estado/loja.test.ts</code>, <code>app/avisos.test.ts</code>. Suíte: 89 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: servidor cai e volta na mesma porta</td><td>ok</td><td>faixa "Reconectando…" e volta sozinho</td></tr>
+  <tr><td>E2E: cabo puxado (intermediário segura os pacotes sem fechar) por 10 s</td><td>ok</td><td>aviso antes de 10 s; volta sozinho após restaurar</td></tr>
+  <tr><td>E2E: mesmo teste com o batimento antigo (25 s + 20 s)</td><td>falha (esperado)</td><td>confirma que o teste pega o problema</td></tr>
+  <tr><td>E2E: sessões apagadas no servidor</td><td>ok</td><td>login com "Sua sessão foi encerrada. Entre de novo."</td></tr>
+</table>
+<p>Revisão: 4 achados (0 graves, 1 médio, 3 menores), todos corrigidos.</p>

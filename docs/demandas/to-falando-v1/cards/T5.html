@@ -1,0 +1,27 @@
+<!-- T5 — Perfil: avatar, cor e nome de exibição -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-5, RN-15, CA-8. No mesmo commit: o usuário renomeou o app para "ToFalany" (05/11/2026).</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (PUT /api/eu/avatar, PATCH /api/eu, GET /files/:id, usuario:atualizado) e §6 (conteúdo conferido, imagem regravada sem metadados).</p>
+
+<h3>Implementação (05/11/2026, commit registrado em tarefas.json)</h3>
+<ul>
+  <li><b>Avatar:</b> multipart no campo <code>arquivo</code>, até 8 MB (413), PNG/JPEG/GIF/WebP pelo conteúdo (415), resolução máxima 4096×4096 conferida antes de decodificar (413); gravado como WebP 256×256 sem metadados (primeiro quadro de GIF); anterior apagado na mesma transação da troca.</li>
+  <li><b>Perfil:</b> PATCH /api/eu com nome de exibição (1–32, espaços normalizados) e cor (#rrggbb); campos desconhecidos ignorados; sem mudança, 400.</li>
+  <li><b>Arquivos:</b> pasta única com nome aleatório de 128 bits; /files/:id público pelo id (para &lt;img&gt;), cache imutável, nosniff, documentos como download; banco em memória usa pasta temporária apagada ao fechar.</li>
+  <li><b>App:</b> tela "Meu perfil" (foto, nome, cor); avatar com foto ou inicial na cor do perfil (cai na inicial se a foto falhar); nome sempre na cor do texto (contraste); usuario:atualizado atualiza todos na hora.</li>
+  <li><b>Renomeação:</b> nome visível ToFalany; APP_ID "tofalany" (nada distribuído ainda, sem transição); productName do Electron "ToFalany"; nomes internos (pacotes, banco, window.tofalando) mantidos.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/perfil.test.ts</code> (CA-8: 1000×800→256×256 WebP sem EXIF, evento para outro membro, anterior apagado, 413, 415, conteúdo vence o nome, bomba de descompressão, campo errado, PATCH, /files seguro, pasta temporária), <code>shared/src/validacao.test.ts</code>, <code>client/.../TelaPerfil.test.tsx</code>, <code>Avatar.test.tsx</code>, <code>api.test.ts</code>, <code>loja.test.ts</code>. Suíte: 128 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: dono envia PNG 1000×800, muda nome e cor</td><td>ok</td><td>"Foto atualizada.", "Perfil salvo.", "Olá, Dono do Grupo"</td></tr>
+  <tr><td>E2E: app da ana (aberto ao mesmo tempo)</td><td>ok</td><td>vê "Dono do Grupo" com foto 256×256 sem reiniciar</td></tr>
+  <tr><td>E2E: PDF como foto</td><td>ok</td><td>"Use uma imagem PNG, JPEG, GIF ou WebP."</td></tr>
+  <tr><td>E2E: suíte completa</td><td>ok</td><td>7 testes passando</td></tr>
+</table>
+<p>Revisão: 9 achados (0 graves, 2 médios, 7 menores), todos corrigidos.</p>

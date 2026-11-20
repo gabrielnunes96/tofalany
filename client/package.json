@@ -1,0 +1,54 @@
+{
+  "name": "@tofalando/client",
+  "version": "0.17.1",
+  "private": true,
+  "description": "ToFalany: voz, chat e tela para o seu grupo",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "tsc -p tsconfig.json --noEmit && electron-vite build",
+    "test:e2e": "electron-vite build && sh e2e/isolado.sh",
+    "postinstall": "install-electron",
+    "dist:linux": "npm run build && electron-builder --linux --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "test:e2e:desktop": "electron-vite build && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@sapphi-red/web-noise-suppressor": "^0.4.1",
+    "@testing-library/react": "^16.3.3",
+    "@tofalando/shared": "0.17.1",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "electron": "45.2.3",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "emojibase-data": "18.0.0",
+    "fastify": "^5.12.8",
+    "jsdom": "^30.1.3",
+    "livekit-client": "^2.23.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "socket.io-client": "^4.8.4",
+    "vite": "^8.3.5",
+    "zustand": "^5.0.16"
+  },
+  "productName": "ToFalany",
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/bangers": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/marcellus-sc": "^5.3.0",
+    "electron-updater": "^6.8.11",
+    "qrcode": "^1.5.4",
+    "uiohook-napi": "^1.5.5"
+  },
+  "author": "ToFalany",
+  "desktopName": "tofalany.desktop",
+  "homepage": "https://tofalany.invalid",
+  "optionalDependencies": {
+    "@vencord/venmic": "^7.2.5"
+  }
+}

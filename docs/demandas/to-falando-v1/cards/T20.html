@@ -1,0 +1,24 @@
+<!-- T20 — Webcam -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-25; CA-36.</p>
+<h3>Padrão</h3>
+<p>Técnica §5: webcam com simulcast pelo livekit-client.</p>
+
+<h3>Implementação (05/11/2026, commit 242e579)</h3>
+<ul>
+  <li><b>Sala</b>: <code>camera(ligar)</code> com <code>setCameraEnabled</code> (720p30, simulcast); se a voz cair durante a abertura, a faixa é parada. Vídeos dos outros só da fonte câmera (tela compartilhada fica de fora), entram e saem por assinatura, mudo/desmudo da publicação e saída da pessoa; quem chega com a câmera desligada não aparece.</li>
+  <li><b>Tela</b>: botão "Câmera" (aria-pressed) no painel de voz, sem clique duplo durante a abertura; grade de câmeras no topo da conversa com a minha prévia espelhada e o nome de cada um; 📹 "câmera ligada" na lista de quem está na voz (o servidor recebe o estado). Em qualquer saída da voz (sair, cair, ser tirado, canal removido, trocar de canal) a câmera volta a desligada.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>voz.test.ts</code> (ligar/desligar, vídeos dos outros, mudo/desmudo, publicação muda, quem sai, sair limpa a prévia); E2E <code>e2e/voz.spec.ts</code> (CA-36). Suíte: 332 testes e 26 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-36: dono liga a câmera (falsa)</td><td>ok</td><td>prévia no dono; na ana, "Vídeo de dono" com imagem (videoWidth &gt; 0) e 📹 na lista (print T20-ana-ve-camera-do-dono)</td></tr>
+  <tr><td>E2E CA-36: dono desliga</td><td>ok</td><td>o vídeo e o 📹 somem na ana</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> webcam real (luz apaga ao desligar e ao sair da voz).</p>
+<p><b>Observação:</b> durante as correções da revisão, um script meu esvaziou a <code>TelaPrincipal.tsx</code>; o arquivo foi restaurado do commit anterior e as mudanças reaplicadas, e a suíte inteira passou depois.</p>
+<p>Revisão: 7 achados (1 grave, 2 médios, 4 menores), todos corrigidos.</p>

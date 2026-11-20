@@ -1,0 +1,17 @@
+# LiveKit do ToFalany (técnica §5). As chaves vêm de LIVEKIT_KEYS (docker-compose.yml), não daqui.
+port: 7880
+rtc:
+  # Uma porta UDP só para a mídia (libere no firewall/roteador) e TCP de reserva.
+  udp_port: 7882
+  tcp_port: 7881
+  use_external_ip: false
+room:
+  # Sala vazia some depois de 5 min.
+  empty_timeout: 300
+webhook:
+  # Confere quem saiu da sala e silencia tela fora da regra (RN-17). A chave precisa ser a mesma do servidor.
+  api_key: tofalany
+  urls:
+    - http://server:3000/api/livekit/webhook
+logging:
+  level: info

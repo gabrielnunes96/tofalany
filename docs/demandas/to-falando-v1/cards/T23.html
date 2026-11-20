@@ -1,0 +1,26 @@
+<!-- T23 — Reconexão da sala, memória e privacidade de rede -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-31; RNF de memória e privacidade; CA-42, CA-45, CA-46.</p>
+<h3>Padrão</h3>
+<p>Técnica §6 (CSP e privacidade) e R-7 (memória).</p>
+
+<h3>Implementação (06/11/2026, commit 83f032d)</h3>
+<ul>
+  <li><b>Reconexão</b>: o livekit-client tenta voltar sozinho; o painel mostra "Reconectando à voz…" (queda do sinal ou da mídia) e, ao voltar, a nova sessão de mídia (sid) é reenviada ao servidor. Sair durante a reconexão zera o aviso. O chat segue durante a queda da mídia (e a reconexão do tempo real já existia desde a T4).</li>
+  <li><b>Memória</b>: a sala de voz (livekit-client) é um pedaço separado, carregado só na primeira entrada na voz; falha ao carregar avisa e tenta de novo na próxima. Corretor ortográfico já estava desligado.</li>
+  <li><b>Privacidade de rede</b>: o processo principal (<code>main/rede.ts</code>) só deixa a janela falar com o host do servidor configurado. Exceções: arquivos do app, servidor de desenvolvimento, sondagem <code>GET /api/servidor</code> sem parâmetros (testar um endereço novo), primeira execução sem servidor salvo e o servidor de um convite já testado (até virar o salvo). CSP no build (script só do app, <code>wasm-unsafe-eval</code> para o RNNoise, sem objetos/base/form).</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>main/rede.test.ts</code>, <code>voz.test.ts</code> (avisos de reconexão); E2E <code>e2e/voz.spec.ts</code>: CA-42 (LiveKit congelado com <code>docker pause</code>: aviso e volta sozinha, áudio de novo, chat funcionando), CA-46 (todas as requisições para 127.0.0.1, nenhuma bloqueada), CA-45 (PSS). Suíte: 349 testes e 30 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 06/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-42: LiveKit congelado e depois liberado</td><td>ok</td><td>"Reconectando à voz…" (print T23-reconectando-voz) e "Voz conectada" de novo, com o áudio da outra pessoa (print T23-voz-de-volta)</td></tr>
+  <tr><td>E2E CA-46: rede do app durante login, chat e voz</td><td>ok</td><td>só 127.0.0.1 (servidor e LiveKit), nada bloqueado</td></tr>
+  <tr><td>E2E CA-45: logado e ocioso por 5 min (TOFALANDO_RAM_OCIOSO_MS=300000)</td><td>ok</td><td><b>268 MB</b> somando os processos (PSS); na suíte normal mede após 30 s (~271 MB)</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> CA-42 com a rede de verdade (tirar o cabo/Wi-Fi 10 s numa chamada); RAM no Windows instalado (Gerenciador de Tarefas).</p>
+<p><b>Desvios e notas:</b> (1) a medida de memória usa PSS (<code>/proc/&lt;pid&gt;/smaps_rollup</code>), que divide as páginas compartilhadas entre os processos do Chromium; a soma de <code>getAppMetrics().workingSetSize</code> da técnica conta essas páginas várias vezes (~580 MB) e não representa a memória usada. (2) A CSP não fixa o host do servidor (ele é escolhido depois da instalação); essa restrição fica no filtro do processo principal. (3) O LiveKit precisa responder no mesmo host do endereço dado às pessoas (como já prevê a técnica: Caddy na VPS, IP do tailnet no Tailscale); senão a voz não conecta — vai para o README e o exemplo de configuração (T25/T26). (4) Instabilidade conhecida sob carga: o indicador de fala do LiveKit; o arquivo de voz repete uma vez.</p>
+<p>Revisão: 12 achados (2 graves, 6 médios, 4 menores), corrigidos ou registrados acima.</p>

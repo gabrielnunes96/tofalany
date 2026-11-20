@@ -1,0 +1,101 @@
+import { useCallback, useContext, type ReactNode } from 'react';
+import { ContextoPerfil } from './ContextoPerfil';
+import type { Klipy } from '../servicos/gif';
+import type { DmDto, UsuarioDto } from '@tofalando/shared';
+import type { ClienteApi } from '../servicos/api';
+import { chaveDm } from '../estado/loja';
+import { Avatar } from './Avatar';
+import { BotaoSilenciarConversa } from './BotaoSilenciarConversa';
+import { Conversa, type OpcoesEnvio } from './MensagensCanal';
+
+interface Props {
+  /** Backlog v2, item 10: botões de mostrar/ocultar partes da tela, no fim do cabeçalho. */
+  extras?: ReactNode;
+  /** Antes do título (ex.: botão de mostrar a barra de canais, quando escondida). */
+  antes?: ReactNode;
+  dm: DmDto;
+  /** A outra pessoa (undefined se a conta foi removida). */
+  outro: UsuarioDto | undefined;
+  usuarios: UsuarioDto[];
+  servidorUrl: string;
+  euId: number;
+  api: Pick<ClienteApi, 'mensagensDm' | 'enviarAnexo'>;
+  aoEnviar: (dmId: number, texto: string, anexos: string[], opcoes?: OpcoesEnvio) => Promise<string | null>;
+  aoEditarMensagem: (id: number, texto: string) => Promise<string | null>;
+  aoApagarMensagem: (id: number) => Promise<string | null>;
+  aoReagirMensagem?: (id: number, emoji: string) => Promise<string | null>;
+  /** Busca de GIF (só com a busca ligada no servidor). */
+  klipy?: Klipy;
+  aoDigitar: (dmId: number) => void;
+  /** RF-40: notificações desta conversa silenciadas. */
+  silenciada?: boolean;
+  aoSilenciar?: (sim: boolean) => void;
+}
+
+/** RF-12a: conversa direta. Só as duas pessoas veem; nem administrador apaga mensagem alheia aqui (RN-18). */
+export function DmAberta({
+  dm,
+  outro,
+  usuarios,
+  servidorUrl,
+  euId,
+  api,
+  aoEnviar,
+  aoEditarMensagem,
+  aoApagarMensagem,
+  aoReagirMensagem,
+  klipy,
+  aoDigitar,
+  silenciada = false,
+  aoSilenciar,
+  extras,
+  antes,
+}: Props) {
+  const nome = outro?.nomeExibicao ?? 'conta removida';
+  const abrirPerfil = useContext(ContextoPerfil);
+  const carregarPagina = useCallback((antes?: number, ate?: number) => (ate ? api.mensagensDm(dm.id, antes, ate) : api.mensagensDm(dm.id, antes)), [api, dm.id]);
+  return (
+    <section className="canal-aberto" aria-labelledby="titulo-dm">
+      <header className="canal-topo">
+        {antes}
+        <h2 id="titulo-dm" className="titulo-dm">
+          {outro && abrirPerfil ? (
+            <button type="button" className="titulo-dm-pessoa" aria-label={`Perfil de ${nome}`} onClick={(e) => abrirPerfil(outro.id, e.currentTarget)}>
+              <Avatar usuario={outro} servidorUrl={servidorUrl} tamanho={28} />
+              {nome}
+            </button>
+          ) : (
+            <>
+              {outro && <Avatar usuario={outro} servidorUrl={servidorUrl} tamanho={28} />}
+              {nome}
+            </>
+          )}
+        </h2>
+        <span className="suave">Conversa direta · só vocês dois veem</span>
+        {aoSilenciar && <BotaoSilenciarConversa silenciada={silenciada} nome={nome} aoSilenciar={aoSilenciar} />}
+        {extras}
+      </header>
+      <Conversa
+        conversa={{
+          chave: chaveDm(dm.id),
+          titulo: nome,
+          inicio: `Este é o começo da conversa com ${nome}.`,
+          rotuloLista: `Mensagens com ${nome}`,
+        }}
+        carregarPagina={carregarPagina}
+        usuarios={usuarios}
+        servidorUrl={servidorUrl}
+        api={api}
+        euId={euId}
+        ehAdmin={false}
+        aoEnviar={(texto, anexos, opcoes) => aoEnviar(dm.id, texto, anexos, opcoes)}
+        aoEditar={aoEditarMensagem}
+        aoApagar={aoApagarMensagem}
+        aoReagir={aoReagirMensagem}
+        klipy={klipy}
+        aoDigitar={() => aoDigitar(dm.id)}
+        somenteLeitura={outro ? undefined : 'Essa conta foi removida. A conversa ficou só para leitura.'}
+      />
+    </section>
+  );
+}

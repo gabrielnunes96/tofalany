@@ -1,0 +1,34 @@
+<!-- T26 — README de uso e implantação -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: CA-47 (RNF); pendências das T16, T21, T23, T24, T25 e T28 (Wayland, áudio do sistema no Linux, mesmo host do LiveKit, SmartScreen, atualizar e voltar).</p>
+<h3>Padrão</h3>
+<p>Técnica §10 (implantação e rollback) e a configuração real de <code>deploy/</code>.</p>
+
+<h3>Implementação (06/11/2026, commit 5200bb0)</h3>
+<ul>
+  <li><b>README.md</b> na raiz:
+    <ul>
+      <li>servidor via Tailscale, passo a passo (IP do tailnet, BIND_IP, reinício do PC);</li>
+      <li>servidor numa VPS com HTTPS (domínio próprio, sslip.io ou DuckDNS; portas; Oracle Cloud);</li>
+      <li>instaladores e página do convite (<code>deploy/downloads</code>);</li>
+      <li>redefinir senha;</li>
+      <li>backup manual, atualizar e voltar com <code>VERSAO</code> e o commit, restaurar o banco de antes da migração;</li>
+      <li>tabela de banda por qualidade e número de espectadores, com voz e câmera;</li>
+      <li>limitações: Wayland (atalhos e ausente), sem áudio do sistema no Linux, SmartScreen, mesmo host, uma transmissão por canal;</li>
+      <li>desenvolvimento e E2E opcionais (app empacotado e compose).</li>
+    </ul>
+  </li>
+  <li>O comando de redefinir senha no Docker estava errado no CLI e no card da T3 (<code>npm run</code> na raiz da imagem não tem o script). O certo é <code>docker compose exec server node server/dist/cli/redefinir-senha.js &lt;usuario&gt;</code>.</li>
+  <li><code>validacoes-usuario.md</code>: lista consolidada do que só dá para validar com duas pessoas ou hardware real.</li>
+</ul>
+
+<h3>Validação (local, 06/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>Backup com <code>tar</code> na imagem do servidor</td><td>ok</td><td>banco e arquivos no .tgz, sem os instaladores</td></tr>
+  <tr><td>Restaurar o banco de antes da migração e restaurar o backup completo</td><td>ok</td><td>dono dos arquivos preservado (node); os instaladores ficam</td></tr>
+  <tr><td><code>node server/dist/cli/redefinir-senha.js</code> na imagem</td><td>ok</td><td>usuário inexistente devolve 2, como documentado</td></tr>
+  <tr><td>lint e build</td><td>ok</td><td>verdes</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> CA-47 de verdade, seguindo só o README nos dois cenários (Tailscale a partir de outra máquina; VPS com domínio e HTTPS), e o reinício do PC no cenário Tailscale.</p>
+<p>Revisão: 15 achados (0 graves, 6 médios, 9 menores). Entre eles: o reinício do PC com o IP do tailnet, voltar o commit junto com a imagem, o build antes dos E2E opcionais, Windows e Mac não testados e o upload da câmera com simulcast. Todos corrigidos.</p>

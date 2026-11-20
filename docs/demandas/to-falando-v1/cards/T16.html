@@ -1,0 +1,28 @@
+<!-- T16 — Detecção de voz, push-to-talk, mute, deafen e atalhos -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-14, RF-15, RF-16, RN-14; CA-21 a CA-24.</p>
+<h3>Padrão</h3>
+<p>Técnica R-1 (uiohook-napi para aperto e soltura) e §3 (IPC de atalhos pelo preload).</p>
+
+<h3>Implementação (05/11/2026, commit 56b77fe)</h3>
+<ul>
+  <li><b>Portão de voz</b> (<code>portao-voz.worklet.js</code>, thread de áudio — não é freado com a janela em segundo plano): detecção com a sensibilidade das Configurações, retenção de 300 ms e rampa de 10 ms; push-to-talk; mudo. O medidor mostra o som antes do portão. Sem AudioWorklet, o microfone vai direto e mute/PTT viram liga/desliga da faixa.</li>
+  <li><b>Atalhos globais</b> (<code>main/atalhos.ts</code>): uiohook carregado só quando há atalho (se o binário falhar, o app abre sem atalhos globais); aperto e soltura, repetição ignorada, modificadores exatos; trocar atalhos ou capturar um novo solta o que estava apertado; gravar outras configurações não mexe nos atalhos. Padrões: mute Ctrl+Shift+M, deafen Ctrl+Shift+D, PTT sem atalho.</li>
+  <li><b>Configurações</b>: modo do microfone (detecção ou push-to-talk, com aviso se faltar o atalho); atalhos com captura ("Pressione a combinação… Esc cancela"), conflito recusado com a ação dona, remoção. Atalhos validados no processo principal (atalho em conflito volta ao anterior; nada se perde ao reabrir).</li>
+  <li><b>Painel de voz</b>: indicador verde "Transmitindo", "Mutar microfone" e "Desligar áudio" (aria-pressed); deafen zera o volume de quem está na sala (o volume por pessoa da T17 fica guardado) e também muta; os outros veem os ícones; mute/deafen valem antes de o microfone sair.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>portao-voz.test.ts</code>, <code>main/atalhos.test.ts</code>, <code>shared/atalhos.test.ts</code>, <code>voz.test.ts</code>, <code>pipeline-audio.test.ts</code>, <code>TelaConfiguracoes.test.tsx</code>; E2E <code>e2e/voz.spec.ts</code> (CA-21 a CA-24). Suíte: 308 testes e 21 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E CA-21: sensibilidade 0 dB / -60 dB</td><td>ok</td><td>3 s sem "falando"; depois "dono, falando" e indicador verde</td></tr>
+  <tr><td>E2E CA-22: PTT na crase, tecla vinda do sistema (simulada)</td><td>ok</td><td>só fala com a tecla segurada (print T16-ptt-segurado-ana-ve-dono-falando)</td></tr>
+  <tr><td>E2E CA-23: mute em F8; Ctrl+Shift+D recusado; reiniciar</td><td>ok</td><td>antigo não faz nada, F8 alterna; continua após reabrir (print T16-atalhos-depois-de-reiniciar)</td></tr>
+  <tr><td>E2E CA-24: deafen pelo atalho</td><td>ok</td><td>mute junto, volume 0 no áudio da ana, ícones para ela; PTT não abre (print T16-painel-voz-deafen)</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> CA-22 de verdade — push-to-talk com outro app em primeiro plano (o E2E simula a tecla do sistema); atalhos no Windows instalado.</p>
+<p><b>Pendências:</b> Wayland puro não entrega teclas de outros apps ao uiohook (R-1) — documentar no README (T26). Rótulos "Mutar microfone"/"Desligar áudio" em português; os termos mute/deafen ficam no título.</p>
+<p>Revisão: 14 achados (1 grave, 5 médios, 8 menores), todos corrigidos ou registrados acima.</p>

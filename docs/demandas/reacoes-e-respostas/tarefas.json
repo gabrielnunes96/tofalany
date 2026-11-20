@@ -1,0 +1,178 @@
+{
+  "demanda": "reacoes-e-respostas",
+  "titulo": "Reações e respostas",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Migração 019 e reações no servidor",
+      "descricao": "Migração 019 completa (tabela reacoes com PK (mensagem_id, emoji, usuario_id) e ON DELETE CASCADE; colunas resposta_a e resposta_avisa em mensagens). shared: ReacaoDto, MensagemDto.reacoes?, eventos 'reacao:alternar' e 'mensagem:reacoes', REACOES_POR_MENSAGEM, REACOES_RAJADA e validarEmojiReacao (new RegExp('^\\p{RGI_Emoji}$','v'), até 32 bytes). server: dominio/reacoes.ts (alternarReacao em transação com o limite de 20; reacoesDasMensagens em lote, ordem por rowid) ligado a comAnexos/listarMensagens; handler reacao:alternar em realtime/mensagens.ts pelo caminho de lerDestino (canal: enviar_mensagens, castigo; DM: participante), limite de rajada por socket e emitir() com a lista inteira. mensagem:editada já sai com as reações.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-2",
+        "CA-5",
+        "CA-6",
+        "CA-7",
+        "CA-8",
+        "CA-9",
+        "CA-18",
+        "CA-20"
+      ],
+      "validacao": "validacao.test.ts (emojis aceitos e recusados); server/test/reacoes.test.ts com socket real: pôr/tirar/pôr, broadcast para outro socket, 21º emoji recusado, 'abc' recusado sem gravar, castigo recusado, apagar esvazia e editar mantém, sem mensagem:nova nem mudança em leituras, DM só entre os dois, cliente antigo envia só {destino, texto}; banco.test.ts na versão 19; npm test e build verdes",
+      "estado": "feito",
+      "wi": null,
+      "commit": "4a50fe7"
+    },
+    {
+      "id": "T2",
+      "titulo": "Respostas no servidor e histórico até um id",
+      "descricao": "shared: RespostaDto, MensagemDto.resposta?, 'mensagem:enviar' com respostaA? e avisar?, TRECHO_RESPOSTA e HISTORICO_ATE_MAX. server: mensagem:enviar confere que a original existe no mesmo canal_id/dm_id, grava resposta_a e resposta_avisa (avisar padrão true, falso quando a original é do próprio autor) e soma o autor da original às mencoes; mensagem:editar mantém o autor nas mencoes quando resposta_avisa = 1. trechosDasOriginais em lote (primeira linha cortada em 100, soAnexo, {id, apagada: true} quando a original sumiu). Rotas de histórico de canal e DM aceitam ?ate=<id> (até 1000; acima disso, página normal).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-10",
+        "CA-11",
+        "CA-12",
+        "CA-13",
+        "CA-14",
+        "CA-15",
+        "CA-16",
+        "CA-18"
+      ],
+      "validacao": "server/test/respostas.test.ts: DTO com trecho; só anexo → soAnexo; original editada → trecho novo; original apagada → apagada no histórico; mencoes com o autor da original, sem ele com avisar:false e em resposta a si mesmo; edição mantém o aviso; original de outro canal/DM recusada; 250 mensagens e ?ate devolve todas até a original; o mesmo em DM; npm test verde",
+      "estado": "feito",
+      "wi": null,
+      "commit": "1c2da64"
+    },
+    {
+      "id": "T3",
+      "titulo": "Reações no app: faixa, atalhos e tempo real",
+      "descricao": "Ouvinte 'mensagem:reacoes' em servicos/tempo-real.ts e acao aplicarReacoes na store (estado/loja.ts). componentes/Reacoes.tsx: botão por emoji com contagem, classe minha, dica de quem reagiu (até 10 nomes e 'e mais N'), aria-label '👍, 2 reações, inclusive você', botão '+'. ItemMensagem.tsx: ações Reagir, 👍 😂 ❤️ sempre que a pessoa pode escrever (somenteLeitura esconde), faixa depois dos anexos; pedir('reacao:alternar') via TelaPrincipal com aviso de erro. Fonte de emoji do sistema como fallback em --fonte-texto. Nesta tarefa o botão Reagir/'+' abre só os atalhos; o seletor completo vem na T4.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-7",
+        "CA-19"
+      ],
+      "validacao": "Reacoes.test.tsx (contagem, minha, dica com 2 e com 12, aria-label, clique chama aoAlternar); ItemMensagem.test.tsx (ações por teclado, somenteLeitura sem Reagir); loja.test.ts (aplicarReacoes); npm test, lint e build verdes",
+      "estado": "feito",
+      "wi": null,
+      "commit": "0a1edc0"
+    },
+    {
+      "id": "T4",
+      "titulo": "Seletor de emoji",
+      "descricao": "Adicionar emojibase-data 18.0.0 (MIT) ao client. servicos/emojis.ts carrega emojibase-data/pt/compact.json por import() dinâmico, filtra por validarEmojiReacao, agrupa por categoria e busca por nome e palavras-chave sem acento; recentes (até 16) em localStorage com try/catch. componentes/SeletorEmoji.tsx (sem React.lazy: o componente é leve; só os dados vêm por import() dinâmico, em pacote de desenvolvimento, embutido pelo Vite): campo de busca com foco, Usados recentemente, categorias, setas e Enter, Esc fecha. Ligado ao Reagir e ao '+' da T3.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T3"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-19"
+      ],
+      "validacao": "emojis.test.ts (busca 'joinha'/'coração' em pt, todos os itens passam em validarEmojiReacao, recentes sem duplicar e no máximo 16, localStorage indisponível não quebra); SeletorEmoji.test.tsx (busca, Enter escolhe, Esc fecha); build verde e o JSON fora do chunk principal",
+      "estado": "feito",
+      "wi": null,
+      "commit": "0cc326e"
+    },
+    {
+      "id": "T5",
+      "titulo": "Responder no app: faixa no compositor e trecho na mensagem",
+      "descricao": "ItemMensagem: ação Responder e o trecho da original antes do texto (nome do autor, trecho, 'Anexo', 'Mensagem original apagada' sem atalho). Conversa (MensagensCanal.tsx): estado da resposta, faixa 'Respondendo a {nome}' acima do compositor com Avisar (ligado) e X, Esc cancela depois das listas de menção/comando; aoEnviar recebe { respostaA, avisar } por CanalAberto, DmAberta e TelaPrincipal (enviarMensagem/enviarNoCanal). Store: removerMensagem marca as respostas carregadas como apagada; atualizarMensagem da original refaz o trecho. Destaque de quem foi respondido vem das mencoes (sem regra nova).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2",
+        "T3"
+      ],
+      "criterios": [
+        "CA-10",
+        "CA-12",
+        "CA-13",
+        "CA-14",
+        "CA-15",
+        "CA-17"
+      ],
+      "validacao": "MensagensCanal.test.tsx (Responder abre a faixa, envio com respostaA e avisar, Avisar desligado, Esc e X limpam); ItemMensagem.test.tsx (trecho, Anexo, apagada); loja.test.ts (apagar e editar a original atualizam as respostas); notificar.test.ts (resposta com aviso conta como menção); npm test, lint e build verdes",
+      "estado": "feito",
+      "wi": null,
+      "commit": "5988a18"
+    },
+    {
+      "id": "T6",
+      "titulo": "Ir até a mensagem original",
+      "descricao": "data-mensagem-id em cada item. Clique no trecho: se a original está carregada, rola até ela e destaca por 2 s (classe com animação, respeitando reduzir movimento); se não, chama o histórico com antes=<primeira carregada>&ate=<id> (api.ts), junta pela receberPagina e rola depois de renderizar, sem brigar com a compensação de rolagem; acima de 1000, aviso 'Mensagem antiga demais para abrir aqui'.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T5"
+      ],
+      "criterios": [
+        "CA-11"
+      ],
+      "validacao": "MensagensCanal.test.tsx (original carregada rola sem chamar a API; fora da lista chama com ate e rola; resposta fim:false mostra o aviso); npm test e build verdes",
+      "estado": "feito",
+      "wi": null,
+      "commit": "9064c4c"
+    },
+    {
+      "id": "T7",
+      "titulo": "E2E de reações e respostas com dois apps",
+      "descricao": "client/e2e/reacoes.spec.ts: ana e beto no mesmo canal; ana reage pelo atalho e pelo seletor, beto vê ao vivo, dica de quem reagiu, tirar a reação, sem notificação para o beto; o mesmo numa DM. client/e2e/respostas.spec.ts: responder com aviso (beto notificado e destacado), sem aviso, Esc, original apagada, ir até uma original 300 mensagens acima. Prints em docs/demandas/reacoes-e-respostas/prints.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4",
+        "T6"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-3",
+        "CA-4",
+        "CA-9",
+        "CA-10",
+        "CA-11",
+        "CA-12",
+        "CA-14",
+        "CA-15",
+        "CA-17",
+        "CA-18"
+      ],
+      "validacao": "sh e2e/isolado.sh com a suíte inteira verde (em segundo plano); prints gerados",
+      "estado": "feito",
+      "wi": null,
+      "commit": "f16fdd3"
+    },
+    {
+      "id": "T8",
+      "titulo": "Novidades da 0.16.0",
+      "descricao": "Entrada 0.16.0 em shared/src/novidades.ts apresentando reações e respostas, só texto (sem emoji, sem citar outros apps), e o teste de novidades atualizado.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T7"
+      ],
+      "criterios": [
+        "CA-20"
+      ],
+      "validacao": "protocolo.test.ts e JanelaNovidades.test.tsx verdes; npm test verde",
+      "estado": "feito",
+      "wi": null,
+      "commit": "9d3dd23"
+    }
+  ]
+}

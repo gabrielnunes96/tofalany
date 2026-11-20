@@ -1,0 +1,160 @@
+import { useState, type ReactNode } from 'react';
+import type { Klipy } from '../servicos/gif';
+import { COMANDOS_MUSICA, type CanalDto, type UsuarioDto } from '@tofalando/shared';
+import type { ClienteApi } from '../servicos/api';
+import { FormNome } from './FormNome';
+import { BotaoSilenciarConversa } from './BotaoSilenciarConversa';
+import { MensagensCanal, type OpcoesEnvio } from './MensagensCanal';
+
+interface Props {
+  /** Backlog v2, item 10: botões de mostrar/ocultar partes da tela, no fim do cabeçalho. */
+  extras?: ReactNode;
+  /** Antes do título (ex.: botão de mostrar a barra de canais, quando escondida). */
+  antes?: ReactNode;
+  canal: CanalDto | undefined;
+  /** Pode remover o canal (administrador ou "Gerenciar canais"). */
+  ehAdmin: boolean;
+  /** Backlog v2, item 10c: pode apagar mensagens dos outros (padrão: o mesmo de ehAdmin). */
+  podeApagarAlheias?: boolean;
+  aoRenomear: (id: number, nome: string) => Promise<string | null>;
+  aoRemover: (id: number) => Promise<string | null>;
+  usuarios: UsuarioDto[];
+  servidorUrl: string;
+  api: Pick<ClienteApi, 'mensagensCanal' | 'enviarAnexo'>;
+  aoEnviar: (canalId: number, texto: string, anexos: string[], opcoes?: OpcoesEnvio) => Promise<string | null>;
+  /** Cargo sem "Enviar mensagens": o campo de escrever vira só um aviso. */
+  somenteLeitura?: string;
+  euId: number;
+  aoEditarMensagem: (id: number, texto: string) => Promise<string | null>;
+  aoApagarMensagem: (id: number) => Promise<string | null>;
+  aoReagirMensagem?: (id: number, emoji: string) => Promise<string | null>;
+  /** Busca de GIF (só com a busca ligada no servidor). */
+  klipy?: Klipy;
+  aoDigitar: (canalId: number) => void;
+  /** Pode marcar @todos (administrador ou "Mencionar @todos"). */
+  podeMencionarTodos?: boolean;
+  /** RF-40: notificações deste canal silenciadas. */
+  silenciada?: boolean;
+  aoSilenciar?: (sim: boolean) => void;
+}
+
+/** Cabeçalho do canal de texto aberto (renomear, remover) e o chat dele. */
+export function CanalAberto({
+  canal,
+  ehAdmin,
+  podeApagarAlheias,
+  aoRenomear,
+  aoRemover,
+  usuarios,
+  servidorUrl,
+  api,
+  aoEnviar,
+  euId,
+  aoEditarMensagem,
+  aoApagarMensagem,
+  aoReagirMensagem,
+  klipy,
+  aoDigitar,
+  silenciada = false,
+  podeMencionarTodos = false,
+  aoSilenciar,
+  extras,
+  antes,
+  somenteLeitura,
+}: Props) {
+  const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  if (!canal) {
+    return (
+      <section className="canal-aberto vazio">
+        <p className="suave">Nenhum canal de texto. Crie um na barra ao lado.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="canal-aberto" aria-labelledby="titulo-canal">
+      <header className="canal-topo">
+        {antes}
+        {modo === 'renomear' ? (
+          <FormNome
+            key={canal.id}
+            rotulo="Novo nome do canal"
+            inicial={canal.nome}
+            textoBotao="Salvar"
+            aoCancelar={() => setModo('ver')}
+            aoEnviar={async (nome) => {
+              const falha = await aoRenomear(canal.id, nome);
+              if (!falha) setModo('ver');
+              return falha;
+            }}
+          />
+        ) : (
+          <h2 id="titulo-canal">
+            <span aria-hidden="true">#</span> {canal.nome}
+          </h2>
+        )}
+        {modo === 'ver' && (
+          <div className="canal-acoes">
+            {aoSilenciar && <BotaoSilenciarConversa silenciada={silenciada} nome={`#${canal.nome}`} aoSilenciar={aoSilenciar} />}
+            <button type="button" className="secundario" onClick={() => setModo('renomear')}>
+              Renomear
+            </button>
+            {ehAdmin && (
+              <button type="button" className="secundario" onClick={() => setModo('remover')}>
+                Remover canal
+              </button>
+            )}
+          </div>
+        )}
+        {modo === 'remover' && (
+          <div className="confirmar" role="group" aria-label="Confirmar remoção do canal">
+            <span>Remover #{canal.nome} e todo o histórico?</span>
+            <button
+              type="button"
+              className="perigo"
+              disabled={enviando}
+              onClick={async () => {
+                setEnviando(true);
+                const falha = await aoRemover(canal.id);
+                setEnviando(false);
+                setErro(falha);
+                setModo('ver');
+              }}
+            >
+              Confirmar remoção
+            </button>
+            <button type="button" className="secundario" onClick={() => setModo('ver')}>
+              Cancelar
+            </button>
+          </div>
+        )}
+        {extras}
+      </header>
+      {erro && (
+        <p className="erro" role="alert">
+          {erro}
+        </p>
+      )}
+      <MensagensCanal
+        canal={canal}
+        usuarios={usuarios}
+        servidorUrl={servidorUrl}
+        api={api}
+        aoEnviar={(texto, anexos, opcoes) => aoEnviar(canal.id, texto, anexos, opcoes)}
+        euId={euId}
+        ehAdmin={podeApagarAlheias ?? ehAdmin}
+        aoEditar={aoEditarMensagem}
+        aoApagar={aoApagarMensagem}
+        aoReagir={aoReagirMensagem}
+        klipy={klipy}
+        aoDigitar={() => aoDigitar(canal.id)}
+        comandos={COMANDOS_MUSICA}
+        mencoes={{ podeTodos: podeMencionarTodos }}
+        somenteLeitura={somenteLeitura}
+      />
+    </section>
+  );
+}

@@ -1,0 +1,182 @@
+{
+  "demanda": "mini-perfil",
+  "titulo": "Mini perfil",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Perfil no servidor: migração 021, sobre mim, cores do fundo e membro desde",
+      "descricao": "shared: UsuarioDto com sobreMim?, fundo? (FundoPerfil | null) e membroDesde?; AtualizarPerfilRequest com sobreMim? e fundoCores?; limites SOBRE_MIM_* e FUNDO_*; validarSobreMim (T-7), validarCoresFundo (T-6) e urlArquivoValida. server: migração 021 (sobre_mim, fundo_cores, fundo_arquivo, fundo_mini); LinhaUsuario/paraDto; listarMembros e buscarNa com m.entrou_em como membroDesde (só a data); PATCH /api/eu com sobreMim e fundoCores; avisar() também para salaUsuario dos conhecidos (T-8); auditoria perfil_alterado; remoção de conta zera as colunas novas e apaga os arquivos.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-3",
+        "CA-9",
+        "CA-11",
+        "CA-13"
+      ],
+      "validacao": "validacao.test.ts (sobre mim: 190/191, 3/4 linhas, bidi e largura zero recusados, ZWJ aceito; cores: válidas e inválidas); server/test/perfil-mini.test.ts: PATCH grava e emite para membros e para um amigo de fora (sem cargo nem membroDesde); membroDesde da comunidade aberta, só a data; 400 nos inválidos; remoção zera as colunas; PATCH antigo igual; npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "dea3b21"
+    },
+    {
+      "id": "T2",
+      "titulo": "Envio do fundo: processarFundo, PUT e DELETE /api/eu/fundo",
+      "descricao": "server/src/dominio/fundo.ts: processarFundo (T-3, T-4): tipo pelo conteúdo, limites no cabeçalho (pixels por quadro, 150 quadros, 60 Mpx somados), sharp animado com limitInputPixels, cover 600×240 centralizado sem ampliar, webp, timeout 15 s, sem metadados, saída até 3 MB, miniatura 300×40 do primeiro quadro; semáforo de um por vez. Rotas PUT /api/eu/fundo (multipart 8 MB, limitador 6/10 min, sem campos extras; troca na transação e apaga os anteriores) e DELETE /api/eu/fundo; evento ao vivo.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-6",
+        "CA-7",
+        "CA-8"
+      ],
+      "validacao": "server/test/fundo.test.ts: 3000×2000 vira até 600×240 sem EXIF/GPS; GIF de 2 quadros 500×200 sai animado (pages > 1); texto renomeado 415; 8 MB + 1 413; cabeçalho 30000×30000 413; 4096×4096×300 413 antes de decodificar; saída > 3 MB 413; 7º envio em 10 min 429; trocar 3 vezes deixa 1 arquivo (e 1 miniatura); DELETE apaga; evento ao vivo; npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "15758c7"
+    },
+    {
+      "id": "T3",
+      "titulo": "Perfil de outra pessoa: em comum e regra de quem conhece",
+      "descricao": "server/src/routes/usuarios-perfil.ts: GET /api/usuarios/:id/perfil com exigirSessao e a regra T-5 (servidor em comum, amizade aceita ou conversa direta; senão 404 igual ao de id inexistente ou removido). Devolve amigos em comum (interseção de amizades aceitas, sem removidos e sem os dois), servidores em comum (INTERSECT de membros, com nome e ícone) e contaDesde (só a data, só com conversa direta). pedirAmizade passa a exigir a mesma regra.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-10",
+        "CA-11"
+      ],
+      "validacao": "server/test/perfil-em-comum.test.ts: 2 amigos e 1 servidor em comum, servidor só do beto fora; pendente, removido e banido fora; 404 uniforme para fora de contexto, inexistente e removido; contaDesde só com DM e sem hora; pedido de amizade a quem não conhece recusado; amizades.test existente continua passando; npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "e2973a7"
+    },
+    {
+      "id": "T4",
+      "titulo": "Cartão da pessoa e onde ele abre",
+      "descricao": "client: ContextoPerfil (abrirPerfil(usuarioId, ancora)) provido pela TelaPrincipal; CartaoPessoa.tsx (fundo com cores ou url conferida por urlArquivoValida, foto sobreposta, nome, @usuario, cargo e função como etiquetas, status, atividade, sobre mim com TextoComLinks dir=auto e sem prévia, membro desde, linha de em comum que chega depois, campo Mensagem para @x com Enter (dm:abrir, enviarMensagem, navegar), botões Mensagem e Ver perfil, Editar perfil no próprio, conta removida; posição dentro da janela, Esc e clique fora devolvem o foco). Gatilhos: autor e foto em ItemMensagem, menção (id em MencoesDoTexto), lista de membros (clique; clique direito continua), foto em amigos e DMs na BarraLateral (T-2), cabeçalho da DmAberta. api.perfilDe; loja atualizarUsuario também em conhecidos.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1",
+        "T3"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-11",
+        "CA-12"
+      ],
+      "validacao": "Testes de unidade: CartaoPessoa com DTO completo (degradê, etiquetas, sobre mim, Membro desde), conta removida, próprio cartão com Editar perfil, teclado (Enter no nome, foco no campo, Tab, Esc devolve foco), Enter envia (aoMensagem chamado com o texto), url de fora não vira imagem, cor inválida cai no padrão; gatilhos em ItemMensagem, menção, BarraLateral; loja atualiza conhecidos sem pôr em usuarios; testes de DM existentes passam; conferência visual no app. npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "c7152a5"
+    },
+    {
+      "id": "T5",
+      "titulo": "Perfil completo",
+      "descricao": "client: PerfilCompleto.tsx, janela no meio da tela aberta pelo Ver perfil: o cartão em tamanho maior, listas de amigos em comum (fotos e nomes de usuarios e conhecidos) e de servidores em comum, botão de amizade (pedir, aceitar, desfazer). Esc fecha e devolve o foco.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-10"
+      ],
+      "validacao": "Testes de unidade: listas de em comum vindas de perfilDe, botão de amizade conforme a situação, Esc e foco; npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "c7152a5"
+    },
+    {
+      "id": "T6",
+      "titulo": "Editar o fundo e o sobre mim em Minha conta",
+      "descricao": "client: TelaPerfil.tsx ganha o fundo (uma ou duas cores, enviar imagem ou GIF, Tirar fundo) e o sobre mim (contador de caracteres e linhas, validarSobreMim), com a prévia do próprio CartaoPessoa; some com servidor antigo (eu.fundo === undefined). api: enviarFundo, removerFundo, atualizarPerfil com os campos novos.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2",
+        "T4"
+      ],
+      "criterios": [
+        "CA-6",
+        "CA-9"
+      ],
+      "validacao": "Testes de unidade: escolher cores salva fundoCores; enviar arquivo chama enviarFundo e atualiza a prévia; erro 413/415/429 aparece; Tirar fundo; sobre mim com 191 ou 4 linhas mostra o limite e não salva; servidor antigo esconde a edição; npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "ba35a7e"
+    },
+    {
+      "id": "T7",
+      "titulo": "Fundo suave na lista de membros",
+      "descricao": "client: a linha de cada pessoa na lista de membros ganha uma camada própria (pseudo-elemento) com a miniUrl ou as cores, em opacidade baixa e com o véu do tema por cima (contraste do nome ≥ 4,5:1), sem mudar o hover; exceções do tema gibi; prefers-reduced-motion.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2",
+        "T4"
+      ],
+      "criterios": [
+        "CA-14"
+      ],
+      "validacao": "Teste de unidade do item com fundo (camada com a miniatura, nunca a url animada); conferência visual nos 6 temas; npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "ba35a7e"
+    },
+    {
+      "id": "T8",
+      "titulo": "E2E do mini perfil com dois apps",
+      "descricao": "client/e2e/mini-perfil.spec.ts: cartão pelo autor, pela menção e pela lista de membros; Enter no campo abre a DM e a mensagem chega ao beto; a ana envia um GIF de fundo e o beto vê no cartão e na lista (só a miniatura na lista); nenhum pedido fora do servidor; perfil completo com amigos e servidores em comum. Prints em docs/demandas/mini-perfil/prints.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-4",
+        "CA-6",
+        "CA-8",
+        "CA-10",
+        "CA-14"
+      ],
+      "validacao": "sh e2e/isolado.sh e2e/mini-perfil.spec.ts passa; prints gerados; a suíte E2E inteira continua passando.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "ef126e1"
+    },
+    {
+      "id": "T9",
+      "titulo": "Novidades da 0.17.0",
+      "descricao": "shared/src/novidades.ts: entrada 0.17.0 com o mini perfil e os itens do backlog já feitos (ícone no Linux pelo .deb e espera da atualização, versão do servidor no rodapé, menu de status inteiro, Procurar atualização).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T8"
+      ],
+      "criterios": [
+        "RF-6"
+      ],
+      "validacao": "Teste de novidades passa; npm test inteiro, lint e build verdes.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "57608bb"
+    }
+  ]
+}

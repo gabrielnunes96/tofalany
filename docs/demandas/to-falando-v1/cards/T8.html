@@ -1,0 +1,26 @@
+<!-- T8 — Canais de texto e de voz -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-7, RN-7, RN-8; CA-12, CA-13 e a parte da T8 do CA-50.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (eventos canal:* com ack) e §4 (tabela canais, migration 003).</p>
+
+<h3>Implementação (05/11/2026, commit 3087e5d)</h3>
+<ul>
+  <li><b>Servidor:</b> migration 003 com "geral" (texto) e "Sala 1" (voz); <code>canal:criar|renomear</code> para qualquer membro, <code>canal:remover</code> só administrador (cargo relido a cada pedido); nome 1–32; ack padronizado (<code>comAck</code>); <code>canal:criado|renomeado|removido</code> para todos; auditoria canal_criado, canal_renomeado (com nome anterior; mesmo nome não grava) e canal_removido na mesma transação; canais no <code>ola</code>.</li>
+  <li><b>App:</b> layout de 3 colunas (canais | conteúdo | membros); criar pelo "+"; canal de texto aberto com renomear e remover (admin, com confirmação, botão desativado durante o pedido); canal de voz com renomear e remover na própria barra; ao remover o canal aberto, abre o primeiro de texto; perfil e administração abrem no centro sem derrubar a conexão; filtro por canal na auditoria (mantém o canal escolhido se ele for removido).</li>
+  <li><b>Pendência registrada na T9:</b> remover canal apaga as mensagens (e, na T11, os anexos) — hoje ainda não há mensagens.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/canais.test.ts</code> (canais iniciais, CA-12 com 2 sockets em &lt; 2 s, CA-13/RN-7, validações, CA-50), <code>shared</code> (validarNomeCanal), <code>client/.../componentes.test.tsx</code> (FormNome, BarraLateral, CanalAberto), <code>loja.test.ts</code> (ordem, canal aberto, reconexão), <code>tempo-real.test.ts</code> (pedir com e sem conexão, eventos), <code>TelaAuditoria.test.tsx</code> (filtro por canal). Suíte: 178 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (2 apps): ana cria #jogos e renomeia para #jogatina</td><td>ok</td><td>o dono vê cada mudança em menos de 2 s</td></tr>
+  <tr><td>E2E: ana cria o canal de voz "Squad" e renomeia "Sala 1" para "Sala Neon"</td><td>ok</td><td>o dono vê em menos de 2 s; a ana não tem "remover"</td></tr>
+  <tr><td>E2E: dono remove #jogatina com confirmação</td><td>ok</td><td>some para a ana, que volta para #geral</td></tr>
+  <tr><td>E2E: auditoria filtrando "🔊 Squad"</td><td>ok</td><td>"ana criou o canal "Squad""</td></tr>
+  <tr><td>E2E: suíte completa</td><td>ok</td><td>11 testes passando</td></tr>
+</table>
+<p>Revisão: 5 achados (0 graves, 1 médio, 4 menores); 4 corrigidos, 1 registrado para a T9.</p>

@@ -1,0 +1,22 @@
+node_modules/
+dist/
+release/
+out/
+.claude/
+.env
+server/data/
+*.log
+test-results/
+playwright-report/
+*.tsbuildinfo
+copia-banco-*.db
+.versao-instalada
+.atualizando.lock
+
+# Chaves SSH (nunca no git)
+keys/
+*.key
+*.pem
+
+# Menu de desenvolvimento (npm run dev): dados e logs locais
+.dev/

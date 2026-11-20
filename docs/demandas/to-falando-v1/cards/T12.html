@@ -1,0 +1,24 @@
+<!-- T12 — Mensagens diretas -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1 (funcional v2): RF-12a, RN-18, RN-21; CA-19a, CA-19b; pendência da T10 (eventos de DM só para os participantes). Notificação e contador de não lidas do CA-19a ficam na T13.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (dm:abrir, destino dmId, GET /api/dms/:id/mensagens) e §4 (dms, mensagens.dm_id).</p>
+
+<h3>Implementação (05/11/2026, commit e1564ab)</h3>
+<ul>
+  <li><b>Servidor:</b> migration 006 (dms com par único a&lt;b; mensagens.dm_id com cascata); destino genérico <code>{ canalId } | { dmId }</code>; em DM, mensagem nova/editada/apagada vão só para as salas dos dois e "digitando" só para o outro; <code>dm:abrir</code> devolve a DM e avisa só quem abriu (a outra pessoa recebe <code>dm:atualizada</code> na primeira mensagem); não participante — inclusive administrador — recebe "Conversa não encontrada." (403) sem saber se a mensagem existe; administrador participante não edita nem apaga mensagem alheia; DM consigo mesmo é recusada; DM com conta removida fica só para leitura; nada de DM na auditoria.</li>
+  <li><b>App:</b> botão ✉ "Conversar com X" na lista de membros; seção "Mensagens diretas" na barra (mais recente primeiro, "conta removida" quando for o caso); conversa aberta no centro com texto, anexos, edição, exclusão e "digitando"; loja com chaves "c:&lt;id&gt;" e "d:&lt;id&gt;" (módulo <code>estado/chaves.ts</code>); componente <code>Conversa</code> genérico usado por canal e por DM.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/dms.test.ts</code> (CA-19a, CA-19b, admin participante, só leitura com conta removida, RN-21, digitando só para o outro, ordem e recusas), <code>client/.../Dms.test.tsx</code>, <code>loja.test.ts</code> (DMs e chaves), <code>tempo-real.test.ts</code>. Suíte: 238 testes passando em 3 rodadas seguidas; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (3 apps): ana abre DM com a bia pelo ✉, manda texto e imagem</td><td>ok</td><td>a bia vê a conversa em "Mensagens diretas" com o texto e a imagem</td></tr>
+  <tr><td>E2E: ana edita a mensagem</td><td>ok</td><td>a bia vê "segredo editado" com "(editada)"</td></tr>
+  <tr><td>E2E: dono (admin, terceiro)</td><td>ok</td><td>não vê a conversa; GET do histórico dá 403</td></tr>
+  <tr><td>E2E: suíte completa</td><td>ok</td><td>16 testes passando</td></tr>
+</table>
+<p>Revisão: 8 achados (0 graves, 3 médios, 5 menores), todos corrigidos — inclusive um teste instável que dependia de duas ações no mesmo milissegundo.</p>

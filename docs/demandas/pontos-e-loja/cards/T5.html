@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, CA-14, CA-16, CA-17, RN-9, RN-10, RN-15 (técnica, seção 3 e R-1, R-9).</p>
+<h3>Padrão</h3>
+<p>Conferência de qualidade em server/src/realtime/tela.ts (tela:pedir, faixaForaDaRegra do webhook e cargoMudou).</p>
+
+<h3>Implementação (12/11/2026, commit c2d261b)</h3>
+<ul><li>papel() traz os vales da conta (qualidadesDaLoja; admin da instalação: todos os vales, sem 2K) e tela:pedir usa qualidadesPermitidas(cargo, permissões, vales).</li><li>Transmissão liberada por vale fica marcada (porVale): se o vale vence, ela segue até parar, inclusive numa republicação; cargoMudou passa a marcar quem perdeu o cargo e segue pelo vale.</li><li>Sem dimensões: só passa cargo de alta ou transmissão acima de 720p30 liberada; 720p30 de membro continua suspeita.</li><li>papel() calculado uma vez por handler.</li></ul>
+
+<h3>Testes unitários</h3>
+<p>tela.test.ts: vale de 1080p60 libera 720p60, 1080p30 e 1080p60 e não 2K (faixas 1080p e sem dimensões passam, 1440p silenciada); vale de 1080p30 só ele; CA-16 com vale de 720p60 (faixa 1080p silenciada; 720p30 sem dimensões suspeita); CA-17 (vence no meio, segue, republicação passa, próximo pedido recusado). O admin da instalação sem cargo admin no servidor do canal não foi testado aqui: ele vira admin ao entrar em qualquer servidor (membroNaComunidade); o domínio cobre qualidadesDaLoja do admin. Suíte: 493 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint</td><td>ok</td><td>sem erros</td></tr><tr><td>npm test</td><td>ok</td><td>90 arquivos, 493 testes</td></tr><tr><td>npm run build</td><td>ok</td><td>shared, server e client</td></tr><tr><td>Transmissão real entre máquinas</td><td>pendente</td><td>pare_e_pergunte: validar com o grupo depois de publicar</td></tr>
+</table>

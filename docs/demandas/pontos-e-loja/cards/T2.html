@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, RN-5 a RN-9, RN-11, RN-13, RN-17; CA-12, CA-13, CA-22, CA-26 (técnica, seções 3, 4 e 6).</p>
+<h3>Padrão</h3>
+<p>Migração no fim de MIGRACOES; domínio síncrono em server/src/dominio com banco.transaction; config por variável de ambiente com inteiro(...).</p>
+
+<h3>Implementação (12/11/2026, commit 41ab7e6)</h3>
+<ul><li>Migração 017: pontos_saldos, pontos_movimentos, loja_temas e loja_vales, vazias (sem retroativo).</li><li>shared/src/loja.ts: catálogo dos 3 temas, QUALIDADES_VALE, VALE_MS, ItemLoja e lerItemLoja, LojaEstadoDto, MovimentoDto, qualidadesDosVales (RN-9) e novaValidade (RN-8).</li><li>Tema ganha cinzas, arcano e gibi (TEMAS_GRATIS e TEMAS_LOJA); CodigoErro com saldo_insuficiente, item_invalido, item_ja_comprado e tudo_liberado.</li><li>dominio/loja.ts: estadoLoja (tudoLiberado para o admin da instalação), qualidadesDaLoja (admin: todos os vales, não 2K), creditar por sessão (ignora 0), comprar atômico, extrato paginado.</li><li>config.pontos: PONTOS_POR_MINUTO, PRECO_TEMA e PRECO_VALE_* (documentados em deploy/exemplo.env), PONTOS_MINUTO_MS e PONTOS_TIQUE_MS para os testes.</li></ul>
+
+<h3>Testes unitários</h3>
+<p>loja-dominio.test.ts (loja vazia, crédito por sessão, CA-12, CA-13, RN-9, saldo insuficiente de tema e vale, tema duplicado, admin, CA-22 com paginação); banco.test.ts (versão 16 com histórico migra para a 17 com a loja vazia). Suíte: 480 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint</td><td>ok</td><td>sem erros</td></tr><tr><td>npm test</td><td>ok</td><td>89 arquivos, 480 testes</td></tr><tr><td>npm run build</td><td>ok</td><td>shared, server e client</td></tr><tr><td>E2E</td><td>adiado</td><td>roda na T9 com a demanda inteira</td></tr>
+</table>

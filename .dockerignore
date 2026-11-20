@@ -1,0 +1,17 @@
+**/node_modules
+**/dist
+client/out
+client/release
+client/e2e
+client/test-results
+docs
+deploy
+.git
+.claude
+**/*.log
+**/.env
+**/test-results
+server/data
+**/*.db
+client/release
+client/build

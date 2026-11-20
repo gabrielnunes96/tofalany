@@ -1,0 +1,102 @@
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela,
+  mesclarAtividade, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
+
+export interface ArmazemConfiguracoes {
+  ler(): ConfiguracoesLocais;
+  gravar(parcial: Partial<ConfiguracoesLocais>): ConfiguracoesLocais;
+}
+
+/**
+ * Aplica sobre `base` só os valores válidos de `bruto`; chave desconhecida ou valor inválido
+ * mantém o que já estava. A URL é validada aqui, no processo confiável (vira origem da CSP na T23).
+ */
+function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais {
+  const resultado: ConfiguracoesLocais = { ...base };
+  if (!bruto || typeof bruto !== 'object') return resultado;
+  const obj = bruto as Record<string, unknown>;
+  if ('servidorUrl' in obj) {
+    const valor = obj.servidorUrl;
+    if (valor === null) resultado.servidorUrl = null;
+    else if (typeof valor === 'string') {
+      const url = normalizarUrlServidor(valor);
+      if (url.ok) resultado.servidorUrl = url.valor;
+    }
+  }
+  if ('audio' in obj) resultado.audio = mesclarAudio(base.audio, obj.audio);
+  if ('atalhos' in obj) resultado.atalhos = mesclarAtalhos(base.atalhos, obj.atalhos);
+  if ('pessoas' in obj) resultado.pessoas = mesclarPessoas(base.pessoas, obj.pessoas);
+  if ('sons' in obj) resultado.sons = mesclarSons(base.sons, obj.sons);
+  if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
+  if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
+  if ('atividade' in obj) resultado.atividade = mesclarAtividade(base.atividade, obj.atividade);
+  if (typeof obj.novidadesVistas === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}([-+][\w.-]{1,40})?$/.test(obj.novidadesVistas)) resultado.novidadesVistas = obj.novidadesVistas;
+  if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
+  if (obj.aoFechar === 'perguntar' || obj.aoFechar === 'bandeja' || obj.aoFechar === 'sair') resultado.aoFechar = obj.aoFechar;
+  if (Array.isArray(obj.servidores)) {
+    const vistos = new Set<string>();
+    const lista: ServidorConhecido[] = [];
+    for (const item of obj.servidores.slice(0, 20)) {
+      if (!item || typeof item !== 'object') continue;
+      const { url, nome, icone } = item as { url?: unknown; nome?: unknown; icone?: unknown };
+      const n = typeof url === 'string' ? normalizarUrlServidor(url) : undefined;
+      if (!n?.ok || vistos.has(n.valor)) continue;
+      vistos.add(n.valor);
+      const s: ServidorConhecido = { url: n.valor };
+      if (typeof nome === 'string' && nome.trim()) s.nome = nome.trim().slice(0, 64);
+      // Imagem: só do mesmo host do servidor, em /files/<id>.
+      if (typeof icone === 'string' && icone.length <= 512) {
+        try {
+          const u = new URL(icone);
+          if (u.host === new URL(n.valor).host && /^\/files\/[\w.-]+$/.test(u.pathname) && !u.search) s.icone = u.href;
+        } catch {
+          // endereço inválido: sem imagem
+        }
+      }
+      lista.push(s);
+    }
+    resultado.servidores = lista;
+  }
+  if (obj.ocultos && typeof obj.ocultos === 'object') {
+    const o = obj.ocultos as Record<string, unknown>;
+    resultado.ocultos = { canais: o.canais === true, membros: o.membros === true, cameras: o.cameras === true };
+  }
+  if (typeof obj.tema === 'string' && (TEMAS as string[]).includes(obj.tema)) resultado.tema = obj.tema as Tema;
+  if (obj.statusEscolhido && typeof obj.statusEscolhido === 'object') {
+    const validos: Record<string, EscolhaStatus> = {};
+    for (const [url, valor] of Object.entries(obj.statusEscolhido as Record<string, unknown>)) {
+      if (typeof valor === 'string' && (ESCOLHAS_STATUS as string[]).includes(valor)) validos[url] = valor as EscolhaStatus;
+    }
+    resultado.statusEscolhido = validos;
+  }
+  return resultado;
+}
+
+/** Configurações locais (RN-14) num JSON em userData, gravado de forma atômica. */
+export function criarArmazemConfiguracoes(arquivo: string): ArmazemConfiguracoes {
+  let atual: ConfiguracoesLocais | undefined;
+
+  function ler(): ConfiguracoesLocais {
+    if (!atual) {
+      try {
+        atual = mesclar(CONFIGURACOES_PADRAO, JSON.parse(readFileSync(arquivo, 'utf8')));
+      } catch {
+        atual = { ...CONFIGURACOES_PADRAO };
+      }
+    }
+    return { ...atual };
+  }
+
+  function gravar(parcial: Partial<ConfiguracoesLocais>): ConfiguracoesLocais {
+    const novo = mesclar(ler(), parcial);
+    mkdirSync(dirname(arquivo), { recursive: true });
+    const tmp = `${arquivo}.tmp`;
+    writeFileSync(tmp, JSON.stringify(novo, null, 2), 'utf8');
+    renameSync(tmp, arquivo);
+    atual = novo;
+    return { ...novo };
+  }
+
+  return { ler, gravar };
+}

@@ -1,0 +1,125 @@
+{
+  "demanda": "busca-de-gif",
+  "titulo": "Busca de GIF",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "GIF no servidor: configuração, migração 020 e envio",
+      "descricao": "shared: GifDto, GifConfig, MensagemDto.gif?, mensagem:enviar com gif?, limites GIF_*, validarGif (https, host static\\d*.klipy.com ou o de KLIPY_URL, sem porta/credenciais, slug, lados 1–4096, descrição até 200) e textoSemGif. server: config.gif lido de KLIPY_API_KEY/KLIPY_URL; rota GET /api/gif/config (exigirSessao, 204 sem chave, {chave, base, cliente} com cliente = HMAC-SHA256(chave, comunidade:usuario) em 32 hex, cache-control no-store); migração 020 (mensagens.gif TEXT); inserirMensagem grava, paraDtos devolve gif e conteudo com a URL no fim; mensagem:enviar valida o GIF, exige enviar_anexos no canal e aceita texto vazio com GIF; prévia recusa static*.klipy.com; deploy/exemplo.env documenta KLIPY_API_KEY.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-2",
+        "CA-7",
+        "CA-8",
+        "CA-12"
+      ],
+      "validacao": "validacao.test.ts (validarGif e textoSemGif); server/test/gif.test.ts: config 401 sem sessão, 204 sem chave, 200 sem o id no cliente e chave fora do log; envio válido chega ao outro socket com gif e conteudo terminando na URL; http, outro host, porta, slug inválido e lado 0 recusados; castigo e cargo sem enviar_anexos recusados; editar mantém o GIF; prévia de static.klipy.com devolve 204; npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "6988753"
+    },
+    {
+      "id": "T2",
+      "titulo": "Liberar a Klipy no filtro de rede do app",
+      "descricao": "rede.ts: opção gifLigado que libera só https://api.klipy.com e https://static\\d*.klipy.com. index.ts e preload: IPC rede:gif(servidor, ligado); o processo principal guarda as origens ligadas (criarEstadoGif) e só libera a Klipy para o servidor atual. api.ts: configGif() em GET /api/gif/config; o renderer chama o IPC depois de ler a configuração no login e na troca de servidor.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-6"
+      ],
+      "validacao": "rede.test.ts: Klipy bloqueada sem gifLigado; com ele, api.klipy.com, static.klipy.com e static2.klipy.com em https liberados; http, evil-klipy.com e static.klipy.com.evil.io recusados. api.test: configGif com 204 vira undefined. npm test, lint e typecheck do client.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "9de4013"
+    },
+    {
+      "id": "T3",
+      "titulo": "Serviço da Klipy e painel de busca",
+      "descricao": "servicos/gif.ts: emAlta, buscar e compartilhar (fetch com timeout de 8 s, customer_id, locale=br, content_filter=medium, format_filter=webp,jpg), convertendo a resposta em {itens, temMais} e exibindo só itens type gif com sm/md webp. PainelGif.tsx: diálogo 'Escolher GIF', busca com placeholder 'Search KLIPY' e aria-label 'Buscar GIF', debounce de 300 ms, cache por consulta, grade na ordem devolvida com blur_preview, página seguinte por IntersectionObserver, roving tab com setas, Enter escolhe, Esc fecha e devolve o foco, estados de carregando, vazio e indisponível. Estilos .painel-gif*.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-3",
+        "CA-9",
+        "CA-10",
+        "CA-11"
+      ],
+      "validacao": "gif.test.ts: URLs e parâmetros montados, conversão da resposta documentada, share com customer_id e q. PainelGif.test.tsx com fetch falso: em alta sem texto, busca após a pausa, ordem preservada, sem pedido repetido, página seguinte, indisponível em falha ou timeout, teclado e Esc. npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "9daae77"
+    },
+    {
+      "id": "T4",
+      "titulo": "Enviar e mostrar o GIF no chat",
+      "descricao": "MensagensCanal: botão GIF ao lado do '+' quando há configGif; ao escolher, aoEnviar(texto, {...opcoes, gif}), limpa o compositor e a faixa de resposta e chama compartilhar sem esperar. TelaPrincipal, CanalAberto, DmAberta e tempo-real repassam o gif. GifMensagem.tsx: img com width/height, lado máximo de 300 px, alt com a descrição, lazy, 'GIF indisponível' no erro. ItemMensagem usa textoSemGif e não gera prévia para o link da Klipy. notificar.ts usa o texto sem a URL ou 'GIF'. Estilos .botao-gif e .gif-mensagem, com a exceção do tema gibi.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2",
+        "T3"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-4",
+        "CA-5",
+        "CA-10",
+        "CA-12"
+      ],
+      "validacao": "Testes de unidade: botão some sem configGif; aoEnviar recebe texto, respostaA e gif; erro de permissão aparece; GifMensagem com tamanho e alt, 'GIF indisponível' no onError; texto sem a URL e sem prévia; notificação 'GIF'. Conferência visual no app com o servidor local. npm test, lint e typecheck.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "e0c1cf2"
+    },
+    {
+      "id": "T5",
+      "titulo": "E2E da busca de GIF com Klipy falsa e dois apps",
+      "descricao": "client/e2e/gif.spec.ts: o servidor de teste registra /api/v1/:chave/gifs/trending, search e share na própria instância Fastify, com imagens servidas do mesmo host, e sobe com KLIPY_API_KEY e KLIPY_URL. Cenários: sem chave não há botão; em alta, busca 'gato', envio com texto e resposta chegando ao vivo no outro app; share registrado; nenhum pedido fora do servidor. Prints em docs/demandas/busca-de-gif/prints.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-6",
+        "CA-10"
+      ],
+      "validacao": "npx playwright test e2e/gif.spec.ts passa (via sh e2e/isolado.sh); prints gerados.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "a6f59e1"
+    },
+    {
+      "id": "T6",
+      "titulo": "Novidades da 0.16.0 com a busca de GIF",
+      "descricao": "shared/src/novidades.ts: item 'GIF' na entrada 0.16.0, mais os itens do backlog já entregues (17 a 20) que ainda faltam. Ajustar os testes de novidades.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T5"
+      ],
+      "criterios": [
+        "RF-7"
+      ],
+      "validacao": "Teste de novidades passa; npm test inteiro, lint e build verdes.",
+      "estado": "feito",
+      "wi": null,
+      "commit": "5b4db4e"
+    }
+  ]
+}

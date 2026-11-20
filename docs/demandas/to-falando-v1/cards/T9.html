@@ -1,0 +1,24 @@
+<!-- T9 — Chat de texto com histórico -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-8, CA-14, CA-15; pendência da T8 (RN-8: remover canal apaga o histórico).</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (mensagem:enviar, mensagem:nova, GET /api/canais/:id/mensagens) e §4 (tabela mensagens, paginação por id).</p>
+
+<h3>Implementação (05/11/2026, commit registrado em tarefas.json)</h3>
+<ul>
+  <li><b>Servidor:</b> migration 004 (mensagens com ON DELETE CASCADE do canal); <code>mensagem:enviar</code> com ack e <code>mensagem:nova</code> para todos; texto 1–4000 caracteres aparado nas pontas; histórico <code>?antes=&amp;limite=</code> (50 por padrão, máx. 100) em ordem cronológica com <code>fim</code>; canal de voz ou inexistente dá 404.</li>
+  <li><b>App:</b> chat no canal aberto com autor, avatar e horário ("conta removida" para quem saiu); Enter envia, Shift+Enter quebra linha; histórico por canal na loja com geração de carga (respostas atrasadas de antes de reconectar ou de canal removido são ignoradas; junção ordenada por id); ao chegar ao topo carrega as anteriores mantendo a posição; mensagem nova só rola a lista se a pessoa estava no fim; "Tentar de novo" se a primeira carga falhar; reconectar recarrega o canal aberto.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/mensagens.test.ts</code> (envio e entrega, validações, CA-14 com 500, limite, CA-15 com banco em arquivo, 401/404), <code>server/test/canais.test.ts</code> (RN-8: mensagens somem com o canal), <code>client/.../MensagensCanal.test.tsx</code>, <code>loja.test.ts</code> (páginas, respostas atrasadas), <code>tempo-real.test.ts</code>, <code>shared</code> (validarTextoMensagem). Suíte: 192 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E (2 apps): ana envia mensagem com duas linhas</td><td>ok</td><td>o dono recebe "oi, pessoal!\nsegunda linha"</td></tr>
+  <tr><td>E2E: dono envia pelo app, 500 mensagens no banco, servidor reinicia</td><td>ok</td><td>abre com 50, "mensagem 500" no fim</td></tr>
+  <tr><td>E2E: rolar até o topo</td><td>ok</td><td>501 mensagens, "Este é o começo de #geral.", a enviada pelo app continua lá</td></tr>
+  <tr><td>E2E: suíte completa</td><td>ok</td><td>13 testes passando</td></tr>
+</table>
+<p>Revisão: 6 achados (0 graves, 2 médios, 4 menores), todos corrigidos.</p>

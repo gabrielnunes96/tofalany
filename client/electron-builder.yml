@@ -1,0 +1,74 @@
+# Instaladores do ToFalany (RF-32). npm run dist:linux → .AppImage e .deb; npm run dist:win → .exe (NSIS, via wine no Linux).
+appId: com.tofalany.app
+# Versão exata do Electron instalado (o builder baixa os binários de cada plataforma desta versão).
+electronVersion: 45.2.3
+productName: ToFalany
+copyright: ToFalany
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+# Backlog v2, 1e: ícone da bandeja do sistema.
+extraResources:
+  - from: build/icon.png
+    to: icone.png
+# O gancho de teclado (uiohook-napi) é nativo: fica fora do asar. Os binários de cada plataforma já vêm no pacote.
+asarUnpack:
+  - '**/node_modules/uiohook-napi/**'
+  # Backlog v2, item 13: som do sistema no Linux (PipeWire), binário pronto da venmic.
+  - '**/node_modules/@vencord/venmic/**'
+npmRebuild: false
+# Backlog v2, 1d: a atualização automática lê as releases deste repositório (latest*.yml publicados pelo CI).
+publish:
+  provider: github
+  owner: gabrielnunes96
+  repo: tofalany
+  releaseType: release
+# Endurecimento do binário: sem modo Node pelo ambiente e só o app do asar. (A inspeção por linha de comando fica:
+# o Playwright usa para testar o app empacotado.)
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  onlyLoadAppFromAsar: true
+# RF-1a: o sistema abre o app pelos links tofalany:// (o AppImage se registra na primeira execução, R-6).
+protocols:
+  - name: ToFalany
+    schemes:
+      - tofalany
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Network
+  executableName: tofalany
+  # Backlog 21: os tamanhos de 16 a 512 (o .deb instalava só o de 512, e o painel do Linux mostrava o genérico).
+  icon: build/icons
+  synopsis: Voz, chat e tela para o seu grupo
+  description: App de voz, chat de texto, webcam e transmissão de tela para um servidor próprio.
+  maintainer: ToFalany
+  desktop:
+    entry:
+      MimeType: x-scheme-handler/tofalany;
+deb:
+  artifactName: tofalany_${version}_${arch}.${ext}
+  # Áudio pelo PipeWire ou PulseAudio (requisito de plataforma).
+  recommends:
+    - pipewire-pulse | pulseaudio
+appImage:
+  artifactName: ToFalany-${version}.${ext}
+win:
+  target:
+    - nsis
+  icon: build/icon-256.png
+  # Sem assinatura de código (R-8): o SmartScreen avisa na primeira instalação. Sem certificado (CSC_*), o builder
+  # não assina, mas grava ícone e versão dentro do .exe: é o ícone que o atalho da área de trabalho mostra
+  # (com false, o atalho ficava com o ícone padrão do Electron; backlog 19).
+  signAndEditExecutable: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  artifactName: ToFalany-Setup-${version}.${ext}

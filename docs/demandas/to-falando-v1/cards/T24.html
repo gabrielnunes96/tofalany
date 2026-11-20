@@ -1,0 +1,28 @@
+<!-- T24 — Instaladores (AppImage, deb, NSIS) -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-32, RF-1a (link tofalany://); CA-43; riscos R-6 (AppImage não instala) e R-8 (sem assinatura).</p>
+<h3>Padrão</h3>
+<p>Técnica §10 (empacotamento com electron-builder) e a pendência da T13 (AppUserModelId para notificações no Windows).</p>
+
+<h3>Implementação (06/11/2026, commit 1b416b2)</h3>
+<ul>
+  <li><b>electron-builder</b> (<code>client/electron-builder.yml</code>): <code>appId com.tofalany.app</code>, Electron 45.2.3 fixo, ícone próprio (<code>client/build/</code>). Linux: AppImage e .deb (executável <code>tofalany</code>, recomenda PipeWire ou PulseAudio). Windows: NSIS com escolha de pasta e atalho, sem assinatura (o SmartScreen avisa na primeira vez). Scripts <code>npm run dist:linux</code> e <code>npm run dist:win</code> (o .exe sai no Linux pelo wine).</li>
+  <li><b>Link tofalany://</b>: o .deb registra pelo <code>tofalany.desktop</code> (<code>desktopName</code>); o .exe registra na instalação; o AppImage grava o próprio atalho em <code>~/.local/share/applications</code> na primeira execução (e de novo se mudar de lugar), com o caminho escapado como pede a especificação Desktop Entry. Se o .deb e o AppImage estiverem instalados, fica com o link o último AppImage aberto.</li>
+  <li><b>Windows</b>: AppUserModelId definido no app empacotado (notificações aparecem e o clique volta ao app).</li>
+  <li><b>Atalhos globais</b>: uiohook-napi fora do asar, com os binários de cada plataforma.</li>
+  <li><b>Endurecimento</b>: fuses sem RunAsNode e sem NODE_OPTIONS, carregando só o app do asar. A inspeção por linha de comando continua ligada porque o Playwright precisa dela para testar o app empacotado.</li>
+</ul>
+
+<h3>Testes</h3>
+<p>Unitários em <code>client/src/main/integracao.test.ts</code>: atalho do AppImage, escape do Exec, gravação única e regravação ao mudar de lugar, caminho inválido e ID igual ao do yml. E2E <code>client/e2e/empacotado.spec.ts</code>: o app empacotado abre, cadastra pelo convite e entra; é pulado se o pacote não existe ou está mais velho que o build. Também corrigi uma instabilidade do E2E de auditoria, que agora espera a saída real da pessoa em vez de um tempo fixo. Resultado: 357 testes unitários e de integração passando, lint e build sem erros, E2E com 29 passando, 1 instável que passou na segunda tentativa (voz, CA-21) e 2 pulados (compose; empacotado, rodado à parte depois do pacote).</p>
+
+<h3>Validação (local, 06/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td><code>npm run dist:linux</code></td><td>ok</td><td>ToFalany-0.1.0.AppImage (127 MB) e tofalany_0.1.0_amd64.deb (102 MB); o .deb traz <code>tofalany.desktop</code> com x-scheme-handler/tofalany</td></tr>
+  <tr><td><code>npm run dist:win</code></td><td>ok</td><td>ToFalany-Setup-0.1.0.exe (122 MB), com o binário win32 do uiohook</td></tr>
+  <tr><td>E2E CA-43 com o app empacotado</td><td>ok</td><td>abre, cadastra e entra (print T24-app-empacotado)</td></tr>
+  <tr><td><code>@electron/fuses read</code></td><td>ok</td><td>RunAsNode e NODE_OPTIONS desligados; OnlyLoadAppFromAsar ligado</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> instalar o .deb (precisa de sudo) e abrir pelo menu; rodar o AppImage e clicar num link tofalany:// no navegador; instalar o .exe num Windows (aviso do SmartScreen, notificação, atalho global, link pelo navegador).</p>
+<p>Revisão: 11 achados (1 grave: o link no Linux usaria um .desktop com o nome errado), corrigidos. Ficou de fora só a remoção dos binários do uiohook das outras plataformas, que custa poucos MB. A homepage é <code>https://tofalany.invalid</code>, porque o .deb exige uma e o projeto não tem site; troque se um dia tiver.</p>

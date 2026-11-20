@@ -1,0 +1,28 @@
+<!-- T2 — Cadastro, login e sessão -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1: RF-2, RF-3; RN-1 a RN-4; CA-2 a CA-6.</p>
+<h3>Padrão</h3>
+<p>Técnica §3 (contratos de autenticação, erros { erro, mensagem }), §4 (usuarios, sessoes, configuracoes; migrations por PRAGMA user_version com backup), §6 (scrypt, token só com hash, safeStorage, limite de tentativas).</p>
+
+<h3>Implementação (04/11/2026, commit 4c7f728)</h3>
+<ul>
+  <li><b>Rotas:</b> <code>POST /api/auth/cadastro</code> (201 { token, usuario }; 400 dados_invalidos, 403 convite_invalido, 409 usuario_em_uso, 409 limite_contas, 429 muitas_tentativas), <code>POST /api/auth/login</code> (401 credenciais_invalidas, mesma resposta para usuário inexistente), <code>POST /api/auth/sair</code> (204), <code>GET /api/eu</code>; <code>GET /api/servidor</code> passa a trazer <code>contas</code>. 404 e erros de cliente do Fastify no formato do contrato.</li>
+  <li><b>Regras:</b> convite conferido antes de validar e do hash, e de novo na transação; sem código vigente nada passa. Limite e unicidade (sem diferenciar maiúsculas) na mesma transação; primeira conta do banco é admin. Código inicial de CODIGO_CONVITE; depois vale o do banco.</li>
+  <li><b>Segurança:</b> scrypt N=2^15 r=8 p=1; token de 256 bits, banco guarda SHA-256; cabeçalho Authorization fora do log; 10 tentativas/min por IP (TENTATIVAS_POR_MINUTO; ATRAS_DE_PROXY para IP real atrás do Caddy).</li>
+  <li><b>App:</b> tela Entrar ("Já tenho conta" / "Tenho um convite") com validação igual à do servidor; sessão em userData cifrada com safeStorage (sem cofre: arquivo 600); reabrir valida em /api/eu e entra direto; 401 volta ao login; sem rede mostra "Sem conexão".</li>
+  <li><b>Diferenças da técnica:</b> migrations como texto em <code>server/src/db/migracoes.ts</code> (não .sql); validação com JSON schema do Fastify + shared (sem zod).</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/auth.test.ts</code> (CA-2 a CA-6, convite antes dos dados, sem convite vigente, JSON malformado, 404, hash da senha e do token, limite de tentativas), <code>server/test/banco.test.ts</code> (migrations, backup, RN-1 código do banco vence), <code>server/src/auth/auth.test.ts</code>, <code>client/src/main/sessao.test.ts</code>, <code>client/src/renderer/servicos/api.test.ts</code>, <code>client/src/renderer/telas/TelaEntrar.test.tsx</code>. Suíte: 68 testes passando; lint e build verdes.</p>
+
+<h3>Validação (local, 04/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: CA-1 (URL, recusa, reabrir, cancelar troca)</td><td>ok</td><td>continua passando com a tela Entrar</td></tr>
+  <tr><td>E2E: cadastro com convite errado</td><td>ok</td><td>"Código de convite inválido."</td></tr>
+  <tr><td>E2E: primeira conta</td><td>ok</td><td>"Olá, dono" · Administrador</td></tr>
+  <tr><td>E2E: reabrir o app</td><td>ok</td><td>entra direto (CA-6)</td></tr>
+  <tr><td>E2E: sair, senha errada, entrar com "DONO", sair e reabrir</td><td>ok</td><td>login sem diferenciar maiúsculas; reabrir depois de sair pede login</td></tr>
+</table>
+<p>Revisão: 11 achados (0 graves, 3 médios, 8 menores), todos corrigidos.</p>

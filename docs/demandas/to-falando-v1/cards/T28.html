@@ -1,0 +1,25 @@
+<!-- T28 — Status das pessoas: online, ausente e offline -->
+<h3>Origem</h3>
+<p>Demanda to-falando-v1 (v5): RF-37, RN-24, RN-25; CA-56, CA-57.</p>
+<h3>Padrão</h3>
+<p>Técnica, seção "Status, silenciar e notificações (v5)": status em memória no servidor, ociosidade pelo <code>powerMonitor</code>, "mais presente" entre computadores, ausente fora da auditoria.</p>
+
+<h3>Implementação (05/11/2026, commit 6f05c62)</h3>
+<ul>
+  <li><b>Servidor</b>: online quando alguma conexão da pessoa está em uso; ausente quando todas avisaram ociosidade; offline só quando a carência da RN-24 termina (a mesma da auditoria). <code>ola.presencas</code> e <code>presenca:atualizada</code> para todos. O "ausente" vai no handshake (reconectar não pisca online) e aviso repetido não gera broadcast.</li>
+  <li><b>App</b>: o processo principal consulta a ociosidade do sistema a cada 15 s (ausente com 10 min) e avisa a janela; a lista de membros mostra "Online — N" (online e ausente) e "Offline — N", com bolinha verde/amarela/vazada e o status lido pelo leitor de tela; DMs com a bolinha e o status como descrição.</li>
+</ul>
+
+<h3>Testes</h3>
+<p><code>server/test/presenca-status.test.ts</code> (online, ausente, dois computadores, carência, queda curta, dados inválidos, handshake), <code>ociosidade.test.ts</code>, <code>loja.test.ts</code>, <code>tempo-real.test.ts</code>; E2E <code>e2e/voz.spec.ts</code> (CA-56/57). Suíte: 327 testes e 24 E2E passando; lint e build verdes.</p>
+
+<h3>Validação (local, 05/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>E2E: ana entra</td><td>ok</td><td>dono vê "ana, online" e "Online — 2"</td></tr>
+  <tr><td>E2E CA-57: 10 min ociosa (simulado) e volta</td><td>ok</td><td>"ana, ausente" (print T28-ana-ausente) e depois online</td></tr>
+  <tr><td>E2E CA-56: ana fecha e reabre o app</td><td>ok</td><td>"ana, offline" depois da carência (print T28-ana-offline) e online de novo</td></tr>
+</table>
+<p><b>A validar pelo usuário:</b> deixar o computador parado 10 min e ver o amarelo do outro lado; voltar a mexer (até 15 s para atualizar).</p>
+<p><b>Pendências:</b> no Wayland puro a ociosidade do sistema pode vir sempre 0 (pessoa nunca fica ausente) — entra no README (T26), junto da nota de atalhos (R-1). O E2E de voz passou a repetir uma vez em caso de falha, porque o indicador de fala do LiveKit fica lento com a suíte inteira rodando (T23).</p>
+<p>Revisão: 8 achados (0 graves, 2 médios, 6 menores), todos corrigidos ou registrados.</p>

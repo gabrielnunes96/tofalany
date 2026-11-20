@@ -1,0 +1,16 @@
+<h3>Origem</h3>
+<p>Demanda pontos-e-loja, RF-2 a RF-5, RF-9, RF-10; CA-8, CA-9, CA-10, CA-20, CA-21, CA-22.</p>
+<h3>Padrão</h3>
+<p>Tela no padrão Tela*.tsx com aoVoltar e api; estado da sessão na store zustand alimentada pelo ola e pelos eventos.</p>
+
+<h3>Implementação (12/11/2026, commit 01f3688)</h3>
+<ul><li>Store: pontos e definirPontos em estado/loja.ts (desvio registrado na técnica R-13: campo na store existente, não estado/pontos.ts); tempo real ouve &#x27;loja:estado&#x27;.</li><li>TelaPrincipal: vista Loja (só quando o servidor manda ola.loja), item Loja no menu e pílula de saldo no painel do usuário que abre a loja.</li><li>TelaLoja: saldo e como ganhar; temas com amostra do próprio tema no cartão, &#x27;Seu&#x27;/&#x27;Usar agora&#x27;, &#x27;Ver prévia&#x27; (troca o tema sem gravar e volta ao sair ou fechar); vales com validade; confirmação &#x27;Comprar o tema X por N pontos?&#x27; com foco em Cancelar, Escape e foco de volta; botão desligado &#x27;Faltam N pontos&#x27;; admin &#x27;Liberado (administrador)&#x27;; extrato que junta páginas por id; erros com &#x27;Tentar de novo&#x27;.</li><li>CSS da loja, da pílula e da prévia (cabe em 375px).</li></ul>
+
+<h3>Testes unitários</h3>
+<p>TelaLoja.test.tsx (compra, sem saldo, prévia e volta, prévia ao desmontar, tema meu e validade, admin, extrato, erro da compra, Escape, erro do extrato), estado/loja.test.ts (pontos do ola e do evento), tempo-real.test.ts (loja:estado). Suíte: 517 testes passando.</p>
+
+<h3>Validação (local, 12/11/2026)</h3>
+<table border="1" cellpadding="4">
+  <tr><th>Chamada</th><th>Status</th><th>Resultado</th></tr>
+  <tr><td>npm run lint</td><td>ok</td><td>sem erros</td></tr><tr><td>npm test</td><td>ok</td><td>92 arquivos, 517 testes. TelaAuditoria (rolagem) falhou uma vez com a suíte cheia e passou sozinho 3 vezes: intermitência antiga com espera fixa de 50 ms, fora da loja</td></tr><tr><td>npm run build</td><td>ok</td><td>shared, server e client</td></tr><tr><td>Tela no app de verdade</td><td>adiado</td><td>E2E da loja na T9</td></tr>
+</table>

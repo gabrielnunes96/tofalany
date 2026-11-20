@@ -1,0 +1,396 @@
+import { createContext, useContext } from 'react';
+import { create } from 'zustand';
+import { textoSemGif, trechoDeResposta } from '@tofalando/shared';
+import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica, AmizadeDto, AtividadeDto, LojaEstadoDto, ReacaoDto, RespostaDto } from '@tofalando/shared';
+import type { EstadoConexao } from '../servicos/tempo-real';
+
+import { chaveCanal, chaveDe, type Chave } from './chaves';
+
+export { chaveCanal, chaveDe, chaveDm, type Chave } from './chaves';
+
+/** Estado da sessão alimentado pelo tempo real (cresce com voz…). */
+interface Loja {
+  conexao: EstadoConexao;
+  nomeServidor: string | null;
+  /** Imagem do servidor (/files/<id>), se tiver. */
+  iconeServidor: string | null;
+  /** Servidor desta conexão (1 = principal) e quem o criou (só quem criou exclui). */
+  servidorId: number | null;
+  donoServidor: number | null;
+  linkConvite: string | null;
+  eu: UsuarioDto | null;
+  usuarios: UsuarioDto[];
+  /** Backlog v2, item 10c: cargos personalizados do servidor. */
+  funcoes: FuncaoDto[];
+  definirFuncoes(funcoes: FuncaoDto[]): void;
+  canais: CanalDto[];
+  /** Canal de texto escolhido (fica guardado mesmo com uma DM aberta). */
+  canalAtivo: number | null;
+  /** DMs da pessoa, da mais recente para a mais antiga. */
+  dms: DmDto[];
+  /** DM aberta no centro (null = mostra o canal ativo). */
+  dmAtiva: number | null;
+  /** Histórico já carregado por conversa (some ao reconectar, para recarregar sem buracos). */
+  historicos: Partial<Record<Chave, Historico>>;
+  /** Mensagens não lidas por conversa (RF-12). */
+  naoLidas: Partial<Record<Chave, number>>;
+  /** Ids das não lidas que chegaram nesta conexão (para descontar se forem apagadas e para o aviso de leitura). */
+  naoLidasIds: Partial<Record<Chave, number[]>>;
+  /** Quem está digitando em cada conversa: usuarioId → até quando (ms). */
+  digitando: Partial<Record<Chave, Record<number, number>>>;
+  /** Soundboard do servidor (RF-22). */
+  sons: SomDto[];
+  /** RF-13: quem está em cada canal de voz e quem fala agora (na sala em que eu estou). */
+  voz: VozEstadoDto[];
+  falando: number[];
+  /** RF-37: status de quem não está offline (ausência na lista = offline). */
+  presencas: Partial<Record<number, StatusVisivel>>;
+  /** Atividade (jogo, música) de quem mostra. */
+  atividades: Partial<Record<number, AtividadeDto>>;
+  definirAtividade(id: number, a: AtividadeDto | null): void;
+  definirPresenca(id: number, status: StatusPessoa): void;
+  /** RN-10: transmissões de tela ativas (uma por canal). */
+  transmissoes: TransmissaoDto[];
+  iniciarTransmissao(t: TransmissaoDto): void;
+  pararTransmissao(canalVozId: number, usuarioId?: number): void;
+  espectadoresDaTransmissao(canalVozId: number, usuarioId: number, espectadores: number[]): void;
+  /** Backlog v2, item 14: o bot de música em cada canal de voz (só os que têm algo tocando). */
+  musica: EstadoMusica[];
+  definirMusica(estado: EstadoMusica): void;
+  /** Amigos e pedidos (valem em todos os servidores) e quem são as pessoas de fora deste servidor. */
+  amizades: AmizadeDto[];
+  conhecidos: UsuarioDto[];
+  definirAmizades(amizades: AmizadeDto[], conhecidos?: UsuarioDto[]): void;
+  /** Pontos e loja: saldo e itens da conta (null = servidor sem loja). */
+  pontos: LojaEstadoDto | null;
+  definirPontos(estado: LojaEstadoDto): void;
+  definirVoz(estados: VozEstadoDto[]): void;
+  definirFalando(ids: number[]): void;
+  definirSons(sons: SomDto[]): void;
+  /** Resposta de uma ação do admin: mescla por id sobre o estado atual (o evento pode ter chegado antes). */
+  salvarSom(som: SomDto): void;
+  tirarSom(id: number): void;
+  definirConexao(estado: EstadoConexao): void;
+  aplicarOla(payload: OlaPayload): void;
+  servidorAtualizado(s: { nome: string; iconeUrl: string | null }): void;
+  adicionarUsuario(usuario: UsuarioDto): void;
+  /** Mesmo efeito de adicionar (substitui pelo id) e também atualiza "eu" se for a própria pessoa. */
+  atualizarUsuario(usuario: UsuarioDto): void;
+  /** Mini perfil (T-8): amigo ou alguém da DM, de fora deste servidor, mudou o perfil (só a lista de conhecidos). */
+  atualizarConhecido(usuario: UsuarioDto): void;
+  removerUsuario(id: number): void;
+  definirLinkConvite(link: string): void;
+  salvarCanal(canal: CanalDto): void;
+  removerCanal(id: number): void;
+  abrirCanal(id: number): void;
+  salvarDm(dm: DmDto): void;
+  abrirDm(id: number): void;
+  /** Marca o início de uma carga e devolve a geração dela; respostas de cargas antigas são ignoradas. */
+  iniciarCarga(chave: Chave): number;
+  receberPagina(chave: Chave, pagina: PaginaMensagens, geracao: number): void;
+  falharCarga(chave: Chave, erro: string, geracao: number): void;
+  adicionarMensagem(mensagem: MensagemDto): void;
+  atualizarMensagem(mensagem: MensagemDto): void;
+  removerMensagem(id: number, chave: Chave | null): void;
+  /** Reações de uma mensagem (lista inteira; vazia tira o campo). */
+  aplicarReacoes(id: number, chave: Chave | null, reacoes: ReacaoDto[]): void;
+  registrarDigitando(chave: Chave, usuarioId: number, ate: number): void;
+  contarNaoLida(chave: Chave, mensagemId: number): void;
+  zerarNaoLidas(chave: Chave): void;
+  /** Leitura feita (aqui ou em outro computador) até `ultimaMensagemId`: tira o que foi lido. */
+  aplicarLeitura(chave: Chave, ultimaMensagemId: number): void;
+  /** Mensagem apagada: se era uma não lida desta conexão, desconta. */
+  descontarApagada(chave: Chave, mensagemId: number): void;
+  limpar(): void;
+}
+
+/** Mesma ordem do servidor: nome_exibicao COLLATE NOCASE (só A–Z sem caixa), depois id. */
+const semCaixaAscii = (t: string) => t.replace(/[A-Z]/g, (c) => c.toLowerCase());
+function compararComoServidor(a: UsuarioDto, b: UsuarioDto): number {
+  const x = semCaixaAscii(a.nomeExibicao);
+  const y = semCaixaAscii(b.nomeExibicao);
+  return x < y ? -1 : x > y ? 1 : a.id - b.id;
+}
+
+export interface Historico {
+  mensagens: MensagemDto[];
+  /** Geração da carga em andamento (ou da última). */
+  geracao: number;
+  /** Não há mais antigas. */
+  fim: boolean;
+  carregando: boolean;
+  erro: string | null;
+}
+
+const historicoVazio: Historico = { mensagens: [], geracao: 0, fim: false, carregando: false, erro: null };
+let proximaGeracao = 1;
+
+const inicial = {
+  conexao: 'conectando' as EstadoConexao,
+  nomeServidor: null,
+  iconeServidor: null,
+  servidorId: null,
+  donoServidor: null,
+  linkConvite: null,
+  eu: null,
+  usuarios: [] as UsuarioDto[],
+  funcoes: [] as FuncaoDto[],
+  canais: [] as CanalDto[],
+  canalAtivo: null as number | null,
+  dms: [] as DmDto[],
+  dmAtiva: null as number | null,
+  historicos: {} as Partial<Record<Chave, Historico>>,
+  naoLidas: {} as Partial<Record<Chave, number>>,
+  naoLidasIds: {} as Partial<Record<Chave, number[]>>,
+  digitando: {} as Partial<Record<Chave, Record<number, number>>>,
+  sons: [] as SomDto[],
+  voz: [] as VozEstadoDto[],
+  presencas: {} as Partial<Record<number, StatusVisivel>>,
+  atividades: {} as Partial<Record<number, AtividadeDto>>,
+  transmissoes: [] as TransmissaoDto[],
+  musica: [] as EstadoMusica[],
+  amizades: [] as AmizadeDto[],
+  pontos: null as LojaEstadoDto | null,
+  conhecidos: [] as UsuarioDto[],
+  falando: [] as number[],
+};
+
+const ordenarCanais = (canais: CanalDto[]) =>
+  [...canais].sort((a, b) => (a.tipo === b.tipo ? a.posicao - b.posicao || a.id - b.id : a.tipo === 'texto' ? -1 : 1));
+
+const ordenarDms = (dms: DmDto[]) => [...dms].sort((a, b) => b.ultimaEm - a.ultimaEm || b.id - a.id);
+
+/** Mantém o canal aberto se ele ainda existe; senão abre o primeiro de texto. */
+function canalValido(canais: CanalDto[], atual: number | null): number | null {
+  if (atual !== null && canais.some((c) => c.id === atual && c.tipo === 'texto')) return atual;
+  return canais.find((c) => c.tipo === 'texto')?.id ?? null;
+}
+
+/**
+ * Cada servidor aberto tem a sua loja (a voz de um servidor continua viva enquanto a pessoa olha outro).
+ * `useLoja` é a do primeiro (e dos testes de componente); a TelaPrincipal cria a dela com criarLoja().
+ */
+export const criarLoja = () =>
+  create<Loja>((set) => ({
+  ...inicial,
+  definirConexao: (conexao) => set({ conexao }),
+  definirSons: (sons) => set({ sons }),
+  definirFuncoes: (funcoes) => set({ funcoes }),
+  definirVoz: (voz) => set({ voz }),
+  iniciarTransmissao: (t) =>
+    set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => !(x.canalVozId === t.canalVozId && x.usuarioId === t.usuarioId)), t] })),
+  // Sem usuário (servidor antigo): todas as do canal.
+  pararTransmissao: (canalVozId, usuarioId) =>
+    set((s) => ({ transmissoes: s.transmissoes.filter((x) => !(x.canalVozId === canalVozId && (usuarioId === undefined || x.usuarioId === usuarioId))) })),
+  espectadoresDaTransmissao: (canalVozId, usuarioId, espectadores) =>
+    set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId && x.usuarioId === usuarioId ? { ...x, espectadores } : x)) })),
+  definirAmizades: (amizades, conhecidos) => set((s) => ({ amizades, conhecidos: conhecidos ?? s.conhecidos })),
+  definirPontos: (pontos) => set({ pontos }),
+  definirMusica: (estado) =>
+    set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])] })),
+  definirPresenca: (id, status) =>
+    set((s) => {
+      const presencas = { ...s.presencas };
+      if (status === 'offline') delete presencas[id];
+      else presencas[id] = status;
+      return { presencas };
+    }),
+  definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
+  salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
+  tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
+  servidorAtualizado: ({ nome, iconeUrl }) => set({ nomeServidor: nome, iconeServidor: iconeUrl }),
+  definirAtividade: (id, a) =>
+    set((s) => {
+      const atividades = { ...s.atividades };
+      if (a) atividades[id] = a;
+      else delete atividades[id];
+      return { atividades };
+    }),
+  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica, amizades, conhecidos, atividades, loja }) =>
+    set((s) => {
+      const ordenados = ordenarCanais(canais);
+      return {
+        nomeServidor: servidor.nome,
+        iconeServidor: servidor.iconeUrl ?? null,
+        servidorId: servidor.id ?? null,
+        donoServidor: servidor.donoId ?? null,
+        linkConvite: convite.link,
+        eu,
+        usuarios,
+        funcoes: funcoes ?? [],
+        canais: ordenados,
+        canalAtivo: canalValido(ordenados, s.canalAtivo),
+        dms: ordenarDms(dms),
+        sons,
+        voz,
+        transmissoes: transmissoes ?? [],
+        musica: (musica ?? []).filter((m) => m.tocando || m.fila.length || m.conectado),
+        amizades: amizades ?? [],
+        conhecidos: conhecidos ?? [],
+        pontos: loja ?? null,
+        presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
+        atividades: Object.fromEntries(Object.entries(atividades ?? {}).map(([id, a]) => [Number(id), a])),
+        dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
+        // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
+        historicos: {},
+        digitando: {},
+        naoLidasIds: {},
+        naoLidas: Object.fromEntries(Object.entries(naoLidas).filter(([k]) => /^[cd]:\d+$/.test(k))) as Partial<Record<Chave, number>>,
+      };
+    }),
+  salvarCanal: (canal) =>
+    set((s) => {
+      const canais = ordenarCanais([...s.canais.filter((c) => c.id !== canal.id), canal]);
+      return { canais, canalAtivo: canalValido(canais, s.canalAtivo) };
+    }),
+  removerCanal: (id) =>
+    set((s) => {
+      const canais = s.canais.filter((c) => c.id !== id);
+      const historicos = { ...s.historicos };
+      delete historicos[chaveCanal(id)];
+      return { canais, canalAtivo: canalValido(canais, s.canalAtivo), historicos };
+    }),
+  salvarDm: (dm) => set((s) => ({ dms: ordenarDms([...s.dms.filter((d) => d.id !== dm.id), dm]) })),
+  abrirDm: (id) => set((s) => ({ dmAtiva: s.dms.some((d) => d.id === id) ? id : s.dmAtiva })),
+  iniciarCarga: (chave) => {
+    const geracao = proximaGeracao++;
+    set((s) => ({ historicos: { ...s.historicos, [chave]: { ...(s.historicos[chave] ?? historicoVazio), geracao, carregando: true, erro: null } } }));
+    return geracao;
+  },
+  receberPagina: (chave, pagina, geracao) =>
+    set((s) => {
+      const atual = s.historicos[chave];
+      // Conversa removida, reconexão (ola limpou tudo) ou carga mais nova em andamento: resposta velha, ignora.
+      if (!atual || atual.geracao !== geracao) return {};
+      const porId = new Map([...atual.mensagens, ...pagina.mensagens].map((m) => [m.id, m]));
+      const mensagens = [...porId.values()].sort((a, b) => a.id - b.id);
+      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens, fim: pagina.fim, carregando: false, erro: null } } };
+    }),
+  falharCarga: (chave, erro, geracao) =>
+    set((s) => {
+      const atual = s.historicos[chave];
+      if (!atual || atual.geracao !== geracao) return {};
+      return { historicos: { ...s.historicos, [chave]: { ...atual, carregando: false, erro } } };
+    }),
+  adicionarMensagem: (m) =>
+    set((s) => {
+      const chave = chaveDe(m);
+      if (!chave) return {};
+      const atual = s.historicos[chave];
+      // Quem mandou a mensagem parou de digitar.
+      const quem = { ...(s.digitando[chave] ?? {}) };
+      delete quem[m.autorId];
+      const digitando = { ...s.digitando, [chave]: quem };
+      // Conversa ainda não carregada: a mensagem vem junto quando ela for aberta.
+      if (!atual || atual.mensagens.some((x) => x.id === m.id)) return { digitando };
+      return { digitando, historicos: { ...s.historicos, [chave]: { ...atual, mensagens: [...atual.mensagens, m] } } };
+    }),
+  atualizarMensagem: (m) =>
+    set((s) => {
+      const chave = chaveDe(m);
+      const atual = chave ? s.historicos[chave] : undefined;
+      if (!chave || !atual) return {};
+      // As respostas a ela mostram o texto novo (CA-13).
+      const trecho = trechoDeResposta(textoSemGif(m.texto, m.gif)) || (m.gif ? 'GIF' : '');
+      const resposta: RespostaDto = { id: m.id, autorId: m.autorId, trecho, ...(!trecho && m.anexos.length ? { soAnexo: true as const } : {}) };
+      const mensagens = atual.mensagens.map((x) => (x.id === m.id ? m : x.resposta?.id === m.id && !x.resposta.apagada ? { ...x, resposta } : x));
+      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+    }),
+  aplicarReacoes: (id, chave, reacoes) =>
+    set((s) => {
+      const atual = chave ? s.historicos[chave] : undefined;
+      if (!chave || !atual || !atual.mensagens.some((x) => x.id === id)) return {};
+      const mensagens = atual.mensagens.map((x) => {
+        if (x.id !== id) return x;
+        const nova: MensagemDto = { ...x, reacoes };
+        if (!reacoes.length) delete nova.reacoes;
+        return nova;
+      });
+      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+    }),
+  removerMensagem: (id, chave) =>
+    set((s) => {
+      const atual = chave ? s.historicos[chave] : undefined;
+      if (!chave || !atual) return {};
+      // As respostas a ela ficam com "Mensagem original apagada" (CA-12).
+      const mensagens = atual.mensagens.filter((x) => x.id !== id).map((x) => (x.resposta?.id === id ? { ...x, resposta: { id, apagada: true as const } } : x));
+      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+    }),
+  registrarDigitando: (chave, usuarioId, ate) =>
+    set((s) => ({ digitando: { ...s.digitando, [chave]: { ...(s.digitando[chave] ?? {}), [usuarioId]: ate } } })),
+  contarNaoLida: (chave, mensagemId) =>
+    set((s) => ({
+      naoLidas: { ...s.naoLidas, [chave]: (s.naoLidas[chave] ?? 0) + 1 },
+      naoLidasIds: { ...s.naoLidasIds, [chave]: [...(s.naoLidasIds[chave] ?? []), mensagemId] },
+    })),
+  zerarNaoLidas: (chave) =>
+    set((s) => {
+      if (!s.naoLidas[chave] && !s.naoLidasIds[chave]) return {};
+      const naoLidas = { ...s.naoLidas };
+      const naoLidasIds = { ...s.naoLidasIds };
+      delete naoLidas[chave];
+      delete naoLidasIds[chave];
+      return { naoLidas, naoLidasIds };
+    }),
+  aplicarLeitura: (chave, ultimaMensagemId) =>
+    set((s) => {
+      const ids = s.naoLidasIds[chave] ?? [];
+      // Chegou não lida mais nova que a leitura (ex.: outro computador marcou antes dela): fica só ela.
+      const restantes = ids.filter((id) => id > ultimaMensagemId);
+      const naoLidas = { ...s.naoLidas };
+      const naoLidasIds = { ...s.naoLidasIds };
+      if (restantes.length) {
+        naoLidas[chave] = restantes.length;
+        naoLidasIds[chave] = restantes;
+      } else {
+        delete naoLidas[chave];
+        delete naoLidasIds[chave];
+      }
+      return { naoLidas, naoLidasIds };
+    }),
+  descontarApagada: (chave, mensagemId) =>
+    set((s) => {
+      const ids = s.naoLidasIds[chave];
+      if (!ids?.includes(mensagemId)) return {};
+      const restantes = ids.filter((id) => id !== mensagemId);
+      const naoLidas = { ...s.naoLidas };
+      const naoLidasIds = { ...s.naoLidasIds, [chave]: restantes };
+      const n = (naoLidas[chave] ?? 1) - 1;
+      if (n > 0) naoLidas[chave] = n;
+      else delete naoLidas[chave];
+      return { naoLidas, naoLidasIds };
+    }),
+  abrirCanal: (id) => set((s) => ({ canalAtivo: canalValido(s.canais, id), dmAtiva: null })),
+  definirLinkConvite: (linkConvite) => set({ linkConvite }),
+  adicionarUsuario: (usuario) =>
+    set((s) => ({
+      usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),
+    })),
+  atualizarUsuario: (usuario) =>
+    set((s) => {
+      // A resposta do PATCH não traz o "membro desde" deste servidor: mantém o que já havia.
+      const anterior = s.usuarios.find((u) => u.id === usuario.id);
+      const novo = usuario.membroDesde || !anterior?.membroDesde ? usuario : { ...usuario, membroDesde: anterior.membroDesde };
+      return {
+        usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), novo].sort(compararComoServidor),
+        eu: s.eu?.id === usuario.id ? novo : s.eu,
+        // A cópia em conhecidos acompanha (se a pessoa sair do servidor, não reaparece velha).
+        ...(s.conhecidos.some((c) => c.id === usuario.id) ? { conhecidos: s.conhecidos.map((c) => (c.id === usuario.id ? { ...usuario, cargo: 'membro' as const, funcaoId: null } : c)) } : {}),
+      };
+    }),
+  atualizarConhecido: (usuario) => set((s) => (s.conhecidos.some((c) => c.id === usuario.id) ? { conhecidos: s.conhecidos.map((c) => (c.id === usuario.id ? usuario : c)) } : {})),
+  removerUsuario: (id) =>
+    set((s) => ({
+      usuarios: s.usuarios.filter((u) => u.id !== id),
+      digitando: Object.fromEntries(
+        Object.entries(s.digitando).map(([chave, quem]) => [chave, Object.fromEntries(Object.entries(quem ?? {}).filter(([u]) => Number(u) !== id))]),
+      ),
+    })),
+  limpar: () => set(inicial),
+  }));
+
+export const useLoja = criarLoja();
+export type UsarLoja = typeof useLoja;
+/** A loja do servidor desta tela (padrão: a global). */
+export const ContextoLoja = createContext<UsarLoja>(useLoja);
+export const useLojaDaTela = () => useContext(ContextoLoja);
