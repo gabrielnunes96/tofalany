@@ -14,9 +14,9 @@
         "CA-2"
       ],
       "validacao": "server/test/atividade.test.ts: amigo e membro recebem; conta só da comunidade 2 sem amizade não recebe (onAny + espera); aceitar amizade reenvia; desfazer manda null; nome do teste 'chega para todos' trocado. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "e720f63"
     },
     {
       "id": "T2",
@@ -29,7 +29,7 @@
         "CA-1"
       ],
       "validacao": "Dms.test.tsx: BarraLateral com atividades mostra 'Jogando Hades' na linha do amigo e nada sem atividade; conferir no app (npm run dev) com a aba Amigos aberta, desktop. npm test e lint.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

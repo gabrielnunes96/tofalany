@@ -1,10 +1,11 @@
 import { Icone } from './Icone';
 import { useContext, useState } from 'react';
 import { ContextoPerfil } from './ContextoPerfil';
-import type { AmizadeDto, CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
+import type { AmizadeDto, AtividadeDto, CanalDto, DmDto, TipoCanal, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel } from '@tofalando/shared';
 import { Avatar } from './Avatar';
 import { StatusPonto } from './StatusPonto';
 import { FormNome } from './FormNome';
+import { textosAtividade } from '../estado/atividade';
 
 interface Props {
   /** Esconde a barra (o botão fica no topo dela; para mostrar de novo, o botão vai para o topo da conversa). */
@@ -48,6 +49,8 @@ interface Props {
   aoSilenciarPessoa?: (usuarioId: number, silenciar: boolean) => void;
   /** RF-37: status de quem não está offline. */
   presencas?: Partial<Record<number, StatusVisivel>>;
+  /** Atividade (jogo, música) de quem mostra; aparece na aba Amigos (correcoes-atividade, RF-1). */
+  atividades?: Partial<Record<number, AtividadeDto>>;
   /** RF-40: conversas com notificações silenciadas ("c:<id>"/"d:<id>"). */
   silenciadas?: string[];
   /** RN-10: quem transmite a tela em cada canal de voz. */
@@ -333,6 +336,7 @@ export function BarraLateral({
   servidorUrl,
   aoEntrarVoz,
   presencas = {},
+  atividades = {},
   silenciadas = [],
   transmissoes = [],
   aoEsconder,
@@ -460,6 +464,7 @@ export function BarraLateral({
           dmAtiva={dmAtiva}
           naoLidas={naoLidas}
           presencas={presencas}
+          atividades={atividades}
           silenciadas={silenciadas}
           servidorUrl={servidorUrl ?? ''}
           euId={euId}
@@ -486,6 +491,7 @@ function AbaAmigos({
   dmAtiva,
   naoLidas,
   presencas,
+  atividades,
   silenciadas,
   servidorUrl,
   euId,
@@ -502,6 +508,7 @@ function AbaAmigos({
   dmAtiva: number | null;
   naoLidas: Partial<Record<string, number>>;
   presencas: Partial<Record<number, StatusVisivel>>;
+  atividades: Partial<Record<number, AtividadeDto>>;
   silenciadas: string[];
   servidorUrl: string;
   euId?: number;
@@ -529,7 +536,7 @@ function AbaAmigos({
     e.preventDefault();
     aoMenuPessoa(id, e.clientX, e.clientY);
   };
-  const linhaPessoa = (u: UsuarioDto | undefined, id: number) => (
+  const linhaPessoa = (u: UsuarioDto | undefined, id: number, atividade?: AtividadeDto) => (
     <>
       {u && !abrirPerfil ? (
         <span className="avatar-com-status">
@@ -539,7 +546,18 @@ function AbaAmigos({
       ) : (
         !u && <StatusPonto status={presencas[id] ?? 'offline'} oculto />
       )}{' '}
-      <span className="nome-dm">{u?.nomeExibicao ?? 'conta removida'}</span>
+      {atividade ? (
+        // Amigo com atividade: o nome em cima e "Jogando…"/"Ouvindo…" embaixo (o texto todo no title). Fora do nome do
+        // botão (que não muda a cada leitura): o leitor de tela ouve a atividade como descrição (aria-describedby).
+        <span className="nome-com-atividade">
+          <span className="nome-dm">{u?.nomeExibicao ?? 'conta removida'}</span>
+          <span className="atividade-amigo" id={`atividade-amigo-${id}`} aria-hidden="true" title={textosAtividade(atividade).join('\n')}>
+            {textosAtividade(atividade)[0]}
+          </span>
+        </span>
+      ) : (
+        <span className="nome-dm">{u?.nomeExibicao ?? 'conta removida'}</span>
+      )}
     </>
   );
   /** Mini perfil (T-2): a linha inteira abre a conversa; a foto, ao lado, abre o cartão. */
@@ -615,9 +633,10 @@ function AbaAmigos({
                 type="button"
                 className={`canal${dm && dm.id === dmAtiva ? ' ativo' : ''}`}
                 aria-current={dm && dm.id === dmAtiva ? 'page' : undefined}
+                aria-describedby={atividades[u.id] ? `atividade-amigo-${u.id}` : undefined}
                 onClick={() => (dm ? aoAbrirDm(dm.id) : aoConversarCom?.(u.id))}
               >
-                {linhaPessoa(u, u.id)}
+                {linhaPessoa(u, u.id, atividades[u.id])}
                 {dm && silenciadas.includes(`d:${dm.id}`) && <Silenciada />}
                 <Contador n={dm ? naoLidas[`d:${dm.id}`] : undefined} />
               </button>

@@ -833,6 +833,10 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .abas-barra .contador { margin-left: 2px; }
 .grupo-dms button.canal { display: flex; align-items: center; gap: 8px; }
 .grupo-dms .nome-dm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Aba Amigos: a atividade do amigo embaixo do nome (correcoes-atividade). */
+.grupo-dms .nome-com-atividade { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.grupo-dms .nome-com-atividade .nome-dm { flex: none; }
+.atividade-amigo { font-size: 0.75rem; color: var(--cor-texto-suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grupo-dms .avatar-com-status { position: relative; display: inline-flex; }
 .escolher-pessoa { list-style: none; margin: 0 0 8px; padding: 4px; border: 1px solid var(--cor-borda); border-radius: var(--raio-p); background: color-mix(in srgb, var(--cor-fundo) 60%, transparent); animation: surgir 0.14s ease-out; }
 .escolher-pessoa button.canal { display: flex; align-items: center; gap: 8px; }

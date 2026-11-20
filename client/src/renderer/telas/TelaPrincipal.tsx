@@ -1499,6 +1499,7 @@ function TelaDoServidor({
             aoVolumePessoa={volumePessoa}
             aoSilenciarPessoa={silenciarPessoa}
             presencas={presencas}
+            atividades={atividades}
             transmissoes={transmissoes}
             silenciadas={silenciadasAqui}
           />

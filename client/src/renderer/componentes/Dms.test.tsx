@@ -147,3 +147,42 @@ describe('DmAberta', () => {
     expect(screen.getByRole('note').textContent).toBe('Essa conta foi removida. A conversa ficou só para leitura.');
   });
 });
+
+describe('BarraLateral — atividade na aba Amigos (correcoes-atividade, CA-1)', () => {
+  it('mostra a atividade do amigo abaixo do nome; sem atividade, só o nome', () => {
+    const caio = { ...bia, id: 3, usuario: 'caio', nomeExibicao: 'Caio' };
+    const davi = { ...bia, id: 4, usuario: 'davi', nomeExibicao: 'Davi' };
+    render(
+      <BarraLateral
+        nomeServidor="T"
+        canais={[]}
+        canalAtivo={null}
+        ehAdmin={false}
+        aoAbrir={vi.fn()}
+        aoCriar={fn()}
+        aoRenomear={fn()}
+        aoRemover={fn()}
+        dms={[]}
+        usuarios={[caio, davi]}
+        dmAtiva={null}
+        aoAbrirDm={vi.fn()}
+        aba="diretas"
+        euId={1}
+        amizades={[
+          { usuarioId: 3, situacao: 'amigo' },
+          { usuarioId: 4, situacao: 'amigo' },
+        ]}
+        atividades={{ 3: { jogo: 'Hades', musica: { titulo: 'Oceano', artista: 'Djavan' } } }}
+      />,
+    );
+    const [linhaCaio, linhaDavi] = screen.getByRole('list', { name: 'Amigos' }).querySelectorAll('li');
+    const atividade = linhaCaio!.querySelector('.atividade-amigo')!;
+    expect(atividade.textContent).toBe('🎮 Jogando Hades');
+    expect(atividade.getAttribute('title')).toBe('🎮 Jogando Hades\n🎵 Ouvindo Oceano — Djavan');
+    // O nome do botão continua só o nome; a atividade vai como descrição.
+    expect(screen.getByRole('button', { name: 'Caio' }).getAttribute('aria-describedby')).toBe(atividade.id);
+    expect(screen.getByRole('button', { name: 'Davi' }).getAttribute('aria-describedby')).toBeNull();
+    expect(linhaDavi!.textContent).toContain('Davi');
+    expect(linhaDavi!.querySelector('.atividade-amigo')).toBeNull();
+  });
+});
