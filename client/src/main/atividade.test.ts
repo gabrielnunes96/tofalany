@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { criarAtividade, escolherPlayer, jogoDaLinhaDeComando, playersMpris, jogoDoProcesso, lerAtividadeDoSistema, musicaDoMpris, musicaDoTituloSpotify, pastasSteam } from './atividade';
+import {
+  criarAtividade,
+  escolherPlayer,
+  jogoDaLinhaDeComando,
+  lerSaidaWindows,
+  musicaDoWindows,
+  musicaNoLinux,
+  noWindows,
+  playersMpris,
+  scriptWindows, jogoDoProcesso, lerAtividadeDoSistema, musicaDoMpris, musicaDoTituloSpotify, pastasSteam } from './atividade';
 import { criarNomesSteam } from './steam';
 
 describe('atividade', () => {
@@ -179,5 +188,159 @@ describe('atividade', () => {
 
   it('CA-5: nada tocando → sem música', () => {
     expect(escolherPlayer([])).toBeUndefined();
+  });
+
+  /** Saída do GetAll de um player: o estado e o Metadata juntos. */
+  const getAll = (estado: string, meta: string) => `method return
+   array [
+      dict entry(
+         string "PlaybackStatus"
+         variant             string "${estado}"
+      )
+      dict entry(
+         string "Metadata"
+${meta.split('\n').slice(1).join('\n')}
+      )
+   ]`;
+  const listNames = (...nomes: string[]) => `method return\n   array [\n${nomes.map((n) => `      string "${n}"`).join('\n')}\n   ]`;
+  const firefox = 'org.mpris.MediaPlayer2.firefox.instance_1_123';
+
+  it('CA-5: Linux, a aba do open.spotify.com pausada não conta; tocando, conta', async () => {
+    const registrar = vi.fn();
+    const dbus = (estado: string) => async (args: string[]) =>
+      args.includes('org.freedesktop.DBus.ListNames') ? listNames(firefox) : getAll(estado, metadata('Song', 'Band', 'https://open.spotify.com/track/abc'));
+    expect(await musicaNoLinux(registrar, dbus('Paused'))).toBeUndefined();
+    expect(await musicaNoLinux(registrar, dbus('Playing'))).toEqual({ titulo: 'Song', artista: 'Band' });
+    expect(registrar).not.toHaveBeenCalled();
+  });
+
+  it('Linux: um player que não responde não derruba os outros; o log diz o motivo sem o nome do player', async () => {
+    const registrar = vi.fn();
+    const dbus = async (args: string[]) => {
+      if (args.includes('org.freedesktop.DBus.ListNames')) return listNames('org.mpris.MediaPlayer2.vlc', firefox);
+      if (args.some((a) => a.includes('vlc'))) throw Object.assign(new Error('Command failed: dbus-send ... vlc'), { killed: true });
+      return getAll('Playing', metadata('Song', 'Band', 'https://open.spotify.com/track/abc'));
+    };
+    expect(await musicaNoLinux(registrar, dbus)).toEqual({ titulo: 'Song', artista: 'Band' });
+    expect(registrar).toHaveBeenCalledWith('atividade', 'musica: player tempo esgotado');
+  });
+
+  it('Linux: sem dbus-send → log "programa ausente", sem música', async () => {
+    const registrar = vi.fn();
+    const dbus = async () => {
+      throw Object.assign(new Error('spawn dbus-send ENOENT'), { code: 'ENOENT' });
+    };
+    expect(await musicaNoLinux(registrar, dbus)).toBeUndefined();
+    expect(registrar).toHaveBeenCalledWith('atividade', 'musica: D-Bus programa ausente');
+  });
+
+  it('título com aspas e barra (o dbus-send não escapa) e Spotify sem título não esconde a aba', () => {
+    expect(escolherPlayer([{ nome: firefox, metadata: metadata('Song "Live" \\', 'Band', 'https://open.spotify.com/track/abc') }])).toEqual({
+      titulo: 'Song "Live" \\',
+      artista: 'Band',
+    });
+    const anuncio = { nome: 'org.mpris.MediaPlayer2.spotify', metadata: 'method return\n   array [\n   ]' };
+    const aba = { nome: firefox, metadata: metadata('Song', 'Band', 'https://open.spotify.com/track/abc') };
+    expect(escolherPlayer([anuncio, aba])).toEqual({ titulo: 'Song', artista: 'Band' });
+  });
+
+  it('pasta da biblioteca sem o que vem antes do caminho: prefixo de argumento, aspas e dois caminhos', () => {
+    expect(pastasSteam('--filesystem=/home/a/.steam/steam/steamapps/common/Hades/')).toEqual([{ pasta: 'Hades', steamapps: '/home/a/.steam/steam/steamapps' }]);
+    expect(pastasSteam('"C:\\Program Files (x86)\\Steam\\steamapps\\common\\Hades\\Hades.exe" -x')).toEqual([
+      { pasta: 'Hades', steamapps: 'C:\\Program Files (x86)\\Steam\\steamapps' },
+    ]);
+    expect(pastasSteam('/a/steamapps/common/Proton 9.0/proton /b/steamapps/common/Hades/Hades.exe')).toEqual([{ pasta: 'Hades', steamapps: '/b/steamapps' }]);
+  });
+
+  describe('Windows (T-4, T-5, T-9)', () => {
+    const vazia = { caminhos: [], sessoes: [], janelas: [], erros: [] };
+    const nomesFalsos = (manifestos: Record<string, string> = {}) =>
+      criarNomesSteam({
+        listar: async () => Object.keys(manifestos),
+        ler: async (a) => {
+          const nome = a.split(/[\\/]/).pop()!;
+          if (manifestos[nome] === undefined) throw new Error('não existe');
+          return manifestos[nome]!;
+        },
+      });
+
+    it('script: só as partes ligadas, cada uma no seu try/catch', () => {
+      const soJogo = scriptWindows({ jogos: true, musica: false });
+      expect(soJogo).toContain('RunningAppID');
+      expect(soJogo).not.toContain('GlobalSystemMediaTransportControlsSessionManager');
+      const soMusica = scriptWindows({ jogos: false, musica: true });
+      expect(soMusica).toContain('GlobalSystemMediaTransportControlsSessionManager');
+      expect(soMusica).not.toContain('RunningAppID');
+      expect(soMusica.match(/try \{/g)?.length).toBe(2);
+    });
+
+    it('lê a saída marcada', () => {
+      const l = lerSaidaWindows(
+        ['A:570', 'D:c:/program files (x86)/steam', 'M:Spotify.exe\tOceano\tDjavan', 'W:chrome\tSong • Band - Google Chrome', 'E:musica:sessoes de midia indisponiveis', 'lixo'].join('\r\n'),
+      );
+      expect(l).toEqual({
+        appid: '570',
+        pastaSteam: 'c:/program files (x86)/steam',
+        caminhos: [],
+        sessoes: [{ app: 'Spotify.exe', titulo: 'Oceano', artista: 'Djavan' }],
+        janelas: [{ processo: 'chrome', titulo: 'Song • Band - Google Chrome' }],
+        erros: ['musica: sessoes de midia indisponiveis'],
+      });
+    });
+
+    it('CA-14b: aba do open.spotify.com no navegador vira música; YouTube não; o app do Spotify vale primeiro', () => {
+      const spotifyWeb = { ...vazia, sessoes: [{ app: 'Chrome', titulo: 'Song', artista: 'Band' }], janelas: [{ processo: 'chrome', titulo: 'Song • Band - Google Chrome' }] };
+      expect(musicaDoWindows(spotifyWeb)).toEqual({ titulo: 'Song', artista: 'Band' });
+      const youtube = { ...vazia, sessoes: [{ app: 'Chrome', titulo: 'Vídeo', artista: 'Canal' }], janelas: [{ processo: 'chrome', titulo: 'Vídeo - YouTube - Google Chrome' }] };
+      expect(musicaDoWindows(youtube)).toBeUndefined();
+      // Título parecido numa janela que não é de navegador não conta.
+      expect(musicaDoWindows({ ...youtube, janelas: [{ processo: 'notepad', titulo: 'Vídeo • Canal' }] })).toBeUndefined();
+      expect(musicaDoWindows({ ...spotifyWeb, sessoes: [{ app: 'Spotify.exe', titulo: 'Oceano', artista: 'Djavan' }, ...spotifyWeb.sessoes] })).toEqual({ titulo: 'Oceano', artista: 'Djavan' });
+      // Sem sessões de mídia (WinRT indisponível): o título da janela do Spotify, como antes.
+      expect(musicaDoWindows({ ...vazia, janelas: [{ processo: 'Spotify', titulo: 'Legião Urbana - Tempo Perdido' }] })).toEqual({ artista: 'Legião Urbana', titulo: 'Tempo Perdido' });
+    });
+
+    it('jogo pelo RunningAppID com o nome oficial; ferramenta não conta; sem AppID, pelos caminhos dos processos', async () => {
+      const manifestos = {
+        'libraryfolders.vdf': '"libraryfolders" { "0" { "path" "C:\\\\Steam" } }',
+        'appmanifest_570.acf': '"AppState" { "appid" "570" "name" "Dota 2" "installdir" "dota 2 beta" }',
+        'appmanifest_431960.acf': '"AppState" { "appid" "431960" "name" "Wallpaper Engine" "installdir" "wallpaper_engine" }',
+      };
+      const executar = (saida: string) => async () => ({ saida });
+      const registrar = vi.fn();
+      const comAppid = await noWindows({ jogos: true, musica: false }, nomesFalsos(manifestos), registrar, executar('A:570\nD:C:\\Steam'));
+      expect(comAppid).toEqual({ jogo: 'Dota 2' });
+      expect(await noWindows({ jogos: true, musica: false }, nomesFalsos(manifestos), registrar, executar('A:431960\nD:C:\\Steam'))).toEqual({});
+      const peloCaminho = await noWindows(
+        { jogos: true, musica: false },
+        nomesFalsos(manifestos),
+        registrar,
+        executar('A:0\nD:C:\\Steam\nP:C:\\Steam\\steamapps\\common\\dota 2 beta\\game\\bin\\win64\\dota2.exe'),
+      );
+      expect(peloCaminho).toEqual({ jogo: 'Dota 2' });
+      expect(registrar).not.toHaveBeenCalled();
+    });
+
+    it('CA-10/CA-11: a parte que falha não apaga a outra; o log recebe a parte e um motivo fixo, sem nomes', async () => {
+      const registrar = vi.fn();
+      const r = await noWindows({ jogos: true, musica: true }, nomesFalsos(), registrar, async () => ({
+        saida: 'E:jogo:processos\nW:Spotify\tLegião Urbana - Tempo Perdido\n',
+      }));
+      expect(r).toEqual({ musica: { artista: 'Legião Urbana', titulo: 'Tempo Perdido' } });
+      expect(registrar).toHaveBeenCalledWith('atividade', 'jogo: processos');
+
+      // Tempo esgotado: o que já saiu vale; as duas partes ligadas vão para o log.
+      registrar.mockClear();
+      const parcial = await noWindows({ jogos: true, musica: true }, nomesFalsos(), registrar, async () => ({
+        saida: 'W:Spotify\tLegião Urbana - Tempo Perdido\n',
+        erro: { killed: true },
+      }));
+      expect(parcial.musica).toEqual({ artista: 'Legião Urbana', titulo: 'Tempo Perdido' });
+      expect(registrar.mock.calls).toEqual([
+        ['atividade', 'jogo: tempo esgotado'],
+        ['atividade', 'musica: tempo esgotado'],
+      ]);
+      for (const [, motivo] of registrar.mock.calls) expect(motivo).not.toMatch(/Legião|Spotify|steamapps/);
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { criarNomesSteam, lerKeyValues, lerManifesto } from './steam';
+import { bibliotecasDaSteam, criarNomesSteam, lerKeyValues, lerManifesto } from './steam';
 
 const manifesto = (appid: string, nome: string, pasta: string) => `"AppState"
 {
@@ -35,6 +35,8 @@ describe('Steam: KeyValues e appmanifest (correcoes-atividade, T-7)', () => {
     expect(lerKeyValues('"a" { "b" "1" "c" { "d" "x \\"y\\"" } } "e" "2"')).toEqual({ a: { b: '1', c: { d: 'x "y"' } }, e: '2' });
     expect(lerKeyValues('')).toEqual({});
     expect(lerKeyValues('"a" {')).toEqual({ a: {} });
+    // Um valor "}" (entre aspas) não fecha o bloco.
+    expect(lerKeyValues('"a" { "b" "}" "c" "2" }')).toEqual({ a: { b: '}', c: '2' } });
   });
 
   it('appmanifest → appid, nome e pasta; inválido → undefined', () => {
@@ -79,5 +81,27 @@ describe('Steam: KeyValues e appmanifest (correcoes-atividade, T-7)', () => {
     const nomes = criarNomesSteam(disco({ 'C:\\Steam\\steamapps': {}, 'D:\\SteamLibrary\\steamapps': { 'appmanifest_570.acf': manifesto('570', 'Dota 2', 'dota 2 beta') } }));
     expect(await nomes.nomeDoAppid(['C:\\Steam\\steamapps', 'D:\\SteamLibrary\\steamapps'], '570')).toBe('Dota 2');
     expect(await nomes.nomeDoAppid(['C:\\Steam\\steamapps'], '570')).toBeUndefined();
+  });
+
+  it('bibliotecas: a da Steam e as do libraryfolders.vdf, sem repetir', async () => {
+    // Como no arquivo de verdade: a barra invertida vem dobrada.
+    const vdf = String.raw`"libraryfolders"
+{
+	"0"
+	{
+		"path"		"C:\\Program Files (x86)\\Steam"
+		"apps" { "228980" "1" }
+	}
+	"1"
+	{
+		"path"		"D:\\SteamLibrary"
+	}
+}`;
+    const ler = vi.fn(async () => vdf);
+    const bibs = await bibliotecasDaSteam('c:/program files (x86)/steam', ler);
+    expect(bibs).toHaveLength(2);
+    expect(bibs[0]).toMatch(/^c:\/program files \(x86\)\/steam[\\/]steamapps$/);
+    expect(bibs[1]).toMatch(/^D:\\SteamLibrary[\\/]steamapps$/);
+    expect(await bibliotecasDaSteam('/s', async () => Promise.reject(new Error('sem arquivo')))).toEqual(['/s/steamapps']);
   });
 });

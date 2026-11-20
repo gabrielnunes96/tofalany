@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { lerAtividade, type AtividadeDto, type PreferenciasAtividade } from '@tofalando/shared';
 import type { Registrar } from './registro';
-import { criarNomesSteam, type NomesSteam } from './steam';
+import { bibliotecasDaSteam, criarNomesSteam, type NomesSteam } from './steam';
 
 /**
  * Atividade, só com o que a pessoa ligou nas configurações:
@@ -21,10 +21,12 @@ const NAO_JOGOS = /^(proton\b|steamworks shared|steamlinuxruntime|steam linux ru
  */
 export function pastasSteam(texto: string): { pasta: string; steamapps: string }[] {
   const r: { pasta: string; steamapps: string }[] = [];
-  for (const m of texto.matchAll(/steamapps[\\/]common[\\/]([^\\/\0"]+)[\\/]/gi)) {
-    const pasta = m[1]!.trim();
+  // A biblioteca começa no início absoluto do próprio caminho (`/` ou `C:\`), não no começo do texto: argumentos como
+  // `--filesystem=/…` ou um caminho entre aspas não entram nela.
+  for (const m of texto.matchAll(/((?:[a-z]:\\|\/)[^\0"=]*?steamapps)[\\/]common[\\/]([^\\/\0"]+)[\\/]/gi)) {
+    const pasta = m[2]!.trim();
     if (!pasta || NAO_JOGOS.test(pasta)) continue;
-    let steamapps = texto.slice(0, m.index + 'steamapps'.length);
+    let steamapps = m[1]!;
     if (/^z:\\/i.test(steamapps)) steamapps = steamapps.slice(2).replace(/\\/g, '/');
     r.push({ pasta, steamapps });
   }
@@ -59,11 +61,20 @@ export function musicaDoTituloSpotify(titulo: string): AtividadeDto['musica'] {
   return { artista: t.slice(0, i).trim(), titulo: t.slice(i + 3).trim() };
 }
 
+/**
+ * Valor de texto de uma chave na saída do `dbus-send --print-reply`. O valor vai até o fim da linha: o `dbus-send` não
+ * escapa aspas (`string "Song "Live""`), então casar até a próxima aspa cortaria o título.
+ */
+function textoDbus(saida: string, chave: string): string | undefined {
+  const re = new RegExp(`"${chave.replace(/[.:]/g, '\\$&')}"\\s*\\n\\s*variant\\s+string "(.*)"$`, 'm');
+  return re.exec(saida)?.[1];
+}
+
 /** Saída do `dbus-send --print-reply` com o Metadata do MPRIS → título e artista. */
 export function musicaDoMpris(metadata: string): AtividadeDto['musica'] {
-  const titulo = /"xesam:title"\s*variant\s+string\s+"((?:[^"\\]|\\.)*)"/.exec(metadata)?.[1];
-  const artistas = /"xesam:artist"\s*variant\s+array\s*\[([^\]]*)\]/.exec(metadata)?.[1];
-  const artista = artistas ? [...artistas.matchAll(/string\s+"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]).join(', ') : undefined;
+  const titulo = textoDbus(metadata, 'xesam:title');
+  const bloco = /"xesam:artist"\s*\n\s*variant\s+array \[\n((?:[ \t]*string ".*"\n)*)/.exec(metadata)?.[1];
+  const artista = bloco ? [...bloco.matchAll(/^\s*string "(.*)"$/gm)].map((m) => m[1]).join(', ') : undefined;
   if (!titulo) return undefined;
   return artista ? { titulo, artista } : { titulo };
 }
@@ -85,7 +96,7 @@ async function jogoNoLinux(nomes: NomesSteam): Promise<string | undefined> {
 
 /** `xesam:url` do Metadata do MPRIS (o endereço da página, nos players de navegador). */
 export function urlDoMpris(metadata: string): string | undefined {
-  return /"xesam:url"\s*variant\s+string\s+"((?:[^"\\]|\\.)*)"/.exec(metadata)?.[1];
+  return textoDbus(metadata, 'xesam:url');
 }
 
 /** Nomes `org.mpris.MediaPlayer2.*` na saída do `ListNames` do D-Bus. */
@@ -95,62 +106,211 @@ export function playersMpris(saida: string): string[] {
 
 /**
  * Música entre os players que estão tocando (RN-4): o app do Spotify, ou um navegador numa faixa do open.spotify.com.
- * Qualquer outra mídia (um vídeo no navegador) não vira "Ouvindo".
+ * Qualquer outra mídia (um vídeo no navegador) não vira "Ouvindo". Vale o primeiro com título (um player sem Metadata,
+ * ou o Spotify num anúncio, não esconde outro).
  */
 export function escolherPlayer(tocando: { nome: string; metadata: string }[]): AtividadeDto['musica'] {
-  const doSpotify = (p: { nome: string; metadata: string }) =>
-    p.nome === 'org.mpris.MediaPlayer2.spotify' || (urlDoMpris(p.metadata) ?? '').startsWith('https://open.spotify.com/');
-  const p = tocando.find(doSpotify);
-  return p ? musicaDoMpris(p.metadata) : undefined;
-}
-
-async function musicaNoLinux(): Promise<AtividadeDto['musica']> {
-  const dbus = (args: string[]) => rodar('dbus-send', ['--session', '--print-reply', ...args], 2000);
-  const nomes = playersMpris(await dbus(['--dest=org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus.ListNames']));
-  const ler = (nome: string, prop: string) =>
-    dbus([`--dest=${nome}`, '/org/mpris/MediaPlayer2', 'org.freedesktop.DBus.Properties.Get', 'string:org.mpris.MediaPlayer2.Player', `string:${prop}`]).catch(() => '');
-  const tocando: { nome: string; metadata: string }[] = [];
-  for (const nome of nomes) {
-    if (!/"Playing"/.test(await ler(nome, 'PlaybackStatus'))) continue;
-    tocando.push({ nome, metadata: await ler(nome, 'Metadata') });
+  for (const p of tocando) {
+    if (p.nome !== 'org.mpris.MediaPlayer2.spotify' && !(urlDoMpris(p.metadata) ?? '').startsWith('https://open.spotify.com/')) continue;
+    const musica = musicaDoMpris(p.metadata);
+    if (musica) return musica;
   }
-  return escolherPlayer(tocando);
+  return undefined;
 }
 
-/** Windows: um PowerShell só para os caminhos dos processos e o título da janela do Spotify. */
-async function noWindows(prefs: PreferenciasAtividade): Promise<AtividadeDto> {
-  const script = [
-    "$ErrorActionPreference='SilentlyContinue'",
-    prefs.jogos ? "Get-Process | ForEach-Object { if ($_.Path) { 'P:' + $_.Path } }" : '',
-    prefs.musica ? "Get-Process Spotify | Where-Object { $_.MainWindowTitle } | ForEach-Object { 'S:' + $_.MainWindowTitle }" : '',
-  ]
-    .filter(Boolean)
-    .join('; ');
-  const saida = await rodar(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', `[Console]::OutputEncoding=[Text.Encoding]::UTF8; ${script}`],
-    8000,
-  ).catch(() => '');
-  const r: AtividadeDto = {};
+/** Motivo fixo para o log a partir de um erro do `execFile` (RN-9: nada da mensagem, que traz o comando e a saída). */
+export function motivoDoErro(e: unknown): string {
+  const erro = e as { code?: unknown; killed?: boolean } | null;
+  if (erro?.code === 'ENOENT') return 'programa ausente';
+  if (erro?.killed) return 'tempo esgotado';
+  return typeof erro?.code === 'number' ? `erro ${erro.code}` : 'erro';
+}
+
+type Dbus = (args: string[]) => Promise<string>;
+const dbusSend: Dbus = (args) => rodar('dbus-send', ['--session', '--print-reply', ...args], 2000);
+
+/**
+ * Linux: os players do MPRIS (`ListNames`), cada um lido com um `GetAll` só (estado e Metadata juntos), todos ao mesmo
+ * tempo: um player travado custa no máximo o prazo de 2 s, não 2 s por player.
+ */
+export async function musicaNoLinux(registrar: Registrar, dbus: Dbus = dbusSend): Promise<AtividadeDto['musica']> {
+  let lista: string;
+  try {
+    lista = await dbus(['--dest=org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus.ListNames']);
+  } catch (e) {
+    registrar('atividade', `musica: D-Bus ${motivoDoErro(e)}`);
+    return undefined;
+  }
+  const falhas: string[] = [];
+  const leituras = await Promise.all(
+    playersMpris(lista).map((nome) =>
+      dbus([`--dest=${nome}`, '/org/mpris/MediaPlayer2', 'org.freedesktop.DBus.Properties.GetAll', 'string:org.mpris.MediaPlayer2.Player']).then(
+        (saida) => ({ nome, saida }),
+        (e: unknown) => {
+          falhas.push(motivoDoErro(e));
+          return null;
+        },
+      ),
+    ),
+  );
+  // Sem o nome do player (RN-9): só que um deles não respondeu e por quê.
+  if (falhas.length) registrar('atividade', `musica: player ${falhas[0]}`);
+  const tocando = leituras.filter((l): l is { nome: string; saida: string } => !!l && textoDbus(l.saida, 'PlaybackStatus') === 'Playing');
+  return escolherPlayer(tocando.map((l) => ({ nome: l.nome, metadata: l.saida })));
+}
+
+/**
+ * Windows (correcoes-atividade, T-4, T-5, T-9): um PowerShell só, com cada parte num try/catch e linhas marcadas:
+ * - `A:` RunningAppID e `D:` SteamPath (registro da Steam, sem privilégio); `P:` caminhos de processos em
+ *   `steamapps\common`, só quando nenhum jogo está marcado como rodando;
+ * - `M:` sessões de mídia do sistema tocando (app, título, artista, separados por tab);
+ * - `W:` títulos de janela do Spotify e dos navegadores (processo e título);
+ * - `E:<parte>:<motivo>` quando uma parte falha (motivos fixos, RN-9).
+ */
+export function scriptWindows(prefs: PreferenciasAtividade): string {
+  const partes = ["$ErrorActionPreference='SilentlyContinue'", '[Console]::OutputEncoding=[Text.Encoding]::UTF8'];
+  if (prefs.jogos)
+    partes.push(
+      "$appid = ''",
+      "try { $k = Get-ItemProperty -Path 'HKCU:\\Software\\Valve\\Steam' -ErrorAction Stop; $appid = [string]$k.RunningAppID; 'A:' + $appid; 'D:' + $k.SteamPath } catch { }",
+      "if (-not $appid -or $appid -eq '0') { try { Get-Process | ForEach-Object { if ($_.Path -match 'steamapps\\\\common') { 'P:' + $_.Path } } } catch { 'E:jogo:processos' } }",
+    );
+  if (prefs.musica)
+    partes.push(
+      [
+        'try {',
+        'Add-Type -AssemblyName System.Runtime.WindowsRuntime',
+        "$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]",
+        'function Esperar($op, $tipo) { $t = $asTask.MakeGenericMethod($tipo).Invoke($null, @($op)); if (-not $t.Wait(3000)) { throw "tempo" }; $t.Result }',
+        '$tipoGerente = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager,Windows.Media.Control,ContentType=WindowsRuntime]',
+        '$tipoProps = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties,Windows.Media.Control,ContentType=WindowsRuntime]',
+        '$gerente = Esperar ($tipoGerente::RequestAsync()) $tipoGerente',
+        'foreach ($s in $gerente.GetSessions()) {',
+        "  if ([string]$s.GetPlaybackInfo().PlaybackStatus -ne 'Playing') { continue }",
+        '  $p = Esperar ($s.TryGetMediaPropertiesAsync()) $tipoProps',
+        "  'M:' + $s.SourceAppUserModelId + \"`t\" + $p.Title + \"`t\" + $p.Artist",
+        '}',
+        "} catch { 'E:musica:sessoes de midia indisponiveis' }",
+      ].join('\n'),
+      "try { Get-Process Spotify,chrome,msedge,firefox,brave,opera,vivaldi | Where-Object { $_.MainWindowTitle } | ForEach-Object { 'W:' + $_.ProcessName + \"`t\" + $_.MainWindowTitle } } catch { }",
+    );
+  return partes.join('\n');
+}
+
+export type LeituraWindows = {
+  appid?: string;
+  pastaSteam?: string;
+  caminhos: string[];
+  sessoes: { app: string; titulo: string; artista: string }[];
+  janelas: { processo: string; titulo: string }[];
+  erros: string[];
+};
+
+/** Interpreta a saída de `scriptWindows`. */
+export function lerSaidaWindows(saida: string): LeituraWindows {
+  const r: LeituraWindows = { caminhos: [], sessoes: [], janelas: [], erros: [] };
   for (const linha of saida.split(/\r?\n/)) {
-    if (!r.jogo && linha.startsWith('P:')) r.jogo = jogoDoProcesso(linha.slice(2));
-    else if (!r.musica && linha.startsWith('S:')) r.musica = musicaDoTituloSpotify(linha.slice(2));
+    const valor = linha.slice(2);
+    if (linha.startsWith('A:')) r.appid = valor.trim();
+    else if (linha.startsWith('D:')) r.pastaSteam = valor.trim();
+    else if (linha.startsWith('P:')) r.caminhos.push(valor);
+    else if (linha.startsWith('M:')) {
+      const [app = '', titulo = '', artista = ''] = valor.split('\t');
+      if (titulo.trim()) r.sessoes.push({ app, titulo: titulo.trim(), artista: artista.trim() });
+    } else if (linha.startsWith('W:')) {
+      const t = valor.indexOf('\t');
+      if (t > 0) r.janelas.push({ processo: valor.slice(0, t), titulo: valor.slice(t + 1) });
+    } else if (linha.startsWith('E:')) r.erros.push(valor.replace(':', ': '));
   }
   return r;
 }
 
-/** O que está acontecendo agora, só do que foi ligado. */
+const NAVEGADORES = /^(chrome|msedge|firefox|brave|opera|vivaldi)$/i;
+
+/**
+ * Música no Windows (RN-4, RF-11): a sessão de mídia do app do Spotify; ou a de um navegador quando o título de uma
+ * janela dele começa com "título • artista" (o título da aba do open.spotify.com tocando; a sessão não traz o
+ * endereço da página, R-3). Sem sessões, o título da janela do Spotify, como antes.
+ */
+export function musicaDoWindows(l: LeituraWindows): AtividadeDto['musica'] {
+  const doApp = l.sessoes.find((s) => /spotify/i.test(s.app));
+  if (doApp) return doApp.artista ? { titulo: doApp.titulo, artista: doApp.artista } : { titulo: doApp.titulo };
+  const abas = l.janelas.filter((j) => NAVEGADORES.test(j.processo)).map((j) => j.titulo);
+  for (const s of l.sessoes) {
+    if (!s.artista) continue;
+    if (abas.some((t) => t.startsWith(`${s.titulo} • ${s.artista}`))) return { titulo: s.titulo, artista: s.artista };
+  }
+  for (const j of l.janelas) {
+    if (!/^spotify$/i.test(j.processo)) continue;
+    const m = musicaDoTituloSpotify(j.titulo);
+    if (m) return m;
+  }
+  return undefined;
+}
+
+/** Jogo no Windows: pelo RunningAppID (nome do appmanifest); sem ele, pelos caminhos dos processos. */
+export async function jogoDoWindows(l: LeituraWindows, nomes: NomesSteam, ler?: (arquivo: string) => Promise<string>): Promise<string | undefined> {
+  if (l.appid && l.appid !== '0' && /^\d+$/.test(l.appid) && l.pastaSteam) {
+    const nome = await nomes.nomeDoAppid(await bibliotecasDaSteam(l.pastaSteam, ler), l.appid);
+    if (nome !== undefined) return nome ?? undefined;
+  }
+  for (const caminho of l.caminhos) {
+    for (const { pasta, steamapps } of pastasSteam(caminho)) {
+      const nome = await nomes.nomeDoJogo(steamapps, pasta);
+      if (nome) return nome;
+    }
+  }
+  return undefined;
+}
+
+type Executar = (script: string) => Promise<{ saida: string; erro?: { killed?: boolean } | null }>;
+const executarPowerShell: Executar = (script) =>
+  new Promise((resolve) =>
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { timeout: 6000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+      // Com erro ou tempo esgotado, o que já saiu ainda vale (a parte que terminou não se perde, RN-7).
+      (erro, saida) => resolve({ saida: String(saida ?? ''), erro }),
+    ),
+  );
+
+export async function noWindows(prefs: PreferenciasAtividade, nomes: NomesSteam, registrar: Registrar, executar: Executar = executarPowerShell): Promise<AtividadeDto> {
+  const { saida, erro } = await executar(scriptWindows(prefs));
+  const l = lerSaidaWindows(saida);
+  for (const e of l.erros) registrar('atividade', e);
+  if (erro) {
+    const motivo = erro.killed ? 'tempo esgotado' : 'erro ao rodar o PowerShell';
+    if (prefs.jogos) registrar('atividade', `jogo: ${motivo}`);
+    if (prefs.musica) registrar('atividade', `musica: ${motivo}`);
+  }
+  const r: AtividadeDto = {};
+  if (prefs.jogos) {
+    const jogo = await jogoDoWindows(l, nomes).catch(() => {
+      registrar('atividade', 'jogo: erro ao ler a biblioteca da Steam');
+      return undefined;
+    });
+    if (jogo) r.jogo = jogo;
+  }
+  if (prefs.musica) {
+    const musica = musicaDoWindows(l);
+    if (musica) r.musica = musica;
+  }
+  return r;
+}
+
 /** Nomes da Steam guardados entre as leituras (a cada 20 s). */
 const nomesPadrao = criarNomesSteam();
 const naoRegistrar: Registrar = () => undefined;
 
+/** O que está acontecendo agora, só do que foi ligado. */
 export async function lerAtividadeDoSistema(
   prefs: PreferenciasAtividade,
   plataforma: NodeJS.Platform = process.platform,
   { nomes = nomesPadrao, registrar = naoRegistrar }: { nomes?: NomesSteam; registrar?: Registrar } = {},
 ): Promise<AtividadeDto | null> {
   if (!prefs.jogos && !prefs.musica) return null;
-  if (plataforma === 'win32') return lerAtividade(await noWindows(prefs));
+  if (plataforma === 'win32') return lerAtividade(await noWindows(prefs, nomes, registrar));
   if (plataforma !== 'linux') return null;
   const [jogo, musica] = await Promise.all([
     prefs.jogos
@@ -160,12 +320,7 @@ export async function lerAtividadeDoSistema(
           return undefined;
         })
       : undefined,
-    prefs.musica
-      ? musicaNoLinux().catch(() => {
-          registrar('atividade', 'musica: erro ao falar com o D-Bus');
-          return undefined;
-        })
-      : undefined,
+    prefs.musica ? musicaNoLinux(registrar).catch(() => undefined) : undefined,
   ]);
   return lerAtividade({ jogo, musica });
 }

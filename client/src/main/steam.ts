@@ -6,26 +6,48 @@ import { join } from 'node:path';
  * casado pela pasta (`installdir`). Sem manifesto, fica o nome da pasta, como antes.
  */
 
-/** AppIDs de programas da Steam que não são jogos (papel de parede, escala, VR, componentes). */
-export const APPIDS_FERRAMENTAS = new Set(['431960', '993090', '250820', '228980', '1070560', '1391110', '1628350', '4183110', '1493710']);
+/**
+ * AppIDs de programas da Steam que não são jogos. Os de componentes foram conferidos nos appmanifest de uma instalação
+ * real (20/11/2026).
+ */
+export const APPIDS_FERRAMENTAS = new Set([
+  '431960', // Wallpaper Engine
+  '993090', // Lossless Scaling
+  '250820', // SteamVR
+  '228980', // Steamworks Common Redistributables
+  '1070560', // Steam Linux Runtime 1.0 (scout)
+  '1391110', // Steam Linux Runtime 2.0 (soldier)
+  '1628350', // Steam Linux Runtime 3.0 (sniper)
+  '4183110', // Steam Linux Runtime 4.0
+  '1493710', // Proton Experimental
+]);
 
 type Valor = string | { [chave: string]: Valor };
 
 /** Lê o formato KeyValues da Valve (`"chave" "valor"` e `"chave" { … }`), usado nos .acf e .vdf. */
 export function lerKeyValues(texto: string): { [chave: string]: Valor } {
-  const tokens: string[] = [];
+  // Chaves de bloco e textos entre aspas são tokens diferentes: um valor "}" não fecha o bloco.
+  const tokens: { tipo: 'texto' | 'abre' | 'fecha'; v: string }[] = [];
   const re = /"((?:[^"\\]|\\.)*)"|([{}])/g;
-  for (let m = re.exec(texto); m; m = re.exec(texto)) tokens.push(m[2] ?? m[1]!.replace(/\\(.)/g, (_t, c: string) => (c === 'n' ? '\n' : c === 't' ? '\t' : c)));
+  for (let m = re.exec(texto); m; m = re.exec(texto))
+    tokens.push(
+      m[2] === '{'
+        ? { tipo: 'abre', v: '' }
+        : m[2] === '}'
+          ? { tipo: 'fecha', v: '' }
+          : { tipo: 'texto', v: m[1]!.replace(/\\(.)/g, (_t, c: string) => (c === 'n' ? '\n' : c === 't' ? '\t' : c)) },
+    );
   let i = 0;
   const bloco = (): { [chave: string]: Valor } => {
     const r: { [chave: string]: Valor } = {};
-    while (i < tokens.length && tokens[i] !== '}') {
+    while (i < tokens.length && tokens[i]!.tipo !== 'fecha') {
       const chave = tokens[i++]!;
-      if (tokens[i] === '{') {
+      if (chave.tipo !== 'texto') continue;
+      if (tokens[i]?.tipo === 'abre') {
         i++;
-        r[chave] = bloco();
+        r[chave.v] = bloco();
         i++;
-      } else if (i < tokens.length && tokens[i] !== '}') r[chave] = tokens[i++]!;
+      } else if (tokens[i]?.tipo === 'texto') r[chave.v] = tokens[i++]!.v;
     }
     return r;
   };
@@ -85,3 +107,22 @@ export function criarNomesSteam(arquivos: Arquivos = arquivosDoDisco, { agora = 
   };
 }
 export type NomesSteam = ReturnType<typeof criarNomesSteam>;
+
+/**
+ * Bibliotecas da Steam (pastas `steamapps`) a partir da pasta da Steam (`SteamPath` no Windows): a própria e as de
+ * `steamapps/libraryfolders.vdf` (jogos em outro disco). Sem o arquivo, só a da Steam.
+ */
+export async function bibliotecasDaSteam(pastaSteam: string, ler: (arquivo: string) => Promise<string> = (a) => readFile(a, 'utf8')): Promise<string[]> {
+  const raiz = pastaSteam.replace(/[\\/]+$/, '');
+  const pastas = [raiz];
+  const vdf = lerKeyValues(await ler(join(raiz, 'steamapps', 'libraryfolders.vdf')).catch(() => '')).libraryfolders;
+  if (vdf && typeof vdf !== 'string') {
+    for (const b of Object.values(vdf)) {
+      const caminho = typeof b === 'string' ? b : b.path;
+      if (typeof caminho === 'string' && caminho.trim()) pastas.push(caminho.trim().replace(/[\\/]+$/, ''));
+    }
+  }
+  // Sem repetir a mesma pasta (no Windows o caso das letras varia entre o registro e o vdf).
+  const vistas = new Set<string>();
+  return pastas.filter((p) => !vistas.has(p.toLowerCase().replace(/\\/g, '/')) && vistas.add(p.toLowerCase().replace(/\\/g, '/'))).map((p) => join(p, 'steamapps'));
+}

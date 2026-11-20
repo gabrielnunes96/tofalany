@@ -98,9 +98,9 @@
         "CA-5"
       ],
       "validacao": "atividade.test.ts: Firefox (instance_1_123) no open.spotify.com tocando → 'Song' de 'Band'; Firefox no YouTube → nada; Spotify pausado → nada. Validação manual: Gabriel toca no open.spotify.com pelo Firefox e o app (npm run dev) mostra Ouvindo. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "578d9fa"
     },
     {
       "id": "T7",
@@ -118,7 +118,7 @@
         "CA-14b"
       ],
       "validacao": "atividade.test.ts: lerSaidaWindows com E:jogo + música válida → só música; sessão chrome + janela 'Song • Band - Google Chrome' → música; com título do YouTube → nada; appid de ferramenta → sem jogo; registrador recebe ('atividade','jogo: tempo esgotado') sem nome de processo. Script do PowerShell conferido por teste de texto. Validação real no Windows fica na T9. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

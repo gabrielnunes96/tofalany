@@ -23,15 +23,22 @@ describe('registro em arquivo (correcoes-atividade, T-3)', () => {
     expect(readFileSync(join(pasta, 'tofalany.log'), 'utf8')).toBe('2026-11-20 15:04:05 atividade: jogo: tempo esgotado\n');
   });
 
-  it('não repete a mesma linha seguida; motivo novo grava, e voltar ao anterior grava de novo', () => {
+  it('não repete a mesma linha da mesma parte, mesmo intercalada com outra parte; motivo novo grava', () => {
     const pasta = pastaNova();
     const registrar = criarRegistro(pasta, { agora });
     registrar('atividade', 'jogo: tempo esgotado');
-    registrar('atividade', 'jogo: tempo esgotado');
     registrar('atividade', 'musica: sem dbus');
     registrar('atividade', 'jogo: tempo esgotado');
+    registrar('atividade', 'musica: sem dbus');
+    registrar('atividade', 'jogo: erro 1');
+    registrar('atividade', 'jogo: tempo esgotado');
     const linhas = readFileSync(join(pasta, 'tofalany.log'), 'utf8').trim().split('\n');
-    expect(linhas.map((l) => l.slice(20))).toEqual(['atividade: jogo: tempo esgotado', 'atividade: musica: sem dbus', 'atividade: jogo: tempo esgotado']);
+    expect(linhas.map((l) => l.slice(20))).toEqual([
+      'atividade: jogo: tempo esgotado',
+      'atividade: musica: sem dbus',
+      'atividade: jogo: erro 1',
+      'atividade: jogo: tempo esgotado',
+    ]);
   });
 
   it('acima do limite vira tofalany.old.log (só um antigo) e recomeça', () => {
