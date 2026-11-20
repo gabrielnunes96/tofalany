@@ -140,4 +140,32 @@ describe('atividade (jogo, música)', () => {
     await pedir(donoFamilia.s, 'amizade:pedir', bia.usuario.id);
     expect(await reenviada).toEqual({ id: bia.usuario.id, atividade: { jogo: 'Celeste' } });
   });
+
+  it('segurança: outro computador que chega invisível apaga a atividade para os outros', async () => {
+    const { dono, ana, abrir } = await preparar();
+    const a = await abrir(dono.token);
+    const b = await abrir(ana.token);
+    let chegou = proxima(a.s);
+    b.s.emit('presenca:atividade', { atividade: { jogo: 'Hades' } });
+    await chegou;
+    chegou = proxima(a.s);
+    const invisivel = conectar((a.s.io as unknown as { uri: string }).uri, {
+      auth: { token: ana.token, status: 'invisivel' },
+      transports: ['websocket'],
+      reconnection: false,
+      forceNew: true,
+    }) as Cliente;
+    sockets.push(invisivel);
+    expect(await chegou).toEqual({ id: ana.usuario.id, atividade: null });
+  });
+
+  it('limite de frequência: mudanças em rajada viram a primeira na hora e a última depois (as do meio caem)', async () => {
+    const { dono, ana, abrir } = await preparar();
+    const a = await abrir(dono.token);
+    const b = await abrir(ana.token);
+    const recebidas: (string | undefined)[] = [];
+    a.s.on('atividade:atualizada', (x) => recebidas.push(x.atividade?.jogo));
+    for (const jogo of ['A', 'B', 'C', 'D']) b.s.emit('presenca:atividade', { atividade: { jogo } });
+    await expect.poll(() => recebidas, { timeout: 2000 }).toEqual(['A', 'D']);
+  });
 });

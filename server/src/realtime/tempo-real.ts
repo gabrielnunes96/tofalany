@@ -180,6 +180,35 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   function emitirAtividade(id: number, atividade: AtividadeDto | null) {
     for (const s of io.of('/').sockets.values()) if (podeVerAtividade(s, id)) s.emit('atividade:atualizada', { id, atividade });
   }
+  /**
+   * No máximo uma mudança de atividade a cada ATIVIDADE_INTERVALO_MS por pessoa (cada uma consulta o banco por conexão):
+   * as que chegam antes ficam adiadas e vale a última.
+   */
+  const ATIVIDADE_INTERVALO_MS = 500;
+  const ultimaAtividadeEm = new Map<number, number>();
+  const atividadeAdiada = new Map<number, { atividade: AtividadeDto | null; relogio: ReturnType<typeof setTimeout> }>();
+  function receberAtividade(id: number, atividade: AtividadeDto | null) {
+    const adiada = atividadeAdiada.get(id);
+    if (adiada) {
+      adiada.atividade = atividade;
+      return;
+    }
+    const espera = (ultimaAtividadeEm.get(id) ?? 0) + ATIVIDADE_INTERVALO_MS - Date.now();
+    if (espera <= 0) {
+      ultimaAtividadeEm.set(id, Date.now());
+      definirAtividade(id, atividade);
+      return;
+    }
+    const relogio = setTimeout(() => {
+      const a = atividadeAdiada.get(id);
+      atividadeAdiada.delete(id);
+      if (!a) return;
+      ultimaAtividadeEm.set(id, Date.now());
+      definirAtividade(id, a.atividade);
+    }, espera);
+    relogio.unref?.();
+    atividadeAdiada.set(id, { atividade, relogio });
+  }
   /** Amizade aceita ou desfeita: cada um recebe a atividade atual do outro, ou null se deixou de poder ver. */
   function reenviarAtividades(a: number, b: number) {
     for (const [de, para] of [
@@ -350,8 +379,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     if (socket.handshake.auth?.ausente === true) ausentes.add(socket.id);
     // Backlog v2, item 2: o status escolhido também vem no handshake (quem está invisível não pisca online).
     const escolhaInicial = lerEscolha(socket.handshake.auth?.status);
+    const atividadeAntesDoOla = JSON.stringify(atividadeVisivel(eu.id) ?? null);
     if (escolhaInicial) escolhas.set(eu.id, escolhaInicial);
     recalcularStatus(eu.id);
+    // Outro computador que chega invisível (ou deixa de estar) muda o que os outros veem da atividade.
+    const atividadeDoOla = atividadeVisivel(eu.id) ?? null;
+    if (JSON.stringify(atividadeDoOla) !== atividadeAntesDoOla) emitirAtividade(eu.id, atividadeDoOla);
     ola.presencas = Object.fromEntries([...status].filter(([id]) => ids.has(id) || amigos.has(id)));
     ola.atividades = Object.fromEntries(
       [...atividades.keys()].filter((id) => ids.has(id) || amigos.has(id)).flatMap((id) => (atividadeVisivel(id) ? [[String(id), atividadeVisivel(id)!]] : [])),
@@ -376,13 +409,18 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       if (JSON.stringify(atividadeDepois) !== atividadeAntes) emitirAtividade(eu.id, atividadeDepois);
     });
     socket.on('presenca:atividade', (dados) => {
-      definirAtividade(eu.id, lerAtividade(typeof dados === 'object' && dados !== null ? (dados as { atividade?: unknown }).atividade : null));
+      receberAtividade(eu.id, lerAtividade(typeof dados === 'object' && dados !== null ? (dados as { atividade?: unknown }).atividade : null));
     });
     socket.on('disconnect', () => {
       ausentes.delete(socket.id);
       presenca.saiu(eu.id);
       // Sem nenhuma conexão: a atividade some (não fica "jogando" offline).
-      if (![...io.of('/').sockets.values()].some((s) => s.data.usuarioId === eu.id)) definirAtividade(eu.id, null);
+      if (![...io.of('/').sockets.values()].some((s) => s.data.usuarioId === eu.id)) {
+        const adiada = atividadeAdiada.get(eu.id);
+        if (adiada) clearTimeout(adiada.relogio);
+        atividadeAdiada.delete(eu.id);
+        definirAtividade(eu.id, null);
+      }
       // Ainda há outro computador conectado: o status passa a ser o dele.
       recalcularStatus(eu.id);
     });
