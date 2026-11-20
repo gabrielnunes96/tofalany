@@ -29,9 +29,9 @@
         "CA-1"
       ],
       "validacao": "Dms.test.tsx: BarraLateral com atividades mostra 'Jogando Hades' na linha do amigo e nada sem atividade; conferir no app (npm run dev) com a aba Amigos aberta, desktop. npm test e lint.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "05524b4"
     },
     {
       "id": "T3",
@@ -44,7 +44,7 @@
         "CA-11"
       ],
       "validacao": "client/src/main/registro.test.ts em pasta temporária: grava, rotaciona em 1 MB, não repete o mesmo motivo. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
