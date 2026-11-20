@@ -44,9 +44,9 @@
         "CA-11"
       ],
       "validacao": "client/src/main/registro.test.ts em pasta temporária: grava, rotaciona em 1 MB, não repete o mesmo motivo. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "a2e34f7"
     },
     {
       "id": "T4",
@@ -59,7 +59,7 @@
         "CA-12"
       ],
       "validacao": "atividade.test.ts: ler com promessa controlada; verificar() durante a leitura gera segunda leitura com as preferências novas; rajada de 3 chamadas vira só uma extra. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

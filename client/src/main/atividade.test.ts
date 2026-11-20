@@ -48,4 +48,28 @@ describe('atividade', () => {
     expect(aoMudar).toHaveBeenLastCalledWith(null);
     a.parar();
   });
+
+  it('CA-12: pedido durante uma leitura não se perde: roda de novo logo depois, com as preferências novas; rajada vira uma só', async () => {
+    let prefs = { jogos: true, musica: false };
+    const soltar: (() => void)[] = [];
+    const vistas: { jogos: boolean; musica: boolean }[] = [];
+    const ler = vi.fn(async (p: { jogos: boolean; musica: boolean }) => {
+      vistas.push(p);
+      await new Promise<void>((r) => soltar.push(r));
+      return p.musica ? { musica: { titulo: 'Oceano' } } : { jogo: 'A' };
+    });
+    const aoMudar = vi.fn();
+    const a = criarAtividade(() => prefs, aoMudar, ler, 60_000);
+    // A primeira leitura (do início) está em andamento; a pessoa liga a música e salva três vezes seguidas.
+    prefs = { jogos: true, musica: true };
+    const pedidos = [a.verificar(), a.verificar(), a.verificar()];
+    soltar.shift()!();
+    await vi.waitFor(() => expect(soltar).toHaveLength(1));
+    soltar.shift()!();
+    await Promise.all(pedidos);
+    expect(ler).toHaveBeenCalledTimes(2);
+    expect(vistas[1]).toEqual({ jogos: true, musica: true });
+    expect(aoMudar).toHaveBeenLastCalledWith({ musica: { titulo: 'Oceano' } });
+    a.parar();
+  });
 });

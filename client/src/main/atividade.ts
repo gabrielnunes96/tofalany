@@ -97,18 +97,34 @@ export function criarAtividade(
   intervaloMs = 20_000,
 ) {
   let atual: AtividadeDto | null = null;
-  let lendo = false;
-  const verificar = async () => {
-    if (lendo) return;
-    lendo = true;
-    try {
-      const nova = await ler(preferencias()).catch(() => null);
-      if (JSON.stringify(nova) === JSON.stringify(atual)) return;
-      atual = nova;
-      aoMudar(atual);
-    } finally {
-      lendo = false;
+  let emAndamento: Promise<void> | null = null;
+  let pendente = false;
+  const rodada = async () => {
+    const nova = await ler(preferencias()).catch(() => null);
+    if (JSON.stringify(nova) === JSON.stringify(atual)) return;
+    atual = nova;
+    aoMudar(atual);
+  };
+  /**
+   * Pedido no meio de uma leitura (ligou uma opção, RF-9) não se perde: marca `pendente` e a leitura roda de novo logo
+   * depois, com as preferências novas. Vários pedidos durante a mesma leitura viram uma releitura só.
+   */
+  const verificar = (): Promise<void> => {
+    if (emAndamento) {
+      pendente = true;
+      return emAndamento;
     }
+    emAndamento = (async () => {
+      try {
+        do {
+          pendente = false;
+          await rodada();
+        } while (pendente);
+      } finally {
+        emAndamento = null;
+      }
+    })();
+    return emAndamento;
   };
   const relogio = setInterval(() => void verificar(), intervaloMs);
   relogio.unref?.();

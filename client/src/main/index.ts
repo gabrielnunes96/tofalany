@@ -222,6 +222,7 @@ if (links.principal) {
       },
     );
     app.on('will-quit', () => atividade.parar());
+    let ultimasPrefsAtividade = JSON.stringify(configuracoes.ler().atividade ?? ATIVIDADE_PADRAO);
     ipcMain.handle('atividade:atual', () => atividade.atual());
     // E2E: o Playwright não gera teclas do sistema nem ociosidade; simula o que o sistema entregaria (só fora do empacotado).
     if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
@@ -253,8 +254,13 @@ if (links.principal) {
       criarNotificacoes(() => janelaPrincipal),
       (c) => {
         atalhos.definir(c.atalhos);
-        // Ligou ou desligou a atividade: confere na hora (desligar apaga o que aparecia).
-        void atividade.verificar();
+        // Ligou ou desligou a atividade: confere na hora (desligar apaga o que aparecia). Só quando ela mudou: o volume
+        // ou o tema gravados em rajada não disparam leituras.
+        const prefsAtividade = JSON.stringify(c.atividade ?? ATIVIDADE_PADRAO);
+        if (prefsAtividade !== ultimasPrefsAtividade) {
+          ultimasPrefsAtividade = prefsAtividade;
+          void atividade.verificar();
+        }
       },
     );
     criarJanela();
