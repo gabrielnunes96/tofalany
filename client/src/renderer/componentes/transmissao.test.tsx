@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { SeletorTela } from './SeletorTela';
+import { SeletorTela, somParaLembrar } from './SeletorTela';
 import { PainelTransmissao } from './PainelTransmissao';
 
 afterEach(cleanup);
@@ -117,6 +117,32 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     outro.unmount();
     render(<SeletorTela listar={async () => Promise.reject(new Error('x'))} audioDisponivel={false} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
     expect((await screen.findByRole('alert')).textContent).toContain('Não foi possível listar');
+  });
+
+  it('CA-13/CA-13b: no Windows o som abre desmarcado (mesmo com a última escolha marcada), com o aviso, e dá para marcar', async () => {
+    const aoEscolher = vi.fn();
+    render(<SeletorTela listar={async () => fontes} audioDisponivel audioPadrao avisoSomChamada aoEscolher={aoEscolher} aoCancelar={vi.fn()} />);
+    const caixa = screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement;
+    expect(caixa.checked).toBe(false);
+    expect(caixa.disabled).toBe(false);
+    expect(screen.getByText(/quem está na chamada vai se ouvir/)).toBeTruthy();
+    fireEvent.click(caixa);
+    fireEvent.click(await screen.findByRole('button', { name: 'Tela 1' }));
+    expect(aoEscolher).toHaveBeenCalledWith(fontes[0], true, '720p30');
+  });
+
+  it('CA-14: sem o aviso (Linux com PipeWire), igual a antes: marcado e sem o texto da chamada', () => {
+    render(<SeletorTela listar={async () => fontes} audioDisponivel aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    expect((screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByText(/quem está na chamada vai se ouvir/)).toBeNull();
+  });
+
+  it('CA-13b: no Windows a escolha do som não é guardada; no Linux, só quando muda', () => {
+    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: true }, true, undefined)).toBeUndefined();
+    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: true }, false, true)).toBeUndefined();
+    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: false }, false, undefined)).toBe(false);
+    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: false }, true, undefined)).toBeUndefined();
+    expect(somParaLembrar({ audioDisponivel: false, somLevaChamada: false }, false, true)).toBeUndefined();
   });
 });
 

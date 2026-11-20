@@ -20,6 +20,8 @@ interface Props {
   audioDisponivel: boolean;
   /** Última escolha de "Incluir o áudio do sistema" (sem valor: marcada). */
   audioPadrao?: boolean;
+  /** Windows (item 31, contorno): o som leva a voz da chamada; abre desmarcado e com o aviso. */
+  avisoSomChamada?: boolean;
   /** Pontos e loja: há loja neste servidor (as bloqueadas dizem que dá para liberar lá). */
   comLoja?: boolean;
   /** RF-28: qualidades que o cargo permite (membro: só 720p30) e a já selecionada. */
@@ -30,10 +32,10 @@ interface Props {
 }
 
 /** RF-26: seletor próprio com miniaturas das telas e janelas abertas. */
-export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, comLoja = false, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
+export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, avisoSomChamada = false, comLoja = false, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
   const [fontes, setFontes] = useState<FonteTela[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [audio, setAudio] = useState(audioDisponivel && audioPadrao);
+  const [audio, setAudio] = useState(audioDisponivel && audioPadrao && !avisoSomChamada);
   const [qualidade, setQualidade] = useState<QualidadeTela>(qualidades.includes(qualidadePadrao) ? qualidadePadrao : '720p30');
 
   useEffect(() => {
@@ -144,6 +146,11 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, comLo
           <input type="checkbox" checked={audio} disabled={!audioDisponivel} onChange={(e) => setAudio(e.target.checked)} /> Incluir o áudio do sistema
         </label>
         {!audioDisponivel && <p className="suave">Neste computador o som não pode ir junto: no Linux, precisa do PipeWire.</p>}
+        {audioDisponivel && avisoSomChamada && (
+          <p className="aviso-som-chamada">
+            No Windows, o som do sistema leva também a voz da chamada: quem está na chamada vai se ouvir. Marque só se não estiver em chamada.
+          </p>
+        )}
         {erro && (
           <p className="erro" role="alert">
             {erro}
@@ -156,4 +163,13 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, comLo
       </div>
     </div>
   );
+}
+
+/**
+ * O que guardar da escolha do som para a próxima transmissão (undefined = nada). No Windows (item 31, contorno) nada é
+ * guardado: toda transmissão abre desmarcada.
+ */
+export function somParaLembrar(o: { audioDisponivel: boolean; somLevaChamada: boolean }, escolhido: boolean, guardado: boolean | undefined): boolean | undefined {
+  if (!o.audioDisponivel || o.somLevaChamada) return undefined;
+  return escolhido !== (guardado ?? true) ? escolhido : undefined;
 }

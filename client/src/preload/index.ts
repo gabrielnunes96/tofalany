@@ -60,6 +60,8 @@ const api: ApiTofalando = {
     fontes: () => ipcRenderer.invoke('captura:fontes'),
     escolher: (fonteId, audio) => ipcRenderer.invoke('captura:escolher', { fonteId, audio }),
     audioDisponivel: ipcRenderer.sendSync('captura:som-disponivel') === true,
+    // Item 31 (contorno): no Windows o som do sistema leva também a voz da chamada.
+    somLevaChamada: process.platform === 'win32',
     pararSom: () => ipcRenderer.invoke('captura:som-parar'),
     mesmaTela: () => ipcRenderer.invoke('captura:mesma-tela'),
   },

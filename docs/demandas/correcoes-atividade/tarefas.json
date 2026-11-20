@@ -118,9 +118,9 @@
         "CA-14b"
       ],
       "validacao": "atividade.test.ts: lerSaidaWindows com E:jogo + música válida → só música; sessão chrome + janela 'Song • Band - Google Chrome' → música; com título do YouTube → nada; appid de ferramenta → sem jogo; registrador recebe ('atividade','jogo: tempo esgotado') sem nome de processo. Script do PowerShell conferido por teste de texto. Validação real no Windows fica na T9. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "9316a01"
     },
     {
       "id": "T8",
@@ -135,7 +135,7 @@
         "CA-14"
       ],
       "validacao": "transmissao.test.tsx: com avisoSomChamada desmarcado, marcável e com o aviso; sem ele, igual a hoje; teste de que a escolha não é gravada com somLevaChamada. E2E voz.spec.ts (Linux) continua verde. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

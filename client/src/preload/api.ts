@@ -60,6 +60,11 @@ export interface ApiTofalando {
     escolher(fonteId: string, audio: boolean): Promise<boolean>;
     /** RF-29: áudio do sistema no Windows; no Linux, com PipeWire (backlog v2, item 13). */
     audioDisponivel: boolean;
+    /**
+     * Item 31 (contorno, correcoes-atividade RF-10): no Windows, o som do sistema captura tudo, inclusive a chamada. O
+     * seletor abre com a opção desmarcada, com aviso, e a escolha não é guardada. Sai quando a captura sem a chamada vier.
+     */
+    somLevaChamada: boolean;
     /** Desfaz o microfone virtual do Linux (fim da transmissão). */
     pararSom(): Promise<void>;
     /** A tela transmitida é a mesma em que o app está (a prévia viraria espelho). */

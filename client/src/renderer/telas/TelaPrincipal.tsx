@@ -16,7 +16,7 @@ import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
 import { GradeVideos } from '../componentes/GradeVideos';
-import { SeletorTela, type FonteTela } from '../componentes/SeletorTela';
+import { SeletorTela, somParaLembrar, type FonteTela } from '../componentes/SeletorTela';
 import { PainelTransmissao } from '../componentes/PainelTransmissao';
 import { TelaEditarServidor } from './TelaEditarServidor';
 import { DialogoModeracao, type TipoModeracao } from '../componentes/DialogoModeracao';
@@ -1954,12 +1954,14 @@ function TelaDoServidor({
             listar={ponte().captura.fontes}
             audioDisponivel={ponte().captura.audioDisponivel}
             audioPadrao={telaPrefs.audio ?? true}
+            avisoSomChamada={ponte().captura.somLevaChamada}
             qualidades={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
             comLoja={pontos !== null}
             qualidadePadrao={telaPrefs.qualidade}
             aoEscolher={(f, a, q) => {
-              // Lembra a escolha do som para a próxima vez.
-              if (ponte().captura.audioDisponivel && a !== (telaRef.current.audio ?? true)) mudarTela({ ...telaRef.current, audio: a });
+              // Lembra a escolha do som para a próxima vez (no Windows, não: item 31).
+              const lembrar = somParaLembrar(ponte().captura, a, telaRef.current.audio);
+              if (lembrar !== undefined) mudarTela({ ...telaRef.current, audio: lembrar });
               void transmitirTela(f, a, q);
             }}
             aoCancelar={fecharSeletorTela}
