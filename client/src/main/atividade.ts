@@ -83,25 +83,38 @@ async function jogoNoLinux(nomes: NomesSteam): Promise<string | undefined> {
   return undefined;
 }
 
+/** `xesam:url` do Metadata do MPRIS (o endereço da página, nos players de navegador). */
+export function urlDoMpris(metadata: string): string | undefined {
+  return /"xesam:url"\s*variant\s+string\s+"((?:[^"\\]|\\.)*)"/.exec(metadata)?.[1];
+}
+
+/** Nomes `org.mpris.MediaPlayer2.*` na saída do `ListNames` do D-Bus. */
+export function playersMpris(saida: string): string[] {
+  return [...saida.matchAll(/string\s+"(org\.mpris\.MediaPlayer2\.[^"]+)"/g)].map((m) => m[1]!);
+}
+
+/**
+ * Música entre os players que estão tocando (RN-4): o app do Spotify, ou um navegador numa faixa do open.spotify.com.
+ * Qualquer outra mídia (um vídeo no navegador) não vira "Ouvindo".
+ */
+export function escolherPlayer(tocando: { nome: string; metadata: string }[]): AtividadeDto['musica'] {
+  const doSpotify = (p: { nome: string; metadata: string }) =>
+    p.nome === 'org.mpris.MediaPlayer2.spotify' || (urlDoMpris(p.metadata) ?? '').startsWith('https://open.spotify.com/');
+  const p = tocando.find(doSpotify);
+  return p ? musicaDoMpris(p.metadata) : undefined;
+}
+
 async function musicaNoLinux(): Promise<AtividadeDto['musica']> {
-  const destino = '--dest=org.mpris.MediaPlayer2.spotify';
-  const ler = (prop: string) =>
-    rodar(
-      'dbus-send',
-      [
-        '--session',
-        '--print-reply',
-        destino,
-        '/org/mpris/MediaPlayer2',
-        'org.freedesktop.DBus.Properties.Get',
-        'string:org.mpris.MediaPlayer2.Player',
-        `string:${prop}`,
-      ],
-      2000,
-    );
-  const estado = await ler('PlaybackStatus').catch(() => '');
-  if (!/"Playing"/.test(estado)) return undefined;
-  return musicaDoMpris(await ler('Metadata').catch(() => ''));
+  const dbus = (args: string[]) => rodar('dbus-send', ['--session', '--print-reply', ...args], 2000);
+  const nomes = playersMpris(await dbus(['--dest=org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus.ListNames']));
+  const ler = (nome: string, prop: string) =>
+    dbus([`--dest=${nome}`, '/org/mpris/MediaPlayer2', 'org.freedesktop.DBus.Properties.Get', 'string:org.mpris.MediaPlayer2.Player', `string:${prop}`]).catch(() => '');
+  const tocando: { nome: string; metadata: string }[] = [];
+  for (const nome of nomes) {
+    if (!/"Playing"/.test(await ler(nome, 'PlaybackStatus'))) continue;
+    tocando.push({ nome, metadata: await ler(nome, 'Metadata') });
+  }
+  return escolherPlayer(tocando);
 }
 
 /** Windows: um PowerShell só para os caminhos dos processos e o título da janela do Spotify. */
@@ -147,7 +160,12 @@ export async function lerAtividadeDoSistema(
           return undefined;
         })
       : undefined,
-    prefs.musica ? musicaNoLinux().catch(() => undefined) : undefined,
+    prefs.musica
+      ? musicaNoLinux().catch(() => {
+          registrar('atividade', 'musica: erro ao falar com o D-Bus');
+          return undefined;
+        })
+      : undefined,
   ]);
   return lerAtividade({ jogo, musica });
 }

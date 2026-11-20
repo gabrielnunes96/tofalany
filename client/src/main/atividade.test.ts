@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { criarAtividade, jogoDaLinhaDeComando, jogoDoProcesso, lerAtividadeDoSistema, musicaDoMpris, musicaDoTituloSpotify, pastasSteam } from './atividade';
+import { criarAtividade, escolherPlayer, jogoDaLinhaDeComando, playersMpris, jogoDoProcesso, lerAtividadeDoSistema, musicaDoMpris, musicaDoTituloSpotify, pastasSteam } from './atividade';
 import { criarNomesSteam } from './steam';
 
 describe('atividade', () => {
@@ -124,5 +124,60 @@ describe('atividade', () => {
   it('CA-6: o nome oficial vem do appmanifest (Dota 2, não "dota 2 beta")', async () => {
     const nomes = criarNomesSteam({ listar: async () => ['appmanifest_570.acf'], ler: async () => '"AppState" { "appid" "570" "name" "Dota 2" "installdir" "dota 2 beta" }' });
     expect(await jogoDaLinhaDeComando('/home/a/.steam/steam/steamapps/common/dota 2 beta/game/dota.sh\0', nomes)).toBe('Dota 2');
+  });
+
+  const metadata = (titulo: string, artista: string, url?: string) => `method return time=1 sender=:1.9 -> destination=:1.10 serial=8 reply_serial=2
+   variant       array [
+         dict entry(
+            string "mpris:trackid"
+            variant                object path "/org/mpris/MediaPlayer2/firefox"
+         )
+         dict entry(
+            string "xesam:title"
+            variant                string "${titulo}"
+         )
+         dict entry(
+            string "xesam:artist"
+            variant                array [
+                  string "${artista}"
+               ]
+         )${
+           url
+             ? `
+         dict entry(
+            string "xesam:url"
+            variant                string "${url}"
+         )`
+             : ''
+         }
+      ]`;
+
+  it('players do MPRIS na saída do ListNames', () => {
+    const saida = `method return
+   array [
+      string "org.freedesktop.DBus"
+      string ":1.7"
+      string "org.mpris.MediaPlayer2.firefox.instance_1_123"
+      string "org.mpris.MediaPlayer2.spotify"
+      string "org.gnome.Shell"
+   ]`;
+    expect(playersMpris(saida)).toEqual(['org.mpris.MediaPlayer2.firefox.instance_1_123', 'org.mpris.MediaPlayer2.spotify']);
+  });
+
+  it('CA-3: navegador tocando no open.spotify.com → Ouvindo', () => {
+    const firefox = { nome: 'org.mpris.MediaPlayer2.firefox.instance_1_123', metadata: metadata('Song', 'Band', 'https://open.spotify.com/track/abc') };
+    expect(escolherPlayer([firefox])).toEqual({ titulo: 'Song', artista: 'Band' });
+  });
+
+  it('CA-4: vídeo do YouTube no navegador não é música; o app do Spotify continua valendo', () => {
+    const youtube = { nome: 'org.mpris.MediaPlayer2.firefox.instance_1_123', metadata: metadata('Vídeo', 'Canal', 'https://www.youtube.com/watch?v=x') };
+    const semUrl = { nome: 'org.mpris.MediaPlayer2.chromium.instance9', metadata: metadata('Vídeo', 'Canal') };
+    expect(escolherPlayer([youtube, semUrl])).toBeUndefined();
+    const spotify = { nome: 'org.mpris.MediaPlayer2.spotify', metadata: metadata('Oceano', 'Djavan') };
+    expect(escolherPlayer([youtube, spotify])).toEqual({ titulo: 'Oceano', artista: 'Djavan' });
+  });
+
+  it('CA-5: nada tocando → sem música', () => {
+    expect(escolherPlayer([])).toBeUndefined();
   });
 });

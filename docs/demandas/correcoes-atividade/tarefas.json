@@ -79,9 +79,9 @@
         "CA-9"
       ],
       "validacao": "steam.test.ts: parser com appmanifest do Dota 2 (name 'Dota 2', installdir 'dota 2 beta'); sem manifesto → nome da pasta; atividade.test.ts: wallpaper_engine e Lossless Scaling sem jogo; linha com runtime, Proton e Hades → Hades. Conferir no Linux com um jogo da Steam aberto, se houver. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "d901c0f"
     },
     {
       "id": "T6",
@@ -98,7 +98,7 @@
         "CA-5"
       ],
       "validacao": "atividade.test.ts: Firefox (instance_1_123) no open.spotify.com tocando → 'Song' de 'Band'; Firefox no YouTube → nada; Spotify pausado → nada. Validação manual: Gabriel toca no open.spotify.com pelo Firefox e o app (npm run dev) mostra Ouvindo. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
