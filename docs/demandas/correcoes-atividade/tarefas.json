@@ -135,9 +135,9 @@
         "CA-14"
       ],
       "validacao": "transmissao.test.tsx: com avisoSomChamada desmarcado, marcável e com o aviso; sem ele, igual a hoje; teste de que a escolha não é gravada com somLevaChamada. E2E voz.spec.ts (Linux) continua verde. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "108e37c"
     },
     {
       "id": "T9",

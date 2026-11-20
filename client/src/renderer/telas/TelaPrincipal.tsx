@@ -1953,7 +1953,8 @@ function TelaDoServidor({
           <SeletorTela
             listar={ponte().captura.fontes}
             audioDisponivel={ponte().captura.audioDisponivel}
-            audioPadrao={telaPrefs.audio ?? true}
+            // No Windows (item 31) a última escolha não vale: toda transmissão abre desmarcada.
+            audioPadrao={ponte().captura.somLevaChamada ? false : (telaPrefs.audio ?? true)}
             avisoSomChamada={ponte().captura.somLevaChamada}
             qualidades={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
             comLoja={pontos !== null}
