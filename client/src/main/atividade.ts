@@ -56,7 +56,19 @@ async function jogoNoLinux(): Promise<string | undefined> {
 async function musicaNoLinux(): Promise<AtividadeDto['musica']> {
   const destino = '--dest=org.mpris.MediaPlayer2.spotify';
   const ler = (prop: string) =>
-    rodar('dbus-send', ['--session', '--print-reply', destino, '/org/mpris/MediaPlayer2', 'org.freedesktop.DBus.Properties.Get', 'string:org.mpris.MediaPlayer2.Player', `string:${prop}`], 2000);
+    rodar(
+      'dbus-send',
+      [
+        '--session',
+        '--print-reply',
+        destino,
+        '/org/mpris/MediaPlayer2',
+        'org.freedesktop.DBus.Properties.Get',
+        'string:org.mpris.MediaPlayer2.Player',
+        `string:${prop}`,
+      ],
+      2000,
+    );
   const estado = await ler('PlaybackStatus').catch(() => '');
   if (!/"Playing"/.test(estado)) return undefined;
   return musicaDoMpris(await ler('Metadata').catch(() => ''));
@@ -71,7 +83,11 @@ async function noWindows(prefs: PreferenciasAtividade): Promise<AtividadeDto> {
   ]
     .filter(Boolean)
     .join('; ');
-  const saida = await rodar('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `[Console]::OutputEncoding=[Text.Encoding]::UTF8; ${script}`], 8000).catch(() => '');
+  const saida = await rodar(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', `[Console]::OutputEncoding=[Text.Encoding]::UTF8; ${script}`],
+    8000,
+  ).catch(() => '');
   const r: AtividadeDto = {};
   for (const linha of saida.split(/\r?\n/)) {
     if (!r.jogo && linha.startsWith('P:')) r.jogo = jogoDoProcesso(linha.slice(2));
@@ -85,7 +101,10 @@ export async function lerAtividadeDoSistema(prefs: PreferenciasAtividade, plataf
   if (!prefs.jogos && !prefs.musica) return null;
   if (plataforma === 'win32') return lerAtividade(await noWindows(prefs));
   if (plataforma !== 'linux') return null;
-  const [jogo, musica] = await Promise.all([prefs.jogos ? jogoNoLinux().catch(() => undefined) : undefined, prefs.musica ? musicaNoLinux().catch(() => undefined) : undefined]);
+  const [jogo, musica] = await Promise.all([
+    prefs.jogos ? jogoNoLinux().catch(() => undefined) : undefined,
+    prefs.musica ? musicaNoLinux().catch(() => undefined) : undefined,
+  ]);
   return lerAtividade({ jogo, musica });
 }
 
@@ -99,17 +118,23 @@ export function criarAtividade(
   let atual: AtividadeDto | null = null;
   let emAndamento: Promise<void> | null = null;
   let pendente = false;
+  let parado = false;
   const rodada = async () => {
     const nova = await ler(preferencias()).catch(() => null);
     if (JSON.stringify(nova) === JSON.stringify(atual)) return;
-    atual = nova;
-    aoMudar(atual);
+    try {
+      aoMudar(nova);
+      atual = nova;
+    } catch {
+      // Avisar falhou (janela recarregando): `atual` fica como estava e a próxima rodada tenta de novo.
+    }
   };
   /**
    * Pedido no meio de uma leitura (ligou uma opção, RF-9) não se perde: marca `pendente` e a leitura roda de novo logo
    * depois, com as preferências novas. Vários pedidos durante a mesma leitura viram uma releitura só.
    */
   const verificar = (): Promise<void> => {
+    if (parado) return Promise.resolve();
     if (emAndamento) {
       pendente = true;
       return emAndamento;
@@ -119,7 +144,7 @@ export function criarAtividade(
         do {
           pendente = false;
           await rodada();
-        } while (pendente);
+        } while (pendente && !parado);
       } finally {
         emAndamento = null;
       }
@@ -129,5 +154,12 @@ export function criarAtividade(
   const relogio = setInterval(() => void verificar(), intervaloMs);
   relogio.unref?.();
   void verificar();
-  return { verificar, atual: () => atual, parar: () => clearInterval(relogio) };
+  return {
+    verificar,
+    atual: () => atual,
+    parar: () => {
+      parado = true;
+      clearInterval(relogio);
+    },
+  };
 }

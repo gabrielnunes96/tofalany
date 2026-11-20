@@ -72,4 +72,23 @@ describe('atividade', () => {
     expect(aoMudar).toHaveBeenLastCalledWith({ musica: { titulo: 'Oceano' } });
     a.parar();
   });
+
+  it('aviso que falha não perde a mudança (tenta de novo na próxima); depois de parar, não lê mais', async () => {
+    const ler = vi.fn(async () => ({ jogo: 'A' }));
+    let falhar = true;
+    const aoMudar = vi.fn(() => {
+      if (falhar) throw new Error('janela recarregando');
+    });
+    const a = criarAtividade(() => ({ jogos: true, musica: false }), aoMudar, ler, 60_000);
+    await a.verificar();
+    expect(a.atual()).toBeNull();
+    falhar = false;
+    await a.verificar();
+    expect(aoMudar).toHaveBeenLastCalledWith({ jogo: 'A' });
+    expect(a.atual()).toEqual({ jogo: 'A' });
+    a.parar();
+    const leituras = ler.mock.calls.length;
+    await a.verificar();
+    expect(ler).toHaveBeenCalledTimes(leituras);
+  });
 });
