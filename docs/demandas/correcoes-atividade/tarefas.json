@@ -1,0 +1,166 @@
+{
+  "demanda": "correcoes-atividade",
+  "titulo": "Correções da atividade e do som da transmissão",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Servidor: atividade só para quem pode ver e reenvio ao mudar a amizade",
+      "descricao": "server/src/realtime/tempo-real.ts: helper emitirAtividade(id, atividade) que percorre io.of('/').sockets e emite 'atividade:atualizada' só se s.data.usuarioId === id || membroDe(banco, s.data.comunidadeId, id) || saoAmigos(banco, s.data.usuarioId, id) (T-1, padrão de realtime/mensagens.ts:91-98); substitui os io.emit de definirAtividade e de presenca:escolher. server/src/realtime/amizades.ts: callback aoMudarAmizade(a, b, aceita) chamado ao aceitar (cada um recebe a atividade visível do outro) e ao desfazer (recebe null) (T-2).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-2"
+      ],
+      "validacao": "server/test/atividade.test.ts: amigo e membro recebem; conta só da comunidade 2 sem amizade não recebe (onAny + espera); aceitar amizade reenvia; desfazer manda null; nome do teste 'chega para todos' trocado. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Atividade dos amigos na aba Amigos",
+      "descricao": "TelaPrincipal.tsx passa atividades (loja) para BarraLateral, que repassa a AbaAmigos como prop opcional (como presencas). linhaPessoa mostra textosAtividade(a)[0] em <span className=\"atividade-membro\"> abaixo do nome, com title completo; ajustar o CSS para o nome dentro do botão .canal.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-1"
+      ],
+      "validacao": "Dms.test.tsx: BarraLateral com atividades mostra 'Jogando Hades' na linha do amigo e nada sem atividade; conferir no app (npm run dev) com a aba Amigos aberta, desktop. npm test e lint.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "Log em arquivo do processo principal (registro.ts)",
+      "descricao": "client/src/main/registro.ts (novo): registrar(area, motivo) grava 'AAAA-MM-DDTHH:MM:SS area: motivo' em app.getPath('logs')/tofalany.log; acima de 1 MB renomeia para tofalany.old.log; não repete a mesma linha (area+motivo) seguida. Pasta e relógio injetáveis para teste (T-3).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-11"
+      ],
+      "validacao": "client/src/main/registro.test.ts em pasta temporária: grava, rotaciona em 1 MB, não repete o mesmo motivo. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "Leitura pedida durante outra não se perde (pendente) e só ao mudar a atividade",
+      "descricao": "client/src/main/atividade.ts: criarAtividade com flag pendente; verificar() durante uma leitura marca pendente e o finally roda de novo com as preferências novas (T-10). client/src/main/index.ts:254-258: aoMudarConfig só chama verificar() quando c.atividade mudou.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-12"
+      ],
+      "validacao": "atividade.test.ts: ler com promessa controlada; verificar() durante a leitura gera segunda leitura com as preferências novas; rajada de 3 chamadas vira só uma extra. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T5",
+      "titulo": "Steam: nome oficial pelo appmanifest, ferramentas fora e várias pastas na linha",
+      "descricao": "client/src/main/steam.ts (novo): lerKeyValues (parser de .acf/.vdf), raizDaBiblioteca(caminho) (tudo antes de steamapps/common, Z:\\ do Proton vira /), nomeDoJogo(pasta, raiz) com cache por pasta pelo installdir → name; APPIDS_FERRAMENTAS (431960, 993090, 250820, 228980). atividade.ts: jogoDoProcesso com matchAll e a primeira pasta que não é ferramenta (T-8); NAO_JOGOS com wallpaper_engine e Lossless Scaling (T-7); jogoNoLinux usa nomeDoJogo; erros da leitura vão para registrar('atividade', 'jogo: …') sem nome.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T3"
+      ],
+      "criterios": [
+        "CA-6",
+        "CA-7",
+        "CA-8",
+        "CA-9"
+      ],
+      "validacao": "steam.test.ts: parser com appmanifest do Dota 2 (name 'Dota 2', installdir 'dota 2 beta'); sem manifesto → nome da pasta; atividade.test.ts: wallpaper_engine e Lossless Scaling sem jogo; linha com runtime, Proton e Hades → Hades. Conferir no Linux com um jogo da Steam aberto, se houver. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T6",
+      "titulo": "Linux: música do Spotify pelo navegador (MPRIS)",
+      "descricao": "client/src/main/atividade.ts: musicaDoMpris devolve também url (xesam:url); musicaNoLinux lista nomes (org.freedesktop.DBus.ListNames), filtra org.mpris.MediaPlayer2.*, lê PlaybackStatus e Metadata de cada um e usa escolherPlayer (função pura): o primeiro Playing que for o spotify ou tiver url em https://open.spotify.com/ (T-6). Falha do dbus vai para registrar('atividade', 'musica: …').",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T3"
+      ],
+      "criterios": [
+        "CA-3",
+        "CA-4",
+        "CA-5"
+      ],
+      "validacao": "atividade.test.ts: Firefox (instance_1_123) no open.spotify.com tocando → 'Song' de 'Band'; Firefox no YouTube → nada; Spotify pausado → nada. Validação manual: Gabriel toca no open.spotify.com pelo Firefox e o app (npm run dev) mostra Ouvindo. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T7",
+      "titulo": "Windows: leitura em partes, RunningAppID da Steam e música pelas sessões de mídia",
+      "descricao": "client/src/main/atividade.ts: noWindows monta um PowerShell só com blocos try/catch e marcas por parte (J:, P:, S:, M:, W:, E:<parte>:<motivo>), prazo de 6 s (T-9). Jogo: RunningAppID e SteamPath de HKCU\\Software\\Valve\\Steam → libraryfolders.vdf → appmanifest_<id>.acf (T-4), senão os caminhos dos processos com nomeDoJogo. Música: SMTC (GlobalSystemMediaTransportControlsSessionManager) com Spotify.exe ou navegador cujo título de janela começa com 'título • artista' (T-5), senão o título da janela do Spotify. lerSaidaWindows (função pura) interpreta a saída; falhas por parte vão para o registro.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T3",
+        "T5"
+      ],
+      "criterios": [
+        "CA-10",
+        "CA-11",
+        "CA-14b"
+      ],
+      "validacao": "atividade.test.ts: lerSaidaWindows com E:jogo + música válida → só música; sessão chrome + janela 'Song • Band - Google Chrome' → música; com título do YouTube → nada; appid de ferramenta → sem jogo; registrador recebe ('atividade','jogo: tempo esgotado') sem nome de processo. Script do PowerShell conferido por teste de texto. Validação real no Windows fica na T9. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T8",
+      "titulo": "Windows: som do sistema desmarcado na transmissão, com aviso",
+      "descricao": "client/src/main/captura.ts + preload/index.ts e api.ts: captura.somLevaChamada (sendSync, process.platform === 'win32') (T-11). SeletorTela.tsx: prop avisoSomChamada → começa desmarcado, marcável, com o aviso. TelaPrincipal.tsx:1954-1961: com somLevaChamada não lê nem grava tela.audio. Mock da ponte em App.test.tsx ganha o campo.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-13",
+        "CA-13b",
+        "CA-14"
+      ],
+      "validacao": "transmissao.test.tsx: com avisoSomChamada desmarcado, marcável e com o aviso; sem ele, igual a hoje; teste de que a escolha não é gravada com somLevaChamada. E2E voz.spec.ts (Linux) continua verde. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T9",
+      "titulo": "Validação entre máquinas com os amigos em chamada (Windows e Linux)",
+      "descricao": "Depois da build da atualização grande (ou de uma build de teste do Windows pelo CI): Gabriel no Linux e um amigo no Windows, em chamada, com as opções de atividade ligadas. Amigo abre um jogo da Steam (um comum e, se possível, um com anticheat) e toca música no open.spotify.com pelo navegador; Gabriel toca no open.spotify.com pelo Firefox; o amigo abre Transmitir a tela. Registrar o resultado e o tofalany.log do amigo.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1",
+        "T2",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8"
+      ],
+      "criterios": [
+        "CA-15"
+      ],
+      "validacao": "Manual (pare_e_pergunte do perfil): cada um vê a atividade do outro na aba Amigos e na lista de membros em até 40 s, com o nome oficial do jogo; som do sistema abre desmarcado no Windows com o aviso. Resultado anotado em 03-plano.md.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}
