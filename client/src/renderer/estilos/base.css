@@ -752,7 +752,8 @@ button.previa-assistir:hover:not(:disabled) { background: var(--cor-perigo); box
 .grade-videos-barra { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-bottom: -4px; }
 .grade-videos-barra button.icone { padding: 2px 6px; }
 .grade-videos.flutuante {
-  position: fixed; z-index: 40; width: min(360px, 40vw); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  /* No <body> (portal): por cima dos painéis (z 45) e abaixo de diálogos e menus (50 em diante). */
+  position: fixed; z-index: 45; width: min(360px, 40vw); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   padding: 6px; border: 1px solid var(--cor-borda); border-radius: var(--raio-g); background: var(--cor-superficie-2);
   box-shadow: var(--sombra-flutuante); cursor: grab; touch-action: none; user-select: none;
 }

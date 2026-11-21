@@ -1,3 +1,4 @@
+import { voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ACOES_ATALHO, GANHO_MIC_MIN, GANHO_MIC_MAX, VOLUME_CHAMADA_MAX, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
@@ -601,7 +602,13 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
                 })}
             </fieldset>
           )}
-
+          <fieldset className="opcoes">
+            <legend>Câmeras</legend>
+            <p className="suave">Se a janelinha das câmeras flutuantes sumiu ou ficou num canto difícil, traga de volta.</p>
+            <button type="button" className="secundario" onClick={voltarCamerasAoLugar}>
+              Voltar as câmeras ao lugar
+            </button>
+          </fieldset>
 
             </>
           )}

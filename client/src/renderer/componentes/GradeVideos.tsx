@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as EventoPonteiro } from 'react';
+import { createPortal } from 'react-dom';
+import { gravarModoCameras, useModoCameras } from '../servicos/modo-cameras';
 import type { UsuarioDto } from '@tofalando/shared';
 import type { FaixaVideo, VideoSala } from '../servicos/voz';
 import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
@@ -36,46 +38,25 @@ function Quadro({ faixa, nome, meu }: { faixa: FaixaVideo; nome: string; meu: bo
   );
 }
 
-const CHAVE_POSICAO = 'tofalany.cameras';
-type Modo = { flutuante: boolean; x: number; y: number };
-
-function lerModo(): Modo {
-  try {
-    const bruto = JSON.parse(localStorage.getItem(CHAVE_POSICAO) ?? '') as Partial<Modo>;
-    return { flutuante: bruto.flutuante === true, x: Number(bruto.x) || 24, y: Number(bruto.y) || 80 };
-  } catch {
-    return { flutuante: false, x: 24, y: 80 };
-  }
-}
-
 /**
  * RF-25: câmeras do canal de voz (a minha como prévia, espelhada). Backlog v2, itens 11 e 11b: cada câmera vai
  * para a tela cheia, e a grade pode virar uma janelinha flutuante, arrastável para qualquer canto (a posição fica
- * guardada neste computador).
+ * guardada neste computador). video-teatro-cameras-e-sons (RN-1): a janelinha é desenhada direto no <body>, por cima
+ * de tudo; dentro do painel do meio (que tem vidro, backdrop-filter) ela ficava presa a ele e sumia ao passar da borda.
  */
 export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; usuarios: UsuarioDto[]; euId: number }) {
-  const [modo, setModo] = useState<Modo>(lerModo);
+  const modo = useModoCameras();
+  /** Posição durante o arrasto (só grava ao soltar). */
+  const [arrastando, setArrastando] = useState<{ x: number; y: number } | null>(null);
   const arrasto = useRef<{ dx: number; dy: number } | null>(null);
   const caixa = useRef<HTMLElement>(null);
 
-  const guardar = (novo: Modo) => {
-    setModo(novo);
-    try {
-      localStorage.setItem(CHAVE_POSICAO, JSON.stringify(novo));
-    } catch {
-      // Sem armazenamento: vale só nesta sessão.
-    }
-  };
-
-  // Mantém a janelinha dentro da janela do app (ex.: depois de diminuir a janela).
+  // Mantém a janelinha inteira dentro da janela do app (RN-1).
   const limitar = (x: number, y: number) => {
     const el = caixa.current;
     const largura = el?.offsetWidth ?? 320;
     const altura = el?.offsetHeight ?? 200;
-    return {
-      x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - largura - 8)),
-      y: Math.min(Math.max(8, y), Math.max(8, window.innerHeight - altura - 8)),
-    };
+    return limitarNaJanela(x, y, largura, altura, window.innerWidth, window.innerHeight);
   };
 
   const comecar = (e: EventoPonteiro<HTMLElement>) => {
@@ -85,13 +66,13 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
   };
   const mover = (e: EventoPonteiro<HTMLElement>) => {
     if (!arrasto.current) return;
-    const p = limitar(e.clientX - arrasto.current.dx, e.clientY - arrasto.current.dy);
-    setModo((m) => ({ ...m, ...p }));
+    setArrastando(limitar(e.clientX - arrasto.current.dx, e.clientY - arrasto.current.dy));
   };
   const soltar = () => {
     if (!arrasto.current) return;
     arrasto.current = null;
-    guardar(modo);
+    if (arrastando) gravarModoCameras({ ...modo, ...arrastando });
+    setArrastando(null);
   };
 
   // A posição guardada pode ter ficado fora da janela (outro monitor, janela menor): na tela, a janelinha fica sempre
@@ -107,12 +88,9 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
   if (videos.length === 0) return null;
   // Na tela: sem ler o tamanho real (largura do CSS da janelinha e uma altura mínima), só para nunca ficar fora.
   const larguraFlutuante = Math.min(360, window.innerWidth * 0.4);
-  const posicao = {
-    x: Math.min(Math.max(8, modo.x), Math.max(8, window.innerWidth - larguraFlutuante - 8)),
-    y: Math.min(Math.max(8, modo.y), Math.max(8, window.innerHeight - 160)),
-  };
+  const posicao = arrastando ?? limitarNaJanela(modo.x, modo.y, larguraFlutuante, 160, window.innerWidth, window.innerHeight);
   const nome = (id: number) => usuarios.find((u) => u.id === id)?.nomeExibicao ?? 'Alguém';
-  return (
+  const grade = (
     <section
       ref={caixa}
       className={`grade-videos${modo.flutuante ? ' flutuante' : ''}`}
@@ -130,7 +108,7 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
           aria-pressed={modo.flutuante}
           aria-label={modo.flutuante ? 'Prender as câmeras no topo' : 'Câmeras flutuantes'}
           title={modo.flutuante ? 'Voltar as câmeras para o topo da conversa' : 'Soltar as câmeras numa janelinha que dá para arrastar'}
-          onClick={() => guardar({ ...modo, flutuante: !modo.flutuante })}
+          onClick={() => gravarModoCameras({ ...modo, flutuante: !modo.flutuante })}
         >
           <Icone nome={modo.flutuante ? 'alfinete' : 'janela'} tamanho={16} />
         </button>
@@ -140,4 +118,13 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
       ))}
     </section>
   );
+  return modo.flutuante ? createPortal(grade, document.body) : grade;
+}
+
+/** Posição (x, y) de uma caixa largura × altura inteira dentro de uma janela, com 8 px de margem (RN-1). */
+export function limitarNaJanela(x: number, y: number, largura: number, altura: number, janelaLargura: number, janelaAltura: number) {
+  return {
+    x: Math.min(Math.max(8, x), Math.max(8, janelaLargura - largura - 8)),
+    y: Math.min(Math.max(8, y), Math.max(8, janelaAltura - altura - 8)),
+  };
 }

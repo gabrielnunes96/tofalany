@@ -52,6 +52,7 @@ import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { PainelFixadas } from '../componentes/PainelFixadas';
+import { useModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { PainelBusca } from '../componentes/PainelBusca';
 import { criarKlipy } from '../servicos/gif';
 import { ProcurarAtualizacao } from '../componentes/ProcurarAtualizacao';
@@ -351,6 +352,8 @@ function TelaDoServidor({
   const { servidorId, donoServidor } = useLoja(useShallow((s) => ({ servidorId: s.servidorId, donoServidor: s.donoServidor })));
   /** Pontos e loja: saldo e itens da conta (null = servidor sem loja, a loja some). */
   const pontos = useLoja((s) => s.pontos);
+  /** video-teatro-cameras-e-sons (RN-2): câmeras flutuantes têm o botão de voltar ao lugar no painel de voz. */
+  const modoCameras = useModoCameras();
   /** chat-fixar-e-buscar: o que o servidor oferece e o painel da coluna direita (membros, fixadas ou busca). */
   const recursos = useLoja((s) => s.recursos);
   const [painelDireito, setPainelDireito] = useState<'membros' | 'fixadas' | 'busca'>('membros');
@@ -1846,6 +1849,17 @@ function TelaDoServidor({
                       >
                         <Icone nome="sons" />
                       </button>
+                      {modoCameras.flutuante && videos.length > 0 && (
+                        <button
+                          type="button"
+                          className="icone controle"
+                          aria-label="Voltar as câmeras ao lugar"
+                          title="Voltar as câmeras ao lugar (canto de cima, à vista)"
+                          onClick={voltarCamerasAoLugar}
+                        >
+                          <Icone nome="janela" />
+                        </button>
+                      )}
                       <button type="button" className="icone controle sair-voz" aria-label="Sair da voz" title="Sair da voz" onClick={() => void sairVoz()}>
                         <Icone nome="desligar" />
                       </button>
