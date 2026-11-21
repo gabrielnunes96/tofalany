@@ -70,6 +70,14 @@ describe('índice de busca (chat-fixar-e-buscar, migração 022)', () => {
     banco.prepare("UPDATE anexos SET mensagem_id = 1 WHERE id = 'a2'").run();
     expect(achar(banco, '"orcamento"*')).toEqual([1]);
     banco.prepare("DELETE FROM anexos WHERE id = 'a2'").run();
+    // Anexo gravado já com a mensagem também entra.
+    banco
+      .prepare(
+        "INSERT INTO anexos (id, mensagem_id, autor_id, tipo, mime, nome_original, bytes, arquivo, criado_em) VALUES ('a3', 1, 1, 'documento', 'text/plain', 'recibo.pdf', 1, 'a3', ?)",
+      )
+      .run(agora);
+    expect(achar(banco, '"recibo"*')).toEqual([1]);
+    banco.prepare("DELETE FROM anexos WHERE id = 'a3'").run();
     expect(achar(banco, '"orcamento"*')).toEqual([]);
     expect(achar(banco, '"senha"*')).toEqual([1]);
     banco

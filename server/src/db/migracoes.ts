@@ -322,6 +322,11 @@ export const MIGRACOES: readonly string[] = [
   CREATE TRIGGER busca_mensagem_apagada AFTER DELETE ON mensagens BEGIN
     DELETE FROM busca_mensagens WHERE rowid = old.id;
   END;
+  CREATE TRIGGER busca_anexo_novo AFTER INSERT ON anexos WHEN new.mensagem_id IS NOT NULL BEGIN
+    INSERT OR REPLACE INTO busca_mensagens (rowid, texto, anexos)
+    SELECT m.id, m.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = m.id)
+    FROM mensagens m WHERE m.id = new.mensagem_id AND m.tipo = 'normal';
+  END;
   CREATE TRIGGER busca_anexo_vinculado AFTER UPDATE OF mensagem_id ON anexos BEGIN
     INSERT OR REPLACE INTO busca_mensagens (rowid, texto, anexos)
     SELECT m.id, m.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = m.id)

@@ -6,6 +6,7 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { criarArmazem, type Armazem } from './arquivos/armazem.js';
 import { registrarRotasArquivos } from './routes/arquivos.js';
+import { registrarRotasBusca } from './routes/busca.js';
 import { registrarRotasPerfil } from './routes/perfil.js';
 import { registrarRotasModeracao } from './routes/moderacao.js';
 import { registrarRotasLoja } from './routes/loja.js';
@@ -158,6 +159,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasLoja(app, banco, config, tempoReal);
   registrarRotasDoisFatores(app, banco, config);
   registrarRotasMensagens(app, banco);
+  registrarRotasBusca(app, banco);
   registrarRotasAnexos(app, banco, armazem);
   registrarRotasSons(app, banco, armazem, tempoReal);
   await registrarRotasLivekit(app, banco, config, tempoReal.voz, (u, c, f) => tempoReal.conferirFaixaTela(u, c, f));
