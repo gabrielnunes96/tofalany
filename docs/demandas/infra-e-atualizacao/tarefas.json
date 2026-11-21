@@ -15,9 +15,9 @@
         "CA-6"
       ],
       "validacao": "server/test: 202 admin da instalação e arquivo vazio criado; 403 membro e admin de /c/<id>; 429 em 5 min; 503 sem PEDIDOS; auditoria; voz: host na lista → wss://host, fora → LIVEKIT_URL; X-Forwarded-For de fora da rede confiável não muda o IP. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "6114e07"
     },
     {
       "id": "T2",
@@ -31,7 +31,7 @@
         "CA-10"
       ],
       "validacao": "server/test com yt-dlp falso: erro não promove, sucesso promove, envio do admin no meio vence, DELETE no meio continua apagado, cópia 0600 e apagada, máscara no log, env do filho só com a lista; config com MUSICA_POT_URL e recusa das verbosas. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

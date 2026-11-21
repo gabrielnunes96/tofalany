@@ -112,7 +112,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
       ligada: ambiente.MUSICA !== 'false',
       ytdlp: ambiente.MUSICA_YTDLP || 'yt-dlp',
       ffmpeg: ambiente.MUSICA_FFMPEG || 'ffmpeg',
-      extras: (ambiente.MUSICA_YTDLP_ARGS ?? '').split(/\s+/).filter(Boolean),
+      extras: extrasYtDlp(ambiente),
       // Cookies de uma conta do YouTube (o YouTube recusa IP de datacenter sem login). O administrador envia pelo app.
       cookies: ambiente.MUSICA_COOKIES || ((ambiente.BANCO || 'data/tofalando.db') === ':memory:' ? undefined : join(dirname(ambiente.BANCO || 'data/tofalando.db'), 'musica-cookies.txt')),
     },
@@ -156,4 +156,23 @@ function lerGif(ambiente: Ambiente): Config['gif'] {
   if (!/^https?:\/\//.test(outra)) throw new Error(`KLIPY_URL deve começar com http(s):// (recebido: ${outra}).`);
   const host = new URL(outra).hostname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return { chave, base: outra, hostsMidia: new RegExp(`${HOSTS_MIDIA_GIF.source}|^${host}$`), aceitarHttp: true };
+}
+
+/** Opções do yt-dlp que imprimem cabeçalhos (com os cookies) ou páginas inteiras: recusadas (A15). */
+const OPCOES_VERBOSAS = ['--verbose', '-v', '--print-traffic', '--dump-pages', '--write-pages'];
+
+/**
+ * Argumentos a mais do yt-dlp: MUSICA_YTDLP_ARGS (na imagem, o runtime de JavaScript) e, com MUSICA_POT_URL, o gerador de
+ * token de origem do YouTube (contêiner bgutil, T-11), numa variável à parte para não perder os de MUSICA_YTDLP_ARGS.
+ */
+function extrasYtDlp(ambiente: Ambiente): string[] {
+  const extras = (ambiente.MUSICA_YTDLP_ARGS ?? '').split(/\s+/).filter(Boolean);
+  const verbosa = extras.find((a) => OPCOES_VERBOSAS.includes(a));
+  if (verbosa) throw new Error(`MUSICA_YTDLP_ARGS não aceita ${verbosa}: o yt-dlp imprimiria os cookies no log.`);
+  const pot = ambiente.MUSICA_POT_URL?.trim();
+  if (pot) {
+    if (!/^https?:\/\/[\w.-]+(:\d+)?\/?$/.test(pot)) throw new Error('MUSICA_POT_URL precisa ser http(s)://host[:porta] (ex.: http://bgutil:4416).');
+    extras.push('--extractor-args', `youtubepot-bgutilhttp:base_url=${pot.replace(/\/$/, '')}`);
+  }
+  return extras;
 }

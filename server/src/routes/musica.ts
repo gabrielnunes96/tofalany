@@ -1,10 +1,11 @@
-import { chmodSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
 import { exigirAdmin, exigirPrincipal, exigirSessao } from '../auth/sessao-http.js';
+import { cookiesDe } from '../musica/cookies.js';
 
 /** Situação dos cookies do YouTube do ToOuvini (o administrador vê no app). */
 export interface SituacaoMusica {
@@ -28,6 +29,15 @@ export function conferirCookies(conteudo: unknown): string {
 export function registrarRotasMusica(app: FastifyInstance, banco: Banco, config: Config): void {
   const soAdminDaInstalacao = [exigirSessao(banco), exigirAdmin(banco), exigirPrincipal()];
   const arquivo = config.musica.cookies;
+  // O mesmo gestor do ToOuvini: o envio e a exclusão mudam a geração (uma execução antiga não sobrescreve, T-9).
+  const cookies = cookiesDe(arquivo, (c) => {
+    try {
+      conferirCookies(c);
+      return true;
+    } catch {
+      return false;
+    }
+  });
   const situacao = (): SituacaoMusica => {
     if (!arquivo || !existsSync(arquivo)) return { cookies: false, atualizadoEm: null };
     return { cookies: true, atualizadoEm: Math.round(statSync(arquivo).mtimeMs) };
@@ -39,14 +49,13 @@ export function registrarRotasMusica(app: FastifyInstance, banco: Banco, config:
     if (!arquivo) throw new ErroHttp(400, 'dados_invalidos', 'Este servidor não guarda arquivos (banco em memória).');
     const conteudo = conferirCookies((req.body as { conteudo?: unknown } | undefined)?.conteudo);
     mkdirSync(dirname(arquivo), { recursive: true });
-    // Só o servidor lê (são credenciais de uma conta).
-    writeFileSync(arquivo, conteudo, { mode: 0o600 });
-    chmodSync(arquivo, 0o600);
+    // Só o servidor lê (são credenciais de uma conta): 0600, troca atômica.
+    cookies.gravar(conteudo);
     return situacao();
   });
 
   app.delete('/api/admin/musica/cookies', { preHandler: soAdminDaInstalacao }, async (_req, reply) => {
-    if (arquivo) rmSync(arquivo, { force: true });
+    cookies.apagar();
     reply.code(204);
   });
 }

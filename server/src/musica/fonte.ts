@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { Readable } from 'node:stream';
 import { DURACAO_MAXIMA_MUSICA_S } from '@tofalando/shared';
 import { ErroHttp } from '../erros.js';
+import { ambienteMinimo, cookiesDe, mascarar, type CookiesMusica } from './cookies.js';
 
 /** Backlog v2, item 14: de onde vem o áudio do bot de música. */
 export interface InfoMusica {
@@ -36,7 +37,7 @@ export function explicarFalha(erro: string): string {
 function acompanhar(p: ReturnType<typeof spawn>): () => Promise<string | undefined> {
   let erro = '';
   p.stderr?.setEncoding('utf8').on('data', (d: string) => {
-    erro = (erro + d).slice(-4000);
+    erro = mascarar(erro + d).slice(-4000);
   });
   const fim = new Promise<string | undefined>((resolver) => {
     p.on('error', (e) => resolver(e.message));
@@ -148,7 +149,7 @@ export function lerInfo(saida: string): InfoMusica {
 
 function rodar(bin: string, args: string[], tempoMs: number): Promise<string> {
   return new Promise((resolver, rejeitar) => {
-    const p = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], env: ambienteMinimo() });
     let saida = '';
     let erro = '';
     const relogio = setTimeout(() => p.kill('SIGKILL'), tempoMs);
@@ -165,7 +166,7 @@ function rodar(bin: string, args: string[], tempoMs: number): Promise<string> {
     p.on('close', (codigo) => {
       clearTimeout(relogio);
       if (codigo === 0) resolver(saida);
-      else rejeitar(new Error(`${bin} saiu com ${codigo}: ${erro.trim().split('\n').slice(-3).join(' | ')}`));
+      else rejeitar(new Error(`${bin} saiu com ${codigo}: ${mascarar(erro).trim().split('\n').slice(-3).join(' | ')}`));
     });
   });
 }
@@ -174,7 +175,9 @@ function rodar(bin: string, args: string[], tempoMs: number): Promise<string> {
  * yt-dlp descobre e baixa o áudio; o ffmpeg converte para PCM (48 kHz estéreo, volume a 50% para não estourar
  * por cima das vozes). `extras`: argumentos a mais do yt-dlp (na imagem Docker, o runtime de JavaScript).
  */
-export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extras?: string[]; cookies?: string; registrarErro?: (e: unknown) => void } = {}): FonteMusica {
+export function criarFonteYtDlp(
+  opcoes: { ytdlp?: string; ffmpeg?: string; extras?: string[]; cookies?: string; gestorCookies?: CookiesMusica; registrarErro?: (e: unknown) => void } = {},
+): FonteMusica {
   const ytdlp = opcoes.ytdlp ?? 'yt-dlp';
   const ffmpeg = opcoes.ffmpeg ?? 'ffmpeg';
   // Os cookies valem a partir do momento em que o arquivo existe (o administrador envia pelo app, sem reiniciar).
@@ -182,7 +185,19 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
   // Músicas baixadas antes da vez delas (apagadas depois de tocar); o que sobrou de uma execução anterior sai.
   const pastaTemporaria = join(tmpdir(), 'tofalany-musica');
   rmSync(pastaTemporaria, { recursive: true, force: true });
-  const argsCookies = () => (opcoes.cookies && existsSync(opcoes.cookies) ? ['--cookies', opcoes.cookies] : []);
+  // Cada execução com a própria cópia dos cookies (T-9): só a que termina bem atualiza os guardados.
+  const cookies = opcoes.gestorCookies ?? cookiesDe(opcoes.cookies);
+  const comCookies = async (args: (c: string[]) => string[], tempoMs: number) => {
+    const uso = cookies.usar();
+    try {
+      const saida = await rodar(ytdlp, args(uso.args), tempoMs);
+      await uso.terminar(true);
+      return saida;
+    } catch (erro) {
+      await uso.terminar(false);
+      throw erro;
+    }
+  };
   return {
     async buscar(busca) {
       const alvo = alvoDaBusca(busca);
@@ -196,9 +211,8 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
       const raso = alvo.startsWith('ytsearch');
       let saida: string;
       try {
-        saida = await rodar(
-          ytdlp,
-          raso ? [...extrasBase, ...argsCookies(), '--flat-playlist', '--no-warnings', '-J', alvo] : [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '--skip-download', '-j', alvo],
+        saida = await comCookies(
+          (c) => (raso ? [...extrasBase, ...c, '--flat-playlist', '--no-warnings', '-J', alvo] : [...extrasBase, ...c, '--no-playlist', '--no-warnings', '--skip-download', '-j', alvo]),
           90_000,
         );
       } catch (erro) {
@@ -221,7 +235,7 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
       if (!ehPlaylist(busca)) return [await this.buscar(busca)];
       let saida: string;
       try {
-        saida = await rodar(ytdlp, [...extrasBase, ...argsCookies(), '--yes-playlist', '--flat-playlist', '--no-warnings', '--playlist-end', String(limite), '-J', alvoDaBusca(busca)], 60_000);
+        saida = await comCookies((c) => [...extrasBase, ...c, '--yes-playlist', '--flat-playlist', '--no-warnings', '--playlist-end', String(limite), '-J', alvoDaBusca(busca)], 60_000);
       } catch (erro) {
         opcoes.registrarErro?.(erro);
         throw new ErroHttp(502, 'musica_indisponivel', 'Não consegui abrir essa playlist agora (o YouTube recusou ou ela é privada).');
@@ -232,9 +246,8 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
       // O endereço do YouTube só funciona pelo downloader do próprio yt-dlp (o ffmpeg direto leva 403): baixa o áudio.
       mkdirSync(pastaTemporaria, { recursive: true });
       const base = join(pastaTemporaria, randomBytes(8).toString('hex'));
-      const saida = await rodar(
-        ytdlp,
-        [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '--max-filesize', '60M', '-o', `${base}.%(ext)s`, '--print', 'after_move:filepath', url],
+      const saida = await comCookies(
+        (c) => [...extrasBase, ...c, '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '--max-filesize', '60M', '-o', `${base}.%(ext)s`, '--print', 'after_move:filepath', url],
         180_000,
       );
       const caminho = saida.trim().split('\n').at(-1)?.trim();
@@ -244,6 +257,7 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
     abrirArquivo(caminho) {
       const converter = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', caminho, '-vn', '-af', 'volume=0.5', '-f', 's16le', '-ac', '2', '-ar', '48000', 'pipe:1'], {
         stdio: ['ignore', 'pipe', 'pipe'],
+        env: ambienteMinimo(),
       });
       const fimConverter = acompanhar(converter);
       return {
@@ -256,9 +270,17 @@ export function criarFonteYtDlp(opcoes: { ytdlp?: string; ffmpeg?: string; extra
       };
     },
     abrir(url) {
-      const baixar = spawn(ytdlp, [...extrasBase, ...argsCookies(), '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '-o', '-', url], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const uso = cookies.usar();
+      const baixar = spawn(ytdlp, [...extrasBase, ...uso.args, '--no-playlist', '--no-warnings', '-q', '-f', 'bestaudio/best', '-o', '-', url], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: ambienteMinimo(),
+      });
+      // Promove só com saída 0 (pular a música mata o processo: não conta como terminou bem).
+      baixar.on('close', (codigo) => void uso.terminar(codigo === 0));
+      baixar.on('error', () => void uso.terminar(false));
       const converter = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0', '-vn', '-af', 'volume=0.5', '-f', 's16le', '-ac', '2', '-ar', '48000', 'pipe:1'], {
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: ambienteMinimo(),
       });
       baixar.stdout.pipe(converter.stdin);
       // Fim antecipado (pular): o pipe quebra; não é erro.
