@@ -4,6 +4,7 @@ import type { ApiTofalando } from './api';
 
 const api: ApiTofalando = {
   versao: String(ipcRenderer.sendSync('app:versao') ?? ''),
+  modoTeste: ipcRenderer.sendSync('app:modo-teste') === true,
   config: {
     ler: () => ipcRenderer.invoke('config:ler'),
     gravar: (parcial) => ipcRenderer.invoke('config:gravar', parcial),

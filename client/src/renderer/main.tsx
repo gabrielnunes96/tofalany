@@ -18,6 +18,13 @@ void ponte()
   })
   .catch(() => undefined);
 
+// E2E (volume-da-voz, T-6): mede o nivelamento da voz num OfflineAudioContext, no Chromium de verdade.
+if (ponte().modoTeste) {
+  void import('./servicos/nivel-voz-medicao').then(({ medirNivel }) => {
+    (window as unknown as { __medirNivel?: typeof medirNivel }).__medirNivel = medirNivel;
+  });
+}
+
 const raiz = document.getElementById('raiz');
 if (!raiz) throw new Error('Elemento #raiz não encontrado.');
 createRoot(raiz).render(

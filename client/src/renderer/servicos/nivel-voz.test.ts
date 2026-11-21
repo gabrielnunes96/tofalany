@@ -33,10 +33,10 @@ function contexto() {
 }
 
 describe('nivelamento da voz (volume-da-voz, T-1 a T-3)', () => {
-  it('parâmetros: compressor de voz, limitador em −2 dBFS; nivelar escolhe o ramo; o ganho passa direto', () => {
+  it('parâmetros: compressor de voz, limitador em −2,5 dBFS; nivelar escolhe o ramo; o ganho passa direto', () => {
     const p = parametrosNivel({ nivelar: true, ganho: 2 });
     expect(p.compressor).toEqual({ threshold: -45, knee: 6, ratio: 4, attack: 0.003, release: 0.25 });
-    expect(p.limitador).toMatchObject({ threshold: -2, ratio: 20, knee: 0, attack: 0 });
+    expect(p.limitador).toMatchObject({ threshold: -2.5, ratio: 20, knee: 0, attack: 0 });
     expect(p.limitador.threshold).toBeLessThanOrEqual(-1);
     expect([p.nivelado, p.direto, p.ganho]).toEqual([1, 0, 2]);
     const sem = parametrosNivel({ nivelar: false, ganho: 1 });
@@ -59,9 +59,9 @@ describe('nivelamento da voz (volume-da-voz, T-1 a T-3)', () => {
     // Valores iniciais sem rampa: o ramo nivelado já com a compensação; a correção do limitador abaixo de 1.
     const p = parametrosNivel({ nivelar: true, ganho: 1 });
     expect([nivelado!.gain.value, direto!.gain.value, ganho!.gain.value, correcao!.gain.value]).toEqual([p.compensacao, 0, 1, p.correcao]);
-    expect(p.correcao).toBeCloseTo(0.877, 2);
+    expect(p.correcao).toBeCloseTo(0.849, 2);
     expect(compressor!.threshold.value).toBe(-45);
-    expect(limitador!.threshold.value).toBe(-2);
+    expect(limitador!.threshold.value).toBe(-2.5);
   });
 
   it('CA-3 e RF-6: desligar o nivelamento e mudar o ganho ao vivo usam rampas (sem religar nós)', () => {

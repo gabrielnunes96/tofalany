@@ -94,6 +94,7 @@ function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | 
   });
   const api: ApiTofalando = {
     versao: '0.0.0-teste',
+    modoTeste: false,
     atalhos: { aoEvento: () => () => undefined, pausar: async () => undefined },
     presenca: { ausente: async () => false, aoMudar: () => () => undefined },
     captura: { fontes: async () => [], escolher: async () => false, audioDisponivel: false, somLevaChamada: false, pararSom: async () => undefined, mesmaTela: async () => false },

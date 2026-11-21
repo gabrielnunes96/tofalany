@@ -10,6 +10,8 @@ export interface SessaoLocal {
 export interface ApiTofalando {
   /** Versão do app instalado (ex.: 0.10.0). */
   versao: string;
+  /** E2E: modo de teste (só fora do app empacotado); liga ganchos de medição na janela. */
+  modoTeste: boolean;
   config: {
     ler(): Promise<ConfiguracoesLocais>;
     gravar(parcial: Partial<ConfiguracoesLocais>): Promise<ConfiguracoesLocais>;

@@ -242,6 +242,10 @@ if (links.principal) {
     ipcMain.on('app:versao', (e) => {
       e.returnValue = versaoDoApp();
     });
+    // E2E: a janela liga os ganchos de medição só no modo de teste e fora do app empacotado.
+    ipcMain.on('app:modo-teste', (e) => {
+      e.returnValue = process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged;
+    });
     registrarCaptura();
     registrarIpc(
       configuracoes,

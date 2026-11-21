@@ -40,21 +40,22 @@ export interface ParametrosNivel {
 
 /**
  * Parâmetros (T-2, ajustados na execução): compressor de voz a partir de −45 dBFS, 4:1 (com −30 dB, como na técnica, a
- * diferença entre −40 e −6 dBFS ficaria em ~16 dB e o CA-2 não passaria). Limitador em −2 dBFS com correção da
- * compensação automática dele. `compensacao` e `correcao` partem da fórmula da especificação e são conferidos pela
- * medição no Chromium (E2E da T6).
+ * diferença entre −40 e −6 dBFS ficaria em ~16 dB e o CA-2 não passaria). Limitador em −2,5 dBFS com correção da
+ * compensação automática dele. `compensacao` e `correcao` partem da fórmula da especificação e foram conferidos pela
+ * medição no Chromium (E2E da T6, `e2e/nivel-voz.spec.ts`).
  */
 export function parametrosNivel({ nivelar, ganho }: OpcoesNivel): ParametrosNivel {
   return {
     compressor: { threshold: -45, knee: 6, ratio: 4, attack: 0.003, release: 0.25 },
     // Fala a −20 dBFS: o compressor leva a ~−38,75 dB e a compensação automática soma ~+20,25 dB; −1,5 dB a corrige.
     compensacao: 10 ** (-1.5 / 20),
-    // Limitador: curva(0 dBFS) = −2 + 2/20 = −1,9 dB → compensação automática de 1,9 × 0,6 = 1,14 dB, desfeita aqui.
-    correcao: 10 ** (-1.14 / 20),
+    // Limitador: curva(0 dBFS) = −2,5 + 2,5/20 = −2,375 dB → compensação automática de 2,375 × 0,6 = 1,425 dB, desfeita aqui.
+    correcao: 10 ** (-1.425 / 20),
     nivelado: nivelar ? 1 : 0,
     direto: nivelar ? 0 : 1,
     ganho,
-    limitador: { threshold: -2, knee: 0, ratio: 20, attack: 0, release: 0.05 },
+    // −2,5 dBFS: medido no Chromium (T6), o pico com ganho 300% fica perto de −1,5 dBFS (com −2, ficava em −1,06).
+    limitador: { threshold: -2.5, knee: 0, ratio: 20, attack: 0, release: 0.05 },
   };
 }
 

@@ -92,9 +92,9 @@
         "CA-9"
       ],
       "validacao": "Teste de componente do painel do volume (abre, muda, grava); conferir no app com a voz conectada. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "7592e59"
     },
     {
       "id": "T6",
@@ -111,7 +111,7 @@
         "CA-4"
       ],
       "validacao": "npm run test:e2e com o teste novo verde; CA-21 (sensibilidade) continua verde.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
