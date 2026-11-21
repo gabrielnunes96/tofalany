@@ -244,7 +244,8 @@ describe('sala de voz (RF-13)', () => {
     const bot = faixa('bot-musica');
     const tela = faixa('2', 'screen_share_audio');
     voz.somDaTela(2, { assistindo: true, volume: 1 });
-    expect(ana.f.setVolume).toHaveBeenLastCalledWith(1.8);
+    expect(ana.f.setVolume.mock.lastCall![0]).toBeCloseTo(1.8, 6);
+    expect(ana.el.dataset.volume).toBe('1.8');
     expect(beto.f.setVolume).toHaveBeenLastCalledWith(2);
     expect(bot.f.setVolume).toHaveBeenLastCalledWith(0.4);
     expect(tela.f.setVolume).toHaveBeenLastCalledWith(1);
