@@ -213,7 +213,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
           : id === IDENTIDADE_BOT_MUSICA
             ? (volumes[id] ?? VOLUME_BOT_PADRAO)
             : // volume-da-voz (T-7): a voz de cada pessoa × o volume da chamada, com o total até 200%.
-              Math.round(Math.min(VOLUME_PESSOA_MAX, (volumes[id] ?? 1) * (prefs?.volumeChamada ?? 1)) * 100) / 100;
+              Math.min(VOLUME_PESSOA_MAX, (volumes[id] ?? 1) * (prefs?.volumeChamada ?? 1));
     const ajustar = (faixa as RemoteTrack & { setVolume?(v: number): void }).setVolume?.bind(faixa);
     try {
       ajustar?.(v);
@@ -221,7 +221,8 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       // Sem Web Audio, o volume vai no elemento, que só aceita até 100%.
       ajustar?.(Math.min(1, v));
     }
-    elemento.dataset.volume = String(v);
+    // Arredondado só aqui (o E2E lê este texto); o volume aplicado fica exato (5% × 5% não vira 0).
+    elemento.dataset.volume = String(Math.round(v * 100) / 100);
   }
   function aplicarControles() {
     const fechado = controles.mudo || controles.surdo;

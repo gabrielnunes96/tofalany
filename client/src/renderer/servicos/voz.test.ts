@@ -254,6 +254,24 @@ describe('sala de voz (RF-13)', () => {
     expect(beto.el.dataset.volume).toBe('0');
     expect(bot.f.setVolume).toHaveBeenLastCalledWith(0.4);
     expect(tela.f.setVolume).toHaveBeenLastCalledWith(1);
+    // De volta a 150%: a Ana volta a 180%.
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, volumeChamada: 1.5 });
+    expect(ana.el.dataset.volume).toBe('1.8');
+    // Volumes baixos não viram 0 (só o texto é arredondado).
+    voz.definirPessoas({ volumes: { '2': 0.05 }, silenciados: [] });
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, volumeChamada: 0.05 });
+    expect(ana.f.setVolume.mock.lastCall![0]).toBeCloseTo(0.0025, 6);
+  });
+
+  it('volume-da-voz: o volume da chamada guardado antes de entrar vale para quem chega', async () => {
+    const { sala, emitir } = salaFalsa();
+    const voz = criarSalaVoz(ouvintesVoz(), () => sala, vi.fn(async () => microfone()));
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, volumeChamada: 0.5 });
+    await voz.entrar('ws://lk', 'tok', { ...AUDIO_PADRAO, volumeChamada: 0.5 });
+    const el = document.createElement('audio');
+    const f = { kind: 'audio', source: 'microphone', attach: () => el, detach: vi.fn(() => []), setVolume: vi.fn() };
+    emitir(RoomEvent.TrackSubscribed, f, {}, { identity: '2' });
+    expect(f.setVolume).toHaveBeenLastCalledWith(0.5);
   });
 
   it('volume-da-voz, CA-9: nivelamento e ganho mudam ao vivo no microfone, sem reabrir', async () => {
