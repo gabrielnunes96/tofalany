@@ -1,5 +1,6 @@
 import {
   HISTORICO_ATE_MAX,
+  JANELA_MENSAGENS,
   PAGINA_MENSAGENS,
   trechoDeResposta,
   type Destino,
@@ -202,4 +203,32 @@ export function listarMensagens(banco: Banco, destino: Destino, antes?: number, 
     .prepare(`SELECT * FROM mensagens WHERE ${coluna} = ? ${antes ? 'AND id < ?' : ''} ORDER BY id DESC LIMIT ?`)
     .all(...(antes ? [id, antes, n + 1] : [id, n + 1])) as LinhaMensagem[];
   return { mensagens: paraDtos(banco, linhas.slice(0, n).reverse()), fim: linhas.length <= n };
+}
+
+/**
+ * chat-fixar-e-buscar (CA-6, CA-13): janela em volta de uma mensagem, a qualquer distância do fim — até 25 antes,
+ * ela mesma (se ainda existe) e até 25 depois, em ordem cronológica, com `fim` (nada mais antigo) e `fimDepois`.
+ */
+export function janelaDeMensagens(banco: Banco, destino: Destino, em: number): PaginaMensagens {
+  const [coluna, id] = 'canalId' in destino ? ['canal_id', destino.canalId] : ['dm_id', destino.dmId];
+  const antes = banco
+    .prepare(`SELECT * FROM mensagens WHERE ${coluna} = ? AND id < ? ORDER BY id DESC LIMIT ?`)
+    .all(id, em, JANELA_MENSAGENS + 1) as LinhaMensagem[];
+  const depois = banco
+    .prepare(`SELECT * FROM mensagens WHERE ${coluna} = ? AND id >= ? ORDER BY id ASC LIMIT ?`)
+    .all(id, em, JANELA_MENSAGENS + 2) as LinhaMensagem[];
+  // A própria mensagem (id = em) não conta nos 25 de depois.
+  const temPropria = depois[0]?.id === em ? 1 : 0;
+  const limiteDepois = JANELA_MENSAGENS + temPropria;
+  const linhas = [...antes.slice(0, JANELA_MENSAGENS).reverse(), ...depois.slice(0, limiteDepois)];
+  return { mensagens: paraDtos(banco, linhas), fim: antes.length <= JANELA_MENSAGENS, fimDepois: depois.length <= limiteDepois };
+}
+
+/** Páginas para baixo depois de uma janela: as `limite` seguintes a `depois`, em ordem cronológica. */
+export function mensagensDepois(banco: Banco, destino: Destino, depois: number, limite: number = PAGINA_MENSAGENS): PaginaMensagens {
+  const [coluna, id] = 'canalId' in destino ? ['canal_id', destino.canalId] : ['dm_id', destino.dmId];
+  const n = Math.min(Math.max(limite, 1), 100);
+  const linhas = banco.prepare(`SELECT * FROM mensagens WHERE ${coluna} = ? AND id > ? ORDER BY id ASC LIMIT ?`).all(id, depois, n + 1) as LinhaMensagem[];
+  // Para baixo, "fim" (nada mais antigo) não se aplica: há a janela antes desta página.
+  return { mensagens: paraDtos(banco, linhas.slice(0, n)), fim: false, fimDepois: linhas.length <= n };
 }

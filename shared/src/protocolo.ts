@@ -573,6 +573,11 @@ export interface PaginaMensagens {
   mensagens: MensagemDto[];
   /** true quando não há mensagens mais antigas. */
   fim: boolean;
+  /**
+   * chat-fixar-e-buscar: só nas páginas `em` (janela em volta de uma mensagem) e `depois` (para baixo):
+   * true quando não há mensagens mais novas (a página chegou ao fim da conversa).
+   */
+  fimDepois?: boolean;
 }
 
 /** Som do soundboard (RF-22). */
