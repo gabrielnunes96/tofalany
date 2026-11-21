@@ -71,7 +71,7 @@ Modelagem STRIDE de 21/11 (ameaças A1 a A19). As mitigações estão nas decis�
 - o `-U` diário do yt-dlp em tempo de execução;
 - a tag da imagem é mutável (sem atestação de proveniência nesta demanda);
 - a conta do DuckDNS precisa de login forte (2FA no provedor de login): é do Gabriel;
-- **reservar o IP público atual na Oracle** enquanto o sslip existir no app: quem pegasse o IP depois ficaria dono do nome sslip. É uma ação do Gabriel na Oracle.
+- ~~reservar o IP público atual na Oracle~~ (21/11: a Oracle não converte o IP efêmero em reservado; reservar troca o número e derrubaria o sslip antes da troca automática chegar aos apps). O IP efêmero fica com a VM enquanto ela existir; a reserva, se for feita, vem depois que todos estiverem no DuckDNS. Risco aceito: se a VM for apagada, quem pegar o IP fica com o nome sslip.
 
 ## 7. Observabilidade
 - `journalctl -u tofalany-atualizar` registra "Pedido pelo app" e o resultado do `verificar`.
@@ -107,7 +107,7 @@ Modelagem STRIDE de 21/11 (ameaças A1 a A19). As mitigações estão nas decis�
 
 ## 10. Implantação e rollback
 Ordem (cada passo na VM só com o OK do Gabriel):
-1. O Gabriel cria a conta e o nome no DuckDNS, guarda o token em `deploy/duckdns.token` na VM e reserva o IP público na Oracle.
+1. O Gabriel cria a conta e o nome no DuckDNS, guarda o token em `deploy/duckdns.token` na VM (sem reservar o IP agora, ver segurança).
 2. Release nova com tudo (a VM atualiza pelo timer, já com a imagem arm64).
 3. `./vm.sh dominio` aponta o nome; o `.env` passa a ter os dois nomes; o Caddy recarrega.
 4. `./vm.sh automatico` de novo, para instalar o vigia `.path` e a pasta de pedidos.
