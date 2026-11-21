@@ -2159,6 +2159,8 @@ function TelaDoServidor({
                     key={canalAtivo ?? 'nenhum'}
                     canal={canais.find((c) => c.id === canalAtivo)}
                     ehAdmin={ehAdmin}
+                    // Item 51: quem tem "Apagar mensagens" pelo cargo (sem ser administrador) também apaga as dos outros.
+                    podeApagarAlheias={permissoes.has('apagar_mensagens')}
                     somenteLeitura={
                       permissoes.has('enviar_mensagens')
                         ? undefined

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import type { CanalDto } from '@tofalando/shared';
 import { BarraLateral } from './BarraLateral';
 import { CanalAberto } from './CanalAberto';
+import { useLoja } from '../estado/loja';
 import { FormNome } from './FormNome';
 
 afterEach(cleanup);
@@ -180,6 +181,17 @@ describe('CanalAberto', () => {
     expect(aoRemover).toHaveBeenCalledTimes(1);
     terminar('Só administradores removem canais.');
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Só administradores removem canais.');
+  });
+
+  it('item 51: "Apagar mensagens" pelo cargo (sem ser administrador) mostra Apagar nas mensagens dos outros; sem ela, só nas próprias', async () => {
+    useLoja.getState().limpar();
+    const alheia = { id: 50, canalId: canais[0]!.id, dmId: null, autorId: 2, texto: 'de outra pessoa', criadaEm: 1, editadaEm: null, anexos: [] };
+    const api = { ...extras.api, mensagensCanal: vi.fn(async () => ({ mensagens: [alheia], fim: true })) };
+    const { rerender } = render(<CanalAberto canal={canais[0]} ehAdmin={false} aoRenomear={vi.fn()} aoRemover={vi.fn()} {...extras} api={api} />);
+    await screen.findByText('de outra pessoa');
+    expect(screen.queryByRole('button', { name: 'Apagar' })).toBeNull();
+    rerender(<CanalAberto canal={canais[0]} ehAdmin={false} podeApagarAlheias aoRenomear={vi.fn()} aoRemover={vi.fn()} {...extras} api={api} />);
+    expect(screen.getByRole('button', { name: 'Apagar' })).toBeTruthy();
   });
 
   it('sem canal de texto, orienta a criar um', () => {
