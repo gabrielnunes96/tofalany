@@ -1396,3 +1396,10 @@ body.janela-propria { margin: 0; min-height: 100vh; background: var(--cor-video)
 .transmissao-grande.em-janela .transmissao-acoes .com-icone { color: #fff; }
 .transmissao-grande.em-janela.controles-ocultos { cursor: none; }
 .transmissao-grande.em-janela.controles-ocultos .transmissao-acoes:not(:focus-within) { opacity: 0; transform: translateY(8px); pointer-events: none; }
+/* Contador de espectadores flutuante (RF-7): no <body>, por cima dos painéis (z 46), cores escolhidas pela pessoa. */
+.contador-espectadores { position: fixed; z-index: 46; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1.5px solid; border-radius: 999px; box-shadow: var(--sombra-flutuante); cursor: grab; touch-action: none; user-select: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+.contador-espectadores:active { cursor: grabbing; }
+.contador-espectadores span { display: inline-flex; }
+.contador-previa { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1.5px solid; border-radius: 999px; font-weight: 600; }
+.cores-contador { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px 12px; }
+.cores-contador label { display: flex; align-items: center; gap: 6px; }

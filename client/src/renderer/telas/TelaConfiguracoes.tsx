@@ -1,6 +1,6 @@
 import { voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ACOES_ATALHO, GANHO_MIC_MIN, GANHO_MIC_MAX, VOLUME_CHAMADA_MAX, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
+import { CONTADOR_PADRAO, razaoDeContraste, type PreferenciasContador, ACOES_ATALHO, GANHO_MIC_MIN, GANHO_MIC_MAX, VOLUME_CHAMADA_MAX, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 import { Icone, type NomeIcone } from '../componentes/Icone';
 
@@ -77,6 +77,9 @@ interface Props {
   /** RF-21/RF-41: sons que dá para desligar. */
   sons?: PreferenciasSons;
   aoMudarSons?: (sons: PreferenciasSons) => void;
+  /** video-teatro-cameras-e-sons (RN-12): cores do contador de espectadores. */
+  contador?: PreferenciasContador;
+  aoMudarContador?: (contador: PreferenciasContador) => void;
   /** RF-39, RF-41: notificações. */
   notificacoes?: PreferenciasNotificacoes;
   aoMudarNotificacoes?: (n: PreferenciasNotificacoes) => void;
@@ -113,7 +116,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, temasLiberados, aoAbrirLoja, comLoja = false, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, secaoInicial = 'voz', aoMudarSecao, conta, novidades, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, contador, aoMudarContador, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, temasLiberados, aoAbrirLoja, comLoja = false, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, secaoInicial = 'voz', aoMudarSecao, conta, novidades, deps = doNavegador }: Props) {
   const [secao, setSecao] = useState<SecaoConfig>(secaoInicial);
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
@@ -612,6 +615,48 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
                     </div>
                   );
                 })}
+            </fieldset>
+          )}
+          {contador && aoMudarContador && (
+            <fieldset className="opcoes">
+              <legend>Contador de quem assiste</legend>
+              <p className="suave">O olho com o número que aparece por cima do app quando alguém do seu canal transmite. Arraste ele para onde quiser.</p>
+              <div className="cores-contador">
+                {(
+                  [
+                    ['olho', 'Olho'],
+                    ['fundo', 'Fundo'],
+                    ['numero', 'Número'],
+                    ['borda', 'Borda'],
+                  ] as const
+                ).map(([chave, nome]) => (
+                  <label key={chave}>
+                    <input type="color" value={contador.cores[chave]} onChange={(e) => aoMudarContador({ ...contador, cores: { ...contador.cores, [chave]: e.target.value } })} />{' '}
+                    {nome}
+                  </label>
+                ))}
+              </div>
+              <p>
+                Prévia:{' '}
+                <span
+                  className="contador-previa"
+                  aria-label="Prévia do contador"
+                  style={{ background: contador.cores.fundo, borderColor: contador.cores.borda, color: contador.cores.numero }}
+                >
+                  <span style={{ color: contador.cores.olho }} aria-hidden="true">
+                    <Icone nome="olho" tamanho={16} />
+                  </span>
+                  3
+                </span>
+              </p>
+              {razaoDeContraste(contador.cores.numero, contador.cores.fundo) < 3 && (
+                <p className="aviso" role="status">
+                  O número fica difícil de ler sobre esse fundo. Escolha cores mais diferentes.
+                </p>
+              )}
+              <button type="button" className="secundario" onClick={() => aoMudarContador({ ...contador, cores: CONTADOR_PADRAO.cores })}>
+                Voltar às cores padrão
+              </button>
             </fieldset>
           )}
           <fieldset className="opcoes">

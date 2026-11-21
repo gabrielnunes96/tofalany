@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { ATALHOS_PADRAO, AUDIO_PADRAO, type PreferenciasAudio } from '@tofalando/shared';
+import { ATALHOS_PADRAO, AUDIO_PADRAO, CONTADOR_PADRAO, type PreferenciasAudio } from '@tofalando/shared';
 import { TelaConfiguracoes, type DependenciasConfiguracoes } from './TelaConfiguracoes';
 
 vi.mock('../servicos/pipeline-audio', () => ({ abrirMicrofone: vi.fn(), criarMedidor: vi.fn() }));
@@ -272,3 +272,25 @@ describe('janela de configurações com seções', () => {
   });
 });
 
+
+describe('Aparência: contador de espectadores (video-teatro-cameras-e-sons, CA-15)', () => {
+  it('troca as cores com prévia, avisa contraste baixo e volta ao padrão', () => {
+    const aoMudarContador = vi.fn();
+    montar(AUDIO_PADRAO, 'forte', { secaoInicial: 'aparencia', contador: CONTADOR_PADRAO, aoMudarContador });
+    fireEvent.change(screen.getByLabelText('Fundo'), { target: { value: '#123456' } });
+    expect(aoMudarContador).toHaveBeenLastCalledWith({ ...CONTADOR_PADRAO, cores: { ...CONTADOR_PADRAO.cores, fundo: '#123456' } });
+    expect(screen.queryByText(/difícil de ler/)).toBeNull();
+    cleanup();
+    const ruim = { ...CONTADOR_PADRAO, cores: { ...CONTADOR_PADRAO.cores, fundo: '#eeeeee', numero: '#ffffff' } };
+    montar(AUDIO_PADRAO, 'forte', { secaoInicial: 'aparencia', contador: ruim, aoMudarContador });
+    expect(screen.getByText(/difícil de ler/)).toBeTruthy();
+    expect(screen.getByLabelText('Prévia do contador').style.background).toBe('rgb(238, 238, 238)');
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar às cores padrão' }));
+    expect(aoMudarContador).toHaveBeenLastCalledWith({ ...ruim, cores: CONTADOR_PADRAO.cores });
+  });
+
+  it('"Voltar as câmeras ao lugar" fica em Aparência', () => {
+    montar(AUDIO_PADRAO, 'forte', { secaoInicial: 'aparencia' });
+    expect(screen.getByRole('button', { name: 'Voltar as câmeras ao lugar' })).toBeTruthy();
+  });
+});

@@ -1,4 +1,4 @@
-import { type GifDto, ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, AUDIO_PADRAO, NOTIFICACOES_PADRAO, QUALIDADES_TELA, SONS_PADRAO, TELA_PADRAO, type PreferenciasTela, type QualidadeTela, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
+import { type GifDto, CONTADOR_PADRAO, type PreferenciasContador, ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, AUDIO_PADRAO, NOTIFICACOES_PADRAO, QUALIDADES_TELA, SONS_PADRAO, TELA_PADRAO, type PreferenciasTela, type QualidadeTela, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasPessoas, type PreferenciasSons } from './protocolo.js';
 import { SOBRE_MIM_LINHAS, SOBRE_MIM_MAX, EMOJI_MAX_BYTES, GIF_DESCRICAO_MAX, GIF_LADO_MAX, GIF_URL_MAX, TRECHO_RESPOSTA, MENSAGEM_MAX, NOME_CANAL_MAX, NOME_EXIBICAO_MAX, NOME_SOM_MAX, SENHA_MAX, SENHA_MIN, USUARIO_MAX, USUARIO_MIN } from './limites.js';
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string };
@@ -407,4 +407,39 @@ export function extrairMencoes(texto: string): { usuarios: string[]; todos: bool
     else usuarios.add(nome);
   }
   return { usuarios: [...usuarios], todos };
+}
+
+/** video-teatro-cameras-e-sons (A8): cores só #rrggbb e posição de 0 a 1 finita; o resto fica no padrão. */
+export function mesclarContador(base: PreferenciasContador = CONTADOR_PADRAO, bruto: unknown): PreferenciasContador {
+  const r: PreferenciasContador = { cores: { ...base.cores }, posicao: { ...base.posicao } };
+  if (!bruto || typeof bruto !== 'object') return r;
+  const o = bruto as { cores?: unknown; posicao?: unknown };
+  if (o.cores && typeof o.cores === 'object') {
+    const c = o.cores as Record<string, unknown>;
+    for (const chave of ['olho', 'fundo', 'numero', 'borda'] as const) {
+      const v = c[chave];
+      if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) r.cores[chave] = v.toLowerCase();
+    }
+  }
+  if (o.posicao && typeof o.posicao === 'object') {
+    const p = o.posicao as Record<string, unknown>;
+    for (const eixo of ['x', 'y'] as const) {
+      const v = p[eixo];
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1) r.posicao[eixo] = v;
+    }
+  }
+  return r;
+}
+
+/** Razão de contraste (WCAG 2) entre duas cores #rrggbb: de 1 (igual) a 21 (preto no branco). */
+export function razaoDeContraste(a: string, b: string): number {
+  const luz = (hex: string) => {
+    const canal = (i: number) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * canal(1) + 0.7152 * canal(3) + 0.0722 * canal(5);
+  };
+  const [claro, escuro] = [luz(a), luz(b)].sort((x, y) => y - x) as [number, number];
+  return (claro + 0.05) / (escuro + 0.05);
 }
