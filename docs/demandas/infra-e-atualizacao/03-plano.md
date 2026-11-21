@@ -34,3 +34,16 @@
 - O CI multi-arquitetura (T8) só se valida de verdade com um push de tag de teste (o push é do Gabriel).
 - O digest e a versão do bgutil precisam ser lidos do registro na hora da T6/T7.
 - Nada roda na VM de produção antes da T10.
+
+## Pendências ao parar (21/11/2026, limite de uso)
+- **Revisão da T2 (1831bcb) a aplicar** (médios):
+  - a fila de promoção dos cookies pode ficar rejeitada para sempre se o `rmSync` do `finally` lançar: isolar com `.catch`;
+  - faltam testes do `abrir` + `parar()` (sem promoção, cópia apagada), do tempo esgotado do `rodar`, da máscara pelo `acompanhar` e da rota PUT/DELETE usando o mesmo gestor.
+- **Revisão da T2, menores:**
+  - apelidos das opções verbosas (`--dump-intermediate-pages`, `--dump-headers`, `-qv`);
+  - o corte do `acompanhar` no meio de uma linha mascarada;
+  - o `.cookies-*` que sobra se o `rename` falhar;
+  - `mkdtempSync` fora do `try`;
+  - `cookiesDe(undefined)` apagando cópias de outro processo;
+  - a confirmar: aviso do yt-dlp com a linha do cookie inválido.
+- T3 (850abdf) sem revisão ainda. Faltam T4 a T9 e a T10 (VM).
