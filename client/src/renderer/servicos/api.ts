@@ -67,6 +67,9 @@ export interface ClienteApi {
   previa(url: string): Promise<PreviaLink | undefined>;
   /** Mini perfil: amigos e servidores em comum (404 = não dá para ver). */
   perfilDe(id: number): Promise<PerfilDto>;
+  /** qualidade-de-vida, RF-2: servidores para onde dá para convidar a pessoa. */
+  convidaveis(id: number): Promise<ComunidadeDto[]>;
+  convidar(id: number, comunidadeId: number): Promise<{ ok: true }>;
   /** Busca de GIF: chave e código da pessoa na Klipy; undefined com a busca desligada (204). */
   configGif(): Promise<GifConfig | undefined>;
   /** Backlog v2, item 3: código de redefinição de senha (só administrador). */
@@ -176,6 +179,8 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     previa: (url) => chamar('GET', `/api/previa?url=${encodeURIComponent(url)}`),
     configGif: () => chamar('GET', '/api/gif/config'),
     perfilDe: (id) => chamar('GET', `/api/usuarios/${id}/perfil`),
+    convidaveis: (id) => chamar('GET', `/api/usuarios/${id}/convites`),
+    convidar: (id, comunidadeId) => chamar('POST', `/api/usuarios/${id}/convites`, { comunidadeId }),
     criarFuncao: (f) => chamar('POST', '/api/admin/funcoes', f),
     editarFuncao: (id, f) => chamar('PUT', `/api/admin/funcoes/${id}`, f),
     removerFuncao: (id) => chamar('DELETE', `/api/admin/funcoes/${id}`),

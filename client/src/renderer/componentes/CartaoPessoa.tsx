@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { validarTextoMensagem, type PerfilDto, type StatusPessoa, type UsuarioDto } from '@tofalando/shared';
+import { validarTextoMensagem, type ComunidadeDto, type PerfilDto, type StatusPessoa, type UsuarioDto } from '@tofalando/shared';
 import { Avatar } from './Avatar';
 import { StatusPonto, TEXTO_STATUS } from './StatusPonto';
 import { TextoComLinks } from './Previa';
 import { estiloFundo } from './fundoPerfil';
+import { ConvidarParaServidor } from './ConvidarParaServidor';
 
 export interface PropsCartao {
   /** undefined = conta removida (RN-9). */
@@ -23,6 +24,8 @@ export interface PropsCartao {
   aoConversar: () => void;
   aoVerPerfil: () => void;
   aoEditarPerfil: () => void;
+  /** qualidade-de-vida, RF-2: convidar a pessoa para um servidor (ausente para mim mesmo). */
+  convite?: { carregar: () => Promise<ComunidadeDto[]>; aoConvidar: (comunidadeId: number) => Promise<string | null> };
   /** `devolverFoco`: Esc devolve o foco a quem abriu; o clique fora deixa onde a pessoa clicou. */
   aoFechar: (devolverFoco: boolean) => void;
 }
@@ -46,7 +49,7 @@ function textoEmComum(p: PerfilDto): string {
 }
 
 /** Mini perfil (RF-2, RF-5): cartão com o fundo, a foto, o nome, os cargos, o status, o "sobre mim" e o campo de mensagem. */
-export function CartaoPessoa({ usuario, servidorUrl, x, y, eu, status, atividade = [], funcao, carregarPerfil, aoMensagem, aoConversar, aoVerPerfil, aoEditarPerfil, aoFechar }: PropsCartao) {
+export function CartaoPessoa({ usuario, servidorUrl, x, y, eu, status, atividade = [], funcao, carregarPerfil, aoMensagem, aoConversar, aoVerPerfil, aoEditarPerfil, convite, aoFechar }: PropsCartao) {
   const caixa = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLInputElement>(null);
   const fechar = useRef(aoFechar);
@@ -202,6 +205,7 @@ export function CartaoPessoa({ usuario, servidorUrl, x, y, eu, status, atividade
                     Ver perfil
                   </button>
                 </div>
+                {convite && <ConvidarParaServidor carregar={convite.carregar} aoConvidar={convite.aoConvidar} />}
               </>
             )}
           </>

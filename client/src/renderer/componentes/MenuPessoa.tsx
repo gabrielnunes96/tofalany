@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { VOLUME_PESSOA_MAX, type AmizadeDto, type UsuarioDto } from '@tofalando/shared';
+import { VOLUME_PESSOA_MAX, type AmizadeDto, type ComunidadeDto, type UsuarioDto } from '@tofalando/shared';
+import { ConvidarParaServidor } from './ConvidarParaServidor';
 import { Avatar } from './Avatar';
 
 /**
@@ -24,6 +25,7 @@ export function MenuPessoa({
   aoFechar,
   moderacao,
   atividade = [],
+  convite,
 }: {
   usuario: UsuarioDto;
   x: number;
@@ -43,6 +45,8 @@ export function MenuPessoa({
   /** "🎮 Jogando X", "🎵 Ouvindo Y" (se a pessoa mostra). */
   atividade?: string[];
   /** Quem pode moderar esta pessoa (administrador ou "Moderar membros"; ela não é administradora). */
+  /** qualidade-de-vida, RF-2: convidar para um servidor. */
+  convite?: { carregar: () => Promise<ComunidadeDto[]>; aoConvidar: (comunidadeId: number) => Promise<string | null> };
   moderacao?: { castigoAte: number | null; aoAbrir: (tipo: 'castigo' | 'expulsar' | 'banir') => void; aoTirarCastigo: () => void };
 }) {
   const caixa = useRef<HTMLDivElement>(null);
@@ -105,6 +109,7 @@ export function MenuPessoa({
           <button type="button" role="menuitem" onClick={fazer(aoConversar)}>
             Mensagem direta
           </button>
+          {convite && <ConvidarParaServidor noMenu carregar={convite.carregar} aoConvidar={convite.aoConvidar} />}
           {amizade === undefined && (
             <button type="button" role="menuitem" onClick={fazer(aoPedirAmizade)}>
               Adicionar amigo

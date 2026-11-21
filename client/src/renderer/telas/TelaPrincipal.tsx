@@ -1149,6 +1149,18 @@ function TelaDoServidor({
       },
     );
   /** Mini perfil (RN-6): abre a conversa direta, envia o texto e vai para ela (só se o cartão ainda for o mesmo). */
+  /** qualidade-de-vida, RF-2 e RF-3: convidar alguém para um servidor (a lista e o envio são do servidor). */
+  const conviteDe = (usuarioId: number) =>
+    usuarioId === usuario.id
+      ? undefined
+      : {
+          carregar: () => api.convidaveis(usuarioId),
+          aoConvidar: (comunidadeId: number) =>
+            api.convidar(usuarioId, comunidadeId).then(
+              () => null,
+              (e: unknown) => (e instanceof Error ? e.message : 'Não foi possível enviar o convite.'),
+            ),
+        };
   const mensagemDireta = async (usuarioId: number, texto: string, ancora: HTMLElement): Promise<string | null> => {
     let dmId: number | undefined;
     const falha = await pedir(
@@ -1382,6 +1394,7 @@ function TelaDoServidor({
           })()}
           carregarPerfil={cartao.usuarioId !== usuario.id && pessoas.some((p) => p.id === cartao.usuarioId) ? carregarPerfil : undefined}
           aoMensagem={(texto) => mensagemDireta(cartao.usuarioId, texto, cartao.ancora)}
+          convite={pessoas.some((p) => p.id === cartao.usuarioId) ? conviteDe(cartao.usuarioId) : undefined}
           aoConversar={() => {
             setCartao(null);
             conversarCom(cartao.usuarioId);
@@ -1440,6 +1453,7 @@ function TelaDoServidor({
           aoRemoverAmizade={() => removerAmizade(menuPessoa.usuarioId)}
           aoFechar={fecharMenuPessoa}
           atividade={textosAtividade(atividades[menuPessoa.usuarioId])}
+          convite={conviteDe(menuPessoa.usuarioId)}
           moderacao={(() => {
             const alvoMod = usuarios.find((u) => u.id === menuPessoa.usuarioId);
             if (!alvoMod || alvoMod.id === usuario.id || alvoMod.cargo === 'admin' || alvoMod.id === donoServidor || !permissoes.has('moderar_membros')) return undefined;

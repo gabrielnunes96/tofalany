@@ -1308,3 +1308,9 @@ button.config-fechar:hover:not(:disabled) { color: var(--cor-texto); background:
 @media (prefers-reduced-motion: reduce) { .tela-atualizando-icone { animation: pulsar-icone 2s ease-in-out infinite; } }
 @keyframes pulsar-icone { 50% { opacity: 0.55; } }
 
+
+/* qualidade-de-vida: convidar para servidor (cartão e menu da pessoa). */
+.convidar-servidor { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.convidar-servidor-lista { list-style: none; margin: 0; padding: 0 0 0 8px; display: flex; flex-direction: column; gap: 2px; }
+.convidar-servidor-lista button { width: 100%; text-align: left; }
+.convite-resultado { margin: 4px 0 0; font-size: 0.85rem; }
