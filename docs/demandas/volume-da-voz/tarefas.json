@@ -1,0 +1,141 @@
+{
+  "demanda": "volume-da-voz",
+  "titulo": "Volume da voz",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Preferências: nivelar, ganho do microfone e volume da chamada",
+      "descricao": "shared/src/protocolo.ts: PreferenciasAudio + nivelarVoz (true), ganhoMicrofone (1), volumeChamada (1) em AUDIO_PADRAO. shared/src/validacao.ts: mesclarAudio valida as faixas (GANHO_MIC_MIN 0.5, GANHO_MIC_MAX 3, VOLUME_CHAMADA_MAX 2), arredonda 2 casas (T-9).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-1"
+      ],
+      "validacao": "validacao.test.ts: padrão com nivelar ligado; arquivo antigo ganha os campos; fora da faixa e não numérico recusados; configuracoes.test.ts com arquivo antigo. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Nivelamento no microfone: compressor, cruzamento, ganho e limitador depois do portão",
+      "descricao": "client/src/renderer/servicos/nivel-voz.ts (novo): parametrosNivel({nivelar, ganho}) (T-2) e montarNivel(ctx, entrada, saida) com compressor, cruzamentos (rampa 15 ms), ganho e limitador, e definir({nivelar, ganho}). pipeline-audio.ts: o grafo liga portão → nivel → destino (medição continua em tratado), Microfone e Grafo.processar ganham nivel.definir; abrirMicrofone aplica o valor inicial; semPortao com nivel no-op (T-5). Contexto injetável para testar a ordem.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5"
+      ],
+      "validacao": "nivel-voz.test.ts: parâmetros por nivelar/ganho; cruzamento; ordem portão → compressor/direto → ganho → limitador → destino com contexto falso; medição antes; pipeline-audio.test.ts com o campo novo. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "Chamada: nivelamento e ganho ao vivo; volume da chamada para quem ouve",
+      "descricao": "client/src/renderer/servicos/voz.ts: mesmoMic sem os campos novos; ramo ao vivo chama mic.nivel.definir; aplicarVolume = min(VOLUME_PESSOA_MAX, (volumes[id] ?? 1) × volumeChamada) só para pessoas (tela e ToOuvini como hoje); aplicarAudio guarda volumeChamada (síncrono) e reaplica nas faixas (T-4, T-7).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-6",
+        "CA-6b",
+        "CA-7",
+        "CA-9"
+      ],
+      "validacao": "voz.test.ts: 150%×120% = 1,8; 150%×180% = 2; chamada 0 → voz 0 e tela/ToOuvini nos volumes deles; mudar ganho/nivelar na chamada chama nivel.definir sem reabrir; volume da chamada reaplica. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "Configurações → Voz: nivelar, ganho, volume da chamada e teste de som ao vivo",
+      "descricao": "client/src/renderer/telas/TelaConfiguracoes.tsx: caixa 'Nivelar o volume da voz', controle 'Ganho do microfone' (50–300%, passo 10), 'Volume da chamada' (0–200%, passo 5); mudar: ganho e nivelar vão ao vivo para o microfone do teste (sem reabrir), volume da chamada não toca no teste; texto de ajuda da barra; aviso com o AGC também ligado (T-8).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1",
+        "T2"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-8"
+      ],
+      "validacao": "TelaConfiguracoes.test.tsx: caixa marcada por padrão; mudar ganho/nivelar no teste chama nivel.definir sem reabrir; volume da chamada não reabre; aviso do AGC. Conferir a tela no app. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T5",
+      "titulo": "Painel de voz: botão 'Volume da chamada'",
+      "descricao": "client/src/renderer/telas/TelaPrincipal.tsx (painel-voz): botão que abre um pequeno painel com o controle 0–200% (padrão do volume do ToOuvini), gravando volumeChamada pelo mesmo caminho de mudarAudio (T-8).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1",
+        "T3"
+      ],
+      "criterios": [
+        "CA-6",
+        "CA-9"
+      ],
+      "validacao": "Teste de componente do painel do volume (abre, muda, grava); conferir no app com a voz conectada. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T6",
+      "titulo": "E2E: níveis do nivelamento medidos no Chromium",
+      "descricao": "Gancho só de teste (TOFALANDO_MIDIA_FALSA e fora do empacotado) na janela que monta montarNivel num OfflineAudioContext e devolve os níveis de um trecho a −40 e a −6 dBFS; client/e2e/voz.spec.ts (ou arquivo novo) confere CA-2 (diferença ≤ 11 dB, pico ≤ −1 dBFS), CA-3 (sem nivelar, diferença original) e CA-4 (+6 dB ± 1 com ganho 200%). Ajustar parametrosNivel se o Chromium desviar (R-1).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-2",
+        "CA-3",
+        "CA-4"
+      ],
+      "validacao": "npm run test:e2e com o teste novo verde; CA-21 (sensibilidade) continua verde.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T7",
+      "titulo": "Validação manual: voz nivelada entre duas pessoas",
+      "descricao": "Na build da atualização grande: Gabriel e um amigo em chamada; quem tinha a voz baixa passa a ser ouvido no nível dos outros; volume da chamada no painel; teste de som com o ganho.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "criterios": [
+        "CA-10"
+      ],
+      "validacao": "Manual (pare_e_pergunte do perfil). Resultado anotado em 03-plano.md.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}
