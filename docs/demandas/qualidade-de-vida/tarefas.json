@@ -6,7 +6,7 @@
     {
       "id": "T1",
       "titulo": "Servidor: status só para quem pode ver e reemissão ao mudar quem vê quem",
-      "descricao": "server/src/realtime/tempo-real.ts: podeVerAtividade vira podeVer; os io.emit('presenca:atualizada') (recalcularStatus e criarPresenca) emitem só para quem pode ver (T-8). reenviarAtividades vira reenviarVisibilidade(a, b), com atividade e status (ou null/offline) (T-9), chamada na amizade (realtime/amizades.ts), em tirarDaComunidade (quem saiu × membros que ficaram), num método novo entrouNaComunidade(usuario, comunidade) chamado pela entrada por convite (routes/comunidades.ts) e em fecharComunidade. server/test/dms.test.ts deixa de tratar o status como público.",
+      "descricao": "server/src/realtime/tempo-real.ts: podeVerAtividade vira podeVer; os io.emit('presenca:atualizada') (recalcularStatus e criarPresenca) emitem só para quem pode ver (T-8). reenviarAtividades vira reenviarVisibilidade(a, b), com atividade e status (ou null/offline) (T-9), chamada na amizade (realtime/amizades.ts), em tirarDaComunidade (quem saiu × membros que ficaram), num método novo entrouNaComunidade(usuario, comunidade) chamado pela entrada por convite (routes/comunidades.ts) (fecharComunidade ficou de fora: a exclusão derruba todas as conexões daquele servidor, ver T-9). server/test/dms.test.ts deixa de tratar o status como público.",
       "repo": ".",
       "stack": "node",
       "depende_de": [],
@@ -14,10 +14,10 @@
         "CA-11",
         "CA-12"
       ],
-      "validacao": "presenca-status.test.ts/atividade.test.ts: conta sem relação não recebe status; sair de B → os dois recebem null e offline; entrar por convite e aceitar amizade reemitem o status; servidor excluído reemite; dms.test.ts sem o filtro. npm test (server), lint e typecheck.",
-      "estado": "andamento",
+      "validacao": "presenca-status.test.ts/atividade.test.ts: conta sem relação não recebe status; sair de B → os dois recebem null e offline; entrar por convite e aceitar amizade reemitem o status; dms.test.ts com o comentário corrigido (o filtro fica: os três estão no mesmo servidor). npm test (server), lint e typecheck.",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "0f4a367"
     },
     {
       "id": "T2",
@@ -33,7 +33,7 @@
         "CA-6"
       ],
       "validacao": "server/test/convites.test.ts: lista por permissão, membro, banido e sem código; 404 sem se conhecer; POST cria DM e mensagem e o alvo recebe mensagem:nova; 403, 409 e 429. npm test (server), lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

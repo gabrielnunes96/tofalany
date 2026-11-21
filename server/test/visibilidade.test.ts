@@ -90,5 +90,12 @@ describe('status e atividade só para quem pode ver (qualidade-de-vida)', () => 
     await pedir(daBia.s, 'amizade:pedir', dono.usuario.id);
     await pedir(donoFamilia.s, 'amizade:aceitar', bia.usuario.id);
     await expect.poll(() => donoPrincipal.status.filter((x) => x.id === bia.usuario.id).at(-1)?.status).toBe('online');
+
+    // Desfeita: a conexão do principal (sem servidor em comum) volta a ver a bia offline; a da Família continua vendo.
+    const antesFamilia = donoFamilia.status.length;
+    await pedir(donoFamilia.s, 'amizade:remover', bia.usuario.id);
+    await expect.poll(() => donoPrincipal.status.filter((x) => x.id === bia.usuario.id).at(-1)?.status).toBe('offline');
+    expect(donoPrincipal.atividades.filter((x) => x.id === bia.usuario.id).at(-1)?.atividade).toBeNull();
+    await expect.poll(() => donoFamilia.status.slice(antesFamilia).filter((x) => x.id === bia.usuario.id).at(-1)?.status).toBe('online');
   });
 });
