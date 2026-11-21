@@ -67,9 +67,9 @@
         "CA-7"
       ],
       "validacao": "ItemMensagem.test.tsx/Previa: mesma base → confirmação e aoConvite; outro host → link comum; sem contexto → link comum. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "029ad79"
     },
     {
       "id": "T5",
@@ -83,7 +83,7 @@
         "CA-2"
       ],
       "validacao": "App.test.tsx/TelaPrincipal: com adminDaInstalacao fora do principal o item aparece e a tela usa a API da base; sem ela, não aparece. Conferir no app num servidor que não é o principal. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

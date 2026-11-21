@@ -12,6 +12,7 @@ vi.mock('../telas/TelaPrincipal', async () => {
     TelaPrincipal: (p: {
       servidorUrl: string;
       oculta?: boolean;
+      adminDaInstalacao?: boolean;
       pedidoSairVoz?: number;
       aoVoz?: (v: { canal: string; servidor: string } | null) => void;
       vozEmOutro?: { canal: string; servidor: string; aoVoltar(): void; aoDesconectar(): void } | null;
@@ -25,6 +26,7 @@ vi.mock('../telas/TelaPrincipal', async () => {
             PRINCIPAL {p.servidorUrl}
             {p.oculta ? ' (escondida)' : ''}
             {p.pedidoSairVoz ? ` sair:${p.pedidoSairVoz}` : ''}
+            {p.adminDaInstalacao ? ' (admin da instalação)' : ''}
           </p>
           <button type="button" onClick={() => p.aoVoz?.({ canal: 'Papo', servidor: 'Turma' })}>
             entrar na voz {p.servidorUrl}
@@ -46,6 +48,8 @@ vi.mock('../telas/TelaPrincipal', async () => {
   };
 });
 const testar = vi.fn();
+/** Lista de servidores da instalação: por padrão, falha (os testes antigos não dependem dela). */
+const comunidadesDe = vi.fn(async (): Promise<unknown[]> => Promise.reject(new Error('sem lista')));
 // O teste real devolve o endereço a guardar; os casos aqui só dizem ok/erro (o endereço é o mesmo pedido).
 vi.mock('../servicos/servidor', () => ({
   testarServidor: async (url: string) => {
@@ -59,7 +63,7 @@ const euDe = vi.fn(async (_url: string): Promise<UsuarioDto> => eu);
 const eu: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'ana', cor: '#fff', avatarUrl: null, cargo: 'membro' };
 vi.mock('../servicos/api', async (original) => ({
   ...(await original<typeof import('../servicos/api')>()),
-  criarApi: (url: string) => ({ eu: async () => euDe(url), sair: async () => undefined, cadastrar: async () => ({ token: 'novo', usuario: eu }) }),
+  criarApi: (url: string) => ({ eu: async () => euDe(url), sair: async () => undefined, cadastrar: async () => ({ token: 'novo', usuario: eu }), comunidades: () => comunidadesDe() }),
 }));
 
 const { App } = await import('./App');
@@ -273,5 +277,25 @@ describe('App — servidor que mudou de endereço (item 41)', () => {
     expect(await screen.findByText(`PRINCIPAL ${A}`)).toBeTruthy();
     expect(gravarConfig).toHaveBeenCalledWith({ servidores: [{ url: A, nome: 'Turma' }], servidorUrl: A });
     vi.restoreAllMocks();
+  });
+});
+
+describe('App — ToOuvini de qualquer servidor (qualidade-de-vida, RF-1)', () => {
+  it('CA-1: num servidor que não é o principal, o administrador do principal recebe adminDaInstalacao', async () => {
+    comunidadesDe.mockResolvedValueOnce([{ id: 2, nome: 'Família', url: `${B}/c/2`, iconeUrl: null }]);
+    euDe.mockImplementation(async (url: string) => ({ ...eu, cargo: url === B ? 'admin' : 'membro' }));
+    ponteFalsa({ servidorUrl: `${B}/c/2`, sessao: { servidorUrl: `${B}/c/2`, token: 't' }, pendente: null });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${B}/c/2 (admin da instalação)`)).toBeTruthy();
+  });
+
+  it('CA-2: administrador só do servidor aberto (membro no principal) não recebe', async () => {
+    comunidadesDe.mockResolvedValueOnce([{ id: 2, nome: 'Família', url: `${B}/c/2`, iconeUrl: null }]);
+    euDe.mockImplementation(async (url: string) => ({ ...eu, cargo: url === B ? 'membro' : 'admin' }));
+    ponteFalsa({ servidorUrl: `${B}/c/2`, sessao: { servidorUrl: `${B}/c/2`, token: 't' }, pendente: null });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${B}/c/2`)).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/admin da instalação/)).toBeNull();
   });
 });

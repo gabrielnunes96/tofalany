@@ -503,6 +503,7 @@ export function App() {
       aoSessaoRevogada={sessaoRevogada}
       aoSairDoServidor={() => void esquecerServidor(t.url)}
       aoConvite={(c) => void abrirConvite(c)}
+      adminDaInstalacao={podeCriar !== null && separarComunidade(t.url).base === podeCriar}
       aoVoz={(v) => aoVozDe(t, v)}
       pedidoSairVoz={vozViva?.url === t.url ? vozViva.pedidoSair : 0}
       vozEmOutro={

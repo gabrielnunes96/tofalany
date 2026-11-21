@@ -73,6 +73,8 @@ interface Props {
   aoSairDoServidor?: () => void;
   /** qualidade-de-vida, RF-4: link de convite clicado numa mensagem (mesmo endereço). */
   aoConvite?: (convite: ConviteLink) => void;
+  /** qualidade-de-vida, RF-1: administrador da instalação (do servidor principal): vê o ToOuvini em qualquer servidor. */
+  adminDaInstalacao?: boolean;
 }
 
 /** Estado de voz enviado ao servidor (mute/deafen/câmera chegam nas T16 e T20). */
@@ -124,6 +126,7 @@ function TelaDoServidor({
   aoNomeServidor,
   aoSairDoServidor,
   aoConvite,
+  adminDaInstalacao = false,
   oculta = false,
   aoVoz,
   vozEmOutro,
@@ -1006,6 +1009,7 @@ function TelaDoServidor({
     [usuarios, presencas, funcoes, servidorUrl],
   );
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
+  const apiPrincipal = useMemo(() => criarApi(separarComunidade(servidorUrl).base, token), [servidorUrl, token]);
   // Backlog v2, item 10b: prévias de links, guardadas enquanto a tela estiver aberta.
   const buscarPrevia = useMemo(() => criarBuscaPrevia((url) => api.previa(url)), [api]);
   const idCartao = cartao?.usuarioId;
@@ -1722,7 +1726,7 @@ function TelaDoServidor({
                     Copiar link de convite
                   </button>
                 )}
-                {(ehAdmin || ['gerenciar_convite', 'gerenciar_sons', 'ver_auditoria'].some((p) => permissoes.has(p as Permissao))) && (
+                {(ehAdmin || adminDaInstalacao || ['gerenciar_convite', 'gerenciar_sons', 'ver_auditoria'].some((p) => permissoes.has(p as Permissao))) && (
                   <>
                     <p className="menu-grupo">Administração</p>
                     {ehAdmin && (
@@ -1740,7 +1744,7 @@ function TelaDoServidor({
                         Soundboard
                       </button>
                     )}
-                    {ehAdmin && servidorId === 1 && (
+                    {adminDaInstalacao && (
                       <button type="button" onClick={() => setVista('toouvini')}>
                         Bot de música (ToOuvini)
                       </button>
@@ -1872,7 +1876,8 @@ function TelaDoServidor({
           ) : vistaAtual === 'servidor' ? (
             <TelaEditarServidor api={api} nome={nomeServidor ?? ''} iconeUrl={iconeServidor} servidorUrl={separarComunidade(servidorUrl).base} aoVoltar={voltar} />
           ) : vistaAtual === 'toouvini' ? (
-            <TelaToOuvini api={api} aoVoltar={voltar} />
+            // O ToOuvini é da instalação: fala sempre com o servidor principal (o mesmo login vale lá).
+            <TelaToOuvini api={apiPrincipal} aoVoltar={voltar} />
           ) : vistaAtual === 'loja' && pontos ? (
             <TelaLoja estado={pontos} api={api} temaAtual={tema} aoUsarTema={mudarTema} aoComprar={acoes.definirPontos} aoVoltar={voltar} />
           ) : vistaAtual === 'sons' ? (
