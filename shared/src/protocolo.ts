@@ -366,9 +366,14 @@ export interface PreferenciasSons {
   voz: boolean;
   /** RF-24: volume local do soundboard (0 a 1; 0 = não ouvir). */
   soundboard: number;
+  /** video-teatro-cameras-e-sons (RN-9): sons da transmissão, cada um desligável (padrão: ligados). */
+  telaAbrir: boolean;
+  telaFechar: boolean;
+  assistirComecar: boolean;
+  assistirParar: boolean;
 }
 
-export const SONS_PADRAO: PreferenciasSons = { voz: true, soundboard: 0.8 };
+export const SONS_PADRAO: PreferenciasSons = { voz: true, soundboard: 0.8, telaAbrir: true, telaFechar: true, assistirComecar: true, assistirParar: true };
 
 export const CONFIGURACOES_PADRAO: ConfiguracoesLocais = {
   servidorUrl: null,

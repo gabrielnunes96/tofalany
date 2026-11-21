@@ -406,6 +406,18 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
               <label>
                 <input type="checkbox" checked={sons.voz} onChange={(e) => aoMudarSons({ ...sons, voz: e.target.checked })} /> Sons de entrar e sair da voz e de mute
               </label>
+              {(
+                [
+                  ['telaAbrir', 'Alguém da sala abre uma transmissão'],
+                  ['telaFechar', 'Alguém da sala fecha uma transmissão'],
+                  ['assistirComecar', 'Alguém começa a assistir (a sua transmissão ou a que você assiste)'],
+                  ['assistirParar', 'Alguém para de assistir'],
+                ] as const
+              ).map(([chave, texto]) => (
+                <label key={chave}>
+                  <input type="checkbox" checked={sons[chave] !== false} onChange={(e) => aoMudarSons({ ...sons, [chave]: e.target.checked })} /> {texto}
+                </label>
+              ))}
             </fieldset>
           )}
 

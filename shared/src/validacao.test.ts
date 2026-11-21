@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lerQualquerConvite, urlArquivoValida, validarCoresFundo, validarSobreMim, textoSemGif, validarGif, validarEmojiReacao, validarTextoMensagem, validarNomeCanal, validarNomeSom, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela, lerLinkConvite, montarLinkApp, validarCodigoConvite, normalizarUrlServidor, normalizarUsuario, validarCor, validarNomeExibicao, validarSenha, validarUsuario } from './validacao.js';
+import { SONS_PADRAO } from './protocolo.js';
 
 describe('normalizarUrlServidor', () => {
   it('mantém o /c/<id> de um servidor criado na mesma instalação (e trata /c/1 como o principal)', () => {
@@ -164,8 +165,8 @@ describe('mesclarPessoas e mesclarSons (RF-19, RF-38)', () => {
     for (let i = 0; i < 25; i++) muitos = mesclarPessoas(muitos, { [`http://s${i}.exemplo.com`]: { volumes: {}, silenciados: [] } });
     expect(Object.keys(muitos)).toHaveLength(20);
     expect(Object.keys(muitos).at(-1)).toBe('http://s24.exemplo.com');
-    expect(mesclarSons(undefined, { voz: false, soundboard: 0 })).toEqual({ voz: false, soundboard: 0 });
-    expect(mesclarSons(undefined, { voz: 'x', soundboard: 3 })).toEqual({ voz: true, soundboard: 0.8 });
+    expect(mesclarSons(undefined, { voz: false, soundboard: 0 })).toEqual({ ...SONS_PADRAO, voz: false, soundboard: 0 });
+    expect(mesclarSons(undefined, { voz: 'x', soundboard: 3 })).toEqual(SONS_PADRAO);
   });
 });
 

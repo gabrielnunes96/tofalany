@@ -322,6 +322,7 @@ export function mesclarSons(base: PreferenciasSons = SONS_PADRAO, bruto: unknown
   if (!bruto || typeof bruto !== 'object') return r;
   const o = bruto as Record<string, unknown>;
   if (typeof o.voz === 'boolean') r.voz = o.voz;
+  for (const chave of ['telaAbrir', 'telaFechar', 'assistirComecar', 'assistirParar'] as const) if (typeof o[chave] === 'boolean') r[chave] = o[chave];
   if (typeof o.soundboard === 'number' && Number.isFinite(o.soundboard) && o.soundboard >= 0 && o.soundboard <= 1) r.soundboard = Math.round(o.soundboard * 100) / 100;
   return r;
 }

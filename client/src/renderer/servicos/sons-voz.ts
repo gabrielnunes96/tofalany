@@ -1,5 +1,5 @@
 /** RF-21: sons curtos da voz, gerados na hora (sem arquivos). */
-export type SomVoz = 'entrar' | 'sair' | 'mudo' | 'desmudo' | 'servidor-entrou' | 'servidor-saiu';
+export type SomVoz = 'entrar' | 'sair' | 'mudo' | 'desmudo' | 'servidor-entrou' | 'servidor-saiu' | 'tela-abrir' | 'tela-fechar' | 'assistir-comecar' | 'assistir-parar';
 
 /** Notas (Hz) e duração de cada nota (s): subir = entrou/desmutou, descer = saiu/mutou. */
 export const NOTAS: Record<SomVoz, { freqs: number[]; duracao: number }> = {
@@ -10,6 +10,11 @@ export const NOTAS: Record<SomVoz, { freqs: number[]; duracao: number }> = {
   // RF-41: alguém entrou/saiu do servidor (três notas, mais suaves).
   'servidor-entrou': { freqs: [523, 659, 784], duracao: 0.08 },
   'servidor-saiu': { freqs: [784, 659, 523], duracao: 0.08 },
+  // video-teatro-cameras-e-sons: transmissão aberta/fechada (mais agudas) e alguém começou/parou de assistir (curtas).
+  'tela-abrir': { freqs: [659, 988], duracao: 0.08 },
+  'tela-fechar': { freqs: [988, 659], duracao: 0.08 },
+  'assistir-comecar': { freqs: [784, 1047], duracao: 0.05 },
+  'assistir-parar': { freqs: [1047, 784], duracao: 0.05 },
 };
 
 const VOLUME = 0.12;

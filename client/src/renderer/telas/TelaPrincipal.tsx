@@ -52,6 +52,7 @@ import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { PainelFixadas } from '../componentes/PainelFixadas';
+import { criarFiltroRepeticao, PREFERENCIA_DO_SOM, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
 import { useModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { PainelBusca } from '../componentes/PainelBusca';
 import { criarKlipy } from '../servicos/gif';
@@ -525,6 +526,12 @@ function TelaDoServidor({
   const [prefSons, setPrefSons] = useState<PreferenciasSons>(SONS_PADRAO);
   const sonsRef = useRef(prefSons);
   const sonsVozRef = useRef<SonsVoz | null>(null);
+  /** RN-9: entrar e sair da mesma transmissão em menos de 1 s não repete o som. */
+  const filtroSonsTela = useRef(criarFiltroRepeticao());
+  /** Sons da transmissão: cada um com a sua preferência; nada toca para quem está surdo. */
+  const tocarDaTransmissao = (sons: SomTransmissao[]) => {
+    for (const som of sons) if (sonsRef.current[PREFERENCIA_DO_SOM[som]] !== false && !controlesRef.current.surdo) sonsVozRef.current?.tocar(som);
+  };
   const tocar = (som: SomVoz) => {
     // Com o áudio desligado (deafen), nada toca — nem os avisos.
     if (sonsRef.current.voz && !controlesRef.current.surdo) sonsVozRef.current?.tocar(som);
@@ -1018,11 +1025,28 @@ function TelaDoServidor({
         }
         acoes.definirVoz(estados);
       },
-      aoTelaIniciada: acoes.iniciarTransmissao,
-      aoTelaParada: acoes.pararTransmissao,
+      // video-teatro-cameras-e-sons (RN-8): sons da transmissão, pela diferença entre antes e depois.
+      aoTelaIniciada: (t) => {
+        const eu = useLoja.getState().eu?.id;
+        if (eu !== undefined) tocarDaTransmissao(somAoAbrir(t, eu, minhaVozRef.current));
+        acoes.iniciarTransmissao(t);
+      },
+      aoTelaParada: (canalVozId, usuarioId) => {
+        const eu = useLoja.getState().eu?.id;
+        if (eu !== undefined) tocarDaTransmissao(somAoFechar(useLoja.getState().transmissoes, canalVozId, usuarioId, eu, minhaVozRef.current));
+        acoes.pararTransmissao(canalVozId, usuarioId);
+      },
       aoServidorAtualizado: acoes.servidorAtualizado,
       aoAtividade: acoes.definirAtividade,
-      aoTelaEspectadores: acoes.espectadoresDaTransmissao,
+      aoTelaEspectadores: (canalVozId, usuarioId, espectadores) => {
+        const eu = useLoja.getState().eu?.id;
+        const antes = useLoja.getState().transmissoes.find((t) => t.canalVozId === canalVozId && t.usuarioId === usuarioId);
+        if (eu !== undefined)
+          for (const { som, quem } of sonsAoMudarEspectadores(antes, espectadores, eu)) {
+            if (filtroSonsTela.current(`${usuarioId}:${quem}`)) tocarDaTransmissao([som]);
+          }
+        acoes.espectadoresDaTransmissao(canalVozId, usuarioId, espectadores);
+      },
       aoMusica: acoes.definirMusica,
       aoAmizades: acoes.definirAmizades,
       aoLoja: acoes.definirPontos,
