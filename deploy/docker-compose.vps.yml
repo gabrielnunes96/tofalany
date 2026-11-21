@@ -1,0 +1,51 @@
+# Só na VPS (o .env da VM liga com COMPOSE_FILE=docker-compose.yml:docker-compose.vps.yml; o vm.sh grava).
+# Soma ao docker-compose.yml:
+# - o pedido de "Atualizar o servidor agora" (pasta dedicada da VM, a única que o servidor grava fora de /data);
+# - o gerador de token de origem do YouTube (bgutil), numa rede só com o servidor e sem porta aberta;
+# - a rede da borda com IP fixo do Caddy, o único proxy em que o servidor confia (TRUST_PROXY).
+services:
+  server:
+    environment:
+      PEDIDOS: /pedidos
+      # Os nomes do Caddy: a voz sai pelo mesmo nome por onde a pessoa chegou.
+      DOMINIOS: ${DOMINIO:-}
+      TRUST_PROXY: 172.30.10.10
+      MUSICA_POT_URL: http://bgutil:4416
+    volumes:
+      # Pasta criada pelo vm.sh (dono 1000, 0700). O servidor só cria ali o arquivo vazio "atualizar".
+      - /var/lib/tofalany/pedidos:/pedidos
+    networks: [default, borda, pot]
+
+  livekit:
+    networks: [default, borda]
+
+  caddy:
+    networks:
+      borda:
+        ipv4_address: 172.30.10.10
+
+  bgutil:
+    # Versão e digest fixos: trocar só conferindo a release do projeto e o plugin da mesma versão no Dockerfile.
+    image: brainicism/bgutil-ytdlp-pot-provider:2.0.2@sha256:d7d34108b76e52c7d3b575fe9e797e4bf41c1b2a08f80c5292eff6f851ce8472
+    profiles: [vps]
+    restart: unless-stopped
+    init: true
+    # Sem "ports": ele não tem autenticação e só o servidor fala com ele, pela rede pot.
+    networks: [pot]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 128
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
+networks:
+  borda:
+    ipam:
+      config:
+        - subnet: 172.30.10.0/24
+  pot:

@@ -1,4 +1,6 @@
-# VPS com HTTPS automático (Let's Encrypt). DOMINIO vem do .env (ex.: fala.exemplo.com ou 1-2-3-4.sslip.io).
+# VPS com HTTPS automático (Let's Encrypt). DOMINIO vem do .env: um nome (ex.: fala.exemplo.com) ou uma lista
+# explícita separada por vírgula (ex.: "tofalany.duckdns.org, 1-2-3-4.sslip.io"), cada um com o próprio certificado.
+# Sem curinga nem certificado sob demanda: só os nomes da lista.
 # Tudo no mesmo endereço: o app fala com o servidor e com o LiveKit pelo mesmo host (exigido pelo app).
 {$DOMINIO} {
 	encode zstd gzip

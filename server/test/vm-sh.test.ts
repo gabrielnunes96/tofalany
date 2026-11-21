@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -106,6 +106,46 @@ describe.skipIf(process.platform === 'win32')('vm.sh (infra-e-atualizacao)', () 
     expect(r.stderr).toContain('Não consegui abrir a trava');
     expect(r.stdout).not.toContain('em andamento');
     expect(r.stdout).not.toContain('saiu=');
+  });
+
+  it('CA-7: o pedido é apagado sem ler o conteúdo; link simbólico só some (o alvo fica intacto)', () => {
+    const { pasta, rodar } = preparar();
+    const pedidos = join(pasta, 'pedidos');
+    mkdirSync(pedidos);
+    writeFileSync(join(pedidos, 'atualizar'), `$(touch '${pasta}/pwn')\n`);
+    const r = rodar(`limpar_pedido '${pedidos}'`);
+    expect(r.stdout).toContain('Pedido pelo app');
+    expect(existsSync(join(pedidos, 'atualizar'))).toBe(false);
+    expect(existsSync(join(pasta, 'pwn'))).toBe(false);
+
+    const alvo = join(pasta, 'importante.txt');
+    writeFileSync(alvo, 'não mexa');
+    symlinkSync(alvo, join(pedidos, 'atualizar'));
+    expect(rodar(`limpar_pedido '${pedidos}'`).stdout).toContain('link simbólico');
+    expect(existsSync(join(pedidos, 'atualizar'))).toBe(false);
+    expect(readFileSync(alvo, 'utf8')).toBe('não mexa');
+
+    // O script que o systemd roda como root é a mesma função, sozinha.
+    writeFileSync(join(pedidos, 'atualizar'), '');
+    writeFileSync(join(pasta, 'limpador'), rodar('script_limpador').stdout, { mode: 0o755 });
+    expect(spawnSync(join(pasta, 'limpador'), [pedidos], { encoding: 'utf8' }).stdout).toContain('Pedido pelo app');
+    expect(existsSync(join(pedidos, 'atualizar'))).toBe(false);
+
+    // Sem pedido (a conferência do timer): nada a dizer, sai com 0.
+    const nada = rodar(`limpar_pedido '${pedidos}'; echo "saiu=$?"`);
+    expect(nada.stdout.trim()).toBe('saiu=0');
+  });
+
+  it('CA-7: o vigia olha um nome fixo, tem limite de disparos e a conferência apaga o pedido antes de rodar (como root, sem o vm.sh)', () => {
+    const { rodar } = preparar();
+    const path = rodar('unidade_path').stdout;
+    expect(path).toContain('PathExists=/var/lib/tofalany/pedidos/atualizar');
+    expect(path).toContain('Unit=tofalany-atualizar.service');
+    expect(path).toMatch(/TriggerLimitIntervalSec=.+\nTriggerLimitBurst=\d+/);
+    const service = rodar('unidade_service').stdout;
+    expect(service).toContain('ExecStartPre=+/usr/local/lib/tofalany-limpar-pedido /var/lib/tofalany/pedidos');
+    expect(service).toMatch(/StartLimitIntervalSec=.+\nStartLimitBurst=\d+/);
+    expect(service.indexOf('ExecStartPre')).toBeLessThan(service.indexOf('ExecStart='));
   });
 
   it('sem o arquivo do token: erro com a instrução', () => {

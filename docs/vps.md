@@ -102,6 +102,8 @@ A resposta esperada é `{"ok":true,"sqlite":true,"livekit":"ok"}`. Se travar ou 
 
 **Atualização automática (recomendado, uma vez só):** `ssh -t tofalany 'cd ~/tofalany/deploy && ./vm.sh automatico'`. A partir daí, a VM confere o GitHub a cada 10 minutos e, quando sai uma release nova, atualiza o servidor e os instaladores do convite sozinha. Durante o build o servidor antigo continua no ar; a troca derruba a conexão por alguns segundos e o app reconecta. O servidor fica sempre na versão da última release (não no que estiver no `main` sem release).
 
+**Atualizar pelo app:** com a atualização automática ligada, o administrador da instalação tem **Atualizar o servidor agora** no menu do servidor. A VM confere a release em até 1 minuto, pelo mesmo caminho do timer. O servidor só deixa um arquivo vazio em `/var/lib/tofalany/pedidos` (pasta da VM, só dele); quem atualiza é o `vm.sh`. Duas atualizações nunca rodam juntas: `./vm.sh atualizar` espera a outra terminar. Quem já tinha a atualização automática ligada antes disso roda `./vm.sh automatico` uma vez para ligar o pedido pelo app.
+
 **Imagem pronta:** a cada release, o GitHub monta a imagem do servidor e publica em `ghcr.io/gabrielnunes96/tofalany-server`. A VM só baixa (menos de 1 minuto, sem pesar na máquina). Na primeira vez, deixe o pacote público: GitHub → seu perfil → **Packages** → `tofalany-server` → **Package settings** → **Change visibility** → **Public**. Enquanto ele for privado, a VM monta a imagem sozinha, como antes (uns 10 minutos).
 
 | Tarefa | Comando (no seu PC) |
@@ -115,14 +117,23 @@ A resposta esperada é `{"ok":true,"sqlite":true,"livekit":"ok"}`. Se travar ou 
 
 O app se atualiza sozinho a cada release no Windows, no AppImage e no .deb (no .deb, a partir da v0.8.0; o sistema pede a senha para instalar).
 
-## 7. Trocar para um domínio próprio (opcional)
+## 7. Endereço fixo (DuckDNS)
 
-1. Crie o nome: DuckDNS é grátis; um `.com.br` no registro.br sai por cerca de R$ 40 por ano.
-2. Aponte o nome para o IP da VM (registro `A`).
-3. Na VM, troque o endereço nas três linhas da configuração (troque `NOVO` pelo seu nome):
+O endereço `IP-com-hifens.sslip.io` muda quando a VM muda. Com um nome grátis no DuckDNS, migrar a VM só troca o IP para onde o nome aponta.
+
+1. Em duckdns.org, entre, crie o nome (ex.: `tofalany`) e deixe o IP como o **IP público da VM**.
+2. Na VM, salve o nome e o token num arquivo só seu (o token nunca vai para o `.env`, que o contêiner recebe inteiro):
 
 ```bash
-cd ~/tofalany/deploy && sed -i 's/[0-9-]*\.sslip\.io/NOVO/g' .env && docker compose --profile vps up -d
+cd ~/tofalany/deploy && (umask 077 && printf 'NOME\nTOKEN\n' > duckdns.token) && ./vm.sh dominio
 ```
 
-Quem já usa o app precisa usar **Trocar servidor** com o endereço novo. A conta continua a mesma.
+3. Ponha os dois nomes no Caddy e o novo nos convites (troque `NOME` e o sslip pelo seu):
+
+```bash
+cd ~/tofalany/deploy && sed -i -e 's|^DOMINIO=.*|DOMINIO=NOME.duckdns.org, SEU-IP-COM-HIFENS.sslip.io|' -e 's|^URL_PUBLICA=.*|URL_PUBLICA=https://NOME.duckdns.org|' -e 's|^LIVEKIT_URL=.*|LIVEKIT_URL=wss://NOME.duckdns.org|' .env && ./vm.sh atualizar
+```
+
+O app que conhece o endereço sslip passa sozinho para o fixo, com a mesma conta, quando o endereço antigo está no mapa do app (`ENDERECOS_MOVIDOS`). Enquanto o nome antigo estiver no `DOMINIO`, quem ainda não atualizou o app continua entrando por ele, com voz. `./vm.sh dominio` aponta o nome de novo para o IP atual (o `instalar` já faz isso quando o arquivo existe).
+
+Um domínio próprio (ex.: `.com.br`, cerca de R$ 40 por ano) funciona igual: aponte o registro `A` para a VM e use o nome no lugar do DuckDNS no passo 3.

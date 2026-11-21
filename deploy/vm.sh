@@ -25,6 +25,9 @@ INSTALADA="$PASTA/.versao-instalada"
 UNIDADE="tofalany-atualizar"
 # DuckDNS: linha 1 o nome (ex.: tofalany), linha 2 o token. Fica fora do .env, que o contêiner recebe inteiro.
 TOKEN_DUCKDNS="$PASTA/duckdns.token"
+# "Atualizar o servidor agora": o servidor cria aqui o arquivo vazio "atualizar"; o vigia do systemd o vê.
+PEDIDOS_VM="/var/lib/tofalany/pedidos"
+LIMPAR_PEDIDO="/usr/local/lib/tofalany-limpar-pedido"
 cd "$PASTA"
 
 ok() { printf '\033[1;32m✔ %s\033[0m\n' "$*"; }
@@ -87,6 +90,7 @@ BIND_IP_HTTP=127.0.0.1
 BIND_IP_MIDIA=0.0.0.0
 DOMINIO=${dominio}
 ATRAS_DE_PROXY=true
+COMPOSE_FILE=docker-compose.yml:docker-compose.vps.yml
 EOF
   )
   ok "Configuração criada para https://${dominio}"
@@ -158,9 +162,22 @@ definir_config() {
   fi
 }
 
+# Pasta do pedido de atualização: fora do repositório, do usuário do contêiner (1000) e só dele (0700).
+preparar_pedidos() {
+  sudo install -d -m 0755 -o root -g root "$(dirname "$PEDIDOS_VM")"
+  sudo install -d -m 0700 -o 1000 -g 1000 "$PEDIDOS_VM"
+}
+
+# VPS: liga o docker-compose.vps.yml (pedidos, bgutil e a rede da borda) num .env antigo, que não o tinha.
+garantir_vps() {
+  grep -q '^COMPOSE_FILE=' .env || definir_config COMPOSE_FILE docker-compose.yml:docker-compose.vps.yml
+  preparar_pedidos
+}
+
 # Imagem pronta da release (segundos); se não houver (release antiga, pacote privado), monta aqui (minutos).
 subir() {
   local tag="${1:-}"
+  garantir_vps
   if [ -n "$tag" ] && puxar "${IMAGEM}:${tag}"; then
     definir_config IMAGEM_SERVIDOR "$IMAGEM"
     definir_config VERSAO "$tag"
@@ -191,6 +208,7 @@ status() {
   curl -fsS -m 5 http://127.0.0.1:3000/api/saude && echo
   curl -fsS -m 5 http://127.0.0.1:3000/api/servidor && echo
   grep -E '^(URL_PUBLICA|DOMINIO)=' .env 2> /dev/null || true
+  if systemctl is-enabled --quiet "${UNIDADE}.path" 2> /dev/null; then echo "Pedido pelo app: ligado"; else echo "Pedido pelo app: desligado (./vm.sh automatico)"; fi
   echo "Versão instalada: $(cat "$INSTALADA" 2> /dev/null || echo '?')"
   if systemctl is-active --quiet "${UNIDADE}.timer" 2> /dev/null; then
     echo "Atualização automática: ligada (próxima conferência: $(systemctl show "${UNIDADE}.timer" -p NextElapseUSecRealtime --value 2> /dev/null))"
@@ -269,6 +287,65 @@ verificar() {
   atualizar
 }
 
+# Roda como root (ExecStartPre=+) antes de cada conferência: apaga o pedido sem seguir link e sem ler o conteúdo.
+# O nome é fixo e nada do que o contêiner grava vira argumento de comando.
+limpar_pedido() {
+  local f="$1/atualizar"
+  if [ -L "$f" ]; then
+    echo "Pedido recusado: link simbólico (apagado sem seguir)."
+  elif [ -e "$f" ]; then
+    echo "Pedido pelo app: conferindo a release agora."
+  else
+    return 0
+  fi
+  rm -rf -- "$f"
+}
+
+# O limpador como script à parte (fica com o root em /usr/local/lib): a mesma função, sem o resto do vm.sh.
+script_limpador() {
+  echo '#!/bin/bash'
+  echo 'set -euo pipefail'
+  declare -f limpar_pedido
+  # shellcheck disable=SC2016 # o $1 é do script gerado, não deste
+  echo 'limpar_pedido "$1"'
+}
+
+unidade_service() {
+  cat << EOF
+[Unit]
+Description=ToFalany: atualiza o servidor quando sai release nova no GitHub (timer ou pedido pelo app)
+After=network-online.target docker.service
+Wants=network-online.target
+# Pedidos em sequência (ou um contêiner insistindo) não viram atualizações sem fim.
+StartLimitIntervalSec=30min
+StartLimitBurst=6
+
+[Service]
+Type=oneshot
+User=${USER}
+WorkingDirectory=${PASTA}
+ExecStartPre=+${LIMPAR_PEDIDO} ${PEDIDOS_VM}
+ExecStart=${PASTA}/vm.sh verificar
+TimeoutStartSec=45min
+EOF
+}
+
+unidade_path() {
+  cat << EOF
+[Unit]
+Description=ToFalany: pedido de atualização feito pelo app
+
+[Path]
+PathExists=${PEDIDOS_VM}/atualizar
+Unit=${UNIDADE}.service
+TriggerLimitIntervalSec=5min
+TriggerLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
 automatico() {
   # Primeira vez: a versão no ar é a que o servidor informa (assim não reconstrói à toa).
   if [ ! -f "$INSTALADA" ]; then
@@ -276,19 +353,13 @@ automatico() {
     versao=$(curl -fsS -m 5 http://127.0.0.1:3000/api/servidor | python3 -c 'import json,sys; print(json.load(sys.stdin)["versao"])' 2> /dev/null || true)
     if [ -n "$versao" ]; then echo "v${versao}" > "$INSTALADA"; fi
   fi
-  sudo tee "/etc/systemd/system/${UNIDADE}.service" > /dev/null << EOF
-[Unit]
-Description=ToFalany: atualiza o servidor quando sai release nova no GitHub
-After=network-online.target docker.service
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-User=${USER}
-WorkingDirectory=${PASTA}
-ExecStart=${PASTA}/vm.sh verificar
-TimeoutStartSec=45min
-EOF
+  preparar_pedidos
+  # O limpador fica com o root (o contêiner e o repositório não o alteram): é ele que roda com privilégio.
+  script_limpador | sudo tee "$LIMPAR_PEDIDO" > /dev/null
+  sudo chown root:root "$LIMPAR_PEDIDO"
+  sudo chmod 0755 "$LIMPAR_PEDIDO"
+  unidade_service | sudo tee "/etc/systemd/system/${UNIDADE}.service" > /dev/null
+  unidade_path | sudo tee "/etc/systemd/system/${UNIDADE}.path" > /dev/null
   sudo tee "/etc/systemd/system/${UNIDADE}.timer" > /dev/null << EOF
 [Unit]
 Description=ToFalany: confere releases novas a cada 10 minutos
@@ -303,13 +374,13 @@ Persistent=true
 WantedBy=timers.target
 EOF
   sudo systemctl daemon-reload
-  sudo systemctl enable --now "${UNIDADE}.timer" > /dev/null
-  ok "Atualização automática ligada: a cada 10 min a VM confere o GitHub (no ar: $(cat "$INSTALADA" 2> /dev/null || echo '?'))"
+  sudo systemctl enable --now "${UNIDADE}.timer" "${UNIDADE}.path" > /dev/null
+  ok "Atualização automática ligada: a cada 10 min e no pedido pelo app a VM confere o GitHub (no ar: $(cat "$INSTALADA" 2> /dev/null || echo '?'))"
   echo "   Acompanhar: journalctl -u ${UNIDADE} -f    Desligar: ./vm.sh manual"
 }
 
 manual() {
-  sudo systemctl disable --now "${UNIDADE}.timer" > /dev/null 2>&1 || true
+  sudo systemctl disable --now "${UNIDADE}.timer" "${UNIDADE}.path" > /dev/null 2>&1 || true
   ok "Atualização automática desligada (atualize com ./vm.sh atualizar)"
 }
 
