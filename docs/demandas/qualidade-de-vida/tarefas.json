@@ -32,7 +32,7 @@
         "CA-5",
         "CA-6"
       ],
-      "validacao": "server/test/convites.test.ts: lista por permissão, membro, banido e sem código; 404 sem se conhecer; POST cria DM e mensagem e o alvo recebe mensagem:nova; 403, 409 e 429. npm test (server), lint e typecheck.",
+      "validacao": "server/test/convites-pessoa.test.ts: lista por permissão, membro, banido e sem código; 404 sem se conhecer; POST cria DM e mensagem e o alvo recebe mensagem:nova; 403, 409 e 429. npm test (server), lint e typecheck.",
       "estado": "feito",
       "wi": null,
       "commit": "1b62bf2"
@@ -52,9 +52,9 @@
         "CA-5"
       ],
       "validacao": "CartaoPessoa.test.tsx e moderacao.test.tsx (menu): lista da API, vazia esconde, envio e confirmação. Conferir no app (npm run dev) com duas contas. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "8fb3e51"
     },
     {
       "id": "T4",
@@ -67,7 +67,7 @@
         "CA-7"
       ],
       "validacao": "ItemMensagem.test.tsx/Previa: mesma base → confirmação e aoConvite; outro host → link comum; sem contexto → link comum. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

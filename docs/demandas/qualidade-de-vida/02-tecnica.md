@@ -71,7 +71,7 @@ Não se aplica: sem tabela nova nem migração. O convite é uma mensagem de DM 
 | Critério | Teste unitário / componente | Integração | Validação no ambiente |
 | --- | --- | --- | --- |
 | CA-1, CA-2 | `App.test.tsx` / `TelaPrincipal`: com `adminDaInstalacao`, o item aparece fora do principal e a `TelaToOuvini` recebe a API da base; sem ela, não aparece | `musica-cookies.test.ts` continua | abrir pelo app num servidor que não é o principal |
-| CA-3, CA-4, CA-6 | `CartaoPessoa.test.tsx` e `moderacao.test.tsx` (menu): lista vinda da API; vazia esconde o item | `server/test/convites.test.ts`: lista por permissão, membro, banido, sem código; 404 sem se conhecer | — |
+| CA-3, CA-4, CA-6 | `CartaoPessoa.test.tsx` e `moderacao.test.tsx` (menu): lista vinda da API; vazia esconde o item | `server/test/convites-pessoa.test.ts`: lista por permissão, membro, banido, sem código; 404 sem se conhecer | — |
 | CA-5 | cartão mostra "Convite enviado" | POST cria a DM e a mensagem, entrega `mensagem:nova` ao alvo; 403, 409, 429 | dois apps |
 | CA-7 | `ItemMensagem.test.tsx`/`Previa`: link de convite da mesma base vira ação com confirmação; de outro host, link comum | — | clicar no convite recebido |
 | CA-8, CA-8b, CA-9, CA-10 | `AtualizarAgora.test.tsx` (ponte falsa): progresso, pronta sem voz → instalar; pronta em voz → pergunta; recusar → aviso do canto; `atualizado` e `indisponivel` com os textos | `atualizacao.test.ts`: `pedido` esconde o aviso; progresso repassado | **manual:** atualização real no Windows, AppImage e .deb, e em chamada |

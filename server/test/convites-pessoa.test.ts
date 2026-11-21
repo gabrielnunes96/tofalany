@@ -29,9 +29,9 @@ async function preparar() {
   const listar = (de: Conta, para: Conta) => app!.inject({ method: 'GET', url: `/api/usuarios/${para.usuario.id}/convites`, headers: auth(de.token) });
   const convidar = (de: Conta, para: Conta, comunidadeId: number) =>
     app!.inject({ method: 'POST', url: `/api/usuarios/${para.usuario.id}/convites`, headers: auth(de.token), payload: { comunidadeId } });
-  const abrir = async (conta: Conta) => {
+  const abrir = async (conta: Conta, comunidade?: number) => {
     const url = `http://127.0.0.1:${(app!.server.address() as AddressInfo).port}`;
-    const s: Cliente = conectar(url, { auth: { token: conta.token }, transports: ['websocket'], reconnection: false, forceNew: true });
+    const s: Cliente = conectar(url, { auth: comunidade ? { token: conta.token, comunidade } : { token: conta.token }, transports: ['websocket'], reconnection: false, forceNew: true });
     sockets.push(s);
     await new Promise<OlaPayload>((r) => s.once('ola', r));
     return s;
@@ -47,14 +47,32 @@ describe('convidar para servidor pelo cartão da pessoa (qualidade-de-vida, RF-2
     expect((r.json() as ComunidadeDto[]).map((c) => c.nome)).toEqual(['Família']);
   });
 
-  it('CA-4: sem "Gerenciar convite" a lista vem vazia, e o envio é recusado', async () => {
-    const { dono, ana, listar, convidar } = await preparar();
-    expect(await listar(ana, dono).then((r) => r.json())).toEqual([]);
-    expect((await convidar(ana, dono, 1)).statusCode).toBe(403);
+  it('CA-3/CA-4: amigos sem servidor em comum; com o cargo "Gerenciar convite" a lista aparece, sem ele vem vazia (403 no envio)', async () => {
+    const { dono, ana, bia, listar, convidar, abrir, auth, app: servidor } = await preparar();
+    // A ana (só no principal) e a bia (só na Família) são amigas.
+    const [a, b] = [ana.usuario.id, bia.usuario.id].sort((x, y) => x - y);
+    servidor.banco.prepare('INSERT INTO amizades (usuario_a, usuario_b, pedido_por, aceita, criado_em) VALUES (?, ?, ?, 1, ?)').run(a, b, a, Date.now());
+    expect(await listar(ana, bia).then((r) => r.json())).toEqual([]);
+    expect((await convidar(ana, bia, 1)).statusCode).toBe(403);
+    // O dono dá à ana um cargo com "Gerenciar convite" no principal.
+    const funcao = (
+      await servidor.inject({ method: 'POST', url: '/api/admin/funcoes', headers: auth(dono.token), payload: { nome: 'Recepção', cor: '#ff8800', permissoes: ['gerenciar_convite'] } })
+    ).json() as { id: number };
+    await servidor.inject({ method: 'PATCH', url: `/api/admin/usuarios/${ana.usuario.id}/funcao`, headers: auth(dono.token), payload: { funcaoId: funcao.id } });
+    expect((await listar(ana, bia).then((r) => r.json()) as ComunidadeDto[]).map((c) => c.id)).toEqual([1]);
+    // O convite chega à bia (só amiga): a mensagem e a DM nova.
+    const daBia = await abrir(bia, 2);
+    const mensagem = new Promise<MensagemDto>((r) => daBia.once('mensagem:nova', r));
+    const dm = new Promise((r) => daBia.once('dm:atualizada', r));
+    expect((await convidar(ana, bia, 1)).statusCode).toBe(200);
+    expect((await mensagem).autorId).toBe(ana.usuario.id);
+    expect(await dm).toMatchObject({ outroId: ana.usuario.id });
   });
 
   it('404 para quem não divide servidor nem é amigo (mesmo com conversa direta) e para a própria conta', async () => {
-    const { ana, bia, listar, convidar } = await preparar();
+    const { ana, bia, listar, convidar, app: servidor } = await preparar();
+    const [a, b] = [ana.usuario.id, bia.usuario.id].sort((x, y) => x - y);
+    servidor.banco.prepare('INSERT INTO dms (usuario_a, usuario_b, criado_em) VALUES (?, ?, ?)').run(a, b, Date.now());
     expect((await listar(ana, bia)).statusCode).toBe(404);
     expect((await convidar(ana, bia, 1)).statusCode).toBe(404);
     expect((await listar(ana, ana)).statusCode).toBe(404);
@@ -64,10 +82,23 @@ describe('convidar para servidor pelo cartão da pessoa (qualidade-de-vida, RF-2
     const { dono, ana, listar, convidar, auth, codigo, app: servidor } = await preparar();
     // A ana entra na Família e é banida.
     await servidor.inject({ method: 'POST', url: '/api/comunidades/entrar', headers: auth(ana.token), payload: { codigo } });
-    expect((await convidar(dono, ana, 2)).statusCode).toBe(409);
+    const jaMembro = await convidar(dono, ana, 2);
+    expect(jaMembro.statusCode).toBe(409);
+    expect(jaMembro.json().erro).toBe('ja_membro');
     expect((await servidor.inject({ method: 'POST', url: `/c/2/api/moderacao/${ana.usuario.id}/banir`, headers: auth(dono.token), payload: {} })).statusCode).toBe(204);
     expect(await listar(dono, ana).then((r) => r.json())).toEqual([]);
-    expect((await convidar(dono, ana, 2)).statusCode).toBe(409);
+    const banido = await convidar(dono, ana, 2);
+    expect(banido.statusCode).toBe(409);
+    expect(banido.json().erro).toBe('banido');
+  });
+
+  it('servidor sem código de convite não aparece e o envio devolve 409 sem_convite', async () => {
+    const { dono, ana, listar, convidar, app: servidor } = await preparar();
+    servidor.banco.prepare('UPDATE comunidades SET convite = NULL WHERE id = 2').run();
+    expect(await listar(dono, ana).then((r) => r.json())).toEqual([]);
+    const r = await convidar(dono, ana, 2);
+    expect(r.statusCode).toBe(409);
+    expect(r.json().erro).toBe('sem_convite');
   });
 
   it('CA-5: o convite chega como mensagem direta com o nome do servidor e o link de convite dele', async () => {

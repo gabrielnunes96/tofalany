@@ -15,7 +15,6 @@ import { montarLinkConvite } from '../dominio/convite.js';
 import { abrirDm } from '../dominio/dms.js';
 import { buscarMensagem, inserirMensagem } from '../dominio/mensagens.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
-import { entregarMensagemDm } from '../realtime/mensagens.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 import { baseServidor } from './convite.js';
 
@@ -85,7 +84,7 @@ export function registrarRotasConvitesPessoa(app: FastifyInstance, banco: Banco,
         return buscarMensagem(banco, id)!;
       })();
       registrarAuditoria(banco, { tipo: 'convite_enviado', atorId: eu, alvoUsuarioId: alvo, comunidadeId });
-      entregarMensagemDm(tempoReal.io, banco, [eu, alvo], mensagem);
+      tempoReal.entregarMensagemDm(mensagem);
       return { ok: true };
     },
   );

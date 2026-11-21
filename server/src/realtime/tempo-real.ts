@@ -19,6 +19,7 @@ import {
   caminhoComunidade,
   lerAtividade,
   type AtividadeDto,
+  type MensagemDto,
 } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
@@ -33,7 +34,8 @@ import { listarDms } from '../dominio/dms.js';
 import { contarNaoLidas } from '../dominio/leituras.js';
 import { listarSons } from '../dominio/sons.js';
 import { registrarEventosCanais } from './canais.js';
-import { registrarEventosMensagens } from './mensagens.js';
+import { entregarMensagemDm, registrarEventosMensagens } from './mensagens.js';
+import { buscarDm } from '../dominio/dms.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import { RoomServiceClient } from 'livekit-server-sdk';
 import { salaLivekit } from '@tofalando/shared';
@@ -82,6 +84,8 @@ export interface TempoReal {
   cargoMudou(usuarioId: number, comunidadeId?: number): void;
   /** Derruba as conexões de alguém num servidor (saiu, foi tirado, expulso ou banido; com o motivo para a pessoa). */
   tirarDaComunidade(usuarioId: number, comunidadeId: number, motivo?: MotivoRevogacao, detalhe?: string | null): void;
+  /** Mensagem de DM criada fora de um socket (ex.: convite pela rota): chega aos participantes como no envio normal. */
+  entregarMensagemDm(mensagem: MensagemDto): void;
   /** Entrou num servidor (convite): quem já estava passa a ver o status e a atividade dela, e ela os deles. */
   entrouNaComunidade(usuarioId: number, comunidadeId: number): void;
   /** Moderação: tira a pessoa da voz deste servidor (castigo). */
@@ -456,6 +460,10 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       for (const s of io.of('/').sockets.values()) if (s.data.usuarioId === usuarioId && s.data.comunidadeId === comunidadeId) derrubar(s, motivo, detalhe);
       // Quem ficou deixa de ver a pessoa (e ela a eles), se não restar outro servidor em comum nem amizade (RF-7).
       for (const m of idsDosMembros(banco, comunidadeId)) if (m !== usuarioId) reenviarVisibilidade(usuarioId, m);
+    },
+    entregarMensagemDm(mensagem) {
+      const dm = mensagem.dmId !== null ? buscarDm(banco, mensagem.dmId) : undefined;
+      if (dm) entregarMensagemDm(io, banco, dm.participantes, mensagem);
     },
     entrouNaComunidade(usuarioId, comunidadeId) {
       for (const m of idsDosMembros(banco, comunidadeId)) if (m !== usuarioId) reenviarVisibilidade(usuarioId, m);
