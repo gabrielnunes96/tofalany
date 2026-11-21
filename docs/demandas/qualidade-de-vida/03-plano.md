@@ -31,3 +31,10 @@
 ## Riscos de execução
 - A atualização real (download, instalação e reinício) só se testa na T8, com a build publicada.
 - Passada do `fluxo:seguranca` no fim (convite e link clicável).
+
+## Execução (20 e 21/11/2026)
+- T1 a T7 feitas e commitadas no main local (sem push). Cada tarefa passou pelo revisor; as correções entraram em commits com o mesmo id (031b573 T1; e8aed7c e 75bedf3 T2; f0f34ca T3; 73d99d5 T4; ffee955 T5; 6b800e1 e 5d7ea3c T6; 6e88980 T7, que leva também a confirmação do convite com o nome do servidor).
+- Decisões tomadas na execução: servidor excluído não reemite status (todas as conexões dele caem; T-9); a entrega da DM do convite virou método do `TempoReal` (T-3).
+- Segurança (fluxo:seguranca): sem achado crítico ou alto. Corrigidos: confirmação do convite clicado com o nome do servidor e o aviso de que os membros vão ver o status e a atividade; banido e sem código com a mesma resposta (`409 nao_convidavel`) e limite contando as recusas; auditoria do convite na transação; canais de atualização só da janela principal; a marca de pedido da atualização vale só para a versão entregue. **Aceito e registrado:** sem `URL_PUBLICA` no servidor, o link do convite usa o endereço que o pedido informa (o clique no app compara o endereço e manda outro host para o navegador); conferir que a VM tem `URL_PUBLICA` definida.
+- Validação do perfil (`npm run build && npm test && npm run lint && npm run test:e2e`): build ok; 801 testes (o intermitente conhecido `TelaAuditoria.test.tsx` falhou uma vez e passou ao repetir); lint ok; E2E 47 ok e 4 pulados, sobre o código final.
+- **Falta a T8** (manual, na build da atualização grande): "Atualizar o app" de verdade no Windows, AppImage e .deb (fora e dentro de chamada); convite pelo cartão entre duas contas, com o clique no link; ToOuvini aberto de um servidor que não é o principal. A ligação do menu com o ToOuvini e com a API da base não tem teste automatizado (a tela principal inteira não é montada nos testes): conferir na T8.
