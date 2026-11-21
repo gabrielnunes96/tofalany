@@ -2,7 +2,7 @@ import { useCallback, useContext, type ReactNode } from 'react';
 import { ContextoPerfil } from './ContextoPerfil';
 import type { Klipy } from '../servicos/gif';
 import type { DmDto, UsuarioDto } from '@tofalando/shared';
-import type { ClienteApi } from '../servicos/api';
+import type { ClienteApi, JanelaHistorico } from '../servicos/api';
 import { chaveDm } from '../estado/loja';
 import { Avatar } from './Avatar';
 import { BotaoSilenciarConversa } from './BotaoSilenciarConversa';
@@ -53,7 +53,11 @@ export function DmAberta({
 }: Props) {
   const nome = outro?.nomeExibicao ?? 'conta removida';
   const abrirPerfil = useContext(ContextoPerfil);
-  const carregarPagina = useCallback((antes?: number, ate?: number) => (ate ? api.mensagensDm(dm.id, antes, ate) : api.mensagensDm(dm.id, antes)), [api, dm.id]);
+  const carregarPagina = useCallback(
+    (antes?: number, ate?: number, janela?: JanelaHistorico) =>
+      janela ? api.mensagensDm(dm.id, antes, ate, janela) : ate ? api.mensagensDm(dm.id, antes, ate) : api.mensagensDm(dm.id, antes),
+    [api, dm.id],
+  );
   return (
     <section className="canal-aberto" aria-labelledby="titulo-dm">
       <header className="canal-topo">

@@ -112,8 +112,9 @@ export interface ClienteApi {
   lerConvite(): Promise<ConviteDto>;
   trocarConvite(codigo: string): Promise<ConviteDto>;
   /** `ate`: carrega de uma vez da mensagem `ate` até `antes` (ir até a original de uma resposta). */
-  mensagensCanal(canalId: number, antes?: number, ate?: number): Promise<PaginaMensagens>;
-  mensagensDm(dmId: number, antes?: number, ate?: number): Promise<PaginaMensagens>;
+  /** `janela.em`: em volta de uma mensagem; `janela.depois`: para baixo (chat-fixar-e-buscar). */
+  mensagensCanal(canalId: number, antes?: number, ate?: number, janela?: JanelaHistorico): Promise<PaginaMensagens>;
+  mensagensDm(dmId: number, antes?: number, ate?: number, janela?: JanelaHistorico): Promise<PaginaMensagens>;
   enviarAnexo(arquivo: Blob, nome: string): Promise<AnexoDto>;
   sons(): Promise<SomDto[]>;
   cadastrarSom(nome: string, arquivo: Blob, nomeArquivo: string): Promise<SomDto>;
@@ -131,6 +132,12 @@ export interface ClienteApi {
   ativarDoisFatores(codigo: string): Promise<{ codigos: string[] }>;
   desativarDoisFatores(senha: string, codigo: string): Promise<DoisFatoresDto>;
   desligarDoisFatoresDe(usuarioId: number): Promise<void>;
+}
+
+/** Histórico em janela (chat-fixar-e-buscar): em volta de uma mensagem ou para baixo. */
+export interface JanelaHistorico {
+  em?: number;
+  depois?: number;
 }
 
 function consulta(filtro: object): string {
@@ -257,8 +264,8 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     desligarDoisFatoresDe: async (usuarioId) => {
       await chamar('POST', `/api/admin/usuarios/${usuarioId}/2fa/desligar`);
     },
-    mensagensDm: (dmId, antes, ate) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes, ate })}`),
-    mensagensCanal: (canalId, antes, ate) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes, ate })}`),
+    mensagensDm: (dmId, antes, ate, janela) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes, ate, ...janela })}`),
+    mensagensCanal: (canalId, antes, ate, janela) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes, ate, ...janela })}`),
     enviarAvatar: (arquivo, nome) => {
       const form = new FormData();
       form.append('arquivo', arquivo, nome);

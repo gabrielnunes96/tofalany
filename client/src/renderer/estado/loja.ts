@@ -1,7 +1,26 @@
 import { createContext, useContext } from 'react';
 import { create } from 'zustand';
 import { textoSemGif, trechoDeResposta } from '@tofalando/shared';
-import type { CanalDto, DmDto, MensagemDto, OlaPayload, PaginaMensagens, SomDto, StatusPessoa, TransmissaoDto, UsuarioDto, VozEstadoDto, StatusVisivel, FuncaoDto, EstadoMusica, AmizadeDto, AtividadeDto, LojaEstadoDto, ReacaoDto, RespostaDto } from '@tofalando/shared';
+import type {
+  CanalDto,
+  DmDto,
+  MensagemDto,
+  OlaPayload,
+  PaginaMensagens,
+  SomDto,
+  StatusPessoa,
+  TransmissaoDto,
+  UsuarioDto,
+  VozEstadoDto,
+  StatusVisivel,
+  FuncaoDto,
+  EstadoMusica,
+  AmizadeDto,
+  AtividadeDto,
+  LojaEstadoDto,
+  ReacaoDto,
+  RespostaDto,
+} from '@tofalando/shared';
 import type { EstadoConexao } from '../servicos/tempo-real';
 
 import { chaveCanal, chaveDe, type Chave } from './chaves';
@@ -32,6 +51,8 @@ interface Loja {
   dmAtiva: number | null;
   /** Histórico já carregado por conversa (some ao reconectar, para recarregar sem buracos). */
   historicos: Partial<Record<Chave, Historico>>;
+  /** chat-fixar-e-buscar: ir até esta mensagem quando a conversa dela estiver aberta. */
+  irAte: { chave: Chave; id: number } | null;
   /** Mensagens não lidas por conversa (RF-12). */
   naoLidas: Partial<Record<Chave, number>>;
   /** Ids das não lidas que chegaram nesta conexão (para descontar se forem apagadas e para o aviso de leitura). */
@@ -88,7 +109,16 @@ interface Loja {
   /** Marca o início de uma carga e devolve a geração dela; respostas de cargas antigas são ignoradas. */
   iniciarCarga(chave: Chave): number;
   receberPagina(chave: Chave, pagina: PaginaMensagens, geracao: number): void;
+  /** chat-fixar-e-buscar: a janela em volta de uma mensagem substitui o histórico (pode não chegar ao fim). */
+  receberJanela(chave: Chave, pagina: PaginaMensagens, geracao: number): void;
+  /** Páginas para baixo, depois de uma janela. */
+  receberDepois(chave: Chave, pagina: PaginaMensagens, geracao: number): void;
   falharCarga(chave: Chave, erro: string, geracao: number): void;
+  /** Descarta o histórico (ex.: "Ir para as mais recentes" recarrega do fim). */
+  descartarHistorico(chave: Chave): void;
+  /** Pedido de ir até uma mensagem (fixadas, busca), consumido pela conversa quando ela estiver aberta. */
+  pedirIrAte(chave: Chave, id: number): void;
+  consumirIrAte(): void;
   adicionarMensagem(mensagem: MensagemDto): void;
   atualizarMensagem(mensagem: MensagemDto): void;
   removerMensagem(id: number, chave: Chave | null): void;
@@ -118,11 +148,16 @@ export interface Historico {
   geracao: number;
   /** Não há mais antigas. */
   fim: boolean;
+  /**
+   * chat-fixar-e-buscar: o histórico vai até a mensagem mais nova. Falso depois de abrir uma janela longe do fim:
+   * mensagem nova não entra (ficaria um buraco) e a conversa mostra "Ir para as mais recentes".
+   */
+  noFim: boolean;
   carregando: boolean;
   erro: string | null;
 }
 
-const historicoVazio: Historico = { mensagens: [], geracao: 0, fim: false, carregando: false, erro: null };
+const historicoVazio: Historico = { mensagens: [], geracao: 0, fim: false, noFim: true, carregando: false, erro: null };
 let proximaGeracao = 1;
 
 const inicial = {
@@ -140,6 +175,7 @@ const inicial = {
   dms: [] as DmDto[],
   dmAtiva: null as number | null,
   historicos: {} as Partial<Record<Chave, Historico>>,
+  irAte: null as { chave: Chave; id: number } | null,
   naoLidas: {} as Partial<Record<Chave, number>>,
   naoLidasIds: {} as Partial<Record<Chave, number[]>>,
   digitando: {} as Partial<Record<Chave, Record<number, number>>>,
@@ -172,221 +208,273 @@ function canalValido(canais: CanalDto[], atual: number | null): number | null {
  */
 export const criarLoja = () =>
   create<Loja>((set) => ({
-  ...inicial,
-  definirConexao: (conexao) => set({ conexao }),
-  definirSons: (sons) => set({ sons }),
-  definirFuncoes: (funcoes) => set({ funcoes }),
-  definirVoz: (voz) => set({ voz }),
-  iniciarTransmissao: (t) =>
-    set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => !(x.canalVozId === t.canalVozId && x.usuarioId === t.usuarioId)), t] })),
-  // Sem usuário (servidor antigo): todas as do canal.
-  pararTransmissao: (canalVozId, usuarioId) =>
-    set((s) => ({ transmissoes: s.transmissoes.filter((x) => !(x.canalVozId === canalVozId && (usuarioId === undefined || x.usuarioId === usuarioId))) })),
-  espectadoresDaTransmissao: (canalVozId, usuarioId, espectadores) =>
-    set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId && x.usuarioId === usuarioId ? { ...x, espectadores } : x)) })),
-  definirAmizades: (amizades, conhecidos) => set((s) => ({ amizades, conhecidos: conhecidos ?? s.conhecidos })),
-  definirPontos: (pontos) => set({ pontos }),
-  definirMusica: (estado) =>
-    set((s) => ({ musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])] })),
-  definirPresenca: (id, status) =>
-    set((s) => {
-      const presencas = { ...s.presencas };
-      if (status === 'offline') delete presencas[id];
-      else presencas[id] = status;
-      return { presencas };
-    }),
-  definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
-  salvarSom: (som) => set((s) => ({ sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id) })),
-  tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
-  servidorAtualizado: ({ nome, iconeUrl }) => set({ nomeServidor: nome, iconeServidor: iconeUrl }),
-  definirAtividade: (id, a) =>
-    set((s) => {
-      const atividades = { ...s.atividades };
-      if (a) atividades[id] = a;
-      else delete atividades[id];
-      return { atividades };
-    }),
-  aplicarOla: ({ servidor, convite, eu, usuarios, funcoes, canais, dms, naoLidas, sons, voz, presencas, transmissoes, musica, amizades, conhecidos, atividades, loja }) =>
-    set((s) => {
-      const ordenados = ordenarCanais(canais);
-      return {
-        nomeServidor: servidor.nome,
-        iconeServidor: servidor.iconeUrl ?? null,
-        servidorId: servidor.id ?? null,
-        donoServidor: servidor.donoId ?? null,
-        linkConvite: convite.link,
-        eu,
-        usuarios,
-        funcoes: funcoes ?? [],
-        canais: ordenados,
-        canalAtivo: canalValido(ordenados, s.canalAtivo),
-        dms: ordenarDms(dms),
-        sons,
-        voz,
-        transmissoes: transmissoes ?? [],
-        musica: (musica ?? []).filter((m) => m.tocando || m.fila.length || m.conectado),
-        amizades: amizades ?? [],
-        conhecidos: conhecidos ?? [],
-        pontos: loja ?? null,
-        presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
-        atividades: Object.fromEntries(Object.entries(atividades ?? {}).map(([id, a]) => [Number(id), a])),
-        dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
-        // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
-        historicos: {},
-        digitando: {},
-        naoLidasIds: {},
-        naoLidas: Object.fromEntries(Object.entries(naoLidas).filter(([k]) => /^[cd]:\d+$/.test(k))) as Partial<Record<Chave, number>>,
-      };
-    }),
-  salvarCanal: (canal) =>
-    set((s) => {
-      const canais = ordenarCanais([...s.canais.filter((c) => c.id !== canal.id), canal]);
-      return { canais, canalAtivo: canalValido(canais, s.canalAtivo) };
-    }),
-  removerCanal: (id) =>
-    set((s) => {
-      const canais = s.canais.filter((c) => c.id !== id);
-      const historicos = { ...s.historicos };
-      delete historicos[chaveCanal(id)];
-      return { canais, canalAtivo: canalValido(canais, s.canalAtivo), historicos };
-    }),
-  salvarDm: (dm) => set((s) => ({ dms: ordenarDms([...s.dms.filter((d) => d.id !== dm.id), dm]) })),
-  abrirDm: (id) => set((s) => ({ dmAtiva: s.dms.some((d) => d.id === id) ? id : s.dmAtiva })),
-  iniciarCarga: (chave) => {
-    const geracao = proximaGeracao++;
-    set((s) => ({ historicos: { ...s.historicos, [chave]: { ...(s.historicos[chave] ?? historicoVazio), geracao, carregando: true, erro: null } } }));
-    return geracao;
-  },
-  receberPagina: (chave, pagina, geracao) =>
-    set((s) => {
-      const atual = s.historicos[chave];
-      // Conversa removida, reconexão (ola limpou tudo) ou carga mais nova em andamento: resposta velha, ignora.
-      if (!atual || atual.geracao !== geracao) return {};
-      const porId = new Map([...atual.mensagens, ...pagina.mensagens].map((m) => [m.id, m]));
-      const mensagens = [...porId.values()].sort((a, b) => a.id - b.id);
-      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens, fim: pagina.fim, carregando: false, erro: null } } };
-    }),
-  falharCarga: (chave, erro, geracao) =>
-    set((s) => {
-      const atual = s.historicos[chave];
-      if (!atual || atual.geracao !== geracao) return {};
-      return { historicos: { ...s.historicos, [chave]: { ...atual, carregando: false, erro } } };
-    }),
-  adicionarMensagem: (m) =>
-    set((s) => {
-      const chave = chaveDe(m);
-      if (!chave) return {};
-      const atual = s.historicos[chave];
-      // Quem mandou a mensagem parou de digitar.
-      const quem = { ...(s.digitando[chave] ?? {}) };
-      delete quem[m.autorId];
-      const digitando = { ...s.digitando, [chave]: quem };
-      // Conversa ainda não carregada: a mensagem vem junto quando ela for aberta.
-      if (!atual || atual.mensagens.some((x) => x.id === m.id)) return { digitando };
-      return { digitando, historicos: { ...s.historicos, [chave]: { ...atual, mensagens: [...atual.mensagens, m] } } };
-    }),
-  atualizarMensagem: (m) =>
-    set((s) => {
-      const chave = chaveDe(m);
-      const atual = chave ? s.historicos[chave] : undefined;
-      if (!chave || !atual) return {};
-      // As respostas a ela mostram o texto novo (CA-13).
-      const trecho = trechoDeResposta(textoSemGif(m.texto, m.gif)) || (m.gif ? 'GIF' : '');
-      const resposta: RespostaDto = { id: m.id, autorId: m.autorId, trecho, ...(!trecho && m.anexos.length ? { soAnexo: true as const } : {}) };
-      const mensagens = atual.mensagens.map((x) => (x.id === m.id ? m : x.resposta?.id === m.id && !x.resposta.apagada ? { ...x, resposta } : x));
-      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
-    }),
-  aplicarReacoes: (id, chave, reacoes) =>
-    set((s) => {
-      const atual = chave ? s.historicos[chave] : undefined;
-      if (!chave || !atual || !atual.mensagens.some((x) => x.id === id)) return {};
-      const mensagens = atual.mensagens.map((x) => {
-        if (x.id !== id) return x;
-        const nova: MensagemDto = { ...x, reacoes };
-        if (!reacoes.length) delete nova.reacoes;
-        return nova;
-      });
-      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
-    }),
-  removerMensagem: (id, chave) =>
-    set((s) => {
-      const atual = chave ? s.historicos[chave] : undefined;
-      if (!chave || !atual) return {};
-      // As respostas a ela ficam com "Mensagem original apagada" (CA-12).
-      const mensagens = atual.mensagens.filter((x) => x.id !== id).map((x) => (x.resposta?.id === id ? { ...x, resposta: { id, apagada: true as const } } : x));
-      return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
-    }),
-  registrarDigitando: (chave, usuarioId, ate) =>
-    set((s) => ({ digitando: { ...s.digitando, [chave]: { ...(s.digitando[chave] ?? {}), [usuarioId]: ate } } })),
-  contarNaoLida: (chave, mensagemId) =>
-    set((s) => ({
-      naoLidas: { ...s.naoLidas, [chave]: (s.naoLidas[chave] ?? 0) + 1 },
-      naoLidasIds: { ...s.naoLidasIds, [chave]: [...(s.naoLidasIds[chave] ?? []), mensagemId] },
-    })),
-  zerarNaoLidas: (chave) =>
-    set((s) => {
-      if (!s.naoLidas[chave] && !s.naoLidasIds[chave]) return {};
-      const naoLidas = { ...s.naoLidas };
-      const naoLidasIds = { ...s.naoLidasIds };
-      delete naoLidas[chave];
-      delete naoLidasIds[chave];
-      return { naoLidas, naoLidasIds };
-    }),
-  aplicarLeitura: (chave, ultimaMensagemId) =>
-    set((s) => {
-      const ids = s.naoLidasIds[chave] ?? [];
-      // Chegou não lida mais nova que a leitura (ex.: outro computador marcou antes dela): fica só ela.
-      const restantes = ids.filter((id) => id > ultimaMensagemId);
-      const naoLidas = { ...s.naoLidas };
-      const naoLidasIds = { ...s.naoLidasIds };
-      if (restantes.length) {
-        naoLidas[chave] = restantes.length;
-        naoLidasIds[chave] = restantes;
-      } else {
+    ...inicial,
+    definirConexao: (conexao) => set({ conexao }),
+    definirSons: (sons) => set({ sons }),
+    definirFuncoes: (funcoes) => set({ funcoes }),
+    definirVoz: (voz) => set({ voz }),
+    iniciarTransmissao: (t) =>
+      set((s) => ({ transmissoes: [...s.transmissoes.filter((x) => !(x.canalVozId === t.canalVozId && x.usuarioId === t.usuarioId)), t] })),
+    // Sem usuário (servidor antigo): todas as do canal.
+    pararTransmissao: (canalVozId, usuarioId) =>
+      set((s) => ({ transmissoes: s.transmissoes.filter((x) => !(x.canalVozId === canalVozId && (usuarioId === undefined || x.usuarioId === usuarioId))) })),
+    espectadoresDaTransmissao: (canalVozId, usuarioId, espectadores) =>
+      set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId && x.usuarioId === usuarioId ? { ...x, espectadores } : x)) })),
+    definirAmizades: (amizades, conhecidos) => set((s) => ({ amizades, conhecidos: conhecidos ?? s.conhecidos })),
+    definirPontos: (pontos) => set({ pontos }),
+    definirMusica: (estado) =>
+      set((s) => ({
+        musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])],
+      })),
+    definirPresenca: (id, status) =>
+      set((s) => {
+        const presencas = { ...s.presencas };
+        if (status === 'offline') delete presencas[id];
+        else presencas[id] = status;
+        return { presencas };
+      }),
+    definirFalando: (falando) => set((s) => (s.falando.length === 0 && falando.length === 0 ? s : { falando })),
+    salvarSom: (som) =>
+      set((s) => ({
+        sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id),
+      })),
+    tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
+    servidorAtualizado: ({ nome, iconeUrl }) => set({ nomeServidor: nome, iconeServidor: iconeUrl }),
+    definirAtividade: (id, a) =>
+      set((s) => {
+        const atividades = { ...s.atividades };
+        if (a) atividades[id] = a;
+        else delete atividades[id];
+        return { atividades };
+      }),
+    aplicarOla: ({
+      servidor,
+      convite,
+      eu,
+      usuarios,
+      funcoes,
+      canais,
+      dms,
+      naoLidas,
+      sons,
+      voz,
+      presencas,
+      transmissoes,
+      musica,
+      amizades,
+      conhecidos,
+      atividades,
+      loja,
+    }) =>
+      set((s) => {
+        const ordenados = ordenarCanais(canais);
+        return {
+          nomeServidor: servidor.nome,
+          iconeServidor: servidor.iconeUrl ?? null,
+          servidorId: servidor.id ?? null,
+          donoServidor: servidor.donoId ?? null,
+          linkConvite: convite.link,
+          eu,
+          usuarios,
+          funcoes: funcoes ?? [],
+          canais: ordenados,
+          canalAtivo: canalValido(ordenados, s.canalAtivo),
+          dms: ordenarDms(dms),
+          sons,
+          voz,
+          transmissoes: transmissoes ?? [],
+          musica: (musica ?? []).filter((m) => m.tocando || m.fila.length || m.conectado),
+          amizades: amizades ?? [],
+          conhecidos: conhecidos ?? [],
+          pontos: loja ?? null,
+          presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
+          atividades: Object.fromEntries(Object.entries(atividades ?? {}).map(([id, a]) => [Number(id), a])),
+          dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
+          // Reconectou: o que chegou durante a queda não está aqui; a conversa aberta recarrega.
+          historicos: {},
+          digitando: {},
+          naoLidasIds: {},
+          naoLidas: Object.fromEntries(Object.entries(naoLidas).filter(([k]) => /^[cd]:\d+$/.test(k))) as Partial<Record<Chave, number>>,
+        };
+      }),
+    salvarCanal: (canal) =>
+      set((s) => {
+        const canais = ordenarCanais([...s.canais.filter((c) => c.id !== canal.id), canal]);
+        return { canais, canalAtivo: canalValido(canais, s.canalAtivo) };
+      }),
+    removerCanal: (id) =>
+      set((s) => {
+        const canais = s.canais.filter((c) => c.id !== id);
+        const historicos = { ...s.historicos };
+        delete historicos[chaveCanal(id)];
+        return { canais, canalAtivo: canalValido(canais, s.canalAtivo), historicos };
+      }),
+    salvarDm: (dm) => set((s) => ({ dms: ordenarDms([...s.dms.filter((d) => d.id !== dm.id), dm]) })),
+    abrirDm: (id) => set((s) => ({ dmAtiva: s.dms.some((d) => d.id === id) ? id : s.dmAtiva })),
+    iniciarCarga: (chave) => {
+      const geracao = proximaGeracao++;
+      set((s) => ({ historicos: { ...s.historicos, [chave]: { ...(s.historicos[chave] ?? historicoVazio), geracao, carregando: true, erro: null } } }));
+      return geracao;
+    },
+    receberPagina: (chave, pagina, geracao) =>
+      set((s) => {
+        const atual = s.historicos[chave];
+        // Conversa removida, reconexão (ola limpou tudo) ou carga mais nova em andamento: resposta velha, ignora.
+        if (!atual || atual.geracao !== geracao) return {};
+        const porId = new Map([...atual.mensagens, ...pagina.mensagens].map((m) => [m.id, m]));
+        const mensagens = [...porId.values()].sort((a, b) => a.id - b.id);
+        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens, fim: pagina.fim, carregando: false, erro: null } } };
+      }),
+    receberJanela: (chave, pagina, geracao) =>
+      set((s) => {
+        const atual = s.historicos[chave];
+        if (!atual || atual.geracao !== geracao) return {};
+        const historico = { ...atual, mensagens: pagina.mensagens, fim: pagina.fim, noFim: pagina.fimDepois ?? true, carregando: false, erro: null };
+        return { historicos: { ...s.historicos, [chave]: historico } };
+      }),
+    receberDepois: (chave, pagina, geracao) =>
+      set((s) => {
+        const atual = s.historicos[chave];
+        if (!atual || atual.geracao !== geracao) return {};
+        const porId = new Map([...atual.mensagens, ...pagina.mensagens].map((m) => [m.id, m]));
+        const mensagens = [...porId.values()].sort((a, b) => a.id - b.id);
+        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens, noFim: pagina.fimDepois ?? true, carregando: false, erro: null } } };
+      }),
+    descartarHistorico: (chave) =>
+      set((s) => {
+        const historicos = { ...s.historicos };
+        delete historicos[chave];
+        return { historicos };
+      }),
+    pedirIrAte: (chave, id) => set({ irAte: { chave, id } }),
+    consumirIrAte: () => set({ irAte: null }),
+    falharCarga: (chave, erro, geracao) =>
+      set((s) => {
+        const atual = s.historicos[chave];
+        if (!atual || atual.geracao !== geracao) return {};
+        return { historicos: { ...s.historicos, [chave]: { ...atual, carregando: false, erro } } };
+      }),
+    adicionarMensagem: (m) =>
+      set((s) => {
+        const chave = chaveDe(m);
+        if (!chave) return {};
+        const atual = s.historicos[chave];
+        // Quem mandou a mensagem parou de digitar.
+        const quem = { ...(s.digitando[chave] ?? {}) };
+        delete quem[m.autorId];
+        const digitando = { ...s.digitando, [chave]: quem };
+        // Conversa ainda não carregada: a mensagem vem junto quando ela for aberta. Longe do fim (janela): também não
+        // entra, para não deixar um buraco; "Ir para as mais recentes" a traz.
+        if (!atual || !atual.noFim || atual.mensagens.some((x) => x.id === m.id)) return { digitando };
+        return { digitando, historicos: { ...s.historicos, [chave]: { ...atual, mensagens: [...atual.mensagens, m] } } };
+      }),
+    atualizarMensagem: (m) =>
+      set((s) => {
+        const chave = chaveDe(m);
+        const atual = chave ? s.historicos[chave] : undefined;
+        if (!chave || !atual) return {};
+        // As respostas a ela mostram o texto novo (CA-13).
+        const trecho = trechoDeResposta(textoSemGif(m.texto, m.gif)) || (m.gif ? 'GIF' : '');
+        const resposta: RespostaDto = { id: m.id, autorId: m.autorId, trecho, ...(!trecho && m.anexos.length ? { soAnexo: true as const } : {}) };
+        const mensagens = atual.mensagens.map((x) => (x.id === m.id ? m : x.resposta?.id === m.id && !x.resposta.apagada ? { ...x, resposta } : x));
+        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+      }),
+    aplicarReacoes: (id, chave, reacoes) =>
+      set((s) => {
+        const atual = chave ? s.historicos[chave] : undefined;
+        if (!chave || !atual || !atual.mensagens.some((x) => x.id === id)) return {};
+        const mensagens = atual.mensagens.map((x) => {
+          if (x.id !== id) return x;
+          const nova: MensagemDto = { ...x, reacoes };
+          if (!reacoes.length) delete nova.reacoes;
+          return nova;
+        });
+        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+      }),
+    removerMensagem: (id, chave) =>
+      set((s) => {
+        const atual = chave ? s.historicos[chave] : undefined;
+        if (!chave || !atual) return {};
+        // As respostas a ela ficam com "Mensagem original apagada" (CA-12).
+        const mensagens = atual.mensagens
+          .filter((x) => x.id !== id)
+          .map((x) => (x.resposta?.id === id ? { ...x, resposta: { id, apagada: true as const } } : x));
+        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+      }),
+    registrarDigitando: (chave, usuarioId, ate) =>
+      set((s) => ({ digitando: { ...s.digitando, [chave]: { ...(s.digitando[chave] ?? {}), [usuarioId]: ate } } })),
+    contarNaoLida: (chave, mensagemId) =>
+      set((s) => ({
+        naoLidas: { ...s.naoLidas, [chave]: (s.naoLidas[chave] ?? 0) + 1 },
+        naoLidasIds: { ...s.naoLidasIds, [chave]: [...(s.naoLidasIds[chave] ?? []), mensagemId] },
+      })),
+    zerarNaoLidas: (chave) =>
+      set((s) => {
+        if (!s.naoLidas[chave] && !s.naoLidasIds[chave]) return {};
+        const naoLidas = { ...s.naoLidas };
+        const naoLidasIds = { ...s.naoLidasIds };
         delete naoLidas[chave];
         delete naoLidasIds[chave];
-      }
-      return { naoLidas, naoLidasIds };
-    }),
-  descontarApagada: (chave, mensagemId) =>
-    set((s) => {
-      const ids = s.naoLidasIds[chave];
-      if (!ids?.includes(mensagemId)) return {};
-      const restantes = ids.filter((id) => id !== mensagemId);
-      const naoLidas = { ...s.naoLidas };
-      const naoLidasIds = { ...s.naoLidasIds, [chave]: restantes };
-      const n = (naoLidas[chave] ?? 1) - 1;
-      if (n > 0) naoLidas[chave] = n;
-      else delete naoLidas[chave];
-      return { naoLidas, naoLidasIds };
-    }),
-  abrirCanal: (id) => set((s) => ({ canalAtivo: canalValido(s.canais, id), dmAtiva: null })),
-  definirLinkConvite: (linkConvite) => set({ linkConvite }),
-  adicionarUsuario: (usuario) =>
-    set((s) => ({
-      usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),
-    })),
-  atualizarUsuario: (usuario) =>
-    set((s) => {
-      // A resposta do PATCH não traz o "membro desde" deste servidor: mantém o que já havia.
-      const anterior = s.usuarios.find((u) => u.id === usuario.id);
-      const novo = usuario.membroDesde || !anterior?.membroDesde ? usuario : { ...usuario, membroDesde: anterior.membroDesde };
-      return {
-        usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), novo].sort(compararComoServidor),
-        eu: s.eu?.id === usuario.id ? novo : s.eu,
-        // A cópia em conhecidos acompanha (se a pessoa sair do servidor, não reaparece velha).
-        ...(s.conhecidos.some((c) => c.id === usuario.id) ? { conhecidos: s.conhecidos.map((c) => (c.id === usuario.id ? { ...usuario, cargo: 'membro' as const, funcaoId: null } : c)) } : {}),
-      };
-    }),
-  atualizarConhecido: (usuario) => set((s) => (s.conhecidos.some((c) => c.id === usuario.id) ? { conhecidos: s.conhecidos.map((c) => (c.id === usuario.id ? usuario : c)) } : {})),
-  removerUsuario: (id) =>
-    set((s) => ({
-      usuarios: s.usuarios.filter((u) => u.id !== id),
-      digitando: Object.fromEntries(
-        Object.entries(s.digitando).map(([chave, quem]) => [chave, Object.fromEntries(Object.entries(quem ?? {}).filter(([u]) => Number(u) !== id))]),
-      ),
-    })),
-  limpar: () => set(inicial),
+        return { naoLidas, naoLidasIds };
+      }),
+    aplicarLeitura: (chave, ultimaMensagemId) =>
+      set((s) => {
+        const ids = s.naoLidasIds[chave] ?? [];
+        // Chegou não lida mais nova que a leitura (ex.: outro computador marcou antes dela): fica só ela.
+        const restantes = ids.filter((id) => id > ultimaMensagemId);
+        const naoLidas = { ...s.naoLidas };
+        const naoLidasIds = { ...s.naoLidasIds };
+        if (restantes.length) {
+          naoLidas[chave] = restantes.length;
+          naoLidasIds[chave] = restantes;
+        } else {
+          delete naoLidas[chave];
+          delete naoLidasIds[chave];
+        }
+        return { naoLidas, naoLidasIds };
+      }),
+    descontarApagada: (chave, mensagemId) =>
+      set((s) => {
+        const ids = s.naoLidasIds[chave];
+        if (!ids?.includes(mensagemId)) return {};
+        const restantes = ids.filter((id) => id !== mensagemId);
+        const naoLidas = { ...s.naoLidas };
+        const naoLidasIds = { ...s.naoLidasIds, [chave]: restantes };
+        const n = (naoLidas[chave] ?? 1) - 1;
+        if (n > 0) naoLidas[chave] = n;
+        else delete naoLidas[chave];
+        return { naoLidas, naoLidasIds };
+      }),
+    abrirCanal: (id) => set((s) => ({ canalAtivo: canalValido(s.canais, id), dmAtiva: null })),
+    definirLinkConvite: (linkConvite) => set({ linkConvite }),
+    adicionarUsuario: (usuario) =>
+      set((s) => ({
+        usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), usuario].sort(compararComoServidor),
+      })),
+    atualizarUsuario: (usuario) =>
+      set((s) => {
+        // A resposta do PATCH não traz o "membro desde" deste servidor: mantém o que já havia.
+        const anterior = s.usuarios.find((u) => u.id === usuario.id);
+        const novo = usuario.membroDesde || !anterior?.membroDesde ? usuario : { ...usuario, membroDesde: anterior.membroDesde };
+        return {
+          usuarios: [...s.usuarios.filter((u) => u.id !== usuario.id), novo].sort(compararComoServidor),
+          eu: s.eu?.id === usuario.id ? novo : s.eu,
+          // A cópia em conhecidos acompanha (se a pessoa sair do servidor, não reaparece velha).
+          ...(s.conhecidos.some((c) => c.id === usuario.id)
+            ? { conhecidos: s.conhecidos.map((c) => (c.id === usuario.id ? { ...usuario, cargo: 'membro' as const, funcaoId: null } : c)) }
+            : {}),
+        };
+      }),
+    atualizarConhecido: (usuario) =>
+      set((s) => (s.conhecidos.some((c) => c.id === usuario.id) ? { conhecidos: s.conhecidos.map((c) => (c.id === usuario.id ? usuario : c)) } : {})),
+    removerUsuario: (id) =>
+      set((s) => ({
+        usuarios: s.usuarios.filter((u) => u.id !== id),
+        digitando: Object.fromEntries(
+          Object.entries(s.digitando).map(([chave, quem]) => [chave, Object.fromEntries(Object.entries(quem ?? {}).filter(([u]) => Number(u) !== id))]),
+        ),
+      })),
+    limpar: () => set(inicial),
   }));
 
 export const useLoja = criarLoja();

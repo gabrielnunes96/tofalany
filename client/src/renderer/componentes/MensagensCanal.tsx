@@ -17,7 +17,7 @@ import {
 import { tamanhoLegivel } from './Anexos';
 import { chaveCanal, useLojaDaTela, type Chave } from '../estado/loja';
 import type { ClienteApi } from '../servicos/api';
-import { ErroApiCliente } from '../servicos/api';
+import { ErroApiCliente, type JanelaHistorico } from '../servicos/api';
 import { ItemMensagem } from './ItemMensagem';
 import { PainelGif } from './PainelGif';
 import type { Klipy } from '../servicos/gif';
@@ -35,7 +35,7 @@ export interface DadosConversa {
 
 interface Props {
   conversa: DadosConversa;
-  carregarPagina: (antes?: number, ate?: number) => Promise<PaginaMensagens>;
+  carregarPagina: (antes?: number, ate?: number, janela?: JanelaHistorico) => Promise<PaginaMensagens>;
   usuarios: UsuarioDto[];
   servidorUrl: string;
   api: Pick<ClienteApi, 'enviarAnexo'>;
@@ -141,6 +141,8 @@ export function Conversa({
   const ultimoSinal = useRef(0);
   const lista = useRef<HTMLDivElement>(null);
   const topo = useRef<HTMLDivElement>(null);
+  /** Fim da lista quando o histórico não vai até a mais nova (janela): chegar nele carrega as seguintes. */
+  const fundo = useRef<HTMLDivElement>(null);
   /** Altura antes de pôr mensagens antigas no topo, para manter a posição de leitura. */
   const alturaAntes = useRef<number | null>(null);
   const estavaNoFim = useRef(true);
@@ -231,7 +233,11 @@ export function Conversa({
     e.preventDefault();
     const carimbo = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     // Prints chegam como "image.png": dá um nome que não se repete entre colagens.
-    anexar(arquivos.map((f, i) => (/^image\.\w+$/i.test(f.name) || !f.name ? new File([f], `print-${carimbo}${i ? `-${i + 1}` : ''}.${extensaoDe(f)}`, { type: f.type }) : f)));
+    anexar(
+      arquivos.map((f, i) =>
+        /^image\.\w+$/i.test(f.name) || !f.name ? new File([f], `print-${carimbo}${i ? `-${i + 1}` : ''}.${extensaoDe(f)}`, { type: f.type }) : f,
+      ),
+    );
   }
 
   const carregar = useCallback(
@@ -308,11 +314,14 @@ export function Conversa({
     return true;
   }
 
-  /** RF-7/RN-13: já carregada, rola; senão carrega de uma vez até ela (até 1000 mensagens acima). */
+  /**
+   * RF-7/RN-13 e chat-fixar-e-buscar (CA-6, CA-13): já carregada, rola; senão abre a janela em volta dela (a qualquer
+   * distância do fim). A janela substitui o histórico; se não chega ao fim, aparece "Ir para as mais recentes".
+   */
   async function irPara(id: number) {
     avisarIr(null);
     if (rolarAte(id)) return;
-    const { historicos, iniciarCarga, receberPagina, falharCarga } = useLoja.getState();
+    const { historicos, iniciarCarga, receberJanela, falharCarga } = useLoja.getState();
     const h = historicos[chave];
     if (!h) return;
     // Uma carga já está em andamento (ex.: chegou ao topo): tenta de novo quando ela terminar.
@@ -320,28 +329,59 @@ export function Conversa({
       irQuandoCarregar.current = id;
       return;
     }
-    // Mais nova que a primeira carregada e fora da tela: sumiu daqui (apagada antes de o aviso chegar).
-    const primeira = h.mensagens[0]?.id;
-    if (primeira !== undefined && id > primeira) return avisarIr('Essa mensagem não está mais aqui.');
     const geracao = iniciarCarga(chave);
     try {
-      const pagina = await carregarPagina(primeira, id);
+      const pagina = await carregarPagina(undefined, undefined, { em: id });
       const achou = pagina.mensagens.some((m) => m.id === id);
       if (achou) irDepois.current = id;
-      // Longe demais: chegou só a página de antes; a posição de leitura fica onde estava.
-      else alturaAntes.current = lista.current?.scrollHeight ?? null;
-      receberPagina(chave, pagina, geracao);
+      estavaNoFim.current = false;
+      receberJanela(chave, pagina, geracao);
       // Reconexão no meio do caminho (o histórico recomeçou): nada fica pendurado.
-      if (useLoja.getState().historicos[chave]?.geracao !== geracao) {
-        irDepois.current = null;
-        alturaAntes.current = null;
-      } else if (!achou) avisarIr('Mensagem antiga demais para abrir aqui.');
+      if (useLoja.getState().historicos[chave]?.geracao !== geracao) irDepois.current = null;
+      else if (!achou) avisarIr('Essa mensagem não está mais aqui.');
     } catch (e) {
       irDepois.current = null;
-      alturaAntes.current = null;
       falharCarga(chave, e instanceof ErroApiCliente ? e.message : 'Não foi possível carregar as mensagens.', geracao);
     }
   }
+
+  /** Longe do fim: as seguintes, ao chegar ao fim da lista. */
+  const carregarSeguintes = useCallback(() => {
+    const { historicos, iniciarCarga, receberDepois, falharCarga } = useLoja.getState();
+    const h = historicos[chave];
+    const ultima = h?.mensagens.at(-1)?.id;
+    if (!h || h.noFim || h.carregando || h.erro || ultima === undefined) return;
+    const geracao = iniciarCarga(chave);
+    carregarPagina(undefined, undefined, { depois: ultima })
+      .then((pagina) => receberDepois(chave, pagina, geracao))
+      .catch((e: unknown) => falharCarga(chave, e instanceof ErroApiCliente ? e.message : 'Não foi possível carregar as mensagens.', geracao));
+  }, [carregarPagina, chave, useLoja]);
+
+  /** "Ir para as mais recentes": recarrega do fim (o histórico da janela é descartado). */
+  function irParaRecentes() {
+    estavaNoFim.current = true;
+    useLoja.getState().descartarHistorico(chave);
+  }
+
+  const longeDoFim = !!historico && !historico.noFim;
+  useEffect(() => {
+    const alvo = fundo.current;
+    if (!longeDoFim || !alvo || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver((e) => e.some((x) => x.isIntersecting) && carregarSeguintes(), { root: lista.current });
+    obs.observe(alvo);
+    return () => obs.disconnect();
+  }, [carregarSeguintes, longeDoFim]);
+
+  // Pedido de ir até uma mensagem vindo de fora (fixadas, busca): atende quando o histórico já carregou.
+  const irAte = useLoja((s) => (s.irAte?.chave === chave ? s.irAte.id : null));
+  const historicoPronto = !!historico && !historico.carregando && historico.mensagens.length + (historico.fim ? 1 : 0) > 0;
+  useEffect(() => {
+    if (irAte === null || !historicoPronto) return;
+    useLoja.getState().consumirIrAte();
+    void irPara(irAte);
+    // irPara lê o estado atual na hora.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [irAte, historicoPronto]);
 
   /** Aviso de "ir até a original": some sozinho em 5 s. */
   function avisarIr(texto: string | null) {
@@ -416,6 +456,8 @@ export function Conversa({
       ativos.current = Math.max(0, ativos.current - enviados.size);
       ultimoSinal.current = 0;
       estavaNoFim.current = true;
+      // Enviou longe do fim (janela): volta para as mais recentes, onde a mensagem aparece.
+      if (useLoja.getState().historicos[chave]?.noFim === false) irParaRecentes();
     }
   }
 
@@ -442,6 +484,7 @@ export function Conversa({
     setTexto((atual) => (atual === textoEnviado ? '' : atual));
     ultimoSinal.current = 0;
     estavaNoFim.current = true;
+    if (useLoja.getState().historicos[chave]?.noFim === false) irParaRecentes();
   }
 
   // Envio que ficou na fila: sai quando o anterior terminou e o compositor já mostra o texto novo.
@@ -600,7 +643,13 @@ export function Conversa({
             />
           ))}
         </ol>
+        {historico && !historico.noFim && <div ref={fundo} className="sentinela" aria-hidden="true" />}
       </div>
+      {historico && !historico.noFim && (
+        <button type="button" className="secundario ir-recentes" onClick={irParaRecentes}>
+          Ir para as mais recentes
+        </button>
+      )}
       {/* Fora da área que rola: aparece onde a pessoa está, e o leitor de tela anuncia (região sempre montada). */}
       <p className={`aviso-ir${avisoIr ? '' : ' visualmente-oculto'}`} role="status">
         {avisoIr}
@@ -611,194 +660,197 @@ export function Conversa({
         </p>
       ) : (
         <>
-      {respondendoA !== null && (
-        <div
-          id={`faixa-resposta-${chave}`}
-          className="faixa-resposta"
-          role="group"
-          aria-label={respondendo ? `Respondendo a ${nomeDe(respondendo.autorId)}` : 'Resposta a uma mensagem apagada'}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              cancelarResposta();
-            }
-          }}
-        >
-          <span className="faixa-resposta-texto">
-            {respondendo ? (
-              <>
-                Respondendo a <strong>{nomeDe(respondendo.autorId)}</strong>
-                <span className="trecho-texto">{trechoDeResposta(textoSemGif(respondendo.texto, respondendo.gif)) || (respondendo.gif ? 'GIF' : respondendo.anexos.length ? 'Anexo' : '')}</span>
-              </>
-            ) : (
-              <em>A mensagem original foi apagada; a sua vai como mensagem comum.</em>
-            )}
-          </span>
-          {respondendo && respondendo.autorId !== euId && (
-            <button
-              type="button"
-              className={`icone faixa-avisar${avisar ? ' ligado' : ''}`}
-              aria-pressed={avisar}
-              aria-label={`Avisar ${nomeDe(respondendo.autorId)}`}
-              title={avisar ? 'A pessoa será avisada' : 'A pessoa não será avisada'}
-              onClick={() => setAvisar((v) => !v)}
+          {respondendoA !== null && (
+            <div
+              id={`faixa-resposta-${chave}`}
+              className="faixa-resposta"
+              role="group"
+              aria-label={respondendo ? `Respondendo a ${nomeDe(respondendo.autorId)}` : 'Resposta a uma mensagem apagada'}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelarResposta();
+                }
+              }}
             >
-              <span aria-hidden="true">{avisar ? '@ Avisar' : '@ Sem aviso'}</span>
-            </button>
-          )}
-          <button type="button" className="icone" aria-label="Cancelar resposta" onClick={cancelarResposta}>
-            ×
-          </button>
-        </div>
-      )}
-      {pendentes.length > 0 && (
-        <ul className="pendentes" aria-label="Anexos a enviar">
-          {pendentes.map((p) => (
-            <li key={p.chave} className={`pendente ${p.estado}`}>
-              <span className="anexo-nome">{p.nome}</span>
-              <span className="suave">{p.estado === 'enviando' ? 'enviando…' : p.estado === 'erro' ? p.erro : tamanhoLegivel(p.bytes)}</span>
-              <button
-                type="button"
-                className="icone"
-                aria-label={`Tirar ${p.nome}`}
-                onClick={() => {
-                  if (p.estado !== 'erro') ativos.current--;
-                  setPendentes((lista) => lista.filter((x) => x.chave !== p.chave));
-                }}
-              >
+              <span className="faixa-resposta-texto">
+                {respondendo ? (
+                  <>
+                    Respondendo a <strong>{nomeDe(respondendo.autorId)}</strong>
+                    <span className="trecho-texto">
+                      {trechoDeResposta(textoSemGif(respondendo.texto, respondendo.gif)) ||
+                        (respondendo.gif ? 'GIF' : respondendo.anexos.length ? 'Anexo' : '')}
+                    </span>
+                  </>
+                ) : (
+                  <em>A mensagem original foi apagada; a sua vai como mensagem comum.</em>
+                )}
+              </span>
+              {respondendo && respondendo.autorId !== euId && (
+                <button
+                  type="button"
+                  className={`icone faixa-avisar${avisar ? ' ligado' : ''}`}
+                  aria-pressed={avisar}
+                  aria-label={`Avisar ${nomeDe(respondendo.autorId)}`}
+                  title={avisar ? 'A pessoa será avisada' : 'A pessoa não será avisada'}
+                  onClick={() => setAvisar((v) => !v)}
+                >
+                  <span aria-hidden="true">{avisar ? '@ Avisar' : '@ Sem aviso'}</span>
+                </button>
+              )}
+              <button type="button" className="icone" aria-label="Cancelar resposta" onClick={cancelarResposta}>
                 ×
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form className="compositor" onSubmit={enviar}>
-        <button type="button" className="secundario anexar" aria-label="Anexar arquivo" title="Anexar arquivo" onClick={() => seletor.current?.click()}>
-          +
-        </button>
-        {klipy && (
-          <button
-            ref={botaoGif}
-            type="button"
-            className="secundario botao-gif"
-            aria-label="Enviar GIF"
-            title="Enviar GIF"
-            aria-expanded={painelGif}
-            aria-haspopup="dialog"
-            disabled={enviando}
-            onClick={() => setPainelGif((v) => !v)}
-          >
-            GIF
-          </button>
-        )}
-        {klipy && painelGif && (
-          <div className="painel-gif-ancora">
-            <PainelGif
-              klipy={klipy}
-              ancora={botaoGif.current}
-              aoEscolher={(gif, q) => void enviarGif(gif, q)}
-              aoFechar={(devolverFoco) => {
-                setPainelGif(false);
-                if (devolverFoco) botaoGif.current?.focus();
+            </div>
+          )}
+          {pendentes.length > 0 && (
+            <ul className="pendentes" aria-label="Anexos a enviar">
+              {pendentes.map((p) => (
+                <li key={p.chave} className={`pendente ${p.estado}`}>
+                  <span className="anexo-nome">{p.nome}</span>
+                  <span className="suave">{p.estado === 'enviando' ? 'enviando…' : p.estado === 'erro' ? p.erro : tamanhoLegivel(p.bytes)}</span>
+                  <button
+                    type="button"
+                    className="icone"
+                    aria-label={`Tirar ${p.nome}`}
+                    onClick={() => {
+                      if (p.estado !== 'erro') ativos.current--;
+                      setPendentes((lista) => lista.filter((x) => x.chave !== p.chave));
+                    }}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form className="compositor" onSubmit={enviar}>
+            <button type="button" className="secundario anexar" aria-label="Anexar arquivo" title="Anexar arquivo" onClick={() => seletor.current?.click()}>
+              +
+            </button>
+            {klipy && (
+              <button
+                ref={botaoGif}
+                type="button"
+                className="secundario botao-gif"
+                aria-label="Enviar GIF"
+                title="Enviar GIF"
+                aria-expanded={painelGif}
+                aria-haspopup="dialog"
+                disabled={enviando}
+                onClick={() => setPainelGif((v) => !v)}
+              >
+                GIF
+              </button>
+            )}
+            {klipy && painelGif && (
+              <div className="painel-gif-ancora">
+                <PainelGif
+                  klipy={klipy}
+                  ancora={botaoGif.current}
+                  aoEscolher={(gif, q) => void enviarGif(gif, q)}
+                  aoFechar={(devolverFoco) => {
+                    setPainelGif(false);
+                    if (devolverFoco) botaoGif.current?.focus();
+                  }}
+                />
+              </div>
+            )}
+            <input
+              ref={seletor}
+              type="file"
+              multiple
+              hidden
+              aria-label="Arquivos para anexar"
+              accept={EXTENSOES_ANEXO.map((e) => `.${e}`).join(',')}
+              onChange={(e) => {
+                if (e.target.files?.length) anexar(e.target.files);
+                e.target.value = '';
               }}
             />
-          </div>
-        )}
-        <input
-          ref={seletor}
-          type="file"
-          multiple
-          hidden
-          aria-label="Arquivos para anexar"
-          accept={EXTENSOES_ANEXO.map((e) => `.${e}`).join(',')}
-          onChange={(e) => {
-            if (e.target.files?.length) anexar(e.target.files);
-            e.target.value = '';
-          }}
-        />
-        {opcoesMencao.length > 0 && (
-          <ul className="paleta-comandos" role="listbox" aria-label="Mencionar" id="paleta-mencoes">
-            <li className="paleta-titulo" role="presentation">
-              Mencionar
-            </li>
-            {opcoesMencao.map((o, i) => (
-              <li
-                key={o.usuario}
-                id={`mencao-${o.usuario}`}
-                role="option"
-                aria-selected={i === mencaoFoco}
-                className={i === mencaoFoco ? 'foco' : undefined}
-                onMouseEnter={() => setMencaoFoco(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  escolherMencao(o);
-                }}
-              >
-                <span className="paleta-nome">{o.nome}</span>
-                <span className="paleta-descricao">@{o.usuario}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {sugestoes.length > 0 && (
-          <ul className="paleta-comandos" role="listbox" aria-label="Comandos" id="paleta-comandos">
-            <li className="paleta-titulo" role="presentation">
-              🎵 ToOuvini
-            </li>
-            {sugestoes.map((c, i) => (
-              <li
-                key={c.nomes[0]}
-                id={`comando-${c.nomes[0]}`}
-                role="option"
-                aria-selected={i === paletaFoco}
-                className={i === paletaFoco ? 'foco' : undefined}
-                onMouseEnter={() => setPaletaFoco(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  escolherComando(c);
-                }}
-              >
-                <span className="paleta-nome">
-                  /{c.nomes[0]}
-                  {c.argumento && <span className="paleta-argumento"> &lt;{c.argumento}&gt;</span>}
-                </span>
-                <span className="paleta-descricao">{c.descricao}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {comandoAtual && (
-          <span className="chip-comando" aria-hidden="true">
-            🎵 /{comandoAtual.nomes[0]}
-          </span>
-        )}
-        <textarea
-          ref={campoRef}
-          className={comandoAtual ? 'com-comando' : undefined}
-          aria-expanded={sugestoes.length > 0 || opcoesMencao.length > 0 ? true : undefined}
-          aria-controls={opcoesMencao.length > 0 ? 'paleta-mencoes' : sugestoes.length > 0 ? 'paleta-comandos' : undefined}
-          aria-activedescendant={
-            opcoesMencao.length > 0
-              ? `mencao-${opcoesMencao[Math.min(mencaoFoco, opcoesMencao.length - 1)]!.usuario}`
-              : sugestoes.length > 0
-                ? `comando-${sugestoes[Math.min(paletaFoco, sugestoes.length - 1)]!.nomes[0]}`
-                : undefined
-          }
-          aria-label={`Mensagem para ${conversa.titulo}`}
-          aria-describedby={respondendoA !== null ? `faixa-resposta-${chave}` : undefined}
-          placeholder={`Mensagem para ${conversa.titulo}`}
-          value={texto}
-          onChange={(e) => mudarTexto(e.target.value, e.target.selectionStart ?? e.target.value.length)}
-          onSelect={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
-          onKeyDown={teclas}
-          onPaste={colar}
-          rows={1}
-          maxLength={4000}
-        />
-        <button type="submit" disabled={!podeEnviar}>
-          Enviar
-        </button>
-      </form>
+            {opcoesMencao.length > 0 && (
+              <ul className="paleta-comandos" role="listbox" aria-label="Mencionar" id="paleta-mencoes">
+                <li className="paleta-titulo" role="presentation">
+                  Mencionar
+                </li>
+                {opcoesMencao.map((o, i) => (
+                  <li
+                    key={o.usuario}
+                    id={`mencao-${o.usuario}`}
+                    role="option"
+                    aria-selected={i === mencaoFoco}
+                    className={i === mencaoFoco ? 'foco' : undefined}
+                    onMouseEnter={() => setMencaoFoco(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      escolherMencao(o);
+                    }}
+                  >
+                    <span className="paleta-nome">{o.nome}</span>
+                    <span className="paleta-descricao">@{o.usuario}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {sugestoes.length > 0 && (
+              <ul className="paleta-comandos" role="listbox" aria-label="Comandos" id="paleta-comandos">
+                <li className="paleta-titulo" role="presentation">
+                  🎵 ToOuvini
+                </li>
+                {sugestoes.map((c, i) => (
+                  <li
+                    key={c.nomes[0]}
+                    id={`comando-${c.nomes[0]}`}
+                    role="option"
+                    aria-selected={i === paletaFoco}
+                    className={i === paletaFoco ? 'foco' : undefined}
+                    onMouseEnter={() => setPaletaFoco(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      escolherComando(c);
+                    }}
+                  >
+                    <span className="paleta-nome">
+                      /{c.nomes[0]}
+                      {c.argumento && <span className="paleta-argumento"> &lt;{c.argumento}&gt;</span>}
+                    </span>
+                    <span className="paleta-descricao">{c.descricao}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {comandoAtual && (
+              <span className="chip-comando" aria-hidden="true">
+                🎵 /{comandoAtual.nomes[0]}
+              </span>
+            )}
+            <textarea
+              ref={campoRef}
+              className={comandoAtual ? 'com-comando' : undefined}
+              aria-expanded={sugestoes.length > 0 || opcoesMencao.length > 0 ? true : undefined}
+              aria-controls={opcoesMencao.length > 0 ? 'paleta-mencoes' : sugestoes.length > 0 ? 'paleta-comandos' : undefined}
+              aria-activedescendant={
+                opcoesMencao.length > 0
+                  ? `mencao-${opcoesMencao[Math.min(mencaoFoco, opcoesMencao.length - 1)]!.usuario}`
+                  : sugestoes.length > 0
+                    ? `comando-${sugestoes[Math.min(paletaFoco, sugestoes.length - 1)]!.nomes[0]}`
+                    : undefined
+              }
+              aria-label={`Mensagem para ${conversa.titulo}`}
+              aria-describedby={respondendoA !== null ? `faixa-resposta-${chave}` : undefined}
+              placeholder={`Mensagem para ${conversa.titulo}`}
+              value={texto}
+              onChange={(e) => mudarTexto(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+              onSelect={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
+              onKeyDown={teclas}
+              onPaste={colar}
+              rows={1}
+              maxLength={4000}
+            />
+            <button type="submit" disabled={!podeEnviar}>
+              Enviar
+            </button>
+          </form>
         </>
       )}
       <p className="digitando" aria-live="polite">
@@ -827,7 +879,11 @@ type PropsCanal = Omit<Props, 'conversa' | 'carregarPagina' | 'api'> & {
 /** Conversa de um canal de texto. */
 export function MensagensCanal({ canal, api, ...resto }: PropsCanal) {
   // Sem `ate`, a chamada continua com a forma de antes (antes só).
-  const carregarPagina = useCallback((antes?: number, ate?: number) => (ate ? api.mensagensCanal(canal.id, antes, ate) : api.mensagensCanal(canal.id, antes)), [api, canal.id]);
+  const carregarPagina = useCallback(
+    (antes?: number, ate?: number, janela?: JanelaHistorico) =>
+      janela ? api.mensagensCanal(canal.id, antes, ate, janela) : ate ? api.mensagensCanal(canal.id, antes, ate) : api.mensagensCanal(canal.id, antes),
+    [api, canal.id],
+  );
   return (
     <Conversa
       {...resto}
