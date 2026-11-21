@@ -25,7 +25,8 @@ export const normalizar = (s: string) =>
  * NEAR, -, *, ^ e parênteses nunca chegam ao MATCH como sintaxe. Termos de 1 letra ficam de fora (RN-9).
  */
 export function termosDaBusca(q: string): string[] {
-  const palavras = q.normalize('NFKC').split(/[^\p{L}\p{N}]+/u);
+  // Sem NFKC: o índice e os destaques não o aplicam ("x²" precisa achar "x²", não "x2").
+  const palavras = q.split(/[^\p{L}\p{N}]+/u);
   return palavras
     .filter((p) => [...p].length >= BUSCA_TERMO_MIN)
     .map((p) => [...p].slice(0, BUSCA_TERMO_MAX).join(''))
@@ -105,7 +106,9 @@ export function buscarMensagens(banco: Banco, pedido: PedidoBusca, usuarioId: nu
   const pagina = linhas.slice(0, BUSCA_PAGINA);
   const mensagens = paraDtos(banco, pagina);
   return {
-    resultados: mensagens.map((mensagem) => ({ mensagem, destaques: termos.length ? destaquesDe(mensagem.texto, termos) : [] })),
+    // Destaques só no texto que a pessoa escreveu (com GIF, o texto do DTO termina com o endereço dele); os índices
+    // continuam valendo no MensagemDto.texto, que começa por ele.
+    resultados: mensagens.map((mensagem, i) => ({ mensagem, destaques: termos.length ? destaquesDe(pagina[i]!.texto, termos) : [] })),
     mais: linhas.length > BUSCA_PAGINA,
   };
 }

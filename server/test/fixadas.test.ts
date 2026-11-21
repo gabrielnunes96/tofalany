@@ -111,6 +111,13 @@ describe('fixar mensagens (chat-fixar-e-buscar, T2)', () => {
     }[];
     expect(auditoria).toHaveLength(1);
     expect(auditoria[0]!.detalhes).not.toContain('churrasco');
+    expect(
+      app!.banco.prepare("SELECT ator_id AS ator, alvo_usuario_id AS alvo, canal_id AS canal FROM auditoria WHERE tipo = 'mensagem_fixada'").get(),
+    ).toEqual({
+      ator: ana.usuario.id,
+      alvo: beto.usuario.id,
+      canal,
+    });
     // Fixar de novo não duplica nem gera outra linha; desafixar não gera linha e audita.
     expect((await pedir(a.s, 'mensagem:fixar', { id })).ok).toBe(true);
     expect((await pedir(a.s, 'mensagem:desafixar', { id })).ok).toBe(true);
@@ -147,6 +154,24 @@ describe('fixar mensagens (chat-fixar-e-buscar, T2)', () => {
     expect((await fixadas(beto.token, `/api/dms/${dm.id}/fixadas`)).lista).toEqual([]);
     // DM não vai para a auditoria (RN-21).
     expect(app!.banco.prepare("SELECT COUNT(*) AS n FROM auditoria WHERE tipo LIKE 'mensagem_%fixada'").get()).toEqual({ n: 0 });
+  });
+
+  it('A17/CA-3: DM com conta removida fica só leitura; quem não participa (não administrador) não fixa nem recebe o aviso', async () => {
+    const { ana, beto, a, b, dono } = await preparar();
+    const caio = (await cadastrar(app!, 'caio')).json() as { token: string; usuario: { id: number } };
+    const c = await abrir(caio.token);
+    const dm = (await pedir<DmDto>(a.s, 'dm:abrir', { usuarioId: beto.usuario.id })).valor!;
+    const id = inserirMensagem(app!.banco, { dmId: dm.id }, ana.usuario.id, 'só nossa');
+    let caioViu = false;
+    c.s.on('fixadas:mudou', () => (caioViu = true));
+    expect((await pedir(c.s, 'mensagem:fixar', { id })).ok).toBe(false);
+    expect((await pedir(b.s, 'mensagem:fixar', { id })).ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(caioViu).toBe(false);
+    // Conta do Beto removida: a DM vira só leitura (lista continua).
+    await app!.inject({ method: 'DELETE', url: `/api/admin/usuarios/${beto.usuario.id}`, headers: auth(dono.token) });
+    expect((await pedir(a.s, 'mensagem:desafixar', { id })).erro).toMatch(/só para leitura/);
+    expect((await fixadas(ana.token, `/api/dms/${dm.id}/fixadas`)).lista).toHaveLength(1);
   });
 
   it('CA-4: com 50 fixadas, a 51ª é recusada com o aviso', async () => {

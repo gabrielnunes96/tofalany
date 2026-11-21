@@ -38,9 +38,11 @@ export function fixar(
     throw new ErroHttp(400, 'limite_fixadas', `${onde} já tem ${FIXADAS_POR_CONVERSA} mensagens fixadas. Desafixe uma antes.`);
   }
   banco.prepare('INSERT INTO mensagens_fixadas (mensagem_id, fixada_por, fixada_em) VALUES (?, ?, ?)').run(mensagemId, usuarioId, agora);
+  // Pelo índice da conversa (mensagens_canal/mensagens_dm), não a tabela inteira.
+  const [coluna, conversa] = colunaDo(destino);
   const recente = banco
-    .prepare("SELECT 1 FROM mensagens WHERE tipo = 'fixou' AND ref_mensagem_id = ? AND autor_id = ? AND criada_em > ?")
-    .get(mensagemId, usuarioId, agora - LINHA_FIXOU_INTERVALO_MS);
+    .prepare(`SELECT 1 FROM mensagens WHERE ${coluna} = ? AND tipo = 'fixou' AND ref_mensagem_id = ? AND autor_id = ? AND criada_em > ?`)
+    .get(conversa, mensagemId, usuarioId, agora - LINHA_FIXOU_INTERVALO_MS);
   if (recente) return { mudou: true, linhaId: null };
   const [canalId, dmId] = 'canalId' in destino ? [destino.canalId, null] : [null, destino.dmId];
   const linha = banco

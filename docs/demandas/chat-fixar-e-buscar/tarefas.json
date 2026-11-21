@@ -117,9 +117,9 @@
         "CA-7"
       ],
       "validacao": "vitest client: sem permissão não vê Fixar; com servidor sem recursos nada aparece; painel lista e reage a fixadas:mudou, editada e apagada; linha 'fixou' não passa em decidirMensagemNova; clique na fixada chama irAte.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "0786c98"
     },
     {
       "id": "T7",
@@ -140,7 +140,7 @@
         "CA-15"
       ],
       "validacao": "vitest client: 1 letra sem filtro não chama a API e mostra o aviso; destaques viram <mark>; texto com <img onerror> aparece como texto; filtros vão no corpo; 'Mais resultados' manda antes; clique em resultado de outro canal chama irAte.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

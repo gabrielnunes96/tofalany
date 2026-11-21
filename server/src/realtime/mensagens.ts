@@ -26,6 +26,7 @@ import { arquivosDaMensagem, vincularAnexos } from '../dominio/anexos.js';
 import { abrirDm, dmPara, exigirParticipante } from '../dominio/dms.js';
 import { alternarReacao } from '../dominio/reacoes.js';
 import { desafixar, fixar } from '../dominio/fixadas.js';
+import { criarLimitador, type Limitador } from '../auth/limitador.js';
 import { chaveDoDestino, marcarLido } from '../dominio/leituras.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import { comAck } from './acoes.js';
@@ -106,6 +107,17 @@ export function entregarMensagemDm(io: ServidorTempoReal, banco: Banco, particip
   if (mensagem.dmId !== null) avisarDmParticipantes(io, banco, participantes, mensagem.dmId);
 }
 
+/** Um limitador de fixar por servidor de tempo real (vale para todas as conexões de cada pessoa). */
+const limitadoresFixar = new WeakMap<ServidorTempoReal, Limitador>();
+function limitadorFixar(io: ServidorTempoReal): Limitador {
+  let l = limitadoresFixar.get(io);
+  if (!l) {
+    l = criarLimitador(FIXAR_RAJADA.eventos, FIXAR_RAJADA.janelaMs);
+    limitadoresFixar.set(io, l);
+  }
+  return l;
+}
+
 /** RF-8 a RF-12a: enviar (com anexos), editar, apagar e "digitando" em canais e DMs; abrir DM. */
 export function registrarEventosMensagens(
   io: ServidorTempoReal,
@@ -121,8 +133,8 @@ export function registrarEventosMensagens(
   let ultimoDigitando = 0;
   /** Momentos dos últimos pedidos de reação deste socket (limite de rajada). */
   let reacoesRecentes: number[] = [];
-  /** Momentos dos últimos fixar/desafixar deste socket (A11: sem encher o chat de linhas "fixou"). */
-  let fixacoesRecentes: number[] = [];
+  /** A11: fixar/desafixar por pessoa (todas as conexões dela no processo), sem encher o chat de linhas "fixou". */
+  const limiteFixar = limitadorFixar(io);
 
   const conexoesDaConversa = (participantes: [number, number]) => conexoesDaConversaDm(io, banco, participantes);
 
@@ -331,9 +343,7 @@ export function registrarEventosMensagens(
    */
   function alternarFixada(dados: unknown, fixada: boolean) {
     const agora = Date.now();
-    fixacoesRecentes = fixacoesRecentes.filter((t) => agora - t < FIXAR_RAJADA.janelaMs);
-    if (fixacoesRecentes.length >= FIXAR_RAJADA.eventos) throw new ErroHttp(429, 'muitas_tentativas', 'Calma, muitas mensagens fixadas seguidas.');
-    fixacoesRecentes.push(agora);
+    if (!limiteFixar.permitir(String(usuarioId))) throw new ErroHttp(429, 'muitas_tentativas', 'Calma, muitas mensagens fixadas seguidas.');
     const id = lerId(dados);
     let participantes: [number, number] | null = null;
     let alvo: { canalId: number | null; dmId: number | null } = { canalId: null, dmId: null };

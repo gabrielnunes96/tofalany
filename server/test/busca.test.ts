@@ -43,6 +43,7 @@ describe('termos e destaques (A6, RN-8)', () => {
   });
 
   it('CA-8: destaques sem acento e por prefixo, em índices do texto', () => {
+    expect(termosDaBusca('x² ok')).toEqual(['x²', 'ok']);
     const texto = 'Você vai jogar hoje?';
     const d = destaquesDe(texto, ['voce', 'jog']);
     expect(d.map(([i, f]) => texto.slice(i, f))).toEqual(['Você', 'jogar']);
@@ -58,6 +59,33 @@ describe('POST /api/busca (chat-fixar-e-buscar, T3)', () => {
     expect(r.resultados).toHaveLength(1);
     const { mensagem, destaques } = r.resultados[0]!;
     expect(destaques.map(([i, f]) => mensagem.texto.slice(i, f))).toEqual(['Você', 'jogar']);
+  });
+
+  it('destaques ficam no texto escrito (o endereço do GIF no fim do texto não ganha destaque)', async () => {
+    const { ana, geral, buscar } = await preparar();
+    inserirMensagem(app!.banco, { canalId: geral }, ana.usuario.id, 'olha esse gif', Date.now(), undefined, null, {
+      slug: 'g',
+      url: 'https://static.klipy.com/gif-engracado.gif',
+      largura: 1,
+      altura: 1,
+      descricao: 'g',
+    });
+    const r = (await buscar(ana.token, { q: 'gif', onde: 'conversa', canalId: geral })).json() as RespostaBusca;
+    const { mensagem, destaques } = r.resultados[0]!;
+    expect(destaques.map(([i, f]) => mensagem.texto.slice(i, f))).toEqual(['gif']);
+  });
+
+  it('"minhas DMs" deixa de fora a DM com quem não é deste servidor nem amigo (R-5)', async () => {
+    const { ana, achados } = await preparar();
+    const fora = Number(
+      app!.banco
+        .prepare(
+          "INSERT INTO usuarios (usuario, usuario_norm, senha_hash, nome_exibicao, cor, cargo, criado_em) VALUES ('fora', 'fora', 'x', 'Fora', '#fff', 'membro', ?)",
+        )
+        .run(Date.now()).lastInsertRowid,
+    );
+    inserirMensagem(app!.banco, { dmId: abrirDm(app!.banco, ana.usuario.id, fora) }, fora, 'palavrafora');
+    expect(await achados(ana.token, { q: 'palavrafora', onde: 'dms' })).toEqual([]);
   });
 
   it('CA-10: conversa só o canal aberto; servidor todos os canais de texto daqui', async () => {
@@ -128,8 +156,14 @@ describe('POST /api/busca (chat-fixar-e-buscar, T3)', () => {
   });
 
   it('paginação: 25 por vez e "antes" traz as seguintes; linha de sistema fica fora', async () => {
-    const { ana, geral, buscar } = await preparar();
+    const { ana, beto, geral, buscar, achados } = await preparar();
     for (let i = 0; i < 30; i++) inserirMensagem(app!.banco, { canalId: geral }, ana.usuario.id, `pizza ${i}`);
+    // Linha "fixou" da Ana: nem pelo filtro de quem (sem texto) nem pelo texto.
+    app!.banco
+      .prepare("INSERT INTO mensagens (canal_id, autor_id, texto, criada_em, tipo, ref_mensagem_id) VALUES (?, ?, 'fixou uma mensagem.', ?, 'fixou', 1)")
+      .run(geral, ana.usuario.id, Date.now());
+    expect((await achados(beto.token, { onde: 'conversa', canalId: geral, autorId: ana.usuario.id })).some((t) => t.startsWith('fixou'))).toBe(false);
+    expect(await achados(beto.token, { q: 'fixou', onde: 'conversa', canalId: geral })).toEqual([]);
     const p1 = (await buscar(ana.token, { q: 'pizza', onde: 'conversa', canalId: geral })).json() as RespostaBusca;
     expect(p1.resultados).toHaveLength(25);
     expect(p1.mais).toBe(true);
@@ -168,6 +202,8 @@ describe('POST /api/busca (chat-fixar-e-buscar, T3)', () => {
         .prepare("INSERT INTO usuarios (usuario, usuario_norm, senha_hash, nome_exibicao, cor, cargo, criado_em) VALUES (?, ?, 'x', ?, '#fff', 'membro', ?)")
         .run(`p${i}`, `p${i}`, `P${i}`, Date.now());
       outros.push(Number(u.lastInsertRowid));
+      // Membros do servidor principal: as DMs com eles aparecem aqui (e entram na busca "dms").
+      banco.prepare("INSERT INTO membros (comunidade_id, usuario_id, cargo, entrou_em) VALUES (1, ?, 'membro', ?)").run(Number(u.lastInsertRowid), Date.now());
     }
     const dms = outros.map((o) => abrirDm(banco, ana.usuario.id, o));
     const palavras = ['de', 'jogo', 'abacate', 'churrasco', 'amanhã', 'você', 'partida', 'filme', 'ok', 'vamos', 'hoje', 'noite'];
@@ -179,17 +215,24 @@ describe('POST /api/busca (chat-fixar-e-buscar, T3)', () => {
         else ins.run(canais[i % canais.length], null, dono.usuario.id, texto, i);
       }
     })();
-    const anexoEm = banco.prepare('SELECT id FROM mensagens WHERE dm_id IS NOT NULL ORDER BY id LIMIT 1').get() as { id: number };
-    banco
-      .prepare(
-        "INSERT INTO anexos (id, mensagem_id, autor_id, tipo, mime, nome_original, bytes, arquivo, criado_em) VALUES ('z', ?, ?, 'documento', 'text/plain', 'a.txt', 1, 'z', 1)",
-      )
-      .run(anexoEm.id, ana.usuario.id);
+    // Anexos raros (no começo): o filtro sem texto precisa varrer até eles (uma DM e um canal do servidor principal).
+    const alvos = [
+      banco.prepare('SELECT id FROM mensagens WHERE dm_id IS NOT NULL ORDER BY id LIMIT 1').get() as { id: number },
+      banco.prepare('SELECT id FROM mensagens WHERE canal_id = ? ORDER BY id LIMIT 1').get(canais[1]) as { id: number },
+    ];
+    for (const [i, alvo] of alvos.entries()) {
+      banco
+        .prepare(
+          "INSERT INTO anexos (id, mensagem_id, autor_id, tipo, mime, nome_original, bytes, arquivo, criado_em) VALUES (?, ?, ?, 'documento', 'text/plain', 'a.txt', 1, ?, 1)",
+        )
+        .run(`z${i}`, alvo.id, ana.usuario.id, `z${i}`);
+    }
     const pedidos: PedidoBusca[] = [
       { q: 'de', onde: 'servidor' },
       { q: 'jogo', onde: 'servidor' },
       { q: 'de jogo ok vamos hoje noite filme partida', onde: 'servidor' },
       { onde: 'dms', comAnexo: true },
+      { onde: 'servidor', comAnexo: true },
       { q: 'churrasco', onde: 'dms' },
     ];
     for (const p of pedidos) {
@@ -197,6 +240,8 @@ describe('POST /api/busca (chat-fixar-e-buscar, T3)', () => {
       const r = await buscar(ana.token, p);
       expect(r.statusCode).toBe(200);
       expect(performance.now() - inicio).toBeLessThan(500);
+      // As buscas de DM e de anexo passam pelo banco de verdade (não por um escopo vazio).
+      if (p.onde === 'dms' || p.comAnexo) expect((r.json() as RespostaBusca).resultados.length).toBeGreaterThan(0);
     }
   }, 120_000);
 });
