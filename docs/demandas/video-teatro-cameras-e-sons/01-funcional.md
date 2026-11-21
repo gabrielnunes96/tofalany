@@ -1,6 +1,6 @@
 # Vídeo: modo teatro, câmeras e sons da transmissão — especificação funcional
 
-> Demanda: `video-teatro-cameras-e-sons` · Versão 1 · 21/11/2026 · Situação: **rascunho**
+> Demanda: `video-teatro-cameras-e-sons` · Versão 1 · 21/11/2026 · Situação: **aprovada em 21/11/2026**
 
 ## 1. Objetivo
 Assistir e ver câmeras do jeito que cada um quiser, sem perder nada:
