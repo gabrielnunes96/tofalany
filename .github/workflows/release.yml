@@ -2,7 +2,9 @@
 #   git tag v0.1.0 && git push origin v0.1.0
 # A versão da tag precisa ser a mesma de client/package.json.
 # Também publica a imagem do servidor no GitHub Container Registry (ghcr.io/<dono>/tofalany-server:<tag>):
-# a VPS só baixa a imagem pronta, sem montar nada (ver deploy/vm.sh).
+# a VPS só baixa a imagem pronta, sem montar nada (ver deploy/vm.sh). A imagem sai para amd64 e arm64 (a VM
+# Oracle é Arm), cada uma montada num runner nativo e juntadas numa tag só.
+# Permissões por job (só o que cada um usa) e actions fixadas por SHA de commit (o comentário diz a versão).
 name: Release
 
 on:
@@ -15,8 +17,7 @@ on:
         required: true
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: release-${{ github.event.inputs.tag || github.ref_name }}
@@ -44,14 +45,17 @@ jobs:
               client/release/*.exe.blockmap
               client/release/latest.yml
     runs-on: ${{ matrix.runner }}
+    # npm e electron-builder rodam aqui: sem token capaz de publicar a imagem ou a release.
+    permissions:
+      contents: read
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ env.TAG }}
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 24
           cache: npm
@@ -76,59 +80,130 @@ jobs:
           # Sem assinatura de código (o SmartScreen avisa no Windows; ver README).
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: instaladores-${{ matrix.so }}
           path: ${{ matrix.arquivos }}
           if-no-files-found: error
 
   imagem:
-    name: Imagem do servidor
-    runs-on: ubuntu-24.04
+    name: Imagem do servidor (${{ matrix.arquitetura }})
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arquitetura: amd64
+            runner: ubuntu-24.04
+          - arquitetura: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ env.TAG }}
+          persist-credentials: false
 
       - name: Nome da imagem (o registro só aceita minúsculas)
         run: echo "IMAGEM=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/tofalany-server" >> "$GITHUB_ENV"
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - uses: docker/build-push-action@v6
+      # Sobe só pelo digest (sem tag): a tag sai no job "juntar", com as duas arquiteturas.
+      - id: montar
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: server/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.IMAGEM }}:${{ env.TAG }}
-            ${{ env.IMAGEM }}:latest
+          platforms: linux/${{ matrix.arquitetura }}
+          outputs: type=image,name=${{ env.IMAGEM }},push-by-digest=true,name-canonical=true,push=true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ env.TAG }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=servidor-${{ matrix.arquitetura }}
+          cache-to: type=gha,mode=max,scope=servidor-${{ matrix.arquitetura }}
+
+      - name: Guardar o digest
+        env:
+          DIGEST: ${{ steps.montar.outputs.digest }}
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: digest-${{ matrix.arquitetura }}
+          path: digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Uma tag para as duas arquiteturas: cada máquina baixa a sua (RF-1, CA-1).
+  juntar:
+    name: Imagem do servidor (amd64 + arm64)
+    needs: imagem
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+
+      - name: Nome da imagem (o registro só aceita minúsculas)
+        run: echo "IMAGEM=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/tofalany-server" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Criar a tag com as duas arquiteturas
+        working-directory: digests
+        run: |
+          origens=()
+          for d in *; do origens+=("${IMAGEM}@sha256:${d}"); done
+          [ "${#origens[@]}" -eq 2 ] || { echo "::error::Esperava 2 digests (amd64 e arm64)."; exit 1; }
+          docker buildx imagetools create -t "${IMAGEM}:${TAG}" -t "${IMAGEM}:latest" "${origens[@]}"
+
+      - name: Conferir as arquiteturas
+        run: |
+          plataformas=$(docker buildx imagetools inspect "${IMAGEM}:${TAG}" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+          echo "Plataformas: ${plataformas}"
+          for p in linux/amd64 linux/arm64; do
+            case " ${plataformas} " in *" ${p} "*) ;; *) echo "::error::Falta ${p} em ${IMAGEM}:${TAG}."; exit 1 ;; esac
+          done
 
   # A release só aparece depois dos instaladores e da imagem: a VPS se atualiza quando vê a release nova.
   publicar:
     name: Publicar release
-    needs: [instaladores, imagem]
+    needs: [instaladores, juntar]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           pattern: instaladores-*
           path: instaladores
