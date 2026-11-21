@@ -46,6 +46,8 @@ export interface ClienteApi {
   removerIconeComunidade(): Promise<ComunidadeDto>;
   /** ToOuvini: cookies do YouTube (administrador do principal). */
   situacaoMusica(): Promise<{ cookies: boolean; atualizadoEm: number | null }>;
+  /** infra-e-atualizacao: pede à VM para conferir a versão nova na hora (administrador da instalação). */
+  atualizarServidor(): Promise<{ ok: true }>;
   enviarCookiesMusica(conteudo: string): Promise<{ cookies: boolean; atualizadoEm: number | null }>;
   removerCookiesMusica(): Promise<void>;
   auditoria(filtro: FiltroAuditoria): Promise<PaginaAuditoria>;
@@ -168,6 +170,7 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     },
     removerIconeComunidade: () => chamar('DELETE', '/api/comunidade/icone'),
     situacaoMusica: () => chamar('GET', '/api/admin/musica'),
+    atualizarServidor: () => chamar('POST', '/api/admin/servidor/atualizar'),
     enviarCookiesMusica: (conteudo) => chamar('PUT', '/api/admin/musica/cookies', { conteudo }),
     removerCookiesMusica: () => chamar('DELETE', '/api/admin/musica/cookies'),
     auditoria: (filtro) => chamar('GET', `/api/admin/auditoria${consulta(filtro)}`),

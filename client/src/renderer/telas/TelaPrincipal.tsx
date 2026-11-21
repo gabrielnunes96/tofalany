@@ -11,6 +11,7 @@ import { PerfilCompleto } from '../componentes/PerfilCompleto';
 import { ContextoPerfil } from '../componentes/ContextoPerfil';
 import { ContextoConvite } from '../componentes/ContextoConvite';
 import { VolumeChamada } from '../componentes/VolumeChamada';
+import { pedirAtualizacaoServidor } from '../servicos/atualizar-servidor';
 import { fundoDaLinha } from '../componentes/fundoPerfil';
 // A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
 import type { SalaVoz, VideoSala } from '../servicos/voz';
@@ -1759,6 +1760,20 @@ function TelaDoServidor({
                     {ehAdminDaInstalacao && (
                       <button type="button" onClick={() => setVista('toouvini')}>
                         Bot de música (ToOuvini)
+                      </button>
+                    )}
+                    {ehAdminDaInstalacao && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          // Pelo principal (a rota exige o administrador do principal), mesmo aberto noutro servidor.
+                          void pedirAtualizacaoServidor(apiPrincipal).then((texto) => {
+                            setCopiado(texto);
+                            setTimeout(() => setCopiado(null), 8000);
+                          })
+                        }
+                      >
+                        Atualizar o servidor agora
                       </button>
                     )}
                     {permissoes.has('ver_auditoria') && (

@@ -64,7 +64,7 @@
         "CA-6"
       ],
       "validacao": "Teste do componente/mensagens; conferir no app. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
