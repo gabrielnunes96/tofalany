@@ -72,7 +72,7 @@ interface Props {
   /** Saí deste servidor ou ele foi excluído: a coluna tira o ícone e vai para outro. */
   aoSairDoServidor?: () => void;
   /** qualidade-de-vida, RF-4: link de convite clicado numa mensagem (mesmo endereço). */
-  aoConvite?: (convite: ConviteLink) => void;
+  aoConvite?: (convite: ConviteLink) => Promise<string | null>;
   /** qualidade-de-vida, RF-1: administrador da instalação (do servidor principal): vê o ToOuvini em qualquer servidor. */
   adminDaInstalacao?: boolean;
 }
@@ -324,7 +324,7 @@ function TelaDoServidor({
   }, [cartao]);
   // RF-4: link de convite numa mensagem, só do mesmo endereço do servidor aberto.
   const contextoConvite = useMemo(
-    () => (aoConvite ? { base: separarComunidade(servidorUrl).base, abrir: aoConvite } : null),
+    () => (aoConvite ? { base: separarComunidade(servidorUrl).base, atual: servidorUrl, abrir: aoConvite } : null),
     [aoConvite, servidorUrl],
   );
   const abrirPerfil = useCallback((usuarioId: number, ancora: HTMLElement) => {

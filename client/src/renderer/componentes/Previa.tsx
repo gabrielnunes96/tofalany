@@ -80,7 +80,7 @@ export function TextoComLinks({ texto, mencoes }: { texto: string; mencoes?: Men
     if (inicio > ultimo) partes.push(...comMencoes(texto.slice(ultimo, inicio), mencoes, ultimo));
     // Convite do mesmo endereço do servidor aberto: entrar pelo app, com confirmação (RF-4, T-5).
     const link = convite ? lerQualquerConvite(url) : undefined;
-    const doMesmoServidor = !!link && !!convite && separarComunidade(link.servidor).base === convite.base;
+    const doMesmoServidor = !!link && !!convite && separarComunidade(link.servidor).base === convite.base && link.servidor !== convite.atual;
     partes.push(
       <a
         key={inicio}
@@ -91,7 +91,8 @@ export function TextoComLinks({ texto, mencoes }: { texto: string; mencoes?: Men
           doMesmoServidor
             ? (e) => {
                 e.preventDefault();
-                if (window.confirm('Entrar no servidor por este convite?')) convite.abrir(link);
+                if (!window.confirm('Entrar no servidor por este convite?')) return;
+                void convite.abrir(link).then((falha) => falha && window.alert(falha));
               }
             : undefined
         }

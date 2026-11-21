@@ -11,9 +11,9 @@ afterEach(() => {
 
 const texto = 'Convite para o servidor Família: https://s.exemplo/c/2/convite/abc123 e outro https://outro.exemplo/convite/zzz';
 
-function montar(abrir = vi.fn()) {
+function montar(abrir = vi.fn(async () => null as string | null), atual = 'https://s.exemplo') {
   render(
-    <ContextoConvite.Provider value={{ base: 'https://s.exemplo', abrir }}>
+    <ContextoConvite.Provider value={{ base: 'https://s.exemplo', atual, abrir }}>
       <TextoComLinks texto={texto} />
     </ContextoConvite.Provider>,
   );
@@ -53,5 +53,23 @@ describe('link de convite clicável (qualidade-de-vida, RF-4, CA-7)', () => {
     const semContexto = new MouseEvent('click', { bubbles: true, cancelable: true });
     screen.getByRole('link', { name: 'https://s.exemplo/c/2/convite/abc123' }).dispatchEvent(semContexto);
     expect(semContexto.defaultPrevented).toBe(false);
+  });
+
+  it('falha ao entrar: mostra o motivo e não troca de tela', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const alerta = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    montar(vi.fn(async () => 'Código de convite inválido.'));
+    fireEvent.click(screen.getByRole('link', { name: 'https://s.exemplo/c/2/convite/abc123' }));
+    await vi.waitFor(() => expect(alerta).toHaveBeenCalledWith('Código de convite inválido.'));
+  });
+
+  it('convite para o próprio servidor aberto: link comum, sem confirmação', () => {
+    const confirmar = vi.spyOn(window, 'confirm');
+    const abrir = montar(undefined, 'https://s.exemplo/c/2');
+    const evento = new MouseEvent('click', { bubbles: true, cancelable: true });
+    screen.getByRole('link', { name: 'https://s.exemplo/c/2/convite/abc123' }).dispatchEvent(evento);
+    expect(evento.defaultPrevented).toBe(false);
+    expect(confirmar).not.toHaveBeenCalled();
+    expect(abrir).not.toHaveBeenCalled();
   });
 });

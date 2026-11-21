@@ -310,6 +310,43 @@ export function App() {
   const [podeCriar, setPodeCriar] = useState<string | null>(null);
   const principalUrl = estado.fase === 'principal' ? estado.url : null;
   const principalToken = estado.fase === 'principal' ? estado.token : null;
+  /**
+   * qualidade-de-vida, RF-4: convite clicado numa mensagem, de dentro de um servidor (só do mesmo endereço, onde a
+   * conta já existe). Falhando (convite vencido, banido), devolve o motivo e a pessoa fica onde estava, em vez de ir
+   * para a tela "Sem conexão" do fluxo do link externo. Um de cada vez.
+   */
+  const conviteNoApp = useRef(false);
+  const entrarPorConvite = useCallback(
+    async (convite: ConviteLink): Promise<string | null> => {
+      if (conviteNoApp.current) return null;
+      conviteNoApp.current = true;
+      try {
+        const sessao = await ponte()
+          .sessao.ler(convite.servidor)
+          .catch(() => null);
+        if (sessao) {
+          await ponte().config.gravar({ servidorUrl: convite.servidor });
+          await retomar(convite.servidor);
+          return null;
+        }
+        const token = await tokenDaInstalacao(convite.servidor);
+        if (!token) return 'Não deu para entrar por este convite.';
+        const c = await criarApi(convite.servidor, token).entrarComunidade(convite.codigo);
+        const url = `${separarComunidade(convite.servidor).base}${caminhoComunidade(c.id)}`;
+        await ponte().sessao.gravar({ servidorUrl: url, token });
+        await ponte().config.gravar({ servidorUrl: url });
+        lembrarServidor(url, c.nome);
+        await retomar(url);
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Não deu para entrar por este convite.';
+      } finally {
+        conviteNoApp.current = false;
+      }
+    },
+    [retomar, tokenDaInstalacao, lembrarServidor],
+  );
+
   useEffect(() => {
     if (!principalUrl || !principalToken) return;
     const { base } = separarComunidade(principalUrl);
@@ -502,7 +539,7 @@ export function App() {
       aoTrocarServidor={trocarServidor}
       aoSessaoRevogada={sessaoRevogada}
       aoSairDoServidor={() => void esquecerServidor(t.url)}
-      aoConvite={(c) => void abrirConvite(c)}
+      aoConvite={entrarPorConvite}
       adminDaInstalacao={podeCriar !== null && separarComunidade(t.url).base === podeCriar}
       aoVoz={(v) => aoVozDe(t, v)}
       pedidoSairVoz={vozViva?.url === t.url ? vozViva.pedidoSair : 0}
