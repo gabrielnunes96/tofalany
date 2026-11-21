@@ -1,4 +1,13 @@
-import { HISTORICO_ATE_MAX, PAGINA_MENSAGENS, trechoDeResposta, type Destino, type GifDto, type MensagemDto, type PaginaMensagens, type RespostaDto } from '@tofalando/shared';
+import {
+  HISTORICO_ATE_MAX,
+  PAGINA_MENSAGENS,
+  trechoDeResposta,
+  type Destino,
+  type GifDto,
+  type MensagemDto,
+  type PaginaMensagens,
+  type RespostaDto,
+} from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { anexosDasMensagens } from './anexos.js';
 import { reacoesDasMensagens } from './reacoes.js';
@@ -16,6 +25,8 @@ interface LinhaMensagem {
   resposta_a?: number | null;
   resposta_avisa?: number;
   gif?: string | null;
+  tipo?: string;
+  ref_mensagem_id?: number | null;
 }
 
 function lerGif(json: string | null | undefined): GifDto | undefined {
@@ -61,6 +72,13 @@ function paraDtoSemAnexos(m: LinhaMensagem): MensagemDto {
   };
 }
 
+/** Linhas "fixou": se a mensagem fixada ainda existe (o trecho sai dela na leitura, nada é copiado). */
+function existentes(banco: Banco, ids: number[]): Set<number> {
+  const unicos = [...new Set(ids)];
+  if (unicos.length === 0) return new Set();
+  const linhas = banco.prepare(`SELECT id FROM mensagens WHERE id IN (${unicos.map(() => '?').join(',')})`).all(...unicos) as { id: number }[];
+  return new Set(linhas.map((l) => l.id));
+}
 
 /** O começo de cada original numa consulta só; a que não volta foi apagada (RN-10). */
 function trechosDasOriginais(banco: Banco, ids: number[]): Map<number, RespostaDto> {
@@ -89,10 +107,15 @@ function paraDtos(banco: Banco, linhas: LinhaMensagem[]): MensagemDto[] {
     banco,
     linhas.flatMap((l) => (l.resposta_a ? [l.resposta_a] : [])),
   );
+  const fixadasVivas = existentes(
+    banco,
+    linhas.flatMap((l) => (l.tipo === 'fixou' && l.ref_mensagem_id ? [l.ref_mensagem_id] : [])),
+  );
   return linhas.map((l) => {
     const r = reacoes.get(l.id);
     const o = l.resposta_a ? originais.get(l.resposta_a) : undefined;
-    return { ...paraDtoSemAnexos(l), anexos: anexos.get(l.id) ?? [], ...(r ? { reacoes: r } : {}), ...(o ? { resposta: o } : {}) };
+    const fixou = l.tipo === 'fixou' && l.ref_mensagem_id ? { mensagemId: l.ref_mensagem_id, apagada: !fixadasVivas.has(l.ref_mensagem_id) } : undefined;
+    return { ...paraDtoSemAnexos(l), anexos: anexos.get(l.id) ?? [], ...(r ? { reacoes: r } : {}), ...(o ? { resposta: o } : {}), ...(fixou ? { fixou } : {}) };
   });
 }
 
@@ -110,7 +133,9 @@ export function inserirMensagem(
   const [canalId, dmId] = 'canalId' in destino ? [destino.canalId, null] : [null, destino.dmId];
   return Number(
     banco
-      .prepare('INSERT INTO mensagens (canal_id, dm_id, autor_id, texto, criada_em, mencoes, menciona_todos, resposta_a, resposta_avisa, gif) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .prepare(
+        'INSERT INTO mensagens (canal_id, dm_id, autor_id, texto, criada_em, mencoes, menciona_todos, resposta_a, resposta_avisa, gif) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
       .run(
         canalId,
         dmId,
@@ -129,8 +154,7 @@ export function inserirMensagem(
 /** Onde a mensagem vive e quem a escreveu (para conferir uma resposta e refazer o aviso ao editar). */
 export function localDaMensagem(banco: Banco, id: number): { canalId: number | null; dmId: number | null; autorId: number; respostaAvisa: number } | undefined {
   const l = banco.prepare('SELECT canal_id, dm_id, autor_id, resposta_avisa FROM mensagens WHERE id = ?').get(id) as
-    | { canal_id: number | null; dm_id: number | null; autor_id: number; resposta_avisa: number }
-    | undefined;
+    { canal_id: number | null; dm_id: number | null; autor_id: number; resposta_avisa: number } | undefined;
   return l && { canalId: l.canal_id, dmId: l.dm_id, autorId: l.autor_id, respostaAvisa: l.resposta_avisa };
 }
 
@@ -139,7 +163,13 @@ export function buscarMensagem(banco: Banco, id: number): MensagemDto | undefine
   return m && paraDtos(banco, [m])[0];
 }
 
-export function editarMensagem(banco: Banco, id: number, texto: string, agora: number = Date.now(), mencoes: Mencoes = { usuarios: [], todos: false }): MensagemDto {
+export function editarMensagem(
+  banco: Banco,
+  id: number,
+  texto: string,
+  agora: number = Date.now(),
+  mencoes: Mencoes = { usuarios: [], todos: false },
+): MensagemDto {
   banco
     .prepare('UPDATE mensagens SET texto = ?, editada_em = ?, mencoes = ?, menciona_todos = ? WHERE id = ?')
     .run(texto, agora, mencoes.usuarios.length ? JSON.stringify(mencoes.usuarios) : null, mencoes.todos ? 1 : 0, id);

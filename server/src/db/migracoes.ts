@@ -293,5 +293,47 @@ export const MIGRACOES: readonly string[] = [
   ALTER TABLE usuarios ADD COLUMN fundo_arquivo TEXT;
   ALTER TABLE usuarios ADD COLUMN fundo_mini TEXT;
   `,
+  // 022 — chat-fixar-e-buscar.
+  // - mensagens.tipo: 'normal' ou 'fixou' (linha de sistema "fulano fixou uma mensagem", gerada pelo servidor);
+  //   ref_mensagem_id aponta a mensagem fixada, sem FK (como resposta_a: apagada, a linha fica e mostra "apagada").
+  // - mensagens_fixadas: uma linha por mensagem fixada; a conversa vem da própria mensagem (nunca de uma coluna à parte).
+  // - busca_mensagens: índice de texto sem conteúdo (não guarda cópia do texto; o que é apagado sai do índice), com o
+  //   texto e os nomes dos anexos. GIF fica fora (está em mensagens.gif). Mantido pelos gatilhos, só para tipo 'normal';
+  //   o anexo é vinculado por UPDATE depois do INSERT da mensagem, por isso há gatilho em anexos também.
+  `
+  ALTER TABLE mensagens ADD COLUMN tipo TEXT NOT NULL DEFAULT 'normal';
+  ALTER TABLE mensagens ADD COLUMN ref_mensagem_id INTEGER;
+  CREATE TABLE mensagens_fixadas (
+    mensagem_id INTEGER PRIMARY KEY REFERENCES mensagens(id) ON DELETE CASCADE,
+    fixada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    fixada_em INTEGER NOT NULL
+  );
+  CREATE VIRTUAL TABLE busca_mensagens USING fts5(
+    texto, anexos, content='', contentless_delete=1, tokenize='unicode61 remove_diacritics 2', prefix='2 3'
+  );
+  CREATE TRIGGER busca_mensagem_nova AFTER INSERT ON mensagens WHEN new.tipo = 'normal' BEGIN
+    INSERT INTO busca_mensagens (rowid, texto, anexos)
+    VALUES (new.id, new.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = new.id));
+  END;
+  CREATE TRIGGER busca_mensagem_editada AFTER UPDATE OF texto ON mensagens WHEN new.tipo = 'normal' BEGIN
+    INSERT OR REPLACE INTO busca_mensagens (rowid, texto, anexos)
+    VALUES (new.id, new.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = new.id));
+  END;
+  CREATE TRIGGER busca_mensagem_apagada AFTER DELETE ON mensagens BEGIN
+    DELETE FROM busca_mensagens WHERE rowid = old.id;
+  END;
+  CREATE TRIGGER busca_anexo_vinculado AFTER UPDATE OF mensagem_id ON anexos BEGIN
+    INSERT OR REPLACE INTO busca_mensagens (rowid, texto, anexos)
+    SELECT m.id, m.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = m.id)
+    FROM mensagens m WHERE m.id IN (new.mensagem_id, old.mensagem_id) AND m.tipo = 'normal';
+  END;
+  CREATE TRIGGER busca_anexo_apagado AFTER DELETE ON anexos BEGIN
+    INSERT OR REPLACE INTO busca_mensagens (rowid, texto, anexos)
+    SELECT m.id, m.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = m.id)
+    FROM mensagens m WHERE m.id = old.mensagem_id AND m.tipo = 'normal';
+  END;
+  INSERT INTO busca_mensagens (rowid, texto, anexos)
+  SELECT m.id, m.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = m.id) FROM mensagens m;
+  `,
 ];
 

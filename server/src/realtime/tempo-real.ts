@@ -381,6 +381,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       amizades,
       conhecidos: conhecidosDe(banco, eu.id, comunidadeId),
       loja: estadoLoja(banco, eu.id),
+      recursos: { fixar: true, busca: true },
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);

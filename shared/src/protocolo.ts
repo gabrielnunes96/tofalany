@@ -79,7 +79,8 @@ export type Permissao =
   | 'transmitir_1440p'
   | 'ver_auditoria'
   | 'moderar_membros'
-  | 'mencionar_todos';
+  | 'mencionar_todos'
+  | 'fixar_mensagens';
 
 export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basica?: boolean }[] = [
   { id: 'enviar_mensagens', nome: 'Enviar mensagens', descricao: 'escrever nos canais de texto', basica: true },
@@ -98,6 +99,7 @@ export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basic
   { id: 'ver_auditoria', nome: 'Ver auditoria', descricao: 'ver o registro de entradas, saídas e ações' },
   { id: 'moderar_membros', nome: 'Moderar membros', descricao: 'pôr de castigo, expulsar e banir (não vale para administradores)' },
   { id: 'mencionar_todos', nome: 'Mencionar @todos', descricao: 'marcar todo mundo do canal com @todos (notifica todos)' },
+  { id: 'fixar_mensagens', nome: 'Fixar mensagens', descricao: 'fixar e desafixar mensagens nos canais' },
 ];
 
 /** O que todo membro sem cargo personalizado faz (e o que um cargo novo traz marcado). */
@@ -404,7 +406,16 @@ export const TEMAS: Tema[] = [...TEMAS_GRATIS, ...TEMAS_LOJA];
 export type MotivoRevogacao = 'saiu' | 'sessao_invalida' | 'conta_removida' | 'fora_do_servidor' | 'expulso' | 'banido';
 
 /** Moderação: o que a pessoa participa enquanto está de castigo deixa de valer (no servidor do castigo). */
-export const PERMISSOES_SEM_CASTIGO: Permissao[] = ['enviar_mensagens', 'enviar_anexos', 'entrar_voz', 'usar_camera', 'transmitir_tela', 'tocar_sons', 'usar_toouvini'];
+export const PERMISSOES_SEM_CASTIGO: Permissao[] = [
+  'enviar_mensagens',
+  'enviar_anexos',
+  'entrar_voz',
+  'usar_camera',
+  'transmitir_tela',
+  'tocar_sons',
+  'usar_toouvini',
+  'fixar_mensagens',
+];
 /** Durações do castigo oferecidas no app, em minutos (o servidor aceita de 1 minuto a 28 dias). */
 export const DURACOES_CASTIGO = [
   { minutos: 1, texto: '1 minuto' },
@@ -480,6 +491,46 @@ export interface MensagemDto {
   resposta?: RespostaDto;
   /** GIF escolhido na busca (só quando há). O `texto` termina com o endereço dele, para os apps antigos verem o link. */
   gif?: GifDto;
+  /**
+   * chat-fixar-e-buscar: linha de sistema "fulano fixou uma mensagem" (o autor é quem fixou). Gerada pelo servidor,
+   * não se edita, não se responde e não conta como não lida. Os apps antigos mostram o `texto` como mensagem comum.
+   */
+  fixou?: { mensagemId: number; apagada: boolean };
+}
+
+/** chat-fixar-e-buscar: uma mensagem fixada numa conversa (GET /api/canais|dms/:id/fixadas). */
+export interface FixadaDto {
+  mensagem: MensagemDto;
+  /** Quem fixou (nulo se a conta foi removida). */
+  fixadaPor: number | null;
+  fixadaEm: number;
+}
+
+/** chat-fixar-e-buscar: onde a busca procura. */
+export type OndeBuscar = 'conversa' | 'servidor' | 'dms';
+
+/** Corpo de POST /api/busca. */
+export interface PedidoBusca {
+  q?: string;
+  onde: OndeBuscar;
+  canalId?: number;
+  dmId?: number;
+  autorId?: number;
+  comAnexo?: boolean;
+  comGif?: boolean;
+  /** Paginação: só mensagens com id menor (o id do último resultado da página anterior). */
+  antes?: number;
+}
+
+/** Um resultado da busca: a mensagem e os trechos achados no texto ([início, fim) em índices do `texto`). */
+export interface ResultadoBusca {
+  mensagem: MensagemDto;
+  destaques: [number, number][];
+}
+
+export interface RespostaBusca {
+  resultados: ResultadoBusca[];
+  mais: boolean;
 }
 
 /** Um GIF da Klipy numa mensagem: o endereço na Klipy (nada é guardado no servidor), o tamanho e a descrição. */
@@ -653,6 +704,8 @@ export interface OlaPayload {
   conhecidos?: UsuarioDto[];
   /** Pontos e loja: saldo e itens da conta (servidor antigo não manda; sem ele, o app esconde a loja). */
   loja?: LojaEstadoDto;
+  /** O que este servidor oferece além do básico (servidor antigo não manda; sem ele, o app esconde o recurso). */
+  recursos?: { fixar?: boolean; busca?: boolean };
 }
 
 /** Eventos servidor → cliente. */
@@ -724,7 +777,10 @@ export interface EventosCliente {
   /** RF-8: enviar mensagem num canal de texto (DMs na T12). */
   /** Anexos já enviados por POST /api/anexos (até 10). */
   /** Resposta: `respostaA` é a original (mesmo canal ou DM); `avisar` (padrão true) avisa o autor dela como numa menção. */
-  'mensagem:enviar': (dados: { destino: Destino; texto: string; anexos?: string[]; respostaA?: number; avisar?: boolean; gif?: GifDto }, ack: Ack<MensagemDto>) => void;
+  'mensagem:enviar': (
+    dados: { destino: Destino; texto: string; anexos?: string[]; respostaA?: number; avisar?: boolean; gif?: GifDto },
+    ack: Ack<MensagemDto>,
+  ) => void;
   /** RN-9: só o autor edita. */
   'mensagem:editar': (dados: { id: number; texto: string }, ack: Ack<MensagemDto>) => void;
   /** RN-9: o autor apaga; administrador apaga qualquer mensagem de canal. */
