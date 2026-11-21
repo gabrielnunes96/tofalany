@@ -15,9 +15,12 @@ services:
       # Pasta criada pelo vm.sh (dono 1000, 0700). O servidor só cria ali o arquivo vazio "atualizar".
       - /var/lib/tofalany/pedidos:/pedidos
     networks: [default, borda, pot]
+    # Sem pacote cru (ARP) na rede da borda: ninguém se passa pelo IP do Caddy.
+    cap_drop: [NET_RAW]
 
   livekit:
     networks: [default, borda]
+    cap_drop: [NET_RAW]
 
   caddy:
     networks:
@@ -51,4 +54,6 @@ networks:
     ipam:
       config:
         - subnet: 172.30.10.0/24
+          # Os IPs automáticos saem da metade de cima: o .10 do Caddy nunca vai para outro contêiner.
+          ip_range: 172.30.10.128/25
   pot:

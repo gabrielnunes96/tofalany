@@ -122,10 +122,10 @@ O app se atualiza sozinho a cada release no Windows, no AppImage e no .deb (no .
 O endereço `IP-com-hifens.sslip.io` muda quando a VM muda. Com um nome grátis no DuckDNS, migrar a VM só troca o IP para onde o nome aponta.
 
 1. Em duckdns.org, entre, crie o nome (ex.: `tofalany`) e deixe o IP como o **IP público da VM**.
-2. Na VM, salve o nome e o token num arquivo só seu (o token nunca vai para o `.env`, que o contêiner recebe inteiro):
+2. Na VM (dentro do `ssh tofalany`, não pelo `ssh tofalany '…'`), salve o nome e o token num arquivo só seu. O comando pede o token sem mostrar nem guardar no histórico; ele nunca vai para o `.env`, que o contêiner recebe inteiro:
 
 ```bash
-cd ~/tofalany/deploy && (umask 077 && printf 'NOME\nTOKEN\n' > duckdns.token) && ./vm.sh dominio
+cd ~/tofalany/deploy && read -rs -p 'Token do DuckDNS: ' t && echo && (umask 077 && printf '%s\n%s\n' NOME "$t" > duckdns.token); unset t; ./vm.sh dominio
 ```
 
 3. Ponha os dois nomes no Caddy e o novo nos convites (troque `NOME` e o sslip pelo seu):

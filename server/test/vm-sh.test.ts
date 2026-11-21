@@ -140,9 +140,11 @@ describe.skipIf(process.platform === 'win32')('vm.sh (infra-e-atualizacao)', () 
     const { rodar } = preparar();
     const path = rodar('unidade_path').stdout;
     expect(path).toContain('PathExists=/var/lib/tofalany/pedidos/atualizar');
-    expect(path).toContain('Unit=tofalany-atualizar.service');
+    expect(path).toContain('Unit=tofalany-atualizar-pedido.service');
     expect(path).toMatch(/TriggerLimitIntervalSec=.+\nTriggerLimitBurst=\d+/);
-    const service = rodar('unidade_service').stdout;
+    // O timer não passa pelo limpador nem divide o limite de partidas com o pedido.
+    expect(rodar('unidade_service').stdout).not.toMatch(/ExecStartPre|StartLimit/);
+    const service = rodar('unidade_pedido').stdout;
     expect(service).toContain('ExecStartPre=+/usr/local/lib/tofalany-limpar-pedido /var/lib/tofalany/pedidos');
     expect(service).toMatch(/StartLimitIntervalSec=.+\nStartLimitBurst=\d+/);
     expect(service.indexOf('ExecStartPre')).toBeLessThan(service.indexOf('ExecStart='));

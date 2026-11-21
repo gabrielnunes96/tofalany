@@ -298,7 +298,12 @@ limpar_pedido() {
   else
     return 0
   fi
-  rm -rf -- "$f"
+  # Como root (pelo systemd), apaga com o dono da pasta (1000), sem privilégio num caminho que o contêiner controla.
+  if [ "$(id -u)" = 0 ]; then
+    setpriv --reuid=1000 --regid=1000 --clear-groups rm -rf -- "$f"
+  else
+    rm -rf -- "$f"
+  fi
 }
 
 # O limpador como script à parte (fica com o root em /usr/local/lib): a mesma função, sem o resto do vm.sh.
@@ -313,10 +318,26 @@ script_limpador() {
 unidade_service() {
   cat << EOF
 [Unit]
-Description=ToFalany: atualiza o servidor quando sai release nova no GitHub (timer ou pedido pelo app)
+Description=ToFalany: atualiza o servidor quando sai release nova no GitHub
 After=network-online.target docker.service
 Wants=network-online.target
-# Pedidos em sequência (ou um contêiner insistindo) não viram atualizações sem fim.
+
+[Service]
+Type=oneshot
+User=${USER}
+WorkingDirectory=${PASTA}
+ExecStart=${PASTA}/vm.sh verificar
+TimeoutStartSec=45min
+EOF
+}
+
+# Unidade própria do pedido pelo app: um contêiner insistindo esgota o limite dela, não o do timer.
+unidade_pedido() {
+  cat << EOF
+[Unit]
+Description=ToFalany: pedido de atualização feito pelo app
+After=network-online.target docker.service
+Wants=network-online.target
 StartLimitIntervalSec=30min
 StartLimitBurst=6
 
@@ -337,7 +358,7 @@ Description=ToFalany: pedido de atualização feito pelo app
 
 [Path]
 PathExists=${PEDIDOS_VM}/atualizar
-Unit=${UNIDADE}.service
+Unit=${UNIDADE}-pedido.service
 TriggerLimitIntervalSec=5min
 TriggerLimitBurst=3
 
@@ -359,6 +380,7 @@ automatico() {
   sudo chown root:root "$LIMPAR_PEDIDO"
   sudo chmod 0755 "$LIMPAR_PEDIDO"
   unidade_service | sudo tee "/etc/systemd/system/${UNIDADE}.service" > /dev/null
+  unidade_pedido | sudo tee "/etc/systemd/system/${UNIDADE}-pedido.service" > /dev/null
   unidade_path | sudo tee "/etc/systemd/system/${UNIDADE}.path" > /dev/null
   sudo tee "/etc/systemd/system/${UNIDADE}.timer" > /dev/null << EOF
 [Unit]
