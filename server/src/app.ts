@@ -30,6 +30,7 @@ import { registrarRotasPrevia } from './routes/previa.js';
 import { registrarRotasGif } from './routes/gif.js';
 import { registrarRotasFundo } from './routes/fundo.js';
 import { registrarRotasUsuariosPerfil } from './routes/usuarios-perfil.js';
+import { registrarRotasConvitesPessoa } from './routes/convites-pessoa.js';
 import { fecharOnlinesPendentes, limparAuditoria } from './dominio/auditoria.js';
 import { separarComunidadeDaUrl } from './auth/sessao-http.js';
 import { existeComunidade } from './dominio/comunidades.js';
@@ -148,6 +149,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   const avisarPerfil = registrarRotasPerfil(app, banco, armazem, tempoReal);
   registrarRotasFundo(app, banco, armazem, avisarPerfil);
   registrarRotasUsuariosPerfil(app, banco, config);
+  registrarRotasConvitesPessoa(app, banco, config, tempoReal);
   registrarRotasAdmin(app, banco, config, tempoReal, armazem);
   registrarRotasModeracao(app, banco, tempoReal);
   registrarRotasLoja(app, banco, config, tempoReal);

@@ -236,6 +236,9 @@ export type CodigoErro =
   | 'tudo_liberado'
   | 'codigo_2fa_necessario'
   | 'codigo_2fa_invalido'
+  | 'ja_membro'
+  | 'banido'
+  | 'sem_convite'
   | 'erro_interno';
 
 export interface ErroApi {

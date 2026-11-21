@@ -1,5 +1,5 @@
 import { temPermissao } from '../dominio/funcoes.js';
-import { ANEXOS_POR_MENSAGEM, REACOES_RAJADA, extrairMencoes, textoSemGif, validarEmojiReacao, validarGif, validarTextoMensagem, type Destino, type GifDto, type EventosServidor } from '@tofalando/shared';
+import { ANEXOS_POR_MENSAGEM, REACOES_RAJADA, extrairMencoes, textoSemGif, validarEmojiReacao, validarGif, validarTextoMensagem, type Destino, type GifDto, type EventosServidor, type MensagemDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
@@ -68,6 +68,30 @@ function lerDestino(banco: Banco, dados: unknown, usuarioId: number, comunidadeI
   throw new ErroHttp(400, 'dados_invalidos', 'Destino inválido.');
 }
 
+/**
+ * Conexões de um participante da DM em que ela aparece: as dos servidores de que o outro também participa
+ * (a conversa fica na aba Diretas de cada servidor em comum).
+ */
+export function conexoesDaConversaDm(io: ServidorTempoReal, banco: Banco, participantes: [number, number]): SocketTofalando[] {
+  return [...io.of('/').sockets.values()].filter((s) => {
+    const i = participantes.indexOf(s.data.usuarioId);
+    if (i < 0) return false;
+    const outro = participantes[1 - i]!;
+    return outro === s.data.usuarioId || !!membroDe(banco, s.data.comunidadeId, outro) || saoAmigos(banco, s.data.usuarioId, outro);
+  });
+}
+
+/** Cada participante recebe a DM vista do seu lado (o "outro" de cada um). */
+export function avisarDmParticipantes(io: ServidorTempoReal, banco: Banco, participantes: [number, number], dmId: number): void {
+  for (const s of conexoesDaConversaDm(io, banco, participantes)) s.emit('dm:atualizada', dmPara(banco, dmId, s.data.usuarioId));
+}
+
+/** Mensagem de DM criada fora de um socket (ex.: convite pela rota): chega como `mensagem:nova` e a DM se atualiza. */
+export function entregarMensagemDm(io: ServidorTempoReal, banco: Banco, participantes: [number, number], mensagem: MensagemDto): void {
+  for (const s of conexoesDaConversaDm(io, banco, participantes)) s.emit('mensagem:nova', mensagem);
+  if (mensagem.dmId !== null) avisarDmParticipantes(io, banco, participantes, mensagem.dmId);
+}
+
 /** RF-8 a RF-12a: enviar (com anexos), editar, apagar e "digitando" em canais e DMs; abrir DM. */
 export function registrarEventosMensagens(
   io: ServidorTempoReal,
@@ -84,18 +108,7 @@ export function registrarEventosMensagens(
   /** Momentos dos últimos pedidos de reação deste socket (limite de rajada). */
   let reacoesRecentes: number[] = [];
 
-  /**
-   * Conexões de um participante da DM em que ela aparece: as dos servidores de que o outro também participa
-   * (a conversa fica na aba Diretas de cada servidor em comum).
-   */
-  function conexoesDaConversa(participantes: [number, number]) {
-    return [...io.of('/').sockets.values()].filter((s) => {
-      const i = participantes.indexOf(s.data.usuarioId);
-      if (i < 0) return false;
-      const outro = participantes[1 - i]!;
-      return outro === s.data.usuarioId || !!membroDe(banco, s.data.comunidadeId, outro) || saoAmigos(banco, s.data.usuarioId, outro);
-    });
-  }
+  const conexoesDaConversa = (participantes: [number, number]) => conexoesDaConversaDm(io, banco, participantes);
 
   /** Canal: quem está no servidor dele. DM: só os participantes (RN-18). */
   function emitir<E extends keyof EventosServidor>(participantes: [number, number] | null, evento: E, ...args: Parameters<EventosServidor[E]>) {
@@ -103,10 +116,7 @@ export function registrarEventosMensagens(
     for (const alvo of alvos) (alvo.emit as (e: E, ...a: Parameters<EventosServidor[E]>) => void)(evento, ...args);
   }
 
-  /** Cada participante recebe a DM vista do seu lado (o "outro" de cada um). */
-  function avisarDm(participantes: [number, number], dmId: number) {
-    for (const s of conexoesDaConversa(participantes)) s.emit('dm:atualizada', dmPara(banco, dmId, s.data.usuarioId));
-  }
+  const avisarDm = (participantes: [number, number], dmId: number) => avisarDmParticipantes(io, banco, participantes, dmId);
 
   /** Mensagem de canal de outro servidor é como se não existisse para esta conexão. */
   const doServidor = (m: { canalId: number | null }) => {
