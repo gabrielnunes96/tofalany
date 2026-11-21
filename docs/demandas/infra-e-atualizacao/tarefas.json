@@ -64,9 +64,9 @@
         "CA-6"
       ],
       "validacao": "Teste do componente/mensagens; conferir no app. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "7fb6ed5"
     },
     {
       "id": "T5",
@@ -80,7 +80,7 @@
         "CA-8"
       ],
       "validacao": "vitest + bash com stubs: dois processos, o segundo espera a trava; dominio com curl falso (token só no stdin, KO falha, nada no log); bash -n e shellcheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

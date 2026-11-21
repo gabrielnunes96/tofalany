@@ -8,6 +8,7 @@
 #   ./vm.sh automatico  liga a atualização automática: a cada 10 min a VM confere se saiu release nova e,
 #                       se saiu, faz o "atualizar" sozinha (log: journalctl -u tofalany-atualizar).
 #   ./vm.sh manual      desliga a atualização automática.
+#   ./vm.sh dominio     aponta o nome do DuckDNS para o IP desta VM (nome e token em deploy/duckdns.token, 0600).
 #   ./vm.sh consulta "SELECT …"   consulta só de leitura no banco (senhas e tokens aparecem mascarados).
 #   ./vm.sh copia-banco           cópia do banco sem senhas e sessões em deploy/copia-banco-<data>.db,
 #                                 para baixar (scp) e abrir no DB Browser for SQLite.
@@ -22,6 +23,8 @@ PASTA="$(cd "$(dirname "$0")" && pwd)"
 # Versão (tag) que está no ar, gravada depois de cada atualização que deu certo.
 INSTALADA="$PASTA/.versao-instalada"
 UNIDADE="tofalany-atualizar"
+# DuckDNS: linha 1 o nome (ex.: tofalany), linha 2 o token. Fica fora do .env, que o contêiner recebe inteiro.
+TOKEN_DUCKDNS="$PASTA/duckdns.token"
 cd "$PASTA"
 
 ok() { printf '\033[1;32m✔ %s\033[0m\n' "$*"; }
@@ -171,8 +174,8 @@ subir() {
     compose up -d --build
   fi
   info "Esperando o servidor ficar saudável"
-  local i
-  for i in $(seq 1 60); do
+  local _
+  for _ in $(seq 1 60); do
     if curl -fsS -m 3 http://127.0.0.1:3000/api/saude > /dev/null 2>&1; then
       ok "Servidor no ar: $(curl -fsS -m 3 http://127.0.0.1:3000/api/servidor)"
       return
@@ -208,10 +211,40 @@ atualizar() {
   ok "${tag} no ar"
 }
 
+# Uma atualização por vez (timer, pedido pelo app ou à mão), na mesma trava. "esperar": espera até 30 min a outra
+# terminar; "nao-esperar": sai com 1 se houver outra. A trava fica no fd 9 até o fim do processo.
+com_trava() {
+  exec 9> "$PASTA/.atualizando.lock"
+  if flock -n 9; then return 0; fi
+  if [ "${1:-esperar}" = esperar ]; then
+    info "Outra atualização em andamento; esperando ela terminar (até 30 min)"
+    flock -w 1800 9 || erro "A outra atualização não terminou em 30 min."
+    return 0
+  fi
+  echo "Já há uma atualização em andamento."
+  return 1
+}
+
+# Aponta o nome do DuckDNS para o IP desta VM (ou o IP dado). O token vai pelo stdin do curl: não aparece no ps,
+# no journal nem no log; nunca rode isto com "set -x".
+dominio() {
+  [ -f "$TOKEN_DUCKDNS" ] || erro "Falta ${TOKEN_DUCKDNS} (linha 1: o nome, ex.: tofalany; linha 2: o token do DuckDNS)."
+  chmod 600 "$TOKEN_DUCKDNS"
+  local nome token ip resposta
+  nome=$(sed -n 1p "$TOKEN_DUCKDNS" | tr -d '[:space:]')
+  token=$(sed -n 2p "$TOKEN_DUCKDNS" | tr -d '[:space:]')
+  [[ "$nome" =~ ^[a-z0-9-]{1,63}$ ]] || erro "Nome do DuckDNS inválido na linha 1 de ${TOKEN_DUCKDNS}."
+  [[ "$token" =~ ^[a-f0-9-]{20,64}$ ]] || erro "Token do DuckDNS inválido na linha 2 de ${TOKEN_DUCKDNS}."
+  ip="${1:-$(curl -fsS -m 10 https://checkip.amazonaws.com | tr -d '[:space:]')}"
+  [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || erro "IP inválido: ${ip}"
+  resposta=$(printf 'url = "https://www.duckdns.org/update?domains=%s&token=%s&ip=%s"\n' "$nome" "$token" "$ip" | curl -fsS -m 20 -K -) || erro "O DuckDNS não respondeu."
+  [ "$resposta" = OK ] || erro "O DuckDNS recusou a atualização (confira o nome e o token)."
+  ok "${nome}.duckdns.org aponta para ${ip}"
+}
+
 # Chamado pelo timer: só atualiza quando a última release muda. Sem internet ou GitHub fora, tenta na próxima.
 verificar() {
-  exec 9> "$PASTA/.atualizando.lock"
-  flock -n 9 || { echo "Já há uma atualização em andamento."; return 0; }
+  com_trava nao-esperar || return 0
   local lista tag
   lista=$(ultima_release 2> /dev/null) || { echo "GitHub indisponível; confiro de novo depois."; return 0; }
   tag=$(echo "$lista" | head -1)
@@ -291,12 +324,17 @@ case "${1:-}" in
     instalar_docker
     garantir_swap
     gerar_configuracao
+    com_trava esperar
     atualizar
     echo
     ok "Pronto. Código de convite: $(grep '^CODIGO_CONVITE=' .env | cut -d= -f2)"
     echo "   Libere na Security List da Oracle: TCP 80, 443, 7881 e UDP 443, 7882 (origem 0.0.0.0/0)."
     ;;
-  atualizar) atualizar ;;
+  atualizar)
+    com_trava esperar
+    atualizar
+    ;;
+  dominio) dominio "${2:-}" ;;
   verificar) verificar ;;
   automatico) automatico ;;
   manual) manual ;;
@@ -308,11 +346,14 @@ case "${1:-}" in
     ;;
   copia-banco) copia_banco ;;
   *)
-    echo "Uso: ./vm.sh instalar | atualizar | automatico | manual | status | tabelas | consulta \"SELECT …\" | copia-banco"
+    echo "Uso: ./vm.sh instalar | atualizar | automatico | manual | dominio [IP] | status | tabelas | consulta \"SELECT …\" | copia-banco"
     exit 1
     ;;
 esac
 }
 
-main "$@"
-exit $?
+# Carregado com "source" (testes), só define as funções.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+  exit $?
+fi

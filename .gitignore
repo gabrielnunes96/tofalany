@@ -12,6 +12,8 @@ playwright-report/
 copia-banco-*.db
 .versao-instalada
 .atualizando.lock
+deploy/duckdns.token
+duckdns.token
 
 # Chaves SSH (nunca no git)
 keys/
