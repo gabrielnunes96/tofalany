@@ -1,6 +1,6 @@
 # Fixar e buscar mensagens: especificação técnica
 
-> Demanda: `chat-fixar-e-buscar` · Base: funcional v1 · 21/11/2026 · Situação: **rascunho**
+> Demanda: `chat-fixar-e-buscar` · Base: funcional v1 · 21/11/2026 · Situação: **aprovada em 21/11/2026**
 
 ## 1. Visão da solução
 Tudo fica no SQLite do servidor e nos padrões que o chat já usa (rotas `/api/canais|dms/:id/...`, eventos com ack, zustand por chave `c:<id>`/`d:<id>`).
