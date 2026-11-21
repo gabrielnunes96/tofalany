@@ -46,9 +46,9 @@
         "CA-4"
       ],
       "validacao": "vitest: função pura (host do mapa migra; host parecido, http e nome diferente não); App.test: app com o sslip salvo retoma no duckdns com a mesma sessão e sem duplicar. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "850abdf"
     },
     {
       "id": "T4",
