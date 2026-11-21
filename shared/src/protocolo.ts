@@ -238,6 +238,7 @@ export type CodigoErro =
   | 'codigo_2fa_invalido'
   | 'ja_membro'
   | 'nao_convidavel'
+  | 'atualizacao_indisponivel'
   | 'erro_interno';
 
 export interface ErroApi {

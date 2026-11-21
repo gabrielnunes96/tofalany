@@ -30,6 +30,7 @@ import { registrarRotasPrevia } from './routes/previa.js';
 import { registrarRotasGif } from './routes/gif.js';
 import { registrarRotasFundo } from './routes/fundo.js';
 import { registrarRotasUsuariosPerfil } from './routes/usuarios-perfil.js';
+import { registrarRotasAtualizarServidor } from './routes/atualizar-servidor.js';
 import { registrarRotasConvitesPessoa } from './routes/convites-pessoa.js';
 import { fecharOnlinesPendentes, limparAuditoria } from './dominio/auditoria.js';
 import { separarComunidadeDaUrl } from './auth/sessao-http.js';
@@ -67,7 +68,8 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
 
   const app = Fastify({
     logger: config.log ? { redact: ['req.headers.authorization'], ...(config.logDestino ? { stream: config.logDestino } : {}) } : false,
-    trustProxy: config.atrasDeProxy ? PROXIES_CONFIAVEIS : false,
+    // T-12: na VPS, TRUST_PROXY limita à rede do Caddy (um contêiner vizinho não forja o IP de quem pede).
+    trustProxy: config.atrasDeProxy ? (config.proxiesConfiaveis ?? PROXIES_CONFIAVEIS) : false,
     // Vários servidores na mesma instalação: /c/<id>/... é o mesmo app, no servidor <id>.
     rewriteUrl: (req) => {
       const { comunidadeId, url } = separarComunidadeDaUrl(req.url ?? '/');
@@ -141,6 +143,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasServidor(app, banco, config);
   registrarRotasComunidades(app, banco, config, tempoReal, armazem);
   registrarRotasMusica(app, banco, config);
+  registrarRotasAtualizarServidor(app, banco, config);
   registrarRotasPrevia(app, banco);
   registrarRotasGif(app, banco, config);
   registrarRotasAuth(app, banco, config, tempoReal);

@@ -32,6 +32,15 @@ export interface Config {
   pastaArquivos: string | undefined;
   /** Endereço público do servidor para montar o link de convite (sem ele, usa o endereço da requisição). */
   urlPublica: string | undefined;
+  /**
+   * infra-e-atualizacao: nomes por onde o servidor é acessado (DOMINIOS, separados por vírgula), o mesmo do Caddy. A
+   * voz volta no nome por onde a pessoa chegou, se ele estiver aqui (T-5).
+   */
+  dominios: string[];
+  /** Pasta montada da VM onde o pedido "Atualizar o servidor agora" vira um arquivo vazio (PEDIDOS; sem ela, 503). */
+  pastaPedidos: string | undefined;
+  /** Proxies em que o servidor confia para o X-Forwarded-For (TRUST_PROXY; padrão: redes locais), T-12. */
+  proxiesConfiaveis: string | undefined;
   /** Pasta com os instaladores oferecidos na página do convite (DOWNLOADS; padrão: "downloads" ao lado do banco). */
   pastaDownloads: string | undefined;
   /**
@@ -89,6 +98,12 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     prazoAuditoriaDias: inteiro('AUDITORIA_DIAS', ambiente.AUDITORIA_DIAS, PRAZO_AUDITORIA_DIAS_PADRAO, 1),
     pastaArquivos: ambiente.ARQUIVOS || undefined,
     urlPublica: ambiente.URL_PUBLICA?.trim().replace(/\/+$/, '') || undefined,
+    dominios: (ambiente.DOMINIOS ?? '')
+      .split(/[\s,]+/)
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean),
+    pastaPedidos: ambiente.PEDIDOS?.trim() || undefined,
+    proxiesConfiaveis: ambiente.TRUST_PROXY?.trim() || undefined,
     pastaDownloads: ambiente.DOWNLOADS || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
     livekit: lerLivekit(ambiente),
