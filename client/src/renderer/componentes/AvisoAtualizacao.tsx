@@ -34,15 +34,7 @@ export function AvisoAtualizacao({ atualizacao }: { atualizacao: ApiTofalando['a
     };
   }, [atualizacao]);
 
-  if (instalando) {
-    return (
-      <div className="tela-atualizando" role="status" aria-live="assertive">
-        <img src={icone} alt="" className="tela-atualizando-icone" />
-        <p>Atualizando o ToFalany{estado ? ` para a versão ${estado.versao}` : ''}…</p>
-        <p className="suave">Ele abre de novo sozinho em alguns segundos.</p>
-      </div>
-    );
-  }
+  if (instalando) return <TelaAtualizando versao={estado?.versao} />;
   // Pedida pelo "Atualizar o app" (qualidade-de-vida, RF-5): quem mostra o progresso e instala é o App.
   if (!estado || estado.pedido || fechado === `${estado.versao}:${estado.modo}`) return null;
   return (
@@ -65,5 +57,16 @@ export function AvisoAtualizacao({ atualizacao }: { atualizacao: ApiTofalando['a
         </button>
       </div>
     </aside>
+  );
+}
+
+/** Backlog 18: ao reiniciar para atualizar, o ícone gira no meio da tela até o app fechar. */
+export function TelaAtualizando({ versao }: { versao?: string }) {
+  return (
+    <div className="tela-atualizando" role="status" aria-live="assertive">
+      <img src={icone} alt="" className="tela-atualizando-icone" />
+      <p>Atualizando o ToFalany{versao ? ` para a versão ${versao}` : ''}…</p>
+      <p className="suave">Ele abre de novo sozinho em alguns segundos.</p>
+    </div>
   );
 }

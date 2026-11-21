@@ -10,6 +10,7 @@ import { avisoDeRevogacao } from './avisos';
 import { ColunaServidores } from '../componentes/ColunaServidores';
 import { INTERVALO_OUTROS_MS, naoLidasDosOutros } from '../servicos/naolidas-servidores';
 import { JanelaNovidades } from '../componentes/JanelaNovidades';
+import { AtualizarAgora } from '../componentes/AtualizarAgora';
 import { procurarEnderecoAntigo, type EnderecoAntigo } from '../servicos/endereco-antigo';
 
 type Estado =
@@ -44,6 +45,9 @@ export function App() {
     });
   }, []);
 
+  /** qualidade-de-vida, RF-5: "Atualizar o app" chama a procura do AtualizarAgora (montado uma vez, aqui). */
+  const controleAtualizar = useRef<(() => void) | null>(null);
+  const pedirAtualizacao = useCallback(() => controleAtualizar.current?.(), []);
   const [vozViva, setVozViva] = useState<{ url: string; token: string; usuario: UsuarioDto; canal: string; servidor: string; pedidoSair: number } | null>(null);
   const aoVozDe = useCallback((t: { url: string; token: string; usuario: UsuarioDto }, v: { canal: string; servidor: string } | null) => {
     setVozViva((atual) => {
@@ -476,6 +480,7 @@ export function App() {
       </div>
     </div>
   );
+  const atualizarAgora = <AtualizarAgora atualizacao={ponte().atualizacao} controleRef={controleAtualizar} emChamada={vozViva !== null} />;
   /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
   const janelaNovidades = notas && (
     <JanelaNovidades
@@ -507,6 +512,7 @@ export function App() {
       <>
         {tela}
         {janelaModeracao ?? janelaEnderecoAntigo ?? janelaNovidades}
+        {atualizarAgora}
       </>
     ) : (
       <div className="app-com-servidores">
@@ -521,6 +527,7 @@ export function App() {
         />
         <div className="app-tela">{tela}</div>
         {janelaModeracao ?? janelaEnderecoAntigo ?? janelaNovidades}
+        {atualizarAgora}
       </div>
     );
 
@@ -540,6 +547,7 @@ export function App() {
       aoSessaoRevogada={sessaoRevogada}
       aoSairDoServidor={() => void esquecerServidor(t.url)}
       aoConvite={entrarPorConvite}
+      aoAtualizarApp={pedirAtualizacao}
       adminDaInstalacao={podeCriar !== null && separarComunidade(t.url).base === podeCriar}
       aoVoz={(v) => aoVozDe(t, v)}
       pedidoSairVoz={vozViva?.url === t.url ? vozViva.pedidoSair : 0}

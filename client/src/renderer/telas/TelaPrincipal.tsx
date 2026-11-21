@@ -73,6 +73,8 @@ interface Props {
   aoSairDoServidor?: () => void;
   /** qualidade-de-vida, RF-4: link de convite clicado numa mensagem (mesmo endereço). */
   aoConvite?: (convite: ConviteLink) => Promise<string | null>;
+  /** qualidade-de-vida, RF-5: "Atualizar o app" do menu do usuário (quem conduz é o App). */
+  aoAtualizarApp?: () => void;
   /** qualidade-de-vida, RF-1: administrador da instalação (do servidor principal): vê o ToOuvini em qualquer servidor. */
   adminDaInstalacao?: boolean;
 }
@@ -127,6 +129,7 @@ function TelaDoServidor({
   aoSairDoServidor,
   aoConvite,
   adminDaInstalacao = false,
+  aoAtualizarApp,
   oculta = false,
   aoVoz,
   vozEmOutro,
@@ -1714,6 +1717,11 @@ function TelaDoServidor({
                 <button type="button" onClick={() => setConfigAberta('novidades')}>
                   Novidades
                 </button>
+                {aoAtualizarApp && (
+                  <button type="button" onClick={aoAtualizarApp}>
+                    Atualizar o app
+                  </button>
+                )}
                 {linkConvite && (
                   <button
                     type="button"

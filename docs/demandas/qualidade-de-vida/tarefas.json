@@ -100,9 +100,9 @@
         "CA-10"
       ],
       "validacao": "atualizacao.test.ts: pedido esconde o aviso; progresso repassado; resultados indisponivel/atualizado/nova. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "8f792b4"
     },
     {
       "id": "T7",
@@ -120,7 +120,7 @@
         "CA-10"
       ],
       "validacao": "AtualizarAgora.test.tsx (ponte falsa): progresso; pronta sem voz instala; em voz pergunta; recusar volta o aviso; atualizado e indisponível. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
