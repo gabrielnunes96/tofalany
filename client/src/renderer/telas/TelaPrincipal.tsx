@@ -1,5 +1,52 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, qualidadesDosVales, QUALIDADES_VALE, TEMAS_LOJA, temaPermitido, type LojaEstadoDto, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type GifConfig, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica, type ConviteLink } from '@tofalando/shared';
+import {
+  ATIVIDADE_PADRAO,
+  type AtividadeDto,
+  type PreferenciasAtividade,
+  separarComunidade,
+  SOM_INTERVALO_MS,
+  LIMITE_TELAS_POR_CANAL,
+  ATALHOS_PADRAO,
+  AUDIO_PADRAO,
+  DIGITANDO_DURACAO_MS,
+  type AcaoAtalho,
+  type StatusPessoa,
+  type StatusVisivel,
+  type EscolhaStatus,
+  type Tema,
+  type PartesOcultas,
+  type Atalhos,
+  type PreferenciasAudio,
+  type PreferenciasPessoas,
+  type PreferenciasSons,
+  type PreferenciasNotificacoes,
+  type PreferenciasTela,
+  type QualidadeTela,
+  TELA_PADRAO,
+  qualidadesPermitidas,
+  qualidadesDosVales,
+  QUALIDADES_VALE,
+  TEMAS_LOJA,
+  temaPermitido,
+  type LojaEstadoDto,
+  NOTIFICACOES_PADRAO,
+  SONS_PADRAO,
+  type Destino,
+  type GifConfig,
+  type MensagemDto,
+  type MotivoRevogacao,
+  type TipoCanal,
+  type UsuarioDto,
+  permissoesDe,
+  type Permissao,
+  IDENTIDADE_BOT_MUSICA,
+  VOLUME_BOT_PADRAO,
+  type AcaoFechar,
+  acaoAoFechar,
+  lerComandoMusica,
+  type ComandoMusica,
+  type ConviteLink,
+} from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -11,7 +58,8 @@ import { PerfilCompleto } from '../componentes/PerfilCompleto';
 import { ContextoPerfil } from '../componentes/ContextoPerfil';
 import { ContextoConvite } from '../componentes/ContextoConvite';
 import { VolumeChamada } from '../componentes/VolumeChamada';
-import { pedirAtualizacaoServidor } from '../servicos/atualizar-servidor';
+import { BotaoAtualizarServidor } from '../componentes/BotaoAtualizarServidor';
+import type { ResultadoPedido } from '../servicos/atualizar-servidor';
 import { fundoDaLinha } from '../componentes/fundoPerfil';
 // A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
 import type { SalaVoz, VideoSala } from '../servicos/voz';
@@ -146,7 +194,29 @@ function TelaDoServidor({
   useEffect(() => {
     vozEmOutroRef.current = !!vozEmOutro;
   }, [vozEmOutro]);
-  const { conexao, eu, usuarios, funcoes, nomeServidor, iconeServidor, atividades, canais, canalAtivo, linkConvite, dms, dmAtiva, naoLidas, sons, voz, falando, presencas, transmissoes, musica, amizades, conhecidos } = useLoja(
+  const {
+    conexao,
+    eu,
+    usuarios,
+    funcoes,
+    nomeServidor,
+    iconeServidor,
+    atividades,
+    canais,
+    canalAtivo,
+    linkConvite,
+    dms,
+    dmAtiva,
+    naoLidas,
+    sons,
+    voz,
+    falando,
+    presencas,
+    transmissoes,
+    musica,
+    amizades,
+    conhecidos,
+  } = useLoja(
     useShallow((s) => ({
       voz: s.voz,
       falando: s.falando,
@@ -214,6 +284,10 @@ function TelaDoServidor({
   );
   const [vista, setVista] = useState<Vista>('canal');
   const [copiado, setCopiado] = useState<string | null>(null);
+  // infra-e-atualizacao (RF-5): resposta do "Atualizar o servidor agora", com o próprio prazo (não some com o do convite).
+  const [pedidoAtualizacao, setPedidoAtualizacao] = useState<ResultadoPedido | null>(null);
+  const prazoPedidoRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(prazoPedidoRef.current), []);
   const [pessoasAuditoria, setPessoasAuditoria] = useState<PessoaFiltro[]>([]);
   const conexaoRef = useRef<ConexaoTempoReal | null>(null);
   const chaveAbertaRef = useRef<Chave | null>(null);
@@ -312,9 +386,21 @@ function TelaDoServidor({
     };
   }, [servidorUrl, conexao]);
   // Amigos (valem em todos os servidores): pedir, aceitar e recusar/desfazer.
-  const pedirAmizade = (usuarioId: number) => void pedir((c) => c.pedir('amizade:pedir', { usuarioId }), (l) => acoes.definirAmizades(l));
-  const aceitarAmizade = (usuarioId: number) => void pedir((c) => c.pedir('amizade:aceitar', { usuarioId }), (l) => acoes.definirAmizades(l));
-  const removerAmizade = (usuarioId: number) => void pedir((c) => c.pedir('amizade:remover', { usuarioId }), (l) => acoes.definirAmizades(l));
+  const pedirAmizade = (usuarioId: number) =>
+    void pedir(
+      (c) => c.pedir('amizade:pedir', { usuarioId }),
+      (l) => acoes.definirAmizades(l),
+    );
+  const aceitarAmizade = (usuarioId: number) =>
+    void pedir(
+      (c) => c.pedir('amizade:aceitar', { usuarioId }),
+      (l) => acoes.definirAmizades(l),
+    );
+  const removerAmizade = (usuarioId: number) =>
+    void pedir(
+      (c) => c.pedir('amizade:remover', { usuarioId }),
+      (l) => acoes.definirAmizades(l),
+    );
   // Clique direito numa pessoa: menu com volume, silenciar, mensagem direta e amizade.
   const [menuPessoa, setMenuPessoa] = useState<{ usuarioId: number; x: number; y: number } | null>(null);
   const fecharMenuPessoa = useCallback(() => setMenuPessoa(null), []);
@@ -1000,7 +1086,13 @@ function TelaDoServidor({
   );
   // Com a barra de canais escondida, o botão de trazê-la fica à esquerda, no topo da conversa.
   const mostrarCanais = ocultos.canais ? (
-    <button type="button" className="icone mostrar-canais" aria-label="Mostrar canais" title="Mostrar a barra de canais (Ctrl+B)" onClick={() => alternarParte('canais')}>
+    <button
+      type="button"
+      className="icone mostrar-canais"
+      aria-label="Mostrar canais"
+      title="Mostrar a barra de canais (Ctrl+B)"
+      onClick={() => alternarParte('canais')}
+    >
       <Icone nome="painelEsquerdoAbrir" />
     </button>
   ) : null;
@@ -1010,7 +1102,10 @@ function TelaDoServidor({
   // Lista de membros por cargo (mais permissões primeiro) e nome; os offline no fim.
   // Com o fundo de cada linha já calculado (mini perfil, CA-14).
   const membrosPorStatus = useMemo(
-    () => ordenarMembros(usuarios, presencas, funcoes).map((item) => ('grupo' in item ? item : { ...item, fundo: fundoDaLinha(item.u.fundo, item.u.cor, servidorUrl) })),
+    () =>
+      ordenarMembros(usuarios, presencas, funcoes).map((item) =>
+        'grupo' in item ? item : { ...item, fundo: fundoDaLinha(item.u.fundo, item.u.cor, servidorUrl) },
+      ),
     [usuarios, presencas, funcoes, servidorUrl],
   );
   const api = useMemo(() => criarApi(servidorUrl, token), [servidorUrl, token]);
@@ -1071,11 +1166,24 @@ function TelaDoServidor({
   // No principal, o administrador dele já é o da instalação, sem esperar a conferência do App (que pode falhar).
   const ehAdminDaInstalacao = adminDaInstalacao || (ehAdmin && servidorId === 1);
   const podeVer = (v: Vista) =>
-    v === 'toouvini' ? ehAdminDaInstalacao : v === 'loja' ? pontos !== null : v === 'membros' ? ehAdmin : v === 'auditoria' ? permissoes.has('ver_auditoria') : v === 'convite' ? permissoes.has('gerenciar_convite') : v === 'sons' ? permissoes.has('gerenciar_sons') : true;
+    v === 'toouvini'
+      ? ehAdminDaInstalacao
+      : v === 'loja'
+        ? pontos !== null
+        : v === 'membros'
+          ? ehAdmin
+          : v === 'auditoria'
+            ? permissoes.has('ver_auditoria')
+            : v === 'convite'
+              ? permissoes.has('gerenciar_convite')
+              : v === 'sons'
+                ? permissoes.has('gerenciar_sons')
+                : true;
   const vistaAtual: Vista = !podeVer(vista) ? 'canal' : vista;
 
   /** Conversa na tela agora (null em perfil/administração). */
-  const chaveAberta: Chave | null = oculta || vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
+  const chaveAberta: Chave | null =
+    oculta || vistaAtual !== 'canal' ? null : dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
   useEffect(() => {
     chaveAbertaRef.current = chaveAberta;
   }, [chaveAberta]);
@@ -1201,7 +1309,9 @@ function TelaDoServidor({
   const editarMensagem = (id: number, texto: string) => pedir((c) => c.pedir('mensagem:editar', { id, texto }), acoes.atualizarMensagem);
   // A lista inteira chega também pelo evento; aplicar a resposta já mostra para quem clicou.
   const reagirMensagem = (id: number, emoji: string) => {
-    const chave = (Object.entries(useLoja.getState().historicos) as [Chave, Historico | undefined][]).find(([, h]) => h?.mensagens.some((m) => m.id === id))?.[0];
+    const chave = (Object.entries(useLoja.getState().historicos) as [Chave, Historico | undefined][]).find(([, h]) =>
+      h?.mensagens.some((m) => m.id === id),
+    )?.[0];
     return pedir(
       (c) => c.pedir('reacao:alternar', { mensagemId: id, emoji }),
       (reacoes) => acoes.aplicarReacoes(id, chave ?? null, reacoes),
@@ -1333,7 +1443,10 @@ function TelaDoServidor({
         // Linux (backlog v2, item 13): true quando o som vai pelo microfone virtual, publicado à parte.
         const somVirtual = (await ponte().captura.escolher(fonte.id, audioSistema)) === true;
         ok = await sala.transmitir(qualidade, audioSistema && !somVirtual, telaRef.current.codec, somVirtual);
-        if (!ok && somVirtual) void ponte().captura.pararSom().catch(() => undefined);
+        if (!ok && somVirtual)
+          void ponte()
+            .captura.pararSom()
+            .catch(() => undefined);
         if (ok) {
           qualidadeAtualRef.current = qualidade;
           // Liberada por um vale (o cargo sozinho não cobria): segue até parar, mesmo se o vale vencer (RN-15).
@@ -1341,7 +1454,13 @@ function TelaDoServidor({
           setPreviaMinhaTela(sala.faixaMinhaTela());
           setPreviaDaTelaInteira(fonte.tipo === 'tela');
           // Transmitindo a tela em que o app está: a prévia viraria espelho infinito, então não é desenhada.
-          setPreviaMesmaTela(fonte.tipo === 'tela' ? await ponte().captura.mesmaTela().catch(() => true) : false);
+          setPreviaMesmaTela(
+            fonte.tipo === 'tela'
+              ? await ponte()
+                  .captura.mesmaTela()
+                  .catch(() => true)
+              : false,
+          );
         }
       } catch {
         setAvisoVoz('Não foi possível transmitir a tela.');
@@ -1356,7 +1475,9 @@ function TelaDoServidor({
   async function pararTela() {
     const canal = minhaVozRef.current;
     await salaVozRef.current?.pararTela();
-    void ponte().captura.pararSom?.().catch(() => undefined);
+    void ponte()
+      .captura.pararSom?.()
+      .catch(() => undefined);
     if (canal !== null) await conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
   }
 
@@ -1370,7 +1491,9 @@ function TelaDoServidor({
     if (minhaVozRef.current !== null) tocar('sair');
     setMinhaVoz(null);
     await salaVozRef.current?.sair();
-    void ponte().captura.pararSom?.().catch(() => undefined);
+    void ponte()
+      .captura.pararSom?.()
+      .catch(() => undefined);
     await conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
   }
 
@@ -1475,7 +1598,8 @@ function TelaDoServidor({
           convite={conviteDe(menuPessoa.usuarioId)}
           moderacao={(() => {
             const alvoMod = usuarios.find((u) => u.id === menuPessoa.usuarioId);
-            if (!alvoMod || alvoMod.id === usuario.id || alvoMod.cargo === 'admin' || alvoMod.id === donoServidor || !permissoes.has('moderar_membros')) return undefined;
+            if (!alvoMod || alvoMod.id === usuario.id || alvoMod.cargo === 'admin' || alvoMod.id === donoServidor || !permissoes.has('moderar_membros'))
+              return undefined;
             // Quem não é administrador não modera outro moderador (o servidor também confere).
             if (!ehAdmin && permissoesDe({ ...alvoMod, castigoAte: null }, funcoes).has('moderar_membros')) return undefined;
             return {
@@ -1491,604 +1615,638 @@ function TelaDoServidor({
         />
       )}
       <ContextoConvite.Provider value={contextoConvite}>
-      <ContextoPerfil.Provider value={abrirPerfil}>
-      <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
-        <aside className="coluna-esquerda">
-          <BarraLateral
-            aoEsconder={() => alternarParte('canais')}
-            aba={abaBarra}
-            aoMudarAba={setAbaBarra}
-            aoConversarCom={conversarCom}
-            amizades={amizades}
-            aoPedirAmizade={pedirAmizade}
-            aoAceitarAmizade={aceitarAmizade}
-            aoRemoverAmizade={removerAmizade}
-            aoMenuPessoa={abrirMenuPessoa}
-            nomeServidor={nomeServidor ?? servidorUrl}
-            canais={canais}
-            canalAtivo={vistaAtual === 'canal' && dmAtiva === null ? canalAtivo : null}
-            dms={dms}
-            usuarios={pessoas}
-            dmAtiva={vistaAtual === 'canal' ? dmAtiva : null}
-            naoLidas={naoLidas}
-            aoAbrirDm={(id) => {
-              acoes.abrirDm(id);
-              setVista('canal');
-            }}
-            aoAbrir={(id) => {
-              acoes.abrirCanal(id);
-              setVista('canal');
-            }}
-            aoCriar={criarCanal}
-            ehAdmin={ehAdmin}
-            aoRenomear={renomearCanal}
-            aoRemover={removerCanal}
-            voz={voz}
-            falando={falando}
-            minhaVoz={minhaVoz}
-            servidorUrl={servidorUrl}
-            aoEntrarVoz={(id) => void entrarVoz(id)}
-            euId={usuario.id}
-            pessoasVoz={pessoasVoz}
-            aoVolumePessoa={volumePessoa}
-            aoSilenciarPessoa={silenciarPessoa}
-            presencas={presencas}
-            atividades={atividades}
-            transmissoes={transmissoes}
-            silenciadas={silenciadasAqui}
-          />
-          {(minhaVoz !== null || entrandoVoz || avisoVoz) && (
-            <section className="painel-voz" aria-label="Conexão de voz">
-              <p className="estado" role="status">
-                {entrandoVoz ? (
-                  'Conectando à voz…'
-                ) : minhaVoz !== null && reconectandoVoz ? (
-                  <>
-                    <strong className="reconectando">Reconectando à voz…</strong>
-                    {canais.find((c) => c.id === minhaVoz)?.nome}
-                  </>
-                ) : minhaVoz !== null ? (
-                  <>
-                    <strong>
-                      Voz conectada
-                      {ping !== undefined && (
-                        <span className={`ping ${ping < 100 ? 'bom' : ping < 200 ? 'medio' : 'ruim'}`} title="Ida e volta até o servidor de voz" aria-label={`Ping ${ping} milissegundos`}>
-                          {ping} ms
-                        </span>
-                      )}
-                    </strong>
-                    {canais.find((c) => c.id === minhaVoz)?.nome}
-                  </>
-                ) : (
-                  avisoVoz
-                )}
+        <ContextoPerfil.Provider value={abrirPerfil}>
+          <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
+            <aside className="coluna-esquerda">
+              <BarraLateral
+                aoEsconder={() => alternarParte('canais')}
+                aba={abaBarra}
+                aoMudarAba={setAbaBarra}
+                aoConversarCom={conversarCom}
+                amizades={amizades}
+                aoPedirAmizade={pedirAmizade}
+                aoAceitarAmizade={aceitarAmizade}
+                aoRemoverAmizade={removerAmizade}
+                aoMenuPessoa={abrirMenuPessoa}
+                nomeServidor={nomeServidor ?? servidorUrl}
+                canais={canais}
+                canalAtivo={vistaAtual === 'canal' && dmAtiva === null ? canalAtivo : null}
+                dms={dms}
+                usuarios={pessoas}
+                dmAtiva={vistaAtual === 'canal' ? dmAtiva : null}
+                naoLidas={naoLidas}
+                aoAbrirDm={(id) => {
+                  acoes.abrirDm(id);
+                  setVista('canal');
+                }}
+                aoAbrir={(id) => {
+                  acoes.abrirCanal(id);
+                  setVista('canal');
+                }}
+                aoCriar={criarCanal}
+                ehAdmin={ehAdmin}
+                aoRenomear={renomearCanal}
+                aoRemover={removerCanal}
+                voz={voz}
+                falando={falando}
+                minhaVoz={minhaVoz}
+                servidorUrl={servidorUrl}
+                aoEntrarVoz={(id) => void entrarVoz(id)}
+                euId={usuario.id}
+                pessoasVoz={pessoasVoz}
+                aoVolumePessoa={volumePessoa}
+                aoSilenciarPessoa={silenciarPessoa}
+                presencas={presencas}
+                atividades={atividades}
+                transmissoes={transmissoes}
+                silenciadas={silenciadasAqui}
+              />
+              {(minhaVoz !== null || entrandoVoz || avisoVoz) && (
+                <section className="painel-voz" aria-label="Conexão de voz">
+                  <p className="estado" role="status">
+                    {entrandoVoz ? (
+                      'Conectando à voz…'
+                    ) : minhaVoz !== null && reconectandoVoz ? (
+                      <>
+                        <strong className="reconectando">Reconectando à voz…</strong>
+                        {canais.find((c) => c.id === minhaVoz)?.nome}
+                      </>
+                    ) : minhaVoz !== null ? (
+                      <>
+                        <strong>
+                          Voz conectada
+                          {ping !== undefined && (
+                            <span
+                              className={`ping ${ping < 100 ? 'bom' : ping < 200 ? 'medio' : 'ruim'}`}
+                              title="Ida e volta até o servidor de voz"
+                              aria-label={`Ping ${ping} milissegundos`}
+                            >
+                              {ping} ms
+                            </span>
+                          )}
+                        </strong>
+                        {canais.find((c) => c.id === minhaVoz)?.nome}
+                      </>
+                    ) : (
+                      avisoVoz
+                    )}
+                  </p>
+                  {minhaVoz !== null && (
+                    <PainelMusica
+                      estado={musica.find((m) => m.canalVozId === minhaVoz)}
+                      usuarios={usuarios}
+                      aoComando={comandoMusica}
+                      filaAberta={filaMusicaAberta}
+                      aoAlternarFila={() => setFilaMusicaAberta(!filaMusicaAberta)}
+                      volume={pessoasVoz.volumes[IDENTIDADE_BOT_MUSICA] ?? VOLUME_BOT_PADRAO}
+                      aoVolume={(v) => volumePessoa(IDENTIDADE_BOT_MUSICA, v)}
+                    />
+                  )}
+                  {minhaVoz !== null && !entrandoVoz && (
+                    <>
+                      <span
+                        className={`transmitindo${transmitindo && !controles.mudo && !controles.surdo ? ' ativo' : ''}`}
+                        role="img"
+                        aria-label={transmitindo ? 'Transmitindo' : 'Microfone em silêncio'}
+                        title={`${transmitindo ? 'Transmitindo' : 'Em silêncio'}${ping !== undefined ? ` · ping ${ping} ms` : ''}`}
+                      />
+                      <button
+                        type="button"
+                        className={`icone controle${controles.mudo || controles.surdo ? ' desligado' : ''}`}
+                        aria-pressed={controles.mudo || controles.surdo}
+                        aria-label="Mutar microfone"
+                        title="Mutar microfone (mute)"
+                        onClick={alternarMudo}
+                      >
+                        <Icone nome={controles.mudo || controles.surdo ? 'microfoneDesligado' : 'microfone'} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`icone controle${controles.surdo ? ' desligado' : ''}`}
+                        aria-pressed={controles.surdo}
+                        aria-label="Desligar áudio"
+                        title="Desligar áudio (deafen)"
+                        onClick={alternarSurdo}
+                      >
+                        <Icone nome={controles.surdo ? 'foneDesligado' : 'fone'} />
+                      </button>
+                      <VolumeChamada volume={audio.volumeChamada} aoMudar={(v) => void mudarAudio({ ...audioRef.current, volumeChamada: v })} />
+                      <button
+                        type="button"
+                        className={`icone controle${controles.camera ? ' ligado' : ''}`}
+                        aria-pressed={controles.camera}
+                        aria-label="Câmera"
+                        disabled={!controles.camera && !permissoes.has('usar_camera')}
+                        title={!permissoes.has('usar_camera') ? 'Seu cargo não libera a câmera' : controles.camera ? 'Desligar câmera' : 'Ligar câmera'}
+                        onClick={() => void alternarCamera()}
+                      >
+                        <Icone nome="camera" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`icone controle${minhaTela ? ' ligado' : ''}`}
+                        aria-pressed={minhaTela}
+                        aria-label="Transmitir tela"
+                        ref={botaoTelaRef}
+                        disabled={iniciandoTela || (!minhaTela && !permissoes.has('transmitir_tela'))}
+                        title={
+                          !permissoes.has('transmitir_tela')
+                            ? 'Seu cargo não libera transmitir a tela'
+                            : iniciandoTela
+                              ? 'Iniciando a transmissão…'
+                              : minhaTela
+                                ? 'Parar transmissão'
+                                : 'Transmitir tela'
+                        }
+                        onClick={() => (minhaTela ? void pararTela() : abrirSeletorTela())}
+                      >
+                        <Icone nome="tela" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`icone controle${soundboardAberto ? ' ligado' : ''}`}
+                        aria-expanded={soundboardAberto}
+                        aria-label="Tocar sons"
+                        disabled={!permissoes.has('tocar_sons')}
+                        title={permissoes.has('tocar_sons') ? 'Soundboard: tocar sons para o canal' : 'Seu cargo não libera o soundboard'}
+                        onClick={() => setSoundboardAberto(!soundboardAberto)}
+                      >
+                        <Icone nome="sons" />
+                      </button>
+                      <button type="button" className="icone controle sair-voz" aria-label="Sair da voz" title="Sair da voz" onClick={() => void sairVoz()}>
+                        <Icone nome="desligar" />
+                      </button>
+                    </>
+                  )}
+                  {minhaVoz === null && !entrandoVoz && avisoVoz && (
+                    <button type="button" className="secundario" aria-label="Fechar aviso da voz" onClick={() => setAvisoVoz(null)}>
+                      ×
+                    </button>
+                  )}
+                </section>
+              )}
+              {minhaVoz !== null && avisoVoz && (
+                <p className="aviso-ok" role="alert">
+                  {avisoVoz}
+                </p>
+              )}
+              {/* Região viva sempre montada: o leitor de tela anuncia quando o texto muda. */}
+              <p className={`aviso-som${avisoSom ? '' : ' vazio'}`} aria-live="polite" aria-atomic="true">
+                {avisoSom ? `🔊 ${avisoSom.texto}` : ''}
               </p>
-              {minhaVoz !== null && (
-                <PainelMusica
-                  estado={musica.find((m) => m.canalVozId === minhaVoz)}
-                  usuarios={usuarios}
-                  aoComando={comandoMusica}
-                  filaAberta={filaMusicaAberta}
-                  aoAlternarFila={() => setFilaMusicaAberta(!filaMusicaAberta)}
-                  volume={pessoasVoz.volumes[IDENTIDADE_BOT_MUSICA] ?? VOLUME_BOT_PADRAO}
-                  aoVolume={(v) => volumePessoa(IDENTIDADE_BOT_MUSICA, v)}
+              {soundboardAberto && (
+                <PainelSoundboard
+                  sons={sons}
+                  naVoz={minhaVoz !== null}
+                  liberadoEm={liberadoEm}
+                  volume={prefSons.soundboard}
+                  aoVolume={(v) => mudarSons({ ...sonsRef.current, soundboard: v })}
+                  aoTocar={tocarSom}
+                  aoFechar={() => setSoundboardAberto(false)}
                 />
               )}
-              {minhaVoz !== null && !entrandoVoz && (
-                <>
-                  <span
-                    className={`transmitindo${transmitindo && !controles.mudo && !controles.surdo ? ' ativo' : ''}`}
-                    role="img"
-                    aria-label={transmitindo ? 'Transmitindo' : 'Microfone em silêncio'}
-                    title={`${transmitindo ? 'Transmitindo' : 'Em silêncio'}${ping !== undefined ? ` · ping ${ping} ms` : ''}`}
-                  />
-                  <button
-                    type="button"
-                    className={`icone controle${controles.mudo || controles.surdo ? ' desligado' : ''}`}
-                    aria-pressed={controles.mudo || controles.surdo}
-                    aria-label="Mutar microfone"
-                    title="Mutar microfone (mute)"
-                    onClick={alternarMudo}
-                  >
-                    <Icone nome={controles.mudo || controles.surdo ? 'microfoneDesligado' : 'microfone'} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`icone controle${controles.surdo ? ' desligado' : ''}`}
-                    aria-pressed={controles.surdo}
-                    aria-label="Desligar áudio"
-                    title="Desligar áudio (deafen)"
-                    onClick={alternarSurdo}
-                  >
-                    <Icone nome={controles.surdo ? 'foneDesligado' : 'fone'} />
-                  </button>
-                  <VolumeChamada volume={audio.volumeChamada} aoMudar={(v) => void mudarAudio({ ...audioRef.current, volumeChamada: v })} />
-                  <button
-                    type="button"
-                    className={`icone controle${controles.camera ? ' ligado' : ''}`}
-                    aria-pressed={controles.camera}
-                    aria-label="Câmera"
-                    disabled={!controles.camera && !permissoes.has('usar_camera')}
-                    title={!permissoes.has('usar_camera') ? 'Seu cargo não libera a câmera' : controles.camera ? 'Desligar câmera' : 'Ligar câmera'}
-                    onClick={() => void alternarCamera()}
-                  >
-                    <Icone nome="camera" />
-                  </button>
-                  <button
-                    type="button"
-                    className={`icone controle${minhaTela ? ' ligado' : ''}`}
-                    aria-pressed={minhaTela}
-                    aria-label="Transmitir tela"
-                    ref={botaoTelaRef}
-                    disabled={iniciandoTela || (!minhaTela && !permissoes.has('transmitir_tela'))}
-                    title={!permissoes.has('transmitir_tela') ? 'Seu cargo não libera transmitir a tela' : iniciandoTela ? 'Iniciando a transmissão…' : minhaTela ? 'Parar transmissão' : 'Transmitir tela'}
-                    onClick={() => (minhaTela ? void pararTela() : abrirSeletorTela())}
-                  >
-                    <Icone nome="tela" />
-                  </button>
-                  <button
-                    type="button"
-                    className={`icone controle${soundboardAberto ? ' ligado' : ''}`}
-                    aria-expanded={soundboardAberto}
-                    aria-label="Tocar sons"
-                    disabled={!permissoes.has('tocar_sons')}
-                    title={permissoes.has('tocar_sons') ? 'Soundboard: tocar sons para o canal' : 'Seu cargo não libera o soundboard'}
-                    onClick={() => setSoundboardAberto(!soundboardAberto)}
-                  >
-                    <Icone nome="sons" />
-                  </button>
-                  <button type="button" className="icone controle sair-voz" aria-label="Sair da voz" title="Sair da voz" onClick={() => void sairVoz()}>
-                    <Icone nome="desligar" />
-                  </button>
-                </>
-              )}
-              {minhaVoz === null && !entrandoVoz && avisoVoz && (
-                <button type="button" className="secundario" aria-label="Fechar aviso da voz" onClick={() => setAvisoVoz(null)}>
-                  ×
-                </button>
-              )}
-            </section>
-          )}
-          {minhaVoz !== null && avisoVoz && (
-            <p className="aviso-ok" role="alert">
-              {avisoVoz}
-            </p>
-          )}
-          {/* Região viva sempre montada: o leitor de tela anuncia quando o texto muda. */}
-          <p className={`aviso-som${avisoSom ? '' : ' vazio'}`} aria-live="polite" aria-atomic="true">
-            {avisoSom ? `🔊 ${avisoSom.texto}` : ''}
-          </p>
-          {soundboardAberto && (
-            <PainelSoundboard
-              sons={sons}
-              naVoz={minhaVoz !== null}
-              liberadoEm={liberadoEm}
-              volume={prefSons.soundboard}
-              aoVolume={(v) => mudarSons({ ...sonsRef.current, soundboard: v })}
-              aoTocar={tocarSom}
-              aoFechar={() => setSoundboardAberto(false)}
-            />
-          )}
-          <section className="painel-usuario" aria-label="Você">
-            <div className="painel-usuario-topo">
-              <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={34} />
-              <div className="painel-usuario-nomes">
-                <p className="nome" data-testid="usuario-logado">
-                  Olá, {usuario.nomeExibicao}
-                </p>
-                <p className="suave">
-                  {ehAdmin ? 'Administrador' : (funcoes.find((f) => f.id === usuario.funcaoId)?.nome ?? 'Membro')} · {nomeServidor ?? servidorUrl}
-                </p>
-                <SeletorStatus valor={escolhaStatus} aoMudar={mudarStatus} />
-                {pontos && (
-                  <button type="button" className="saldo-pontos" title="Seus pontos (abre a loja)" onClick={() => setVista('loja')}>
-                    <span className="loja-estrela" aria-hidden="true" />
-                    <span data-testid="saldo-painel">{pontos.saldo.toLocaleString('pt-BR')}</span>
-                    <span className="so-leitor"> pontos, abrir a loja</span>
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                className="icone abrir-menu"
-                aria-label="Menu"
-                title="Perfil, configurações, convite, administração…"
-                aria-expanded={menuAberto}
-                aria-controls="menu-usuario"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuAberto(!menuAberto);
-                }}
-              >
-                <Icone nome="engrenagem" tamanho={20} />
-              </button>
-            </div>
-            {/* Backlog v2, item 8: as opções saíram do canto (eram 10 botões soltos) para este menu. */}
-            {menuAberto && (
-              <div id="menu-usuario" className="menu-usuario" onClick={() => setMenuAberto(false)}>
-                <button type="button" onClick={() => setConfigAberta('conta')}>
-                  Meu perfil
-                </button>
-                <button type="button" onClick={() => setConfigAberta('voz')}>
-                  Configurações
-                </button>
-                {pontos && (
-                  <button type="button" onClick={() => setVista('loja')}>
-                    Loja
-                  </button>
-                )}
-                <button type="button" onClick={() => setConfigAberta('novidades')}>
-                  Novidades
-                </button>
-                {aoAtualizarApp && (
-                  <button type="button" onClick={aoAtualizarApp}>
-                    Atualizar o app
-                  </button>
-                )}
-                {linkConvite && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void ponte()
-                        .areaTransferencia.copiar(linkConvite)
-                        .then(() => setCopiado('Link de convite copiado.'))
-                        .catch(() => setCopiado('Não foi possível copiar o link.'))
-                        .finally(() => setTimeout(() => setCopiado(null), 4000))
-                    }
-                  >
-                    Copiar link de convite
-                  </button>
-                )}
-                {(ehAdmin || ehAdminDaInstalacao || ['gerenciar_convite', 'gerenciar_sons', 'ver_auditoria'].some((p) => permissoes.has(p as Permissao))) && (
-                  <>
-                    <p className="menu-grupo">Administração</p>
-                    {ehAdmin && (
-                      <button type="button" onClick={() => setVista('membros')}>
-                        Membros
+              <section className="painel-usuario" aria-label="Você">
+                <div className="painel-usuario-topo">
+                  <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={34} />
+                  <div className="painel-usuario-nomes">
+                    <p className="nome" data-testid="usuario-logado">
+                      Olá, {usuario.nomeExibicao}
+                    </p>
+                    <p className="suave">
+                      {ehAdmin ? 'Administrador' : (funcoes.find((f) => f.id === usuario.funcaoId)?.nome ?? 'Membro')} · {nomeServidor ?? servidorUrl}
+                    </p>
+                    <SeletorStatus valor={escolhaStatus} aoMudar={mudarStatus} />
+                    {pontos && (
+                      <button type="button" className="saldo-pontos" title="Seus pontos (abre a loja)" onClick={() => setVista('loja')}>
+                        <span className="loja-estrela" aria-hidden="true" />
+                        <span data-testid="saldo-painel">{pontos.saldo.toLocaleString('pt-BR')}</span>
+                        <span className="so-leitor"> pontos, abrir a loja</span>
                       </button>
                     )}
-                    {permissoes.has('gerenciar_convite') && (
-                      <button type="button" onClick={() => setVista('convite')}>
-                        Convite
+                  </div>
+                  <button
+                    type="button"
+                    className="icone abrir-menu"
+                    aria-label="Menu"
+                    title="Perfil, configurações, convite, administração…"
+                    aria-expanded={menuAberto}
+                    aria-controls="menu-usuario"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuAberto(!menuAberto);
+                    }}
+                  >
+                    <Icone nome="engrenagem" tamanho={20} />
+                  </button>
+                </div>
+                {/* Backlog v2, item 8: as opções saíram do canto (eram 10 botões soltos) para este menu. */}
+                {menuAberto && (
+                  <div id="menu-usuario" className="menu-usuario" onClick={() => setMenuAberto(false)}>
+                    <button type="button" onClick={() => setConfigAberta('conta')}>
+                      Meu perfil
+                    </button>
+                    <button type="button" onClick={() => setConfigAberta('voz')}>
+                      Configurações
+                    </button>
+                    {pontos && (
+                      <button type="button" onClick={() => setVista('loja')}>
+                        Loja
                       </button>
                     )}
-                    {permissoes.has('gerenciar_sons') && (
-                      <button type="button" onClick={() => setVista('sons')}>
-                        Soundboard
+                    <button type="button" onClick={() => setConfigAberta('novidades')}>
+                      Novidades
+                    </button>
+                    {aoAtualizarApp && (
+                      <button type="button" onClick={aoAtualizarApp}>
+                        Atualizar o app
                       </button>
                     )}
-                    {ehAdminDaInstalacao && (
-                      <button type="button" onClick={() => setVista('toouvini')}>
-                        Bot de música (ToOuvini)
-                      </button>
-                    )}
-                    {ehAdminDaInstalacao && (
+                    {linkConvite && (
                       <button
                         type="button"
                         onClick={() =>
-                          // Pelo principal (a rota exige o administrador do principal), mesmo aberto noutro servidor.
-                          void pedirAtualizacaoServidor(apiPrincipal).then((texto) => {
-                            setCopiado(texto);
-                            setTimeout(() => setCopiado(null), 8000);
-                          })
+                          void ponte()
+                            .areaTransferencia.copiar(linkConvite)
+                            .then(() => setCopiado('Link de convite copiado.'))
+                            .catch(() => setCopiado('Não foi possível copiar o link.'))
+                            .finally(() => setTimeout(() => setCopiado(null), 4000))
                         }
                       >
-                        Atualizar o servidor agora
+                        Copiar link de convite
                       </button>
                     )}
-                    {permissoes.has('ver_auditoria') && (
-                      <button type="button" onClick={abrirAuditoria}>
-                        Auditoria
+                    {(ehAdmin ||
+                      ehAdminDaInstalacao ||
+                      ['gerenciar_convite', 'gerenciar_sons', 'ver_auditoria'].some((p) => permissoes.has(p as Permissao))) && (
+                      <>
+                        <p className="menu-grupo">Administração</p>
+                        {ehAdmin && (
+                          <button type="button" onClick={() => setVista('membros')}>
+                            Membros
+                          </button>
+                        )}
+                        {permissoes.has('gerenciar_convite') && (
+                          <button type="button" onClick={() => setVista('convite')}>
+                            Convite
+                          </button>
+                        )}
+                        {permissoes.has('gerenciar_sons') && (
+                          <button type="button" onClick={() => setVista('sons')}>
+                            Soundboard
+                          </button>
+                        )}
+                        {ehAdminDaInstalacao && (
+                          <button type="button" onClick={() => setVista('toouvini')}>
+                            Bot de música (ToOuvini)
+                          </button>
+                        )}
+                        {/* Pelo principal (a rota exige o administrador do principal), mesmo aberto noutro servidor. */}
+                        <BotaoAtualizarServidor
+                          podePedir={ehAdminDaInstalacao}
+                          api={apiPrincipal}
+                          aoResponder={(r) => {
+                            setPedidoAtualizacao(r);
+                            clearTimeout(prazoPedidoRef.current);
+                            prazoPedidoRef.current = setTimeout(() => setPedidoAtualizacao(null), 8000);
+                          }}
+                        />
+                        {permissoes.has('ver_auditoria') && (
+                          <button type="button" onClick={abrirAuditoria}>
+                            Auditoria
+                          </button>
+                        )}
+                      </>
+                    )}
+                    <hr />
+                    {ehAdmin && (
+                      <button type="button" onClick={() => setVista('servidor')}>
+                        Editar servidor
                       </button>
                     )}
-                  </>
-                )}
-                <hr />
-                {ehAdmin && (
-                  <button type="button" onClick={() => setVista('servidor')}>
-                    Editar servidor
-                  </button>
-                )}
-                {servidorId !== null && servidorId !== 1 && donoServidor !== usuario.id && (
-                  <button type="button" onClick={() => void sairDoServidor()}>
-                    Sair do servidor
-                  </button>
-                )}
-                {servidorId !== null && servidorId !== 1 && donoServidor === usuario.id && (
-                  <button type="button" className="sair" onClick={() => void excluirServidor()}>
-                    Excluir servidor
-                  </button>
-                )}
-                <button type="button" onClick={aoTrocarServidor}>
-                  Trocar servidor
-                </button>
-                <button type="button" className="sair" onClick={aoSair}>
-                  Sair
-                </button>
-                <p className="versao-app" title="Versão do app e do servidor">
-                  ToFalany v{ponte().versao || '?'}
-                  {versaoServidor && ` · servidor v${versaoServidor}`}
-                </p>
-              </div>
-            )}
-            {copiado && (
-              <p className="aviso-ok" role="status">
-                {copiado}
-              </p>
-            )}
-          </section>
-        </aside>
-
-        <ContextoPrevia.Provider value={buscarPrevia}>
-        <main className="conteudo">
-          {deCastigo && (
-            <section className="aviso-castigo" role="status" aria-label="Você está de castigo">
-              <span>
-                ⏳ Você está de castigo neste servidor até{' '}
-                <strong>
-                  {new Date(castigoAte).toLocaleString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    ...(new Date(castigoAte).toDateString() !== new Date().toDateString() ? { day: '2-digit', month: '2-digit' } : {}),
-                  })}
-                </strong>
-                . Enquanto isso, não dá para escrever, entrar na voz nem transmitir.
-                {meuCastigo?.motivo && (
-                  <>
-                    {' '}
-                    Motivo: <em>{meuCastigo.motivo}</em>
-                  </>
-                )}
-              </span>
-            </section>
-          )}
-          {vozEmOutro && minhaVoz === null && (
-            <section className="aviso-voz-outro" aria-label="Voz em outro servidor">
-              <span>
-                <Icone nome="altoFalante" tamanho={16} /> Na voz em <strong>{vozEmOutro.canal}</strong> · {vozEmOutro.servidor}
-              </span>
-              <button type="button" className="secundario" onClick={vozEmOutro.aoVoltar}>
-                Voltar
-              </button>
-              <button type="button" className="perigo" onClick={vozEmOutro.aoDesconectar}>
-                Desconectar
-              </button>
-            </section>
-          )}
-          {minhaTela && (
-            <section className="aviso-transmissao" aria-label="Sua transmissão">
-              <span className="com-icone"><Icone nome="tela" tamanho={16} /> Você está transmitindo a tela.</span>
-              <Espectadores nomes={nomesDeIds(transmissoes.find((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id)?.espectadores)} />
-              {faixaPrevia && (
-                <button type="button" className="secundario" aria-pressed={verPrevia} onClick={() => setVerPrevia(!verPrevia)}>
-                  {verPrevia ? 'Ocultar prévia' : 'Ver prévia'}
-                </button>
-              )}
-              <button type="button" className="perigo" disabled={iniciandoTela} onClick={() => void pararTela()}>
-                Parar transmissão
-              </button>
-              {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} telaInteira={previaDaTelaInteira} mesmaTela={previaMesmaTela} />}
-            </section>
-          )}
-          {transmissoes
-            .filter((t) => t.canalVozId === minhaVoz && t.usuarioId !== usuario.id)
-            .map((t) => (
-              <PainelTransmissao
-                key={t.usuarioId}
-                nome={usuarios.find((u) => u.id === t.usuarioId)?.nomeExibicao ?? 'Alguém'}
-                faixa={telasRemotas.find((v) => v.usuarioId === t.usuarioId)?.faixa}
-                espectadores={nomesDeIds(t.espectadores)}
-                conectado={conexao === 'conectado'}
-                aoSom={(o) => salaVozRef.current?.somDaTela(t.usuarioId, o)}
-                aoAssistir={(assistindo) =>
-                  void conexaoRef.current?.pedir('tela:assistir', { canalVozId: t.canalVozId, usuarioId: t.usuarioId, assistindo }).catch(() => undefined)
-                }
-              />
-            ))}
-          {!ocultos.cameras && <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />}
-          {vistaAtual === 'auditoria' ? (
-            <TelaAuditoria api={api} pessoas={pessoasAuditoria} canais={canais} aoVoltar={voltar} />
-          ) : vistaAtual === 'membros' ? (
-            <TelaMembros
-              eu={usuario}
-              usuarios={usuarios}
-              servidorUrl={servidorUrl}
-              api={api}
-              aoAtualizar={acoes.atualizarUsuario}
-              aoRemover={acoes.removerUsuario}
-              aoVoltar={voltar}
-              copiar={(texto) => ponte().areaTransferencia.copiar(texto)}
-              funcoes={funcoes}
-            />
-          ) : vistaAtual === 'servidor' ? (
-            <TelaEditarServidor api={api} nome={nomeServidor ?? ''} iconeUrl={iconeServidor} servidorUrl={separarComunidade(servidorUrl).base} aoVoltar={voltar} />
-          ) : vistaAtual === 'toouvini' ? (
-            // O ToOuvini é da instalação: fala sempre com o servidor principal (o mesmo login vale lá).
-            <TelaToOuvini api={apiPrincipal} aoVoltar={voltar} />
-          ) : vistaAtual === 'loja' && pontos ? (
-            <TelaLoja estado={pontos} api={api} temaAtual={tema} aoUsarTema={mudarTema} aoComprar={acoes.definirPontos} aoVoltar={voltar} />
-          ) : vistaAtual === 'sons' ? (
-            <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
-          ) : vistaAtual === 'convite' ? (
-            <TelaConvite api={api} aoVoltar={voltar} />
-          ) : dmAtiva !== null && dms.some((d) => d.id === dmAtiva) ? (
-            <DmAberta
-              extras={barraVisao}
-              antes={mostrarCanais}
-              key={`dm-${dmAtiva}`}
-              dm={dms.find((d) => d.id === dmAtiva)!}
-              outro={pessoas.find((u) => u.id === dms.find((d) => d.id === dmAtiva)!.outroId)}
-              usuarios={pessoas}
-              servidorUrl={servidorUrl}
-              euId={usuario.id}
-              api={api}
-              aoEnviar={(dmId, texto, anexos, opcoes) => enviarMensagem({ dmId }, texto, anexos, opcoes)}
-              aoEditarMensagem={editarMensagem}
-              aoApagarMensagem={apagarMensagem}
-              aoReagirMensagem={reagirMensagem}
-              klipy={klipy}
-              aoDigitar={(dmId) => conexaoRef.current?.avisarDigitando({ dmId })}
-              silenciada={silenciadasAqui.includes(`d:${dmAtiva}`)}
-              aoSilenciar={(sim) => silenciarConversa(`d:${dmAtiva}`, sim)}
-            />
-          ) : (
-            <CanalAberto
-              extras={barraVisao}
-              antes={mostrarCanais}
-              key={canalAtivo ?? 'nenhum'}
-              canal={canais.find((c) => c.id === canalAtivo)}
-              ehAdmin={ehAdmin}
-              somenteLeitura={permissoes.has('enviar_mensagens') ? undefined : deCastigo ? 'Você está de castigo: não dá para escrever até ele acabar.' : 'Seu cargo não permite enviar mensagens nos canais.'}
-              aoRenomear={renomearCanal}
-              aoRemover={removerCanal}
-              usuarios={usuarios}
-              servidorUrl={servidorUrl}
-              api={api}
-              aoEnviar={enviarNoCanal}
-              euId={usuario.id}
-              aoEditarMensagem={editarMensagem}
-              aoApagarMensagem={apagarMensagem}
-              aoReagirMensagem={reagirMensagem}
-              klipy={klipy}
-              aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando({ canalId })}
-              silenciada={canalAtivo !== null && silenciadasAqui.includes(`c:${canalAtivo}`)}
-              podeMencionarTodos={permissoes.has('mencionar_todos')}
-              aoSilenciar={canalAtivo !== null ? (sim) => silenciarConversa(`c:${canalAtivo}`, sim) : undefined}
-            />
-          )}
-        </main>
-        </ContextoPrevia.Provider>
-
-        {/* Configurações numa janela sobre o app (seções à esquerda); fecha com Esc ou no X. */}
-        {configAberta && !oculta && (
-        <TelaConfiguracoes
-          audio={audio}
-          aoMudarAudio={mudarAudio}
-          aoTestarSom={testarSom}
-          atalhos={atalhos}
-          aoMudarAtalhos={mudarAtalhos}
-          aoCapturar={pausarAtalhos}
-          sons={prefSons}
-          aoMudarSons={mudarSons}
-          notificacoes={notif}
-          aoMudarNotificacoes={mudarNotificacoes}
-          tema={tema}
-          aoMudarTema={mudarTema}
-          aoFechar={aoFechar}
-          aoMudarAoFechar={mudarAoFechar}
-          atividade={prefAtividade}
-          aoMudarAtividade={mudarAtividade}
-          tela={telaPrefs}
-          aoMudarTela={mudarTela}
-          qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
-          comLoja={pontos !== null}
-          temasLiberados={pontos ? (pontos.tudoLiberado ? TEMAS_LOJA : pontos.temas) : undefined}
-          aoAbrirLoja={() => {
-            setConfigAberta(null);
-            setVista('loja');
-          }}
-          secaoInicial={configAberta ?? 'voz'}
-          conta={
-            <>
-              <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={acoes.atualizarUsuario} />
-              <SegurancaConta api={api} copiar={(t) => ponte().areaTransferencia.copiar(t)} />
-            </>
-          }
-          novidades={
-            <>
-              <ProcurarAtualizacao atualizacao={ponte().atualizacao} versaoAtual={ponte().versao} />
-              <NotasDasVersoes versaoAtual={ponte().versao} />
-            </>
-          }
-          aoVoltar={() => setConfigAberta(null)}
-        />
-        )}
-
-        {seletorTela && (
-          <SeletorTela
-            listar={ponte().captura.fontes}
-            audioDisponivel={ponte().captura.audioDisponivel}
-            // No Windows (item 31) a última escolha não vale: toda transmissão abre desmarcada.
-            audioPadrao={ponte().captura.somLevaChamada ? false : (telaPrefs.audio ?? true)}
-            avisoSomChamada={ponte().captura.somLevaChamada}
-            qualidades={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
-            comLoja={pontos !== null}
-            qualidadePadrao={telaPrefs.qualidade}
-            aoEscolher={(f, a, q) => {
-              // Lembra a escolha do som para a próxima vez (no Windows, não: item 31).
-              const lembrar = somParaLembrar(ponte().captura, a, telaRef.current.audio);
-              if (lembrar !== undefined) mudarTela({ ...telaRef.current, audio: lembrar });
-              void transmitirTela(f, a, q);
-            }}
-            aoCancelar={fecharSeletorTela}
-          />
-        )}
-        <aside className="coluna-direita">
-          <h2 className="subtitulo">Membros — {usuarios.length}</h2>
-          {/* RF-37: online/ausente primeiro, depois offline; cada um com a bolinha de status. */}
-          <ul className="lista-membros" aria-label="Membros">
-            {membrosPorStatus.map((item) =>
-              'grupo' in item ? (
-                <li key={item.grupo} className="grupo-membros" aria-hidden="true">
-                  {item.grupo}
-                </li>
-              ) : (
-                <li
-                  key={item.u.id}
-                  aria-label={`${item.u.nomeExibicao}, ${TEXTO_STATUS[item.status]}`}
-                  className={item.fundo ? 'com-fundo' : undefined}
-                  style={item.fundo ? ({ '--fundo-membro': item.fundo } as CSSProperties) : undefined}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    abrirMenuPessoa(item.u.id, e.clientX, e.clientY);
-                  }}
-                >
-                  <button type="button" className="membro-abrir" aria-label={`Perfil de ${item.u.nomeExibicao}`} onClick={(e) => abrirPerfil(item.u.id, e.currentTarget)}>
-                    <span className="avatar-com-status">
-                      <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
-                      <StatusPonto status={item.status} />
-                    </span>
-                    <span className="nome-membro" style={cargoVisivel(item.u) ? { color: cargoVisivel(item.u)!.cor } : undefined}>
-                      {item.u.nomeExibicao}
-                    </span>
-                  </button>
-                  {atividades[item.u.id] && (
-                    <span className="atividade-membro" title={textosAtividade(atividades[item.u.id]).join('\n')}>
-                      {textosAtividade(atividades[item.u.id])[0]}
-                    </span>
-                  )}
-                  {item.u.cargo === 'admin' && <span className="selo">admin</span>}
-                  {item.u.castigoAte && item.u.castigoAte > Date.now() && (
-                    <span
-                      className="selo selo-castigo"
-                      title={`De castigo até ${new Date(item.u.castigoAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-                    >
-                      castigo
-                    </span>
-                  )}
-                  {cargoVisivel(item.u) && (
-                    <span className="selo selo-funcao" style={{ color: cargoVisivel(item.u)!.cor, borderColor: cargoVisivel(item.u)!.cor }}>
-                      {cargoVisivel(item.u)!.nome}
-                    </span>
-                  )}
-                  {item.u.id !== usuario.id && (
-                    <button
-                      type="button"
-                      className="icone conversar"
-                      aria-label={`Conversar com ${item.u.nomeExibicao}`}
-                      title="Mensagem direta"
-                      onClick={() => conversarCom(item.u.id)}
-                    >
-                      <Icone nome="carta" tamanho={16} />
+                    {servidorId !== null && servidorId !== 1 && donoServidor !== usuario.id && (
+                      <button type="button" onClick={() => void sairDoServidor()}>
+                        Sair do servidor
+                      </button>
+                    )}
+                    {servidorId !== null && servidorId !== 1 && donoServidor === usuario.id && (
+                      <button type="button" className="sair" onClick={() => void excluirServidor()}>
+                        Excluir servidor
+                      </button>
+                    )}
+                    <button type="button" onClick={aoTrocarServidor}>
+                      Trocar servidor
                     </button>
-                  )}
-                </li>
-              ),
+                    <button type="button" className="sair" onClick={aoSair}>
+                      Sair
+                    </button>
+                    <p className="versao-app" title="Versão do app e do servidor">
+                      ToFalany v{ponte().versao || '?'}
+                      {versaoServidor && ` · servidor v${versaoServidor}`}
+                    </p>
+                  </div>
+                )}
+                {copiado && (
+                  <p className="aviso-ok" role="status">
+                    {copiado}
+                  </p>
+                )}
+                {pedidoAtualizacao && (
+                  <p className={pedidoAtualizacao.ok ? 'aviso-ok' : 'erro'} role="status">
+                    {pedidoAtualizacao.texto}
+                  </p>
+                )}
+              </section>
+            </aside>
+
+            <ContextoPrevia.Provider value={buscarPrevia}>
+              <main className="conteudo">
+                {deCastigo && (
+                  <section className="aviso-castigo" role="status" aria-label="Você está de castigo">
+                    <span>
+                      ⏳ Você está de castigo neste servidor até{' '}
+                      <strong>
+                        {new Date(castigoAte).toLocaleString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          ...(new Date(castigoAte).toDateString() !== new Date().toDateString() ? { day: '2-digit', month: '2-digit' } : {}),
+                        })}
+                      </strong>
+                      . Enquanto isso, não dá para escrever, entrar na voz nem transmitir.
+                      {meuCastigo?.motivo && (
+                        <>
+                          {' '}
+                          Motivo: <em>{meuCastigo.motivo}</em>
+                        </>
+                      )}
+                    </span>
+                  </section>
+                )}
+                {vozEmOutro && minhaVoz === null && (
+                  <section className="aviso-voz-outro" aria-label="Voz em outro servidor">
+                    <span>
+                      <Icone nome="altoFalante" tamanho={16} /> Na voz em <strong>{vozEmOutro.canal}</strong> · {vozEmOutro.servidor}
+                    </span>
+                    <button type="button" className="secundario" onClick={vozEmOutro.aoVoltar}>
+                      Voltar
+                    </button>
+                    <button type="button" className="perigo" onClick={vozEmOutro.aoDesconectar}>
+                      Desconectar
+                    </button>
+                  </section>
+                )}
+                {minhaTela && (
+                  <section className="aviso-transmissao" aria-label="Sua transmissão">
+                    <span className="com-icone">
+                      <Icone nome="tela" tamanho={16} /> Você está transmitindo a tela.
+                    </span>
+                    <Espectadores nomes={nomesDeIds(transmissoes.find((t) => t.canalVozId === minhaVoz && t.usuarioId === usuario.id)?.espectadores)} />
+                    {faixaPrevia && (
+                      <button type="button" className="secundario" aria-pressed={verPrevia} onClick={() => setVerPrevia(!verPrevia)}>
+                        {verPrevia ? 'Ocultar prévia' : 'Ver prévia'}
+                      </button>
+                    )}
+                    <button type="button" className="perigo" disabled={iniciandoTela} onClick={() => void pararTela()}>
+                      Parar transmissão
+                    </button>
+                    {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} telaInteira={previaDaTelaInteira} mesmaTela={previaMesmaTela} />}
+                  </section>
+                )}
+                {transmissoes
+                  .filter((t) => t.canalVozId === minhaVoz && t.usuarioId !== usuario.id)
+                  .map((t) => (
+                    <PainelTransmissao
+                      key={t.usuarioId}
+                      nome={usuarios.find((u) => u.id === t.usuarioId)?.nomeExibicao ?? 'Alguém'}
+                      faixa={telasRemotas.find((v) => v.usuarioId === t.usuarioId)?.faixa}
+                      espectadores={nomesDeIds(t.espectadores)}
+                      conectado={conexao === 'conectado'}
+                      aoSom={(o) => salaVozRef.current?.somDaTela(t.usuarioId, o)}
+                      aoAssistir={(assistindo) =>
+                        void conexaoRef.current?.pedir('tela:assistir', { canalVozId: t.canalVozId, usuarioId: t.usuarioId, assistindo }).catch(() => undefined)
+                      }
+                    />
+                  ))}
+                {!ocultos.cameras && <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />}
+                {vistaAtual === 'auditoria' ? (
+                  <TelaAuditoria api={api} pessoas={pessoasAuditoria} canais={canais} aoVoltar={voltar} />
+                ) : vistaAtual === 'membros' ? (
+                  <TelaMembros
+                    eu={usuario}
+                    usuarios={usuarios}
+                    servidorUrl={servidorUrl}
+                    api={api}
+                    aoAtualizar={acoes.atualizarUsuario}
+                    aoRemover={acoes.removerUsuario}
+                    aoVoltar={voltar}
+                    copiar={(texto) => ponte().areaTransferencia.copiar(texto)}
+                    funcoes={funcoes}
+                  />
+                ) : vistaAtual === 'servidor' ? (
+                  <TelaEditarServidor
+                    api={api}
+                    nome={nomeServidor ?? ''}
+                    iconeUrl={iconeServidor}
+                    servidorUrl={separarComunidade(servidorUrl).base}
+                    aoVoltar={voltar}
+                  />
+                ) : vistaAtual === 'toouvini' ? (
+                  // O ToOuvini é da instalação: fala sempre com o servidor principal (o mesmo login vale lá).
+                  <TelaToOuvini api={apiPrincipal} aoVoltar={voltar} />
+                ) : vistaAtual === 'loja' && pontos ? (
+                  <TelaLoja estado={pontos} api={api} temaAtual={tema} aoUsarTema={mudarTema} aoComprar={acoes.definirPontos} aoVoltar={voltar} />
+                ) : vistaAtual === 'sons' ? (
+                  <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
+                ) : vistaAtual === 'convite' ? (
+                  <TelaConvite api={api} aoVoltar={voltar} />
+                ) : dmAtiva !== null && dms.some((d) => d.id === dmAtiva) ? (
+                  <DmAberta
+                    extras={barraVisao}
+                    antes={mostrarCanais}
+                    key={`dm-${dmAtiva}`}
+                    dm={dms.find((d) => d.id === dmAtiva)!}
+                    outro={pessoas.find((u) => u.id === dms.find((d) => d.id === dmAtiva)!.outroId)}
+                    usuarios={pessoas}
+                    servidorUrl={servidorUrl}
+                    euId={usuario.id}
+                    api={api}
+                    aoEnviar={(dmId, texto, anexos, opcoes) => enviarMensagem({ dmId }, texto, anexos, opcoes)}
+                    aoEditarMensagem={editarMensagem}
+                    aoApagarMensagem={apagarMensagem}
+                    aoReagirMensagem={reagirMensagem}
+                    klipy={klipy}
+                    aoDigitar={(dmId) => conexaoRef.current?.avisarDigitando({ dmId })}
+                    silenciada={silenciadasAqui.includes(`d:${dmAtiva}`)}
+                    aoSilenciar={(sim) => silenciarConversa(`d:${dmAtiva}`, sim)}
+                  />
+                ) : (
+                  <CanalAberto
+                    extras={barraVisao}
+                    antes={mostrarCanais}
+                    key={canalAtivo ?? 'nenhum'}
+                    canal={canais.find((c) => c.id === canalAtivo)}
+                    ehAdmin={ehAdmin}
+                    somenteLeitura={
+                      permissoes.has('enviar_mensagens')
+                        ? undefined
+                        : deCastigo
+                          ? 'Você está de castigo: não dá para escrever até ele acabar.'
+                          : 'Seu cargo não permite enviar mensagens nos canais.'
+                    }
+                    aoRenomear={renomearCanal}
+                    aoRemover={removerCanal}
+                    usuarios={usuarios}
+                    servidorUrl={servidorUrl}
+                    api={api}
+                    aoEnviar={enviarNoCanal}
+                    euId={usuario.id}
+                    aoEditarMensagem={editarMensagem}
+                    aoApagarMensagem={apagarMensagem}
+                    aoReagirMensagem={reagirMensagem}
+                    klipy={klipy}
+                    aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando({ canalId })}
+                    silenciada={canalAtivo !== null && silenciadasAqui.includes(`c:${canalAtivo}`)}
+                    podeMencionarTodos={permissoes.has('mencionar_todos')}
+                    aoSilenciar={canalAtivo !== null ? (sim) => silenciarConversa(`c:${canalAtivo}`, sim) : undefined}
+                  />
+                )}
+              </main>
+            </ContextoPrevia.Provider>
+
+            {/* Configurações numa janela sobre o app (seções à esquerda); fecha com Esc ou no X. */}
+            {configAberta && !oculta && (
+              <TelaConfiguracoes
+                audio={audio}
+                aoMudarAudio={mudarAudio}
+                aoTestarSom={testarSom}
+                atalhos={atalhos}
+                aoMudarAtalhos={mudarAtalhos}
+                aoCapturar={pausarAtalhos}
+                sons={prefSons}
+                aoMudarSons={mudarSons}
+                notificacoes={notif}
+                aoMudarNotificacoes={mudarNotificacoes}
+                tema={tema}
+                aoMudarTema={mudarTema}
+                aoFechar={aoFechar}
+                aoMudarAoFechar={mudarAoFechar}
+                atividade={prefAtividade}
+                aoMudarAtividade={mudarAtividade}
+                tela={telaPrefs}
+                aoMudarTela={mudarTela}
+                qualidadesTela={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
+                comLoja={pontos !== null}
+                temasLiberados={pontos ? (pontos.tudoLiberado ? TEMAS_LOJA : pontos.temas) : undefined}
+                aoAbrirLoja={() => {
+                  setConfigAberta(null);
+                  setVista('loja');
+                }}
+                secaoInicial={configAberta ?? 'voz'}
+                conta={
+                  <>
+                    <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={acoes.atualizarUsuario} />
+                    <SegurancaConta api={api} copiar={(t) => ponte().areaTransferencia.copiar(t)} />
+                  </>
+                }
+                novidades={
+                  <>
+                    <ProcurarAtualizacao atualizacao={ponte().atualizacao} versaoAtual={ponte().versao} />
+                    <NotasDasVersoes versaoAtual={ponte().versao} />
+                  </>
+                }
+                aoVoltar={() => setConfigAberta(null)}
+              />
             )}
-          </ul>
-        </aside>
-      </div>
-      </ContextoPerfil.Provider>
+
+            {seletorTela && (
+              <SeletorTela
+                listar={ponte().captura.fontes}
+                audioDisponivel={ponte().captura.audioDisponivel}
+                // No Windows (item 31) a última escolha não vale: toda transmissão abre desmarcada.
+                audioPadrao={ponte().captura.somLevaChamada ? false : (telaPrefs.audio ?? true)}
+                avisoSomChamada={ponte().captura.somLevaChamada}
+                qualidades={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
+                comLoja={pontos !== null}
+                qualidadePadrao={telaPrefs.qualidade}
+                aoEscolher={(f, a, q) => {
+                  // Lembra a escolha do som para a próxima vez (no Windows, não: item 31).
+                  const lembrar = somParaLembrar(ponte().captura, a, telaRef.current.audio);
+                  if (lembrar !== undefined) mudarTela({ ...telaRef.current, audio: lembrar });
+                  void transmitirTela(f, a, q);
+                }}
+                aoCancelar={fecharSeletorTela}
+              />
+            )}
+            <aside className="coluna-direita">
+              <h2 className="subtitulo">Membros — {usuarios.length}</h2>
+              {/* RF-37: online/ausente primeiro, depois offline; cada um com a bolinha de status. */}
+              <ul className="lista-membros" aria-label="Membros">
+                {membrosPorStatus.map((item) =>
+                  'grupo' in item ? (
+                    <li key={item.grupo} className="grupo-membros" aria-hidden="true">
+                      {item.grupo}
+                    </li>
+                  ) : (
+                    <li
+                      key={item.u.id}
+                      aria-label={`${item.u.nomeExibicao}, ${TEXTO_STATUS[item.status]}`}
+                      className={item.fundo ? 'com-fundo' : undefined}
+                      style={item.fundo ? ({ '--fundo-membro': item.fundo } as CSSProperties) : undefined}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        abrirMenuPessoa(item.u.id, e.clientX, e.clientY);
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="membro-abrir"
+                        aria-label={`Perfil de ${item.u.nomeExibicao}`}
+                        onClick={(e) => abrirPerfil(item.u.id, e.currentTarget)}
+                      >
+                        <span className="avatar-com-status">
+                          <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
+                          <StatusPonto status={item.status} />
+                        </span>
+                        <span className="nome-membro" style={cargoVisivel(item.u) ? { color: cargoVisivel(item.u)!.cor } : undefined}>
+                          {item.u.nomeExibicao}
+                        </span>
+                      </button>
+                      {atividades[item.u.id] && (
+                        <span className="atividade-membro" title={textosAtividade(atividades[item.u.id]).join('\n')}>
+                          {textosAtividade(atividades[item.u.id])[0]}
+                        </span>
+                      )}
+                      {item.u.cargo === 'admin' && <span className="selo">admin</span>}
+                      {item.u.castigoAte && item.u.castigoAte > Date.now() && (
+                        <span
+                          className="selo selo-castigo"
+                          title={`De castigo até ${new Date(item.u.castigoAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+                        >
+                          castigo
+                        </span>
+                      )}
+                      {cargoVisivel(item.u) && (
+                        <span className="selo selo-funcao" style={{ color: cargoVisivel(item.u)!.cor, borderColor: cargoVisivel(item.u)!.cor }}>
+                          {cargoVisivel(item.u)!.nome}
+                        </span>
+                      )}
+                      {item.u.id !== usuario.id && (
+                        <button
+                          type="button"
+                          className="icone conversar"
+                          aria-label={`Conversar com ${item.u.nomeExibicao}`}
+                          title="Mensagem direta"
+                          onClick={() => conversarCom(item.u.id)}
+                        >
+                          <Icone nome="carta" tamanho={16} />
+                        </button>
+                      )}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </aside>
+          </div>
+        </ContextoPerfil.Provider>
       </ContextoConvite.Provider>
     </div>
   );
