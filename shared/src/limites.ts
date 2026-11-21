@@ -32,6 +32,11 @@ export const REACOES_RAJADA = { eventos: 20, janelaMs: 10_000 } as const;
 /** Resposta: trecho da original com até 100 caracteres; ir até a original carrega no máximo 1000 mensagens. */
 export const TRECHO_RESPOSTA = 100;
 export const HISTORICO_ATE_MAX = 1000;
+/** chat-fixar-e-buscar: até 50 fixadas por conversa (RN-3); até 5 fixar/desafixar a cada 30 s por conexão. */
+export const FIXADAS_POR_CONVERSA = 50;
+export const FIXAR_RAJADA = { eventos: 5, janelaMs: 30_000 } as const;
+/** Linha "fulano fixou" repetida (mesma pessoa, mesma mensagem) só depois de 10 min. */
+export const LINHA_FIXOU_INTERVALO_MS = 10 * 60_000;
 /** Emoji de reação: no máximo 32 bytes em UTF-8. */
 export const EMOJI_MAX_BYTES = 32;
 /** Mini perfil: "sobre mim" com até 190 caracteres e 3 linhas; fundo enviado em até 600×240 (animado: até 150 quadros e 60 Mpx somados; saída até 3 MB). */

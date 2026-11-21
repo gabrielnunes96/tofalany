@@ -25,18 +25,18 @@ export function marcarLido(banco: Banco, usuarioId: number, destino: Destino, ul
 
 /**
  * Não lidas de cada conversa da pessoa (canais de texto e as DMs dela): mensagens de outras pessoas
- * depois da última lida. Só as conversas com pelo menos uma.
+ * depois da última lida. Linhas de sistema ("fulano fixou") não contam. Só as conversas com pelo menos uma.
  */
 export function contarNaoLidas(banco: Banco, usuarioId: number): Record<string, number> {
   const linhas = banco
     .prepare(
       `SELECT 'c:' || c.id AS chave,
-              (SELECT COUNT(*) FROM mensagens m WHERE m.canal_id = c.id AND m.autor_id <> ?
+              (SELECT COUNT(*) FROM mensagens m WHERE m.canal_id = c.id AND m.autor_id <> ? AND m.tipo = 'normal'
                  AND m.id > COALESCE((SELECT l.ultima_mensagem_id FROM leituras l WHERE l.usuario_id = ? AND l.chave = 'c:' || c.id), 0)) AS n
          FROM canais c WHERE c.tipo = 'texto'
        UNION ALL
        SELECT 'd:' || d.id,
-              (SELECT COUNT(*) FROM mensagens m WHERE m.dm_id = d.id AND m.autor_id <> ?
+              (SELECT COUNT(*) FROM mensagens m WHERE m.dm_id = d.id AND m.autor_id <> ? AND m.tipo = 'normal'
                  AND m.id > COALESCE((SELECT l.ultima_mensagem_id FROM leituras l WHERE l.usuario_id = ? AND l.chave = 'd:' || d.id), 0))
          FROM dms d WHERE d.usuario_a = ? OR d.usuario_b = ?`,
     )

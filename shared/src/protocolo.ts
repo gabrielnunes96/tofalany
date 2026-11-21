@@ -241,6 +241,7 @@ export type CodigoErro =
   | 'ja_membro'
   | 'nao_convidavel'
   | 'atualizacao_indisponivel'
+  | 'limite_fixadas'
   | 'erro_interno';
 
 export interface ErroApi {
@@ -732,6 +733,8 @@ export interface EventosServidor {
   'mensagem:apagada': (payload: { id: number; canalId: number | null; dmId: number | null }) => void;
   /** As reações de uma mensagem mudaram: a lista inteira (vale repetir; chega para quem vê a conversa). */
   'mensagem:reacoes': (payload: { id: number; canalId: number | null; dmId: number | null; reacoes: ReacaoDto[] }) => void;
+  /** chat-fixar-e-buscar: uma mensagem foi fixada ou desafixada (`por` = quem fez). */
+  'fixadas:mudou': (payload: { canalId: number | null; dmId: number | null; mensagemId: number; fixada: boolean; por: number }) => void;
   /** Alguém está digitando no canal ou na DM (não chega para quem digita; DM só para o outro participante). */
   digitando: (payload: { canalId: number | null; dmId: number | null; usuarioId: number }) => void;
   /** Soundboard mudou (cadastro, troca, remoção): lista inteira, na ordem. */
@@ -787,6 +790,9 @@ export interface EventosCliente {
   'mensagem:apagar': (dados: { id: number }, ack: Ack) => void;
   /** Põe a reação da pessoa, ou tira se ela já tinha usado esse emoji; responde com a lista inteira. */
   'reacao:alternar': (dados: { mensagemId: number; emoji: string }, ack: Ack<ReacaoDto[]>) => void;
+  /** chat-fixar-e-buscar: fixar e desafixar (canal: "Fixar mensagens"; DM: os dois participantes). */
+  'mensagem:fixar': (dados: { id: number }, ack: Ack) => void;
+  'mensagem:desafixar': (dados: { id: number }, ack: Ack) => void;
   /** Sinal de "digitando" (sem resposta). */
   digitando: (dados: { destino: Destino }) => void;
   /** RF-12: leu a conversa até esta mensagem (sem resposta; só avança, nunca volta). */

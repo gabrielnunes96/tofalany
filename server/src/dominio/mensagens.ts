@@ -99,7 +99,7 @@ function trechosDasOriginais(banco: Banco, ids: number[]): Map<number, RespostaD
 }
 
 /** Mensagens com os anexos, as reações e o trecho da original de cada uma (uma consulta de cada para a página toda). */
-function paraDtos(banco: Banco, linhas: LinhaMensagem[]): MensagemDto[] {
+export function paraDtos(banco: Banco, linhas: LinhaMensagem[]): MensagemDto[] {
   const ids = linhas.map((l) => l.id);
   const anexos = anexosDasMensagens(banco, ids);
   const reacoes = reacoesDasMensagens(banco, ids);
@@ -152,10 +152,13 @@ export function inserirMensagem(
 }
 
 /** Onde a mensagem vive e quem a escreveu (para conferir uma resposta e refazer o aviso ao editar). */
-export function localDaMensagem(banco: Banco, id: number): { canalId: number | null; dmId: number | null; autorId: number; respostaAvisa: number } | undefined {
-  const l = banco.prepare('SELECT canal_id, dm_id, autor_id, resposta_avisa FROM mensagens WHERE id = ?').get(id) as
-    { canal_id: number | null; dm_id: number | null; autor_id: number; resposta_avisa: number } | undefined;
-  return l && { canalId: l.canal_id, dmId: l.dm_id, autorId: l.autor_id, respostaAvisa: l.resposta_avisa };
+export function localDaMensagem(
+  banco: Banco,
+  id: number,
+): { canalId: number | null; dmId: number | null; autorId: number; respostaAvisa: number; sistema: boolean } | undefined {
+  const l = banco.prepare('SELECT canal_id, dm_id, autor_id, resposta_avisa, tipo FROM mensagens WHERE id = ?').get(id) as
+    { canal_id: number | null; dm_id: number | null; autor_id: number; resposta_avisa: number; tipo: string } | undefined;
+  return l && { canalId: l.canal_id, dmId: l.dm_id, autorId: l.autor_id, respostaAvisa: l.resposta_avisa, sistema: l.tipo !== 'normal' };
 }
 
 export function buscarMensagem(banco: Banco, id: number): MensagemDto | undefined {

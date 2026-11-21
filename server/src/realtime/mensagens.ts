@@ -1,5 +1,18 @@
 import { temPermissao } from '../dominio/funcoes.js';
-import { ANEXOS_POR_MENSAGEM, REACOES_RAJADA, extrairMencoes, textoSemGif, validarEmojiReacao, validarGif, validarTextoMensagem, type Destino, type GifDto, type EventosServidor, type MensagemDto } from '@tofalando/shared';
+import {
+  ANEXOS_POR_MENSAGEM,
+  FIXAR_RAJADA,
+  REACOES_RAJADA,
+  extrairMencoes,
+  textoSemGif,
+  validarEmojiReacao,
+  validarGif,
+  validarTextoMensagem,
+  type Destino,
+  type GifDto,
+  type EventosServidor,
+  type MensagemDto,
+} from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
@@ -12,6 +25,7 @@ import { registrarAuditoria } from '../dominio/auditoria.js';
 import { arquivosDaMensagem, vincularAnexos } from '../dominio/anexos.js';
 import { abrirDm, dmPara, exigirParticipante } from '../dominio/dms.js';
 import { alternarReacao } from '../dominio/reacoes.js';
+import { desafixar, fixar } from '../dominio/fixadas.js';
 import { chaveDoDestino, marcarLido } from '../dominio/leituras.js';
 import type { Armazem } from '../arquivos/armazem.js';
 import { comAck } from './acoes.js';
@@ -107,6 +121,8 @@ export function registrarEventosMensagens(
   let ultimoDigitando = 0;
   /** Momentos dos últimos pedidos de reação deste socket (limite de rajada). */
   let reacoesRecentes: number[] = [];
+  /** Momentos dos últimos fixar/desafixar deste socket (A11: sem encher o chat de linhas "fixou"). */
+  let fixacoesRecentes: number[] = [];
 
   const conexoesDaConversa = (participantes: [number, number]) => conexoesDaConversaDm(io, banco, participantes);
 
@@ -156,6 +172,7 @@ export function registrarEventosMensagens(
     const original = localDaMensagem(banco, respostaA);
     const mesmoLugar = original && ('canalId' in destino ? original.canalId === destino.canalId : original.dmId === destino.dmId);
     if (!original || !mesmoLugar) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem respondida não encontrada.');
+    if (original.sistema) throw new ErroHttp(400, 'dados_invalidos', 'Essa linha não pode ser respondida.');
     const bruto = ehObjeto(dados) ? dados.avisar : undefined;
     if (bruto !== undefined && typeof bruto !== 'boolean') throw new ErroHttp(400, 'dados_invalidos', 'Aviso inválido.');
     const avisar = bruto !== false;
@@ -183,8 +200,10 @@ export function registrarEventosMensagens(
       const gif = lerGifEnviado(dados);
       // Canais seguem o cargo (as conversas diretas, não). GIF segue a regra dos anexos (RN-4).
       if ('canalId' in destino) {
-        if (!temPermissao(banco, usuarioId, 'enviar_mensagens', comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite enviar mensagens nos canais.');
-        if ((anexos.length > 0 || gif) && !temPermissao(banco, usuarioId, 'enviar_anexos', comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite enviar arquivos nos canais.');
+        if (!temPermissao(banco, usuarioId, 'enviar_mensagens', comunidadeId))
+          throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite enviar mensagens nos canais.');
+        if ((anexos.length > 0 || gif) && !temPermissao(banco, usuarioId, 'enviar_anexos', comunidadeId))
+          throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite enviar arquivos nos canais.');
       }
       // Só com anexos ou GIF, o texto pode ficar vazio.
       const bruto = ehObjeto(dados) && typeof dados.texto === 'string' ? dados.texto : '';
@@ -215,6 +234,7 @@ export function registrarEventosMensagens(
         if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
         doServidor(atual);
         participantes = participantesDa(atual);
+        if (atual.fixou) throw new ErroHttp(400, 'dados_invalidos', 'Essa linha não pode ser editada.');
         if (atual.autorId !== usuarioId) throw new ErroHttp(403, 'sem_permissao', 'Só quem escreveu pode editar a mensagem.');
         // Com GIF: o app antigo edita o texto com o endereço no fim (tirado aqui); o texto pode ficar vazio.
         const semGif = atual.gif ? textoSemGif(bruto.trim(), atual.gif) : bruto;
@@ -290,10 +310,12 @@ export function registrarEventosMensagens(
         const atual = buscarMensagem(banco, mensagemId);
         if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
         doServidor(atual);
+        if (atual.fixou) throw new ErroHttp(400, 'dados_invalidos', 'Essa linha não recebe reações.');
         // RN-1: reage quem pode escrever ali (canal: o cargo, sem castigo; DM: os dois, se o outro não foi removido).
         const destino: Destino = atual.canalId !== null ? { canalId: atual.canalId } : { dmId: atual.dmId! };
         participantes = lerDestino(banco, { destino }, usuarioId, comunidadeId).participantes;
-        if ('canalId' in destino && !temPermissao(banco, usuarioId, 'enviar_mensagens', comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Você não pode reagir aqui.');
+        if ('canalId' in destino && !temPermissao(banco, usuarioId, 'enviar_mensagens', comunidadeId))
+          throw new ErroHttp(403, 'sem_permissao', 'Você não pode reagir aqui.');
         alvo = { canalId: atual.canalId, dmId: atual.dmId };
         return alternarReacao(banco, mensagemId, usuarioId, emoji, agora);
       })();
@@ -301,6 +323,62 @@ export function registrarEventosMensagens(
       emitir(participantes, 'mensagem:reacoes', { id: mensagemId, ...alvo, reacoes });
       return reacoes;
     }),
+  );
+
+  /**
+   * chat-fixar-e-buscar: fixar e desafixar. A conversa vem da própria mensagem (nunca do pedido): canal do servidor
+   * desta conexão com "Fixar mensagens" (sem castigo); DM, os dois participantes, se o outro não foi removido.
+   */
+  function alternarFixada(dados: unknown, fixada: boolean) {
+    const agora = Date.now();
+    fixacoesRecentes = fixacoesRecentes.filter((t) => agora - t < FIXAR_RAJADA.janelaMs);
+    if (fixacoesRecentes.length >= FIXAR_RAJADA.eventos) throw new ErroHttp(429, 'muitas_tentativas', 'Calma, muitas mensagens fixadas seguidas.');
+    fixacoesRecentes.push(agora);
+    const id = lerId(dados);
+    let participantes: [number, number] | null = null;
+    let alvo: { canalId: number | null; dmId: number | null } = { canalId: null, dmId: null };
+    const resultado = banco
+      .transaction(() => {
+        const atual = buscarMensagem(banco, id);
+        if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Mensagem não encontrada.');
+        doServidor(atual);
+        if (atual.fixou) throw new ErroHttp(400, 'dados_invalidos', 'Essa linha não pode ser fixada.');
+        const destino: Destino = atual.canalId !== null ? { canalId: atual.canalId } : { dmId: atual.dmId! };
+        participantes = lerDestino(banco, { destino }, usuarioId, comunidadeId).participantes;
+        if ('canalId' in destino && !temPermissao(banco, usuarioId, 'fixar_mensagens', comunidadeId)) {
+          throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite fixar mensagens.');
+        }
+        alvo = { canalId: atual.canalId, dmId: atual.dmId };
+        const r = fixada ? fixar(banco, id, destino, usuarioId, agora) : { mudou: desafixar(banco, id), linhaId: null };
+        // Auditoria só de canal (RN-21), com o id e sem o texto.
+        if (r.mudou && atual.canalId !== null) {
+          registrarAuditoria(banco, {
+            tipo: fixada ? 'mensagem_fixada' : 'mensagem_desafixada',
+            atorId: usuarioId,
+            alvoUsuarioId: atual.autorId,
+            canal: buscarCanal(banco, atual.canalId) ?? null,
+            detalhes: { mensagem: id },
+          });
+        }
+        return { mudou: r.mudou, linha: r.linhaId ? buscarMensagem(banco, r.linhaId)! : null };
+      })
+      .immediate();
+    if (!resultado.mudou) return undefined;
+    emitir(participantes, 'fixadas:mudou', { ...alvo, mensagemId: id, fixada, por: usuarioId });
+    if (resultado.linha) {
+      emitir(participantes, 'mensagem:nova', resultado.linha);
+      if (participantes && resultado.linha.dmId !== null) avisarDm(participantes, resultado.linha.dmId);
+    }
+    return undefined;
+  }
+
+  socket.on(
+    'mensagem:fixar',
+    comAck(registrarErro, (dados: unknown) => alternarFixada(dados, true)),
+  );
+  socket.on(
+    'mensagem:desafixar',
+    comAck(registrarErro, (dados: unknown) => alternarFixada(dados, false)),
   );
 
   // Sem resposta: leitura é descartável (a próxima marca de novo). Vale para os outros computadores da pessoa.
@@ -328,7 +406,8 @@ export function registrarEventosMensagens(
       const outro = ehObjeto(dados) ? dados.usuarioId : undefined;
       if (!ehId(outro)) throw new ErroHttp(400, 'dados_invalidos', 'Pessoa inválida.');
       // Conversa direta com quem também está neste servidor.
-      if (outro !== usuarioId && !membroDe(banco, comunidadeId, outro) && !saoAmigos(banco, usuarioId, outro)) throw new ErroHttp(404, 'nao_encontrado', 'Pessoa não encontrada.');
+      if (outro !== usuarioId && !membroDe(banco, comunidadeId, outro) && !saoAmigos(banco, usuarioId, outro))
+        throw new ErroHttp(404, 'nao_encontrado', 'Pessoa não encontrada.');
       const id = abrirDm(banco, usuarioId, outro);
       // Só quem abriu: a outra pessoa fica sabendo na primeira mensagem (mensagem:enviar avisa os dois).
       io.to(salaUsuario(usuarioId)).emit('dm:atualizada', dmPara(banco, id, usuarioId));
