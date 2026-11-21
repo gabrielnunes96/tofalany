@@ -120,9 +120,9 @@
         "CA-10"
       ],
       "validacao": "AtualizarAgora.test.tsx (ponte falsa): progresso; pronta sem voz instala; em voz pergunta; recusar volta o aviso; atualizado e indisponível. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "c79ef20"
     },
     {
       "id": "T8",
