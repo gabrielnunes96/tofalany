@@ -1,0 +1,189 @@
+{
+  "demanda": "infra-e-atualizacao",
+  "titulo": "Infraestrutura e atualização",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Servidor: rota do pedido de atualização, voz pelo host e trustProxy restrito",
+      "descricao": "server: POST /api/admin/servidor/atualizar (exigirSessao, exigirAdmin, exigirPrincipal) cria /pedidos/atualizar vazio (config PEDIDOS; sem ela 503), espera de 5 min (429), auditoria (T-7). routes/livekit.ts: url no host do pedido se estiver em DOMINIOS (T-5). app.ts: trustProxy de TRUST_PROXY (padrão como hoje) (T-12).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-5",
+        "CA-6"
+      ],
+      "validacao": "server/test: 202 admin da instalação e arquivo vazio criado; 403 membro e admin de /c/<id>; 429 em 5 min; 503 sem PEDIDOS; auditoria; voz: host na lista → wss://host, fora → LIVEKIT_URL; X-Forwarded-For de fora da rede confiável não muda o IP. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Cookies do ToOuvini: cópia por execução, promoção atômica, máscara e ambiente mínimo",
+      "descricao": "server/src/musica/cookies.ts (novo): cópia em mkdtemp 0700/0600 (wx), promoção com saída 0 + geração igual + conferirCookies + rename atômico sob fila; geração incrementada por envio/exclusão do admin; limpeza em finally, timeout e kill; sobras apagadas ao iniciar (T-9). fonte.ts usa o módulo nas quatro chamadas; routes/musica.ts grava e apaga por ele. Máscara de cookie/set-cookie/authorization no stderr; spawn com env mínimo (PATH, HOME, LANG, TMPDIR); config.ts recusa opções verbosas e soma MUSICA_POT_URL aos extras (T-10, T-11).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-9",
+        "CA-10"
+      ],
+      "validacao": "server/test com yt-dlp falso: erro não promove, sucesso promove, envio do admin no meio vence, DELETE no meio continua apagado, cópia 0600 e apagada, máscara no log, env do filho só com a lista; config com MUSICA_POT_URL e recusa das verbosas. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "App: troca do endereço antigo pelo fixo",
+      "descricao": "shared: ENDERECOS_MOVIDOS = { 'https://168-138-133-232.sslip.io': 'https://tofalany.duckdns.org' }. client: função pura que decide a troca (só hosts do mapa, só https, mesmo nome da instalação em GET /api/servidor do novo) e, no retomar do App, move servidores (inclusive /c/<id>, ícones refeitos), servidorUrl, sessões e status escolhido da base antiga para a nova (T-6).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-4"
+      ],
+      "validacao": "vitest: função pura (host do mapa migra; host parecido, http e nome diferente não); App.test: app com o sslip salvo retoma no duckdns com a mesma sessão e sem duplicar. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "App: 'Atualizar o servidor agora' no menu do administrador da instalação",
+      "descricao": "client: servicos/api.ts atualizarServidor(); TelaPrincipal: item no grupo Administração para ehAdminDaInstalacao, pela apiPrincipal, com a mensagem 'Pedido enviado: o servidor confere a versão nova em até 1 minuto' (e as de 429/503).",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-5",
+        "CA-6"
+      ],
+      "validacao": "Teste do componente/mensagens; conferir no app. npm test, lint e typecheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T5",
+      "titulo": "vm.sh: trava única e comando dominio (DuckDNS)",
+      "descricao": "deploy/vm.sh: flock nos pontos de entrada (atualizar e instalar com -w 1800 e aviso; verificar -n) (T-8); ./vm.sh dominio lê deploy/duckdns.token (0600), manda a URL pelo stdin do curl (-K -), confere OK, chamado no instalar; .gitignore com duckdns.token (T-3). vm.sh carregável sem rodar o main (para teste).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-3",
+        "CA-8"
+      ],
+      "validacao": "vitest + bash com stubs: dois processos, o segundo espera a trava; dominio com curl falso (token só no stdin, KO falha, nada no log); bash -n e shellcheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T6",
+      "titulo": "VM: pasta de pedidos, vigia do systemd, bgutil, redes e dois nomes",
+      "descricao": "deploy/vm.sh: pasta /var/lib/tofalany/pedidos (dono 1000, 0700); automatico() instala tofalany-atualizar.path (PathExists fixo) e a .service com ExecStartPre rm e limites; verificar recusa link simbólico e registra 'Pedido pelo app'; manual() desliga. docker-compose: bind /var/lib/tofalany/pedidos:/pedidos no server, PEDIDOS, serviço bgutil (versão e digest fixos, init, sem ports, rede pot, cap_drop, no-new-privileges, limites), sub-rede fixa da borda e TRUST_PROXY, DOMINIOS. Caddyfile com a lista de nomes. exemplo.env e docs/vps.md.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1",
+        "T5"
+      ],
+      "criterios": [
+        "CA-7"
+      ],
+      "validacao": "vitest + bash com stubs: pedido apagado antes de rodar, link simbólico só apagado, conteúdo nunca lido; docker compose config válido (só /pedidos montado rw no server; bgutil sem ports); bash -n e shellcheck.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T7",
+      "titulo": "Imagem: yt-dlp com checksum e plugin do gerador de token",
+      "descricao": "server/Dockerfile: yt-dlp numa versão fixa com o SHA2-256SUMS conferido por arquitetura; zip do bgutil-ytdlp-pot-provider na mesma versão do contêiner, com checksum, em /etc/yt-dlp/plugins (T-11, T-13).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-10"
+      ],
+      "validacao": "docker build local (amd64) passa; build com checksum errado falha (uma vez, manual); yt-dlp --version e a lista de plugins dentro da imagem.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T8",
+      "titulo": "CI: imagem amd64 + arm64 com runners nativos e permissões por job",
+      "descricao": ".github/workflows/release.yml: matriz ubuntu-24.04/ubuntu-24.04-arm com push-by-digest, job juntar com imagetools create (tag e latest, anotação index), cache por arquitetura, publicar.needs com juntar; permissões por job; actions fixadas por SHA (T-1, T-2).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T7"
+      ],
+      "criterios": [
+        "CA-1"
+      ],
+      "validacao": "actionlint (pelo contêiner oficial) sem erros; validação real com workflow_dispatch numa tag de teste (passo do Gabriel, que faz o push).",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T9",
+      "titulo": "Migração: DuckDNS apontado só depois da restauração",
+      "descricao": "deploy/migrar-vm.sh: a VM nova sobe só com o sslip dela; depois da restauração e do teste, ./vm.sh dominio aponta o nome e o DOMINIO ganha o DuckDNS (T-14); texto final atualizado.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T5",
+        "T6"
+      ],
+      "criterios": [
+        "CA-3"
+      ],
+      "validacao": "bash -n e shellcheck; leitura do roteiro na revisão.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T10",
+      "titulo": "Implantação e validação na VM (com OK do Gabriel a cada passo)",
+      "descricao": "Gabriel reserva o IP na Oracle e grava o token na VM; release com tudo; ./vm.sh dominio; ./vm.sh automatico; conferir imagem arm64 (CA-2), DuckDNS (CA-3), pedido pelo app (CA-7), trava (CA-8), bgutil (CA-10) e uma semana do ToOuvini (CA-11).",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-7",
+        "CA-8",
+        "CA-10",
+        "CA-11"
+      ],
+      "validacao": "Manual na VM, registrado em 03-plano.md.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}
