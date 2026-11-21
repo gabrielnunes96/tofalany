@@ -10,6 +10,7 @@ import { CartaoPessoa } from '../componentes/CartaoPessoa';
 import { PerfilCompleto } from '../componentes/PerfilCompleto';
 import { ContextoPerfil } from '../componentes/ContextoPerfil';
 import { ContextoConvite } from '../componentes/ContextoConvite';
+import { VolumeChamada } from '../componentes/VolumeChamada';
 import { fundoDaLinha } from '../componentes/fundoPerfil';
 // A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
 import type { SalaVoz, VideoSala } from '../servicos/voz';
@@ -1600,6 +1601,7 @@ function TelaDoServidor({
                   >
                     <Icone nome={controles.surdo ? 'foneDesligado' : 'fone'} />
                   </button>
+                  <VolumeChamada volume={audio.volumeChamada} aoMudar={(v) => void mudarAudio({ ...audioRef.current, volumeChamada: v })} />
                   <button
                     type="button"
                     className={`icone controle${controles.camera ? ' ligado' : ''}`}

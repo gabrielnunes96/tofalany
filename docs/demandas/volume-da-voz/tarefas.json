@@ -73,9 +73,9 @@
         "CA-8"
       ],
       "validacao": "TelaConfiguracoes.test.tsx: caixa marcada por padrão; mudar ganho/nivelar no teste chama nivel.definir sem reabrir; volume da chamada não reabre; aviso do AGC. Conferir a tela no app. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "75de677"
     },
     {
       "id": "T5",
@@ -92,7 +92,7 @@
         "CA-9"
       ],
       "validacao": "Teste de componente do painel do volume (abre, muda, grava); conferir no app com a voz conectada. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
