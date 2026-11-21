@@ -1321,5 +1321,9 @@ button.config-fechar:hover:not(:disabled) { color: var(--cor-texto); background:
 
 /* volume-da-voz: volume da chamada no painel de voz (abre acima do botão). */
 .volume-chamada { position: relative; display: inline-flex; }
+.painel-voz .volume-chamada { flex: 1; }
+.painel-voz .volume-chamada > button.icone.controle { flex: 1; width: auto; }
+/* Aviso em texto (cor de aviso), para avisos que não são da transmissão. */
+.aviso-texto { margin: 4px 0 0; font-size: 0.85rem; color: var(--cor-aviso); }
 .volume-chamada-painel { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--cor-borda); border-radius: var(--raio-p); background: var(--cor-superficie-2); box-shadow: var(--sombra-flutuante); white-space: nowrap; }
 .volume-chamada-painel input { width: 140px; }

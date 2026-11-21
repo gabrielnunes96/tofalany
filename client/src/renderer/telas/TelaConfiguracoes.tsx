@@ -249,7 +249,7 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
     // O teste reabre o microfone só com o que muda o microfone em si (dispositivo e tratamentos); sensibilidade, modo,
     // nivelamento, ganho e volume da chamada não reabrem.
     const aoVivo = ['sensibilidadeDb', 'modoMicrofone', 'nivelarVoz', 'ganhoMicrofone', 'volumeChamada'];
-    if (teste.current && !Object.keys(parcial).some((k) => aoVivo.includes(k))) void Promise.resolve(aplicado).then(() => iniciarTeste(novo));
+    if (teste.current && Object.keys(parcial).some((k) => !aoVivo.includes(k))) void Promise.resolve(aplicado).then(() => iniciarTeste(novo));
   }
 
   const entradas = dispositivos.filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
@@ -349,7 +349,9 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
                 <input type="checkbox" checked={audio.nivelarVoz} onChange={(e) => mudar({ nivelarVoz: e.target.checked })} /> Nivelar o volume da voz
               </label>
               {audio.nivelarVoz && audio.ganhoAutomatico && (
-                <p className="aviso-som-chamada">Com o controle automático de ganho e o nivelamento ligados juntos, o volume da voz pode oscilar. Prefira só o nivelamento.</p>
+                <p className="aviso-texto" role="status">
+                  Com o controle automático de ganho e o nivelamento ligados juntos, o volume da voz pode oscilar. Prefira só o nivelamento.
+                </p>
               )}
             </fieldset>
           </div>
@@ -382,7 +384,7 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
               aria-valuetext={`${Math.round(audio.volumeChamada * 100)}%`}
               onChange={(e) => mudar({ volumeChamada: Number(e.target.value) / 100 })}
             />
-            <p className="suave">O volume da chamada vale para a voz de todos (somado ao volume de cada pessoa, até 200%); a transmissão e o ToOuvini têm volume próprio.</p>
+            <p className="suave">O volume da chamada vale para a voz de todos e multiplica o volume de cada pessoa (no máximo 200%); a transmissão e o ToOuvini têm volume próprio.</p>
           </fieldset>
 
           <fieldset className="opcoes">
