@@ -15,7 +15,7 @@
         "CA-6"
       ],
       "validacao": "server/test: 202 admin da instalação e arquivo vazio criado; 403 membro e admin de /c/<id>; 429 em 5 min; 503 sem PEDIDOS; auditoria; voz: host na lista → wss://host, fora → LIVEKIT_URL; X-Forwarded-For de fora da rede confiável não muda o IP. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
