@@ -1,8 +1,9 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { ambienteMinimo, criarCookies, mascarar } from '../src/musica/cookies.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ambienteMinimo, cookiesDe, criarCookies, mascarar } from '../src/musica/cookies.js';
+import { appTeste, cadastrar } from './apoio.js';
 import { criarFonteYtDlp } from '../src/musica/fonte.js';
 import { lerConfig } from '../src/config.js';
 
@@ -138,6 +139,7 @@ describe('configuração do yt-dlp (T-10, T-11)', () => {
   it('recusa opções que imprimem os cookies; MUSICA_POT_URL vira o --extractor-args do gerador de token', () => {
     expect(() => lerConfig({ MUSICA_YTDLP_ARGS: '--js-runtimes node --verbose' })).toThrow(/--verbose/);
     expect(() => lerConfig({ MUSICA_YTDLP_ARGS: '--print-traffic' })).toThrow(/print-traffic/);
+    for (const apelido of ['--dump-headers', '--dump-intermediate-pages', '-qv', '-v']) expect(() => lerConfig({ MUSICA_YTDLP_ARGS: apelido })).toThrow(/MUSICA_YTDLP_ARGS/);
     expect(lerConfig({ MUSICA_YTDLP_ARGS: '--js-runtimes node', MUSICA_POT_URL: 'http://bgutil:4416' }).musica.extras).toEqual([
       '--js-runtimes',
       'node',
@@ -147,3 +149,59 @@ describe('configuração do yt-dlp (T-10, T-11)', () => {
     expect(() => lerConfig({ MUSICA_POT_URL: 'bgutil:4416; rm -rf /' })).toThrow(/MUSICA_POT_URL/);
   });
 });
+
+describe('revisão da T2: abrir interrompido, máscara no erro e o mesmo gestor da rota', () => {
+  const falsos = (base: string, script: string) => {
+    const ytdlp = join(base, 'yt-dlp');
+    writeFileSync(ytdlp, `#!/bin/sh\n${script}\n`);
+    chmodSync(ytdlp, 0o755);
+    const ffmpeg = join(base, 'ffmpeg');
+    writeFileSync(ffmpeg, '#!/bin/sh\ncat > /dev/null\n');
+    chmodSync(ffmpeg, 0o755);
+    return { ytdlp, ffmpeg };
+  };
+  const gravaCookie = `while [ $# -gt 0 ]; do if [ "$1" = "--cookies" ]; then echo '# da execução' > "$2"; fi; shift; done`;
+
+  it.skipIf(process.platform === 'win32')('pular a música (kill) no meio do download não promove a cópia, e ela é apagada', async () => {
+    const { arquivo, temp, cookies } = preparar();
+    const bin = falsos(pastaNova(), `${gravaCookie}\nsleep 5`);
+    const fluxo = criarFonteYtDlp({ ...bin, gestorCookies: cookies }).abrir('https://www.youtube.com/watch?v=x');
+    await new Promise((r) => setTimeout(r, 300));
+    fluxo.parar();
+    await vi.waitFor(() => expect(readdirSync(temp)).toEqual([]), { timeout: 3000 });
+    expect(readFileSync(arquivo, 'utf8')).toBe(VELHO);
+  });
+
+  it.skipIf(process.platform === 'win32')('o motivo da falha do yt-dlp chega mascarado (cabeçalho e linha do cookies.txt)', async () => {
+    const { cookies } = preparar();
+    const bin = falsos(
+      pastaNova(),
+      `echo '[debug] Cookie: SID=segredo1' >&2\necho "WARNING: skipping cookie file entry due to invalid length: '.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tsegredo2'" >&2\nexit 1`,
+    );
+    const fluxo = criarFonteYtDlp({ ...bin, gestorCookies: cookies }).abrir('https://www.youtube.com/watch?v=x');
+    fluxo.audio.resume();
+    const motivo = await fluxo.falha!();
+    expect(motivo).toBeTruthy();
+    expect(motivo).not.toMatch(/segredo1|segredo2/);
+  });
+
+  it('a rota do administrador e o ToOuvini usam o mesmo gestor: envio pela rota no meio de uma execução vence', async () => {
+    const base = pastaNova();
+    const app = await appTeste({ BANCO: join(base, 'tofalando.db') });
+    try {
+      const dono = (await cadastrar(app, 'dono')).json() as { token: string };
+      const pedir = (method: 'PUT' | 'DELETE', payload?: object) =>
+        app.inject({ method, url: '/api/admin/musica/cookies', headers: { authorization: `Bearer ${dono.token}` }, payload });
+      expect((await pedir('PUT', { conteudo: VELHO })).statusCode).toBe(200);
+      const gestor = cookiesDe(join(base, 'musica-cookies.txt'));
+      const uso = gestor.usar();
+      writeFileSync(uso.args[1]!, '# execução antiga\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tantigo\n');
+      expect((await pedir('PUT', { conteudo: NOVO })).statusCode).toBe(200);
+      await uso.terminar(true);
+      expect(readFileSync(join(base, 'musica-cookies.txt'), 'utf8')).toBe(NOVO);
+    } finally {
+      await app.close();
+    }
+  });
+});
+

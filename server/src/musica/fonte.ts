@@ -37,11 +37,13 @@ export function explicarFalha(erro: string): string {
 function acompanhar(p: ReturnType<typeof spawn>): () => Promise<string | undefined> {
   let erro = '';
   p.stderr?.setEncoding('utf8').on('data', (d: string) => {
-    erro = mascarar(erro + d).slice(-4000);
+    erro += d;
+    // Guarda só o fim, começando numa linha inteira (um pedaço de linha cortada escaparia da máscara).
+    if (erro.length > 4000) erro = erro.slice(erro.indexOf('\n', erro.length - 4000) + 1);
   });
   const fim = new Promise<string | undefined>((resolver) => {
     p.on('error', (e) => resolver(e.message));
-    p.on('close', (codigo, sinal) => resolver(codigo === 0 || sinal === 'SIGKILL' ? undefined : erro.trim() || `saiu com ${codigo}`));
+    p.on('close', (codigo, sinal) => resolver(codigo === 0 || sinal === 'SIGKILL' ? undefined : mascarar(erro).trim() || `saiu com ${codigo}`));
   });
   // Não espera para sempre por um processo que demora a sair.
   return () => Promise.race([fim, new Promise<undefined>((r) => setTimeout(() => r(undefined), 3000).unref())]);
@@ -276,7 +278,8 @@ export function criarFonteYtDlp(
         env: ambienteMinimo(),
       });
       // Promove só com saída 0 (pular a música mata o processo: não conta como terminou bem).
-      baixar.on('close', (codigo) => void uso.terminar(codigo === 0));
+      // 'exit', não 'close': um processo filho que herdou a saída não segura a cópia dos cookies depois do kill.
+      baixar.on('exit', (codigo) => void uso.terminar(codigo === 0));
       baixar.on('error', () => void uso.terminar(false));
       const converter = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0', '-vn', '-af', 'volume=0.5', '-f', 's16le', '-ac', '2', '-ar', '48000', 'pipe:1'], {
         stdio: ['pipe', 'pipe', 'pipe'],

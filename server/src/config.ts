@@ -164,7 +164,9 @@ function lerGif(ambiente: Ambiente): Config['gif'] {
 }
 
 /** Opções do yt-dlp que imprimem cabeçalhos (com os cookies) ou páginas inteiras: recusadas (A15). */
-const OPCOES_VERBOSAS = ['--verbose', '-v', '--print-traffic', '--dump-pages', '--write-pages'];
+const OPCOES_VERBOSAS = ['--verbose', '--print-traffic', '--dump-headers', '--dump-pages', '--dump-intermediate-pages', '--write-pages'];
+/** `-v` sozinho ou junto de outras opções curtas (`-qv`). */
+const CURTA_VERBOSA = /^-[a-zA-Z]*v[a-zA-Z]*$/;
 
 /**
  * Argumentos a mais do yt-dlp: MUSICA_YTDLP_ARGS (na imagem, o runtime de JavaScript) e, com MUSICA_POT_URL, o gerador de
@@ -172,7 +174,7 @@ const OPCOES_VERBOSAS = ['--verbose', '-v', '--print-traffic', '--dump-pages', '
  */
 function extrasYtDlp(ambiente: Ambiente): string[] {
   const extras = (ambiente.MUSICA_YTDLP_ARGS ?? '').split(/\s+/).filter(Boolean);
-  const verbosa = extras.find((a) => OPCOES_VERBOSAS.includes(a));
+  const verbosa = extras.find((a) => OPCOES_VERBOSAS.includes(a.split('=')[0]!) || CURTA_VERBOSA.test(a));
   if (verbosa) throw new Error(`MUSICA_YTDLP_ARGS não aceita ${verbosa}: o yt-dlp imprimiria os cookies no log.`);
   const pot = ambiente.MUSICA_POT_URL?.trim();
   if (pot) {
