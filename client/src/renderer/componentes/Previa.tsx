@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { PreviaLink } from '@tofalando/shared';
+import { lerQualquerConvite, separarComunidade, type PreviaLink } from '@tofalando/shared';
 import { ponte } from '../servicos/ponte';
 import { ContextoPerfil } from './ContextoPerfil';
+import { ContextoConvite } from './ContextoConvite';
 
 /** Backlog v2, item 10b: quem busca a prévia (o servidor). Sem provedor (testes, telas soltas), não há prévia. */
 export const ContextoPrevia = createContext<((url: string) => Promise<PreviaLink | undefined>) | null>(null);
@@ -70,14 +71,31 @@ function comMencoes(trecho: string, mencoes: MencoesDoTexto | undefined, chave: 
 }
 
 export function TextoComLinks({ texto, mencoes }: { texto: string; mencoes?: MencoesDoTexto }) {
+  const convite = useContext(ContextoConvite);
   const partes: ReactNode[] = [];
   let ultimo = 0;
   for (const m of texto.matchAll(LINK)) {
     const url = limparFim(m[0]);
     const inicio = m.index;
     if (inicio > ultimo) partes.push(...comMencoes(texto.slice(ultimo, inicio), mencoes, ultimo));
+    // Convite do mesmo endereço do servidor aberto: entrar pelo app, com confirmação (RF-4, T-5).
+    const link = convite ? lerQualquerConvite(url) : undefined;
+    const doMesmoServidor = !!link && !!convite && separarComunidade(link.servidor).base === convite.base;
     partes.push(
-      <a key={inicio} href={url} target="_blank" rel="noreferrer noopener">
+      <a
+        key={inicio}
+        href={url}
+        target="_blank"
+        rel="noreferrer noopener"
+        onClick={
+          doMesmoServidor
+            ? (e) => {
+                e.preventDefault();
+                if (window.confirm('Entrar no servidor por este convite?')) convite.abrir(link);
+              }
+            : undefined
+        }
+      >
         {url}
       </a>,
     );

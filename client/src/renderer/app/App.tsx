@@ -502,6 +502,7 @@ export function App() {
       aoTrocarServidor={trocarServidor}
       aoSessaoRevogada={sessaoRevogada}
       aoSairDoServidor={() => void esquecerServidor(t.url)}
+      aoConvite={(c) => void abrirConvite(c)}
       aoVoz={(v) => aoVozDe(t, v)}
       pedidoSairVoz={vozViva?.url === t.url ? vozViva.pedidoSair : 0}
       vozEmOutro={

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, qualidadesDosVales, QUALIDADES_VALE, TEMAS_LOJA, temaPermitido, type LojaEstadoDto, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type GifConfig, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica } from '@tofalando/shared';
+import { ATIVIDADE_PADRAO, type AtividadeDto, type PreferenciasAtividade, separarComunidade, SOM_INTERVALO_MS, LIMITE_TELAS_POR_CANAL, ATALHOS_PADRAO, AUDIO_PADRAO, DIGITANDO_DURACAO_MS, type AcaoAtalho, type StatusPessoa, type StatusVisivel, type EscolhaStatus, type Tema, type PartesOcultas, type Atalhos, type PreferenciasAudio, type PreferenciasPessoas, type PreferenciasSons, type PreferenciasNotificacoes, type PreferenciasTela, type QualidadeTela, TELA_PADRAO, qualidadesPermitidas, qualidadesDosVales, QUALIDADES_VALE, TEMAS_LOJA, temaPermitido, type LojaEstadoDto, NOTIFICACOES_PADRAO, SONS_PADRAO, type Destino, type GifConfig, type MensagemDto, type MotivoRevogacao, type TipoCanal, type UsuarioDto, permissoesDe, type Permissao, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type AcaoFechar, acaoAoFechar, lerComandoMusica, type ComandoMusica, type ConviteLink } from '@tofalando/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
@@ -9,6 +9,7 @@ import { ProcurarAtualizacao } from '../componentes/ProcurarAtualizacao';
 import { CartaoPessoa } from '../componentes/CartaoPessoa';
 import { PerfilCompleto } from '../componentes/PerfilCompleto';
 import { ContextoPerfil } from '../componentes/ContextoPerfil';
+import { ContextoConvite } from '../componentes/ContextoConvite';
 import { fundoDaLinha } from '../componentes/fundoPerfil';
 // A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
 import type { SalaVoz, VideoSala } from '../servicos/voz';
@@ -70,6 +71,8 @@ interface Props {
   aoSessaoRevogada: (motivo: MotivoRevogacao, detalhe?: string | null, url?: string) => void;
   /** Saí deste servidor ou ele foi excluído: a coluna tira o ícone e vai para outro. */
   aoSairDoServidor?: () => void;
+  /** qualidade-de-vida, RF-4: link de convite clicado numa mensagem (mesmo endereço). */
+  aoConvite?: (convite: ConviteLink) => void;
 }
 
 /** Estado de voz enviado ao servidor (mute/deafen/câmera chegam nas T16 e T20). */
@@ -120,6 +123,7 @@ function TelaDoServidor({
   aoSessaoRevogada,
   aoNomeServidor,
   aoSairDoServidor,
+  aoConvite,
   oculta = false,
   aoVoz,
   vozEmOutro,
@@ -315,6 +319,11 @@ function TelaDoServidor({
   useEffect(() => {
     cartaoRef.current = cartao;
   }, [cartao]);
+  // RF-4: link de convite numa mensagem, só do mesmo endereço do servidor aberto.
+  const contextoConvite = useMemo(
+    () => (aoConvite ? { base: separarComunidade(servidorUrl).base, abrir: aoConvite } : null),
+    [aoConvite, servidorUrl],
+  );
   const abrirPerfil = useCallback((usuarioId: number, ancora: HTMLElement) => {
     const r = ancora.getBoundingClientRect();
     setCartao({ usuarioId, x: r.left, y: r.bottom + 6, ancora });
@@ -1471,6 +1480,7 @@ function TelaDoServidor({
           })()}
         />
       )}
+      <ContextoConvite.Provider value={contextoConvite}>
       <ContextoPerfil.Provider value={abrirPerfil}>
       <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
         <aside className="coluna-esquerda">
@@ -2048,6 +2058,7 @@ function TelaDoServidor({
         </aside>
       </div>
       </ContextoPerfil.Provider>
+      </ContextoConvite.Provider>
     </div>
   );
 }
