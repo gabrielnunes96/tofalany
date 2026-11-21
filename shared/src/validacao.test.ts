@@ -127,6 +127,18 @@ describe('validarTextoMensagem', () => {
 });
 
 describe('mesclarAudio', () => {
+  it('volume-da-voz, CA-1: nivelar ligado por padrão, ganho e volume da chamada em 100%; arquivo antigo ganha os padrões', () => {
+    const antigo = mesclarAudio(undefined, { supressaoRuido: false, sensibilidadeDb: -40 });
+    expect(antigo).toMatchObject({ nivelarVoz: true, ganhoMicrofone: 1, volumeChamada: 1, supressaoRuido: false });
+  });
+
+  it('volume-da-voz: faixas do ganho (50–300%) e do volume da chamada (0–200%), arredondados; inválidos ignorados', () => {
+    expect(mesclarAudio(undefined, { nivelarVoz: false, ganhoMicrofone: 2.345, volumeChamada: 1.5 })).toMatchObject({ nivelarVoz: false, ganhoMicrofone: 2.35, volumeChamada: 1.5 });
+    expect(mesclarAudio(undefined, { ganhoMicrofone: 0.4, volumeChamada: 2.1 })).toMatchObject({ ganhoMicrofone: 1, volumeChamada: 1 });
+    expect(mesclarAudio(undefined, { ganhoMicrofone: 3, volumeChamada: 0 })).toMatchObject({ ganhoMicrofone: 3, volumeChamada: 0 });
+    expect(mesclarAudio(undefined, { nivelarVoz: 'sim', ganhoMicrofone: Number.NaN, volumeChamada: '1' })).toMatchObject({ nivelarVoz: true, ganhoMicrofone: 1, volumeChamada: 1 });
+  });
+
   it('aceita só valores válidos e mantém o resto', () => {
     const base = mesclarAudio(undefined, null);
     expect(base).toMatchObject({ entradaId: null, supressaoRuido: true, sensibilidadeDb: -50 });

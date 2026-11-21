@@ -274,15 +274,22 @@ export function mesclarAudio(base: PreferenciasAudio = AUDIO_PADRAO, bruto: unkn
   const id = (v: unknown) => v === null || (typeof v === 'string' && v.length > 0 && v.length <= 256);
   if ('entradaId' in o && id(o.entradaId)) r.entradaId = o.entradaId as string | null;
   if ('saidaId' in o && id(o.saidaId)) r.saidaId = o.saidaId as string | null;
-  for (const chave of ['supressaoRuido', 'cancelamentoEco', 'ganhoAutomatico'] as const) if (typeof o[chave] === 'boolean') r[chave] = o[chave] as boolean;
+  for (const chave of ['supressaoRuido', 'cancelamentoEco', 'ganhoAutomatico', 'nivelarVoz'] as const) if (typeof o[chave] === 'boolean') r[chave] = o[chave] as boolean;
+  const numero = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+  if (numero(o.ganhoMicrofone, GANHO_MIC_MIN, GANHO_MIC_MAX)) r.ganhoMicrofone = Math.round((o.ganhoMicrofone as number) * 100) / 100;
+  if (numero(o.volumeChamada, 0, VOLUME_CHAMADA_MAX)) r.volumeChamada = Math.round((o.volumeChamada as number) * 100) / 100;
   const s = o.sensibilidadeDb;
   if (typeof s === 'number' && Number.isFinite(s) && s >= -100 && s <= 0) r.sensibilidadeDb = Math.round(s);
   if (o.modoMicrofone === 'deteccao' || o.modoMicrofone === 'ptt') r.modoMicrofone = o.modoMicrofone;
   return r;
 }
 
-/** Volume máximo por pessoa (200%, RF-19). */
+/** Volume máximo por pessoa (200%, RF-19); também o teto do volume final (pessoa × chamada). */
 export const VOLUME_PESSOA_MAX = 2;
+/** volume-da-voz: ganho do microfone de 50% a 300% e volume da chamada até 200%. */
+export const GANHO_MIC_MIN = 0.5;
+export const GANHO_MIC_MAX = 3;
+export const VOLUME_CHAMADA_MAX = 2;
 
 /** Valida volume e silêncio por servidor (no máximo 20 servidores e 200 pessoas cada, para o arquivo não crescer sem fim). */
 export function mesclarPessoas(base: Record<string, PreferenciasPessoas>, bruto: unknown): Record<string, PreferenciasPessoas> {

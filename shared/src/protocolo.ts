@@ -259,6 +259,12 @@ export interface PreferenciasAudio {
   sensibilidadeDb: number;
   /** RF-14: detecção de voz (padrão) ou push-to-talk. */
   modoMicrofone: 'deteccao' | 'ptt';
+  /** volume-da-voz, RF-1: nivelamento da voz enviada (compressor), ligado por padrão. */
+  nivelarVoz: boolean;
+  /** volume-da-voz, RF-3: ganho do microfone (0,5 a 3 = 50% a 300%), depois do nivelamento. */
+  ganhoMicrofone: number;
+  /** volume-da-voz, RF-4: volume da chamada para quem ouve (0 a 2), multiplica o de cada pessoa (total até 200%). */
+  volumeChamada: number;
 }
 
 export const AUDIO_PADRAO: PreferenciasAudio = {
@@ -270,6 +276,9 @@ export const AUDIO_PADRAO: PreferenciasAudio = {
   ganhoAutomatico: false,
   sensibilidadeDb: -50,
   modoMicrofone: 'deteccao',
+  nivelarVoz: true,
+  ganhoMicrofone: 1,
+  volumeChamada: 1,
 };
 
 /** Configurações guardadas por máquina (RN-14). */
