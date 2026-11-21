@@ -148,6 +148,32 @@ describe('TelaConfiguracoes (RF-17, RF-18, RF-20)', () => {
     expect(mic.portao.definir).toHaveBeenLastCalledWith({ limiarDb: -35 });
   });
 
+  it('volume-da-voz, CA-1/CA-8: nivelar ligado por padrão; ganho e nivelar valem na hora no teste, sem reabrir; o volume da chamada não toca no teste', async () => {
+    const { deps, aoMudarAudio } = montar();
+    expect((screen.getByLabelText('Nivelar o volume da voz') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Testar microfone' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Parar teste' })).toBeTruthy());
+    const mic = await vi.mocked(deps.abrirMicrofone).mock.results[0]!.value;
+    fireEvent.change(screen.getByLabelText(/Ganho do microfone/), { target: { value: '200' } });
+    expect(mic.nivel.definir).toHaveBeenLastCalledWith({ nivelar: true, ganho: 2 });
+    expect(aoMudarAudio).toHaveBeenLastCalledWith({ ...AUDIO_PADRAO, ganhoMicrofone: 2 });
+    // As preferências da tela são as do teste (fixas): cada mudança parte delas.
+    fireEvent.click(screen.getByLabelText('Nivelar o volume da voz'));
+    expect(mic.nivel.definir).toHaveBeenLastCalledWith({ nivelar: false, ganho: 1 });
+    fireEvent.change(screen.getByLabelText(/Volume da chamada/), { target: { value: '150' } });
+    expect(aoMudarAudio).toHaveBeenLastCalledWith({ ...AUDIO_PADRAO, volumeChamada: 1.5 });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(deps.abrirMicrofone).toHaveBeenCalledTimes(1);
+  });
+
+  it('volume-da-voz: aviso com o controle automático de ganho e o nivelamento ligados juntos', () => {
+    montar();
+    expect(screen.queryByText(/o volume da voz pode oscilar/)).toBeNull();
+    cleanup();
+    montar({ ...AUDIO_PADRAO, ganhoAutomatico: true });
+    expect(screen.getByText(/o volume da voz pode oscilar/)).toBeTruthy();
+  });
+
   it('RF-14/RF-15: modo do microfone e atalhos com captura, conflito recusado e remoção', () => {
     const { aoMudarAudio, aoMudarAtalhos } = montar();
     fireEvent.click(screen.getByRole('radio', { name: /Push-to-talk/ }));

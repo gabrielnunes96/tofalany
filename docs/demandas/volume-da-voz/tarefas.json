@@ -54,9 +54,9 @@
         "CA-9"
       ],
       "validacao": "voz.test.ts: 150%×120% = 1,8; 150%×180% = 2; chamada 0 → voz 0 e tela/ToOuvini nos volumes deles; mudar ganho/nivelar na chamada chama nivel.definir sem reabrir; volume da chamada reaplica. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "f8f9f50"
     },
     {
       "id": "T4",
@@ -73,7 +73,7 @@
         "CA-8"
       ],
       "validacao": "TelaConfiguracoes.test.tsx: caixa marcada por padrão; mudar ganho/nivelar no teste chama nivel.definir sem reabrir; volume da chamada não reabre; aviso do AGC. Conferir a tela no app. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

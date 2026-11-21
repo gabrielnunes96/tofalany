@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ACOES_ATALHO, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
+import { ACOES_ATALHO, GANHO_MIC_MIN, GANHO_MIC_MAX, VOLUME_CHAMADA_MAX, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 import { Icone, type NomeIcone } from '../componentes/Icone';
 
@@ -244,8 +244,12 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
     const aplicado = aoMudarAudio(novo);
     // A sensibilidade vale na hora para o retorno do teste.
     if (teste.current && 'sensibilidadeDb' in parcial && novo.modoMicrofone !== 'ptt') teste.current.mic.portao.definir({ limiarDb: novo.sensibilidadeDb });
-    // O teste reabre o microfone com o que mudou (a sensibilidade só move a marca); na chamada, depois da troca.
-    if (teste.current && !('sensibilidadeDb' in parcial) && !('modoMicrofone' in parcial)) void Promise.resolve(aplicado).then(() => iniciarTeste(novo));
+    // volume-da-voz (T-4): nivelamento e ganho valem na hora no retorno do teste, sem reabrir o microfone.
+    if (teste.current && ('nivelarVoz' in parcial || 'ganhoMicrofone' in parcial)) teste.current.mic.nivel.definir({ nivelar: novo.nivelarVoz, ganho: novo.ganhoMicrofone });
+    // O teste reabre o microfone só com o que muda o microfone em si (dispositivo e tratamentos); sensibilidade, modo,
+    // nivelamento, ganho e volume da chamada não reabrem.
+    const aoVivo = ['sensibilidadeDb', 'modoMicrofone', 'nivelarVoz', 'ganhoMicrofone', 'volumeChamada'];
+    if (teste.current && !Object.keys(parcial).some((k) => aoVivo.includes(k))) void Promise.resolve(aplicado).then(() => iniciarTeste(novo));
   }
 
   const entradas = dispositivos.filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
@@ -341,8 +345,45 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
               <label>
                 <input type="checkbox" checked={audio.ganhoAutomatico} onChange={(e) => mudar({ ganhoAutomatico: e.target.checked })} /> Controle automático de ganho
               </label>
+              <label>
+                <input type="checkbox" checked={audio.nivelarVoz} onChange={(e) => mudar({ nivelarVoz: e.target.checked })} /> Nivelar o volume da voz
+              </label>
+              {audio.nivelarVoz && audio.ganhoAutomatico && (
+                <p className="aviso-som-chamada">Com o controle automático de ganho e o nivelamento ligados juntos, o volume da voz pode oscilar. Prefira só o nivelamento.</p>
+              )}
             </fieldset>
           </div>
+
+          <fieldset className="opcoes">
+            <legend>Volume</legend>
+            <label htmlFor="cfg-ganho">
+              Ganho do microfone: <span className="suave">{Math.round(audio.ganhoMicrofone * 100)}%</span>
+            </label>
+            <input
+              id="cfg-ganho"
+              type="range"
+              min={Math.round(GANHO_MIC_MIN * 100)}
+              max={Math.round(GANHO_MIC_MAX * 100)}
+              step={10}
+              value={Math.round(audio.ganhoMicrofone * 100)}
+              aria-valuetext={`${Math.round(audio.ganhoMicrofone * 100)}%`}
+              onChange={(e) => mudar({ ganhoMicrofone: Number(e.target.value) / 100 })}
+            />
+            <label htmlFor="cfg-volume-chamada">
+              Volume da chamada: <span className="suave">{Math.round(audio.volumeChamada * 100)}%</span>
+            </label>
+            <input
+              id="cfg-volume-chamada"
+              type="range"
+              min={0}
+              max={Math.round(VOLUME_CHAMADA_MAX * 100)}
+              step={5}
+              value={Math.round(audio.volumeChamada * 100)}
+              aria-valuetext={`${Math.round(audio.volumeChamada * 100)}%`}
+              onChange={(e) => mudar({ volumeChamada: Number(e.target.value) / 100 })}
+            />
+            <p className="suave">O volume da chamada vale para a voz de todos (somado ao volume de cada pessoa, até 200%); a transmissão e o ToOuvini têm volume próprio.</p>
+          </fieldset>
 
           <fieldset className="opcoes">
             <legend>Modo do microfone</legend>
@@ -393,7 +434,8 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
               onChange={(e) => mudar({ sensibilidadeDb: Number(e.target.value) })}
             />
             <p className="suave" id="cfg-sensibilidade-texto">
-              Marca da sensibilidade em {audio.sensibilidadeDb} dB: acima dela, a detecção de voz transmite.
+              Marca da sensibilidade em {audio.sensibilidadeDb} dB: acima dela, a detecção de voz transmite. A barra mede o microfone antes do ganho e do
+              nivelamento; para ouvir o resultado, use o teste.
             </p>
             {testando ? (
               <button
