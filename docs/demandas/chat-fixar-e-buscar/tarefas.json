@@ -179,9 +179,9 @@
         "CA-13"
       ],
       "validacao": "npm run test:e2e com o spec novo passando; prints gerados.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "f5cf8f7"
     },
     {
       "id": "T10",

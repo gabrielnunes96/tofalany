@@ -151,6 +151,8 @@ export function Conversa({
   /** Altura antes de pôr mensagens antigas no topo, para manter a posição de leitura. */
   const alturaAntes = useRef<number | null>(null);
   const estavaNoFim = useRef(true);
+  /** Chegaram as seguintes (para baixo, longe do fim): a posição de leitura fica onde está (não pula para o fim). */
+  const chegaramSeguintes = useRef(false);
   /** Ir até a original (RF-7): a mensagem destacada por 2 s, a que espera a página chegar e o aviso de "antiga demais". */
   const [destacada, setDestacada] = useState<number | null>(null);
   const irDepois = useRef<number | null>(null);
@@ -295,6 +297,9 @@ export function Conversa({
     if (alturaAntes.current !== null && entrouNoTopo) {
       el.scrollTop += el.scrollHeight - alturaAntes.current;
       alturaAntes.current = null;
+    } else if (chegaramSeguintes.current) {
+      // Páginas para baixo depois de uma janela: entram abaixo, sem mexer em onde a pessoa está lendo.
+      chegaramSeguintes.current = false;
     } else if (estavaNoFim.current) {
       el.scrollTop = el.scrollHeight;
     }
@@ -358,7 +363,10 @@ export function Conversa({
     if (!h || h.noFim || h.carregando || h.erro || ultima === undefined) return;
     const geracao = iniciarCarga(chave);
     carregarPagina(undefined, undefined, { depois: ultima })
-      .then((pagina) => receberDepois(chave, pagina, geracao))
+      .then((pagina) => {
+        chegaramSeguintes.current = true;
+        receberDepois(chave, pagina, geracao);
+      })
       .catch((e: unknown) => falharCarga(chave, e instanceof ErroApiCliente ? e.message : 'Não foi possível carregar as mensagens.', geracao));
   }, [carregarPagina, chave, useLoja]);
 
