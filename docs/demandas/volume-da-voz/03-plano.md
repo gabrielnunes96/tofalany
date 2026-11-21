@@ -1,6 +1,6 @@
 # Volume da voz: plano de desenvolvimento
 
-> Demanda: `volume-da-voz` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **rascunho**
+> Demanda: `volume-da-voz` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **aprovado em 21/11/2026**
 > Fonte da verdade das tarefas: `tarefas.json`.
 
 ## Ordem e paralelismo

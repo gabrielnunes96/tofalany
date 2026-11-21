@@ -14,7 +14,7 @@
         "CA-1"
       ],
       "validacao": "validacao.test.ts: padrão com nivelar ligado; arquivo antigo ganha os campos; fora da faixa e não numérico recusados; configuracoes.test.ts com arquivo antigo. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
