@@ -42,7 +42,8 @@ describe('Convidar para servidor (qualidade-de-vida, RF-2 e RF-3)', () => {
     expect(screen.getByRole('button', { name: 'Família' })).toBeTruthy();
   });
 
-  it('aparece no cartão e no menu da pessoa (com role de item de menu)', async () => {
+  it('aparece no cartão e no menu da pessoa (com role de item de menu), e convidar pelo menu não o fecha', async () => {
+    const aoFecharMenu = vi.fn();
     const convite = { carregar: async () => [familia], aoConvidar: vi.fn(async () => null) };
     render(
       <CartaoPessoa
@@ -78,10 +79,21 @@ describe('Convidar para servidor (qualidade-de-vida, RF-2 e RF-3)', () => {
         aoPedirAmizade={vi.fn()}
         aoAceitarAmizade={vi.fn()}
         aoRemoverAmizade={vi.fn()}
-        aoFechar={vi.fn()}
+        aoFechar={aoFecharMenu}
         convite={convite}
       />,
     );
-    expect(await screen.findByRole('menuitem', { name: 'Convidar para servidor' })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Convidar para servidor' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Família' }));
+    // Convidar pelo menu não fecha o menu: a confirmação fica à vista.
+    expect((await screen.findByRole('status')).textContent).toBe('Convite enviado para Família.');
+    expect(aoFecharMenu).not.toHaveBeenCalled();
+  });
+
+  it('erro lançado pela API vira o texto mostrado', async () => {
+    render(<ConvidarParaServidor carregar={async () => [familia]} aoConvidar={async () => Promise.reject(new Error('Essa pessoa já está nesse servidor.'))} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Convidar para servidor' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Família' }));
+    await screen.findByText('Essa pessoa já está nesse servidor.');
   });
 });

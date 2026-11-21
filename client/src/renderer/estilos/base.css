@@ -893,7 +893,7 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .musica-volume-valor { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Menu do clique direito numa pessoa. */
-.menu-pessoa { position: fixed; z-index: 60; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--cor-superficie-2); border: 1px solid var(--cor-borda); border-radius: var(--raio-g); box-shadow: var(--sombra-flutuante); animation: surgir var(--dur-media) var(--curva-entrada); }
+.menu-pessoa { position: fixed; z-index: 60; max-height: calc(100vh - 16px); overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--cor-superficie-2); border: 1px solid var(--cor-borda); border-radius: var(--raio-g); box-shadow: var(--sombra-flutuante); animation: surgir var(--dur-media) var(--curva-entrada); }
 .menu-pessoa-topo { display: flex; align-items: center; gap: 10px; padding-bottom: 4px; }
 .menu-pessoa-volume { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; }
 .menu-pessoa-volume .linha { display: flex; align-items: center; gap: 8px; }

@@ -64,9 +64,17 @@ export function CartaoPessoa({ usuario, servidorUrl, x, y, eu, status, atividade
   const [topo, setTopo] = useState(y);
   const esquerda = Math.max(MARGEM, Math.min(x, window.innerWidth - LARGURA - MARGEM));
   useLayoutEffect(() => {
-    const altura = caixa.current?.offsetHeight ?? 0;
-    const cabeAbaixo = y + altura <= window.innerHeight - MARGEM;
-    setTopo(cabeAbaixo ? y : Math.max(MARGEM, Math.min(y - altura - 40, window.innerHeight - altura - MARGEM)));
+    const medir = () => {
+      const altura = caixa.current?.offsetHeight ?? 0;
+      const cabeAbaixo = y + altura <= window.innerHeight - MARGEM;
+      setTopo(cabeAbaixo ? y : Math.max(MARGEM, Math.min(y - altura - 40, window.innerHeight - altura - MARGEM)));
+    };
+    medir();
+    // O conteúdo cresce depois de aberto (em comum, a lista de convite): mede de novo quando o tamanho muda.
+    if (typeof ResizeObserver === 'undefined' || !caixa.current) return;
+    const observador = new ResizeObserver(medir);
+    observador.observe(caixa.current);
+    return () => observador.disconnect();
   }, [y, perfil, usuario]);
 
   useEffect(() => {

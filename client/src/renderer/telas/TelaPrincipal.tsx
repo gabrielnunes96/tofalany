@@ -1157,19 +1157,16 @@ function TelaDoServidor({
         setVista('canal');
       },
     );
-  /** Mini perfil (RN-6): abre a conversa direta, envia o texto e vai para ela (só se o cartão ainda for o mesmo). */
   /** qualidade-de-vida, RF-2 e RF-3: convidar alguém para um servidor (a lista e o envio são do servidor). */
   const conviteDe = (usuarioId: number) =>
     usuarioId === usuario.id
       ? undefined
       : {
           carregar: () => api.convidaveis(usuarioId),
-          aoConvidar: (comunidadeId: number) =>
-            api.convidar(usuarioId, comunidadeId).then(
-              () => null,
-              (e: unknown) => (e instanceof Error ? e.message : 'Não foi possível enviar o convite.'),
-            ),
+          // Erro da API vira o texto mostrado pelo componente.
+          aoConvidar: (comunidadeId: number) => api.convidar(usuarioId, comunidadeId).then(() => null),
         };
+  /** Mini perfil (RN-6): abre a conversa direta, envia o texto e vai para ela (só se o cartão ainda for o mesmo). */
   const mensagemDireta = async (usuarioId: number, texto: string, ancora: HTMLElement): Promise<string | null> => {
     let dmId: number | undefined;
     const falha = await pedir(
@@ -1446,6 +1443,8 @@ function TelaDoServidor({
       )}
       {menuPessoa && pessoas.find((p) => p.id === menuPessoa.usuarioId) && (
         <MenuPessoa
+          // Outra pessoa (clique direito ou tecla de menu sem fechar antes): monta de novo, com a lista de convite dela.
+          key={menuPessoa.usuarioId}
           usuario={pessoas.find((p) => p.id === menuPessoa.usuarioId)!}
           x={menuPessoa.x}
           y={menuPessoa.y}

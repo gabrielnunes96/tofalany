@@ -44,9 +44,9 @@ export function MenuPessoa({
   aoFechar: () => void;
   /** "🎮 Jogando X", "🎵 Ouvindo Y" (se a pessoa mostra). */
   atividade?: string[];
-  /** Quem pode moderar esta pessoa (administrador ou "Moderar membros"; ela não é administradora). */
   /** qualidade-de-vida, RF-2: convidar para um servidor. */
   convite?: { carregar: () => Promise<ComunidadeDto[]>; aoConvidar: (comunidadeId: number) => Promise<string | null> };
+  /** Quem pode moderar esta pessoa (administrador ou "Moderar membros"; ela não é administradora). */
   moderacao?: { castigoAte: number | null; aoAbrir: (tipo: 'castigo' | 'expulsar' | 'banir') => void; aoTirarCastigo: () => void };
 }) {
   const caixa = useRef<HTMLDivElement>(null);
