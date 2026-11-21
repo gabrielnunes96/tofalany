@@ -24,7 +24,13 @@ export function registrarRotasAtualizarServidor(app: FastifyInstance, banco: Ban
       // 'wx': não segue um arquivo que já esteja lá (pedido ainda não atendido conta como feito).
       writeFileSync(join(config.pastaPedidos, 'atualizar'), '', { flag: 'wx', mode: 0o600 });
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+      const codigo = (e as NodeJS.ErrnoException).code;
+      // Pasta não montada ou sem permissão na VM: o mesmo 503 de "sem pedido pelo app" (o caminho fica só no log).
+      if (codigo === 'ENOENT' || codigo === 'EACCES' || codigo === 'ENOTDIR' || codigo === 'EROFS') {
+        req.log.warn({ codigo }, 'pasta de pedidos de atualização indisponível');
+        throw new ErroHttp(503, 'atualizacao_indisponivel', 'Este servidor não consegue pedir a atualização agora (pasta de pedidos indisponível).');
+      }
+      if (codigo !== 'EEXIST') throw e;
     }
     ultimoPedido = Date.now();
     registrarAuditoria(banco, { tipo: 'atualizacao_pedida', atorId: req.usuarioId! });

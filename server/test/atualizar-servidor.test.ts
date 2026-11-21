@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { appTeste, cadastrar } from './apoio.js';
 import { criarCanal } from '../src/dominio/canais.js';
@@ -34,12 +34,22 @@ describe('"Atualizar o servidor agora" (infra-e-atualizacao, RF-5, T-7)', () => 
     expect(readFileSync(pedido, 'utf8')).toBe('');
     expect(statSync(pedido).isFile()).toBe(true);
 
-    // Dentro de 5 minutos: 429, sem regravar.
+    // Dentro de 5 minutos: 429, sem regravar (o arquivo apagado pela VM não volta).
+    rmSync(pedido);
     const de_novo = await pedir(dono.token);
     expect(de_novo.statusCode).toBe(429);
+    expect(existsSync(pedido)).toBe(false);
+    // Passados 5 minutos, vale de novo.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 5 * 60_000 + 1);
+    try {
+      expect((await pedir(dono.token)).statusCode).toBe(202);
+    } finally {
+      vi.useRealTimers();
+    }
 
     const auditoria = app.banco.prepare("SELECT COUNT(*) AS n FROM auditoria WHERE tipo = 'atualizacao_pedida'").get() as { n: number };
-    expect(auditoria.n).toBe(1);
+    expect(auditoria.n).toBe(2);
   });
 
   it('CA-6: o administrador de outro servidor (não do principal) é recusado', async () => {
@@ -49,6 +59,14 @@ describe('"Atualizar o servidor agora" (infra-e-atualizacao, RF-5, T-7)', () => 
     const auth = { authorization: `Bearer ${dono.token}` };
     await app.inject({ method: 'POST', url: '/api/comunidades', headers: auth, payload: { nome: 'Família' } });
     expect((await app.inject({ method: 'POST', url: '/c/2/api/admin/servidor/atualizar', headers: auth })).statusCode).toBe(403);
+  });
+
+  it('pasta configurada mas ausente na VM: 503 (não erro interno), sem o caminho na resposta', async () => {
+    app = await appTeste({ PEDIDOS: '/caminho/que/nao/existe/pedidos' });
+    const dono = (await cadastrar(app, 'dono')).json() as { token: string };
+    const r = await app.inject({ method: 'POST', url: '/api/admin/servidor/atualizar', headers: { authorization: `Bearer ${dono.token}` } });
+    expect(r.statusCode).toBe(503);
+    expect(r.body).not.toContain('/caminho/que');
   });
 
   it('sem a pasta de pedidos configurada (desenvolvimento, Tailscale): 503', async () => {
@@ -90,6 +108,11 @@ describe('trustProxy restrito à rede do Caddy (infra-e-atualizacao, T-12)', () 
   it('quem não está na rede confiável não troca o próprio IP pelo X-Forwarded-For (o limite vale)', async () => {
     app = await appTeste({ ATRAS_DE_PROXY: 'true', TRUST_PROXY: '10.9.9.0/24', TENTATIVAS_POR_MINUTO: '2' });
     expect((await tentativas(['1.1.1.1', '2.2.2.2', '3.3.3.3'])).at(-1)).toBe(429);
+  });
+
+  it('a rede configurada é confiável (lista com vírgula ou espaço e CIDR): o X-Forwarded-For dela vale', async () => {
+    app = await appTeste({ ATRAS_DE_PROXY: 'true', TRUST_PROXY: '10.9.9.0/24 127.0.0.1/32', TENTATIVAS_POR_MINUTO: '2' });
+    expect(await tentativas(['1.1.1.1', '2.2.2.2', '3.3.3.3'])).not.toContain(429);
   });
 
   it('sem TRUST_PROXY, continua como antes (redes locais confiáveis)', async () => {

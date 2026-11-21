@@ -63,7 +63,7 @@ export async function registrarRotasLivekit(
       });
       // infra-e-atualizacao (T-5): quem chegou por um nome aceito (o antigo, sslip) recebe a voz no mesmo nome; o app só
       // fala com o host salvo. Fora da lista, o endereço configurado (o cabeçalho Host não escolhe para onde a voz vai).
-      const host = req.hostname.split(':')[0]!.toLowerCase();
+      const host = req.hostname.toLowerCase();
       const url = config.dominios.includes(host) ? `wss://${host}` : livekit.url;
       return { url, token: await token.toJwt() };
     },

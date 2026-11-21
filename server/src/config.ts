@@ -103,7 +103,12 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
       .map((d) => d.trim().toLowerCase())
       .filter(Boolean),
     pastaPedidos: ambiente.PEDIDOS?.trim() || undefined,
-    proxiesConfiaveis: ambiente.TRUST_PROXY?.trim() || undefined,
+    // Mesmo formato de DOMINIOS (vírgula ou espaço); o Fastify recebe separado por vírgula. Só vale com ATRAS_DE_PROXY.
+    proxiesConfiaveis:
+      (ambiente.TRUST_PROXY ?? '')
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .join(',') || undefined,
     pastaDownloads: ambiente.DOWNLOADS || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
     livekit: lerLivekit(ambiente),
