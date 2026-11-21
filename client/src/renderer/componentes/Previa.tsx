@@ -91,7 +91,7 @@ export function TextoComLinks({ texto, mencoes }: { texto: string; mencoes?: Men
           doMesmoServidor
             ? (e) => {
                 e.preventDefault();
-                if (!window.confirm('Entrar no servidor por este convite?')) return;
+                // A confirmação (com o nome do servidor) é de quem abre o convite.
                 void convite.abrir(link).then((falha) => falha && window.alert(falha));
               }
             : undefined

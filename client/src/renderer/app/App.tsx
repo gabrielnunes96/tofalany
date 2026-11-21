@@ -335,6 +335,10 @@ export function App() {
         }
         const token = await tokenDaInstalacao(convite.servidor);
         if (!token) return 'Não deu para entrar por este convite.';
+        // Antes de entrar, o nome do servidor e o que muda (os membros passam a ver o status e a atividade).
+        const teste = await testarServidor(convite.servidor);
+        if (!teste.ok) return teste.erro;
+        if (!window.confirm(`Entrar no servidor «${teste.valor.nome}»? Os membros de lá vão ver seu status e sua atividade.`)) return null;
         const c = await criarApi(convite.servidor, token).entrarComunidade(convite.codigo);
         const url = `${separarComunidade(convite.servidor).base}${caminhoComunidade(c.id)}`;
         await ponte().sessao.gravar({ servidorUrl: url, token });
@@ -480,7 +484,7 @@ export function App() {
       </div>
     </div>
   );
-  const atualizarAgora = <AtualizarAgora atualizacao={ponte().atualizacao} controleRef={controleAtualizar} emChamada={vozViva !== null} />;
+  const atualizarAgora = <AtualizarAgora key="atualizar-agora" atualizacao={ponte().atualizacao} controleRef={controleAtualizar} emChamada={vozViva !== null} />;
   /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
   const janelaNovidades = notas && (
     <JanelaNovidades
@@ -512,7 +516,6 @@ export function App() {
       <>
         {tela}
         {janelaModeracao ?? janelaEnderecoAntigo ?? janelaNovidades}
-        {atualizarAgora}
       </>
     ) : (
       <div className="app-com-servidores">
@@ -527,7 +530,6 @@ export function App() {
         />
         <div className="app-tela">{tela}</div>
         {janelaModeracao ?? janelaEnderecoAntigo ?? janelaNovidades}
-        {atualizarAgora}
       </div>
     );
 
@@ -583,58 +585,67 @@ export function App() {
   }
   const comVoz = (chave: string, tela: ReactNode) => (vozViva ? montarTelas(null, <div key={`fase:${chave}`} className="tela-servidor">{tela}</div>) : tela);
 
-  switch (estado.fase) {
-    case 'carregando':
-      return vozViva ? comColuna(montarTelas(null)) : null;
-    case 'escolher-servidor': {
-      const { voltar } = estado;
-      return comColuna(comVoz('escolher', <TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />));
-    }
-    case 'sem-conexao':
-      return comColuna(
-        comVoz(
-          'sem-conexao',
-        <main className="tela-centro">
-          <section className="cartao">
-            <h1>Sem conexão</h1>
-            <p className="erro" role="alert">
-              {estado.mensagem}
-            </p>
-            <button type="button" onClick={() => void (estado.convite ? abrirConvite(estado.convite) : retomar(estado.url))}>
-              Tentar de novo
-            </button>
-            <button type="button" className="link" onClick={trocarServidor}>
-              Trocar servidor
-            </button>
-            {servidores.some((s) => s.url === estado.url) && (
-              <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  if (window.confirm('Tirar este servidor da lista? Isso só muda a lista neste computador.')) void removerDaLista([estado.url]);
-                }}
-              >
-                Tirar da lista
+  const conteudo = (() => {
+    switch (estado.fase) {
+      case 'carregando':
+        return vozViva ? comColuna(montarTelas(null)) : null;
+      case 'escolher-servidor': {
+        const { voltar } = estado;
+        return comColuna(comVoz('escolher', <TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />));
+      }
+      case 'sem-conexao':
+        return comColuna(
+          comVoz(
+            'sem-conexao',
+          <main className="tela-centro">
+            <section className="cartao">
+              <h1>Sem conexão</h1>
+              <p className="erro" role="alert">
+                {estado.mensagem}
+              </p>
+              <button type="button" onClick={() => void (estado.convite ? abrirConvite(estado.convite) : retomar(estado.url))}>
+                Tentar de novo
               </button>
-            )}
-          </section>
-        </main>,
-        ),
-      );
-    case 'entrar':
-      return comColuna(
-        comVoz(
-          'entrar',
-        <TelaEntrar
-          key={`${estado.url}|${estado.convite ?? ''}`}
-          servidorUrl={estado.url}
-          aviso={estado.aviso}
-          conviteInicial={estado.convite}
-          aoCancelarConvite={estado.voltar && estado.voltar.fase !== 'carregando' ? () => setEstado(estado.voltar!) : undefined}
-          aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />,
-        ),
-      );
-    case 'principal':
-      return comColuna(montarTelas(estado));
-  }
+              <button type="button" className="link" onClick={trocarServidor}>
+                Trocar servidor
+              </button>
+              {servidores.some((s) => s.url === estado.url) && (
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => {
+                    if (window.confirm('Tirar este servidor da lista? Isso só muda a lista neste computador.')) void removerDaLista([estado.url]);
+                  }}
+                >
+                  Tirar da lista
+                </button>
+              )}
+            </section>
+          </main>,
+          ),
+        );
+      case 'entrar':
+        return comColuna(
+          comVoz(
+            'entrar',
+          <TelaEntrar
+            key={`${estado.url}|${estado.convite ?? ''}`}
+            servidorUrl={estado.url}
+            aviso={estado.aviso}
+            conviteInicial={estado.convite}
+            aoCancelarConvite={estado.voltar && estado.voltar.fase !== 'carregando' ? () => setEstado(estado.voltar!) : undefined}
+            aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />,
+          ),
+        );
+      case 'principal':
+        return comColuna(montarTelas(estado));
+    }
+  })();
+  // Fora do conteúdo, com chave fixa: trocar de tela (carregando, outro servidor) não desmonta o progresso da atualização.
+  return (
+    <>
+      {conteudo}
+      {atualizarAgora}
+    </>
+  );
 }

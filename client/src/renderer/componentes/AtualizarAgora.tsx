@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { ApiTofalando } from '../../preload/api';
 import { TelaAtualizando } from './AvisoAtualizacao';
+import { TEXTOS_ATUALIZACAO } from './ProcurarAtualizacao';
 
 type Fase =
   | { tipo: 'parado' }
@@ -26,6 +27,10 @@ export function AtualizarAgora({
   emChamada: boolean;
 }) {
   const [fase, setFase] = useState<Fase>({ tipo: 'parado' });
+  const faseRef = useRef(fase);
+  useEffect(() => {
+    faseRef.current = fase;
+  }, [fase]);
   const chamada = useRef(emChamada);
   useEffect(() => {
     chamada.current = emChamada;
@@ -66,6 +71,8 @@ export function AtualizarAgora({
 
   // Cada clique em "Atualizar o app" começa uma procura.
   const procurar = useCallback(() => {
+    // Já procurando, baixando ou instalando: o clique de novo não recomeça (nem zera o progresso).
+    if (['procurando', 'baixando', 'instalando', 'perguntar'].includes(faseRef.current.tipo)) return;
     setFase({ tipo: 'procurando' });
     void atualizacao
       .agora()
@@ -74,12 +81,12 @@ export function AtualizarAgora({
         if (r.situacao === 'baixando') setFase({ tipo: 'baixando', versao: r.versao, percentual: 0 });
         // Pronta: a versão chega pelo aoMudar, com `pedido`.
         else if (r.situacao === 'pronta') setFase((f) => (f.tipo === 'procurando' ? { tipo: 'parado' } : f));
-        else if (r.situacao === 'atualizado') setFase({ tipo: 'aviso', texto: 'Você já está na versão mais nova.' });
-        else if (r.situacao === 'indisponivel') setFase({ tipo: 'aviso', texto: 'A atualização só funciona no app instalado.' });
+        else if (r.situacao === 'atualizado') setFase({ tipo: 'aviso', texto: TEXTOS_ATUALIZACAO.atualizado });
+        else if (r.situacao === 'indisponivel') setFase({ tipo: 'aviso', texto: TEXTOS_ATUALIZACAO.indisponivel });
         else if (r.situacao === 'nova') {
           void atualizacao.abrirPagina();
           setFase({ tipo: 'aviso', texto: `A versão ${r.versao ?? 'nova'} está disponível: a página para baixar foi aberta.` });
-        } else setFase({ tipo: 'aviso', texto: 'Não deu para procurar agora. Confira a internet e tente de novo.', erro: true });
+        } else setFase({ tipo: 'aviso', texto: TEXTOS_ATUALIZACAO.erro, erro: true });
       });
   }, [atualizacao]);
   useEffect(() => {
@@ -92,23 +99,27 @@ export function AtualizarAgora({
   if (fase.tipo === 'parado') return null;
   if (fase.tipo === 'instalando') return <TelaAtualizando versao={fase.versao} />;
   if (fase.tipo === 'perguntar') {
+    const depois = () => {
+      setFase({ tipo: 'parado' });
+      void atualizacao.recusar();
+    };
     return (
-      <div className="dialogo-fundo" role="presentation">
+      // Esc é "Depois"; o foco começa em "Depois" (um Enter por engano não tira ninguém da chamada).
+      <div
+        className="dialogo-fundo"
+        role="presentation"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') depois();
+        }}
+      >
         <div className="dialogo cartao" role="alertdialog" aria-label="Atualizar o app" aria-describedby="texto-atualizar-agora">
           <h2>ToFalany {fase.versao} pronto</h2>
           <p id="texto-atualizar-agora">Reiniciar agora? Você vai sair da chamada.</p>
           <div className="dialogo-acoes">
-            <button
-              type="button"
-              className="secundario"
-              onClick={() => {
-                setFase({ tipo: 'parado' });
-                void atualizacao.recusar();
-              }}
-            >
+            <button type="button" className="secundario" autoFocus onClick={depois}>
               Depois
             </button>
-            <button type="button" autoFocus onClick={() => void instalar(fase.versao)}>
+            <button type="button" onClick={() => void instalar(fase.versao)}>
               Reiniciar agora
             </button>
           </div>
@@ -117,7 +128,7 @@ export function AtualizarAgora({
     );
   }
   return (
-    <aside className="aviso-atualizacao" role="status" aria-label="Atualizar o app">
+    <aside className="aviso-atualizacao atualizar-agora" role="status" aria-label="Atualizar o app">
       {fase.tipo === 'procurando' && <p>Procurando atualização…</p>}
       {fase.tipo === 'baixando' && (
         <>

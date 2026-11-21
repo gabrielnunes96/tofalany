@@ -9,6 +9,6 @@ export const ContextoConvite = createContext<{
   base: string;
   /** Servidor aberto: um convite para ele mesmo não faz nada (segue como link comum). */
   atual: string;
-  /** null = entrou; texto = o motivo da falha (a pessoa continua onde estava). */
+  /** Confirma (com o nome do servidor) e entra. null = entrou ou desistiu; texto = o motivo da falha. */
   abrir: (convite: ConviteLink) => Promise<string | null>;
 } | null>(null);

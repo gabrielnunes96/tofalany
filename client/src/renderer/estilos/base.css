@@ -1314,3 +1314,7 @@ button.config-fechar:hover:not(:disabled) { color: var(--cor-texto); background:
 .convidar-servidor-lista { list-style: none; margin: 0; padding: 0 0 0 8px; display: flex; flex-direction: column; gap: 2px; }
 .convidar-servidor-lista button { width: 100%; text-align: left; }
 .convite-resultado { margin: 4px 0 0; font-size: 0.85rem; }
+
+/* qualidade-de-vida: "Atualizar o app" fica acima do aviso do canto (os dois podem aparecer juntos). */
+.aviso-atualizacao.atualizar-agora { bottom: 120px; }
+.atualizar-agora progress { width: 100%; }

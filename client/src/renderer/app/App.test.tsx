@@ -13,6 +13,8 @@ vi.mock('../telas/TelaPrincipal', async () => {
       servidorUrl: string;
       oculta?: boolean;
       adminDaInstalacao?: boolean;
+      aoConvite?: (c: { servidor: string; codigo: string }) => Promise<string | null>;
+      aoAtualizarApp?: () => void;
       pedidoSairVoz?: number;
       aoVoz?: (v: { canal: string; servidor: string } | null) => void;
       vozEmOutro?: { canal: string; servidor: string; aoVoltar(): void; aoDesconectar(): void } | null;
@@ -28,6 +30,12 @@ vi.mock('../telas/TelaPrincipal', async () => {
             {p.pedidoSairVoz ? ` sair:${p.pedidoSairVoz}` : ''}
             {p.adminDaInstalacao ? ' (admin da instalação)' : ''}
           </p>
+          <button type="button" onClick={() => void p.aoConvite?.({ servidor: `${p.servidorUrl.replace(/\/c\/\d+$/, '')}/c/2`, codigo: 'familia-1' })}>
+            convite {p.servidorUrl}
+          </button>
+          <button type="button" onClick={() => p.aoAtualizarApp?.()}>
+            atualizar o app {p.servidorUrl}
+          </button>
           <button type="button" onClick={() => p.aoVoz?.({ canal: 'Papo', servidor: 'Turma' })}>
             entrar na voz {p.servidorUrl}
           </button>
@@ -49,6 +57,7 @@ vi.mock('../telas/TelaPrincipal', async () => {
 });
 const testar = vi.fn();
 /** Lista de servidores da instalação: por padrão, falha (os testes antigos não dependem dela). */
+const entrarDe = vi.fn(async (_url: string, _codigo: string) => ({ id: 2, nome: 'Família', url: '', iconeUrl: null }));
 const comunidadesDe = vi.fn(async (): Promise<unknown[]> => Promise.reject(new Error('sem lista')));
 // O teste real devolve o endereço a guardar; os casos aqui só dizem ok/erro (o endereço é o mesmo pedido).
 vi.mock('../servicos/servidor', () => ({
@@ -63,7 +72,13 @@ const euDe = vi.fn(async (_url: string): Promise<UsuarioDto> => eu);
 const eu: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'ana', cor: '#fff', avatarUrl: null, cargo: 'membro' };
 vi.mock('../servicos/api', async (original) => ({
   ...(await original<typeof import('../servicos/api')>()),
-  criarApi: (url: string) => ({ eu: async () => euDe(url), sair: async () => undefined, cadastrar: async () => ({ token: 'novo', usuario: eu }), comunidades: () => comunidadesDe() }),
+  criarApi: (url: string) => ({
+    eu: async () => euDe(url),
+    sair: async () => undefined,
+    cadastrar: async () => ({ token: 'novo', usuario: eu }),
+    comunidades: () => comunidadesDe(),
+    entrarComunidade: (codigo: string) => entrarDe(url, codigo),
+  }),
 }));
 
 const { App } = await import('./App');
@@ -299,5 +314,31 @@ describe('App — ToOuvini de qualquer servidor (qualidade-de-vida, RF-1)', () =
     await waitFor(() => expect(euDe).toHaveBeenCalledWith(B));
     await act(async () => undefined);
     expect(screen.queryByText(/admin da instalação/)).toBeNull();
+  });
+});
+
+describe('App — convite clicado numa mensagem e "Atualizar o app" (qualidade-de-vida)', () => {
+  it('RF-4 (segurança): a confirmação diz o nome do servidor; recusar não entra; aceitar entra', async () => {
+    testar.mockResolvedValue({ ok: true, valor: { ...info, nome: 'Família' } });
+    ponteFalsa({ servidorUrl: B, sessao: { servidorUrl: B, token: 't' }, pendente: null });
+    render(<App />);
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    fireEvent.click(await screen.findByRole('button', { name: `convite ${B}` }));
+    await waitFor(() => expect(confirmar).toHaveBeenCalledWith('Entrar no servidor «Família»? Os membros de lá vão ver seu status e sua atividade.'));
+    expect(entrarDe).not.toHaveBeenCalled();
+    confirmar.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: `convite ${B}` }));
+    await waitFor(() => expect(entrarDe).toHaveBeenCalledWith(`${B}/c/2`, 'familia-1'));
+    confirmar.mockRestore();
+  });
+
+  it('RF-5: "Atualizar o app" do menu chega ao processo principal', async () => {
+    ponteFalsa({ servidorUrl: B, sessao: { servidorUrl: B, token: 't' }, pendente: null });
+    const agora = vi.fn(async () => ({ situacao: 'atualizado' as const }));
+    window.tofalando.atualizacao.agora = agora;
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: `atualizar o app ${B}` }));
+    await waitFor(() => expect(agora).toHaveBeenCalled());
+    expect(await screen.findByText('Você já está na versão mais nova.')).toBeTruthy();
   });
 });

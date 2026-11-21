@@ -21,22 +21,13 @@ function montar(abrir = vi.fn(async () => null as string | null), atual = 'https
 }
 
 describe('link de convite clicável (qualidade-de-vida, RF-4, CA-7)', () => {
-  it('mesmo endereço: pede confirmação e abre o convite pelo app', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('mesmo endereço: o clique fica no app e vai para quem abre o convite (que confirma com o nome do servidor)', () => {
     const abrir = montar();
     const link = screen.getByRole('link', { name: 'https://s.exemplo/c/2/convite/abc123' });
     const evento = new MouseEvent('click', { bubbles: true, cancelable: true });
     link.dispatchEvent(evento);
     expect(evento.defaultPrevented).toBe(true);
-    expect(window.confirm).toHaveBeenCalledWith('Entrar no servidor por este convite?');
     expect(abrir).toHaveBeenCalledWith(expect.objectContaining({ codigo: 'abc123' }));
-  });
-
-  it('recusar a confirmação não entra', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const abrir = montar();
-    fireEvent.click(screen.getByRole('link', { name: 'https://s.exemplo/c/2/convite/abc123' }));
-    expect(abrir).not.toHaveBeenCalled();
   });
 
   it('convite de outro endereço e sem o contexto: link comum (abre no navegador)', () => {
@@ -56,7 +47,6 @@ describe('link de convite clicável (qualidade-de-vida, RF-4, CA-7)', () => {
   });
 
   it('falha ao entrar: mostra o motivo e não troca de tela', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const alerta = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     montar(vi.fn(async () => 'Código de convite inválido.'));
     fireEvent.click(screen.getByRole('link', { name: 'https://s.exemplo/c/2/convite/abc123' }));

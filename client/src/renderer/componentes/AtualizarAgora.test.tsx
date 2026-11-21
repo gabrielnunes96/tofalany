@@ -4,7 +4,10 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createRef } from 'react';
 import { AtualizarAgora } from './AtualizarAgora';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 type Estado = { versao: string; modo: 'reiniciar' | 'pagina'; pedido?: boolean };
 type Resultado = { situacao: 'atualizado' | 'nova' | 'baixando' | 'pronta' | 'erro' | 'indisponivel'; versao?: string };
@@ -45,7 +48,33 @@ describe('Atualizar o app (qualidade-de-vida, RF-5, T-7)', () => {
     expect(screen.getByText(/Atualizando o ToFalany para a versão 0.18.0/)).toBeTruthy();
     await act(async () => vi.advanceTimersByTimeAsync(700));
     expect(api.instalar).toHaveBeenCalled();
-    vi.useRealTimers();
+  });
+
+  it('clicar de novo durante o download não recomeça nem zera o progresso', async () => {
+    const { api, ouvintes, clicar } = await montar({ situacao: 'baixando', versao: '0.18.0' });
+    await clicar();
+    act(() => ouvintes.progresso!(30));
+    await clicar();
+    expect(api.agora).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/30%/)).toBeTruthy();
+  });
+
+  it('CA-8b: em chamada, "Reiniciar agora" instala; o foco começa em "Depois" e Esc recusa', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const um = await montar({ situacao: 'baixando', versao: '0.18.0' }, true);
+    await um.clicar();
+    act(() => um.ouvintes.estado!({ versao: '0.18.0', modo: 'reiniciar', pedido: true }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Depois' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reiniciar agora' }));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(um.api.instalar).toHaveBeenCalled();
+    cleanup();
+    const outro = await montar({ situacao: 'baixando', versao: '0.18.0' }, true);
+    await outro.clicar();
+    act(() => outro.ouvintes.estado!({ versao: '0.18.0', modo: 'reiniciar', pedido: true }));
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Depois' }), { key: 'Escape' });
+    expect(outro.api.recusar).toHaveBeenCalled();
+    expect(outro.api.instalar).not.toHaveBeenCalled();
   });
 
   it('CA-8b: em chamada pergunta antes; "Depois" recusa e não instala', async () => {
