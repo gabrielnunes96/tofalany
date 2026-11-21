@@ -1,6 +1,6 @@
 # Vídeo: modo teatro, câmeras e sons — plano de desenvolvimento
 
-> Demanda: `video-teatro-cameras-e-sons` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **rascunho**
+> Demanda: `video-teatro-cameras-e-sons` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **aprovado em 21/11/2026**
 > Fonte da verdade das tarefas: `tarefas.json`.
 
 ## Ordem e paralelismo

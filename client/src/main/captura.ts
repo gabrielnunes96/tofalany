@@ -34,6 +34,8 @@ function monitores(): { id: string; largura: number; altura: number }[] {
 export function registrarCaptura(
   listar: typeof desktopCapturer.getSources = (o) => desktopCapturer.getSources(o),
   som: Pick<ReturnType<typeof criarSomSistema>, 'disponivel' | 'ligar' | 'desligar'> = criarSomSistema(),
+  /** Ids de captura das janelas próprias do app (câmeras e transmissão), que não entram na lista (A7). */
+  excluidas: () => string[] = () => [],
 ) {
   let escolhida: { fonteId: string; audio: boolean; janelaId: number; em: number } | undefined;
   /** A última fonte escolhida (para saber se a prévia apareceria na própria tela transmitida). */
@@ -41,7 +43,8 @@ export function registrarCaptura(
   let ultimas: DesktopCapturerSource[] = [];
 
   ipcMain.handle('captura:fontes', async (): Promise<FonteCaptura[]> => {
-    ultimas = await listar({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: false });
+    const fora = new Set(excluidas());
+    ultimas = (await listar({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: false })).filter((f) => !fora.has(f.id));
     const telas = monitores();
     const maior = telas.reduce<{ largura: number; altura: number } | undefined>((m, t) => (!m || t.altura > m.altura ? t : m), undefined);
     return ultimas.map((f) => {

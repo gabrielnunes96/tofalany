@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, powerMonitor, safeStorage, screen, shell } from 'electron';
 import { acaoAoFechar } from '@tofalando/shared';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
@@ -18,6 +18,7 @@ import { integrarSistema } from './integracao';
 import { iniciarAtualizacao } from './atualizacao';
 import { avisarAtualizacaoPronta } from './espera-atualizacao';
 import { caminhoIcone, criarBandeja } from './bandeja';
+import { criarJanelasProprias, decidirAbertura, limitesSeguros, opcoesDaJanela } from './janelas-proprias';
 import { ATIVIDADE_PADRAO, normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
@@ -51,6 +52,8 @@ const testeDiscreto = process.env.TOFALANDO_E2E === '1' && !app.isPackaged;
 if (testeDiscreto) app.commandLine.appendSwitch('mute-audio');
 
 let janelaPrincipal: BrowserWindow | undefined;
+/** video-teatro-cameras-e-sons: câmeras e transmissão em janela própria (criado quando o app fica pronto). */
+let janelasProprias: ReturnType<typeof criarJanelasProprias> | undefined;
 /** Backlog v2, 1e: com a bandeja ativa, fechar a janela pergunta (ou faz o que a pessoa escolheu): bandeja ou sair. */
 let saindo = false;
 let comBandeja = false;
@@ -141,13 +144,33 @@ function criarJanela(): BrowserWindow {
   // Recarregar a página recria o renderer: até ele pedir de novo, os links ficam guardados.
   janela.webContents.on('did-start-loading', () => links.rendererSaiu());
 
-  // Links externos abrem no navegador do sistema, nunca dentro do app.
-  janela.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://') || url.startsWith('http://')) void shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
   const urlDev = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;
+
+  // Links externos abrem no navegador do sistema, nunca dentro do app. A única janela que o app abre é a "janela
+  // própria" (câmeras ou transmissão): about:blank com nome conhecido, pedida pela página do app (o referrer é a
+  // própria página ou vazio; um iframe de fora, como o do YouTube, traria o endereço dele).
+  janela.webContents.setWindowOpenHandler(({ url, frameName, referrer }) => {
+    const doApp = !referrer.url || referrer.url.startsWith('file://') || (!!urlDev && referrer.url.startsWith(urlDev));
+    const decisao = decidirAbertura({ url, nome: frameName, doFramePrincipal: doApp });
+    if (decisao === 'externo') void shell.openExternal(url);
+    if (decisao !== 'propria' || !janelasProprias?.podeAbrir(frameName)) return { action: 'deny' };
+    const area = screen.getDisplayMatching(janela.getBounds()).workArea;
+    const limites = limitesSeguros(
+      janelasProprias.limitesSalvos(frameName),
+      screen.getAllDisplays().map((d) => d.workArea),
+      area,
+    );
+    return {
+      action: 'allow',
+      // A filha fecha junto com a principal (A6).
+      outlivesOpener: false,
+      overrideBrowserWindowOptions: opcoesDaJanela(frameName, limites, process.platform === 'linux' ? caminhoIcone() : undefined),
+    };
+  });
+  janela.webContents.on('did-create-window', (filha, { frameName }) => {
+    filha.setMenuBarVisibility(false);
+    janelasProprias?.registrar(frameName, filha);
+  });
 
   // Link ou arquivo arrastado não pode levar a janela para fora do app.
   janela.webContents.on('will-navigate', (evento, url) => {
@@ -161,6 +184,21 @@ function criarJanela(): BrowserWindow {
   return janela;
 }
 
+// Toda janela do app (inclusive a janela própria) nasce sem navegar para fora e sem abrir outras janelas (A2). A
+// principal troca o handler de abrir pelo dela logo em seguida (links externos e a janela própria).
+app.on('web-contents-created', (_e, conteudo) => {
+  conteudo.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  const urlDev = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;
+  const bloquear = (evento: { preventDefault(): void }, url: string) => {
+    if (!(urlDev && url.startsWith(urlDev))) evento.preventDefault();
+  };
+  conteudo.on('will-navigate', bloquear);
+  conteudo.on('will-redirect', bloquear);
+});
+
 // Instância secundária só repassou o link e está saindo: não registra nada nem abre janela.
 if (links.principal) {
   void app.whenReady().then(() => {
@@ -169,9 +207,11 @@ if (links.principal) {
     const dados = app.getPath('userData');
     const configuracoes = criarArmazemConfiguracoes(join(dados, 'configuracoes.json'));
     armazem = configuracoes;
+    janelasProprias = criarJanelasProprias(join(dados, 'janelas-proprias.json'));
     // CA-46: a janela só fala com o servidor configurado.
     const redeVista: { url: string; ok: boolean }[] = [];
-    const registrarRede = process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged ? (url: string, ok: boolean) => void redeVista.push({ url, ok }) : undefined;
+    const registrarRede =
+      process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged ? (url: string, ok: boolean) => void redeVista.push({ url, ok }) : undefined;
     if (registrarRede) (globalThis as { __redeVista?: unknown }).__redeVista = redeVista;
     // Servidor de um convite em andamento (a janela o define depois de testá-lo; vale até virar o salvo).
     let servidorPendente: string | null = null;
@@ -192,7 +232,15 @@ if (links.principal) {
       estadoGif.marcar(servidor, ligado);
     });
     const gifLigado = () => estadoGif.ligado(configuracoes.ler().servidorUrl);
-    filtrarRede(() => configuracoes.ler().servidorUrl, app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL, registrarRede, () => servidorPendente, () => videosAbertos > 0, () => (configuracoes.ler().servidores ?? []).map((s) => s.url), gifLigado);
+    filtrarRede(
+      () => configuracoes.ler().servidorUrl,
+      app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL,
+      registrarRede,
+      () => servidorPendente,
+      () => videosAbertos > 0,
+      () => (configuracoes.ler().servidores ?? []).map((s) => s.url),
+      gifLigado,
+    );
     // RF-15: atalhos globais mandam aperto/soltura para a janela (funcionam com ela em segundo plano).
     const atalhos = criarAtalhos(
       (e) => {
@@ -230,7 +278,8 @@ if (links.principal) {
     ipcMain.handle('atividade:atual', () => atividade.atual());
     // E2E: o Playwright não gera teclas do sistema nem ociosidade; simula o que o sistema entregaria (só fora do empacotado).
     if (process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged) {
-      (globalThis as { __teclaGlobal?: unknown }).__teclaGlobal = (tipo: 'down' | 'up', codigo: string, mods: Modificadores = {}) => atalhos.tratarCodigo(tipo, codigo, mods);
+      (globalThis as { __teclaGlobal?: unknown }).__teclaGlobal = (tipo: 'down' | 'up', codigo: string, mods: Modificadores = {}) =>
+        atalhos.tratarCodigo(tipo, codigo, mods);
       (globalThis as { __ociosoSegundos?: unknown }).__ociosoSegundos = (s: number | undefined) => {
         ociosoForcado = s;
         ociosidade.verificar();
@@ -246,7 +295,8 @@ if (links.principal) {
     ipcMain.on('app:modo-teste', (e) => {
       e.returnValue = process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged;
     });
-    registrarCaptura();
+    // As janelas próprias ficam fora da lista de janelas para transmitir (A7).
+    registrarCaptura(undefined, undefined, () => janelasProprias?.idsDeCaptura() ?? []);
     registrarIpc(
       configuracoes,
       criarArmazemSessao(join(dados, 'sessao.json'), {
@@ -270,6 +320,8 @@ if (links.principal) {
           void atividade.verificar();
         }
       },
+      // A3: a janela própria não tem a ponte; mesmo assim, só a página do app mexe em sessão, arquivos e configurações.
+      (e) => !!janelaPrincipal && !janelaPrincipal.isDestroyed() && e.senderFrame === janelaPrincipal.webContents.mainFrame,
     );
     criarJanela();
 

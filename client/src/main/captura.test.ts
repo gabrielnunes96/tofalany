@@ -4,7 +4,10 @@ const handlers = new Map<string, (...a: unknown[]) => unknown>();
 let handlerTela: ((pedido: unknown, responder: (r: unknown) => void) => void) | undefined;
 vi.mock('electron', () => ({
   desktopCapturer: { getSources: vi.fn() },
-  ipcMain: { handle: (canal: string, fn: (...a: unknown[]) => unknown) => handlers.set(canal, fn), on: (canal: string, fn: (...a: unknown[]) => unknown) => handlers.set(canal, fn) },
+  ipcMain: {
+    handle: (canal: string, fn: (...a: unknown[]) => unknown) => handlers.set(canal, fn),
+    on: (canal: string, fn: (...a: unknown[]) => unknown) => handlers.set(canal, fn),
+  },
   session: { defaultSession: { setDisplayMediaRequestHandler: (fn: typeof handlerTela) => (handlerTela = fn) } },
   webContents: { fromFrame: (frame: { janela: number }) => ({ id: frame.janela }) },
   screen: { getAllDisplays: () => [{ id: 1, size: { width: 1920, height: 1080 }, scaleFactor: 1 }], getDisplayMatching: () => ({ id: 1 }) },
@@ -66,5 +69,13 @@ describe('captura de tela (RF-26)', () => {
     vi.setSystemTime(Date.now() + 16_000);
     expect(await pedirTela(7)).toEqual({});
     vi.useRealTimers();
+  });
+
+  it('A7: as janelas próprias do app não aparecem para transmitir e não podem ser escolhidas', async () => {
+    handlers.clear();
+    registrarCaptura(vi.fn(async () => [fonte('screen:1', 'Tela 1'), fonte('window:9', 'ToFalany – Câmeras')]) as never, som, () => ['window:9']);
+    const lista = (await handlers.get('captura:fontes')!()) as { id: string }[];
+    expect(lista.map((f) => f.id)).toEqual(['screen:1']);
+    expect(() => handlers.get('captura:escolher')!({ sender: { id: 7 } }, { fonteId: 'window:9' })).toThrow('Fonte inválida.');
   });
 });

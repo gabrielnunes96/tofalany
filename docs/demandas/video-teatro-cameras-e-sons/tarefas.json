@@ -10,9 +10,12 @@
       "repo": ".",
       "stack": "front",
       "depende_de": [],
-      "criterios": ["CA-3", "CA-4"],
+      "criterios": [
+        "CA-3",
+        "CA-4"
+      ],
       "validacao": "vitest: handler (A1), limitesSeguros (A5), fontes sem as janelas do app (A7), IPC de outro frame recusado (A3). E2E: abrir a filha, vídeo tocando nela, window.tofalando undefined na filha, window.open('https://…') não cria janela.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
@@ -23,7 +26,10 @@
       "repo": ".",
       "stack": "front",
       "depende_de": [],
-      "criterios": ["CA-1", "CA-2"],
+      "criterios": [
+        "CA-1",
+        "CA-2"
+      ],
       "validacao": "vitest: limitarNaJanela e o botão; E2E: soltar sobre a lista de membros e elementFromPoint no centro é a janelinha; voltar ao lugar.",
       "estado": "a_fazer",
       "wi": null,
@@ -35,8 +41,14 @@
       "descricao": "\"Abrir em janela própria\" na grade de câmeras: as câmeras vão para a filha (tofalany-cameras) e saem do app; fechar a janela devolve; fecha sozinha ao sair da voz, ser desconectado, trocar de canal ou servidor e sair da conta; adaptiveStream com pauseVideoInBackground falso.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T1", "T2"],
-      "criterios": ["CA-3", "CA-4"],
+      "depende_de": [
+        "T1",
+        "T2"
+      ],
+      "criterios": [
+        "CA-3",
+        "CA-4"
+      ],
       "validacao": "vitest do estado de modo; E2E: abrir, vídeo na filha, fechar devolve, sair da voz fecha a filha.",
       "estado": "a_fazer",
       "wi": null,
@@ -49,7 +61,13 @@
       "repo": ".",
       "stack": "front",
       "depende_de": [],
-      "criterios": ["CA-6", "CA-7", "CA-8", "CA-9", "CA-10"],
+      "criterios": [
+        "CA-6",
+        "CA-7",
+        "CA-8",
+        "CA-9",
+        "CA-10"
+      ],
       "validacao": "vitest (transmissao.test.tsx): botões por papel, estreito só ícones, Esc, auto-esconder com relógio falso, fechar sai de tudo; E2E: janela de 900 px com todos os botões dentro.",
       "estado": "a_fazer",
       "wi": null,
@@ -61,8 +79,14 @@
       "descricao": "Botão da barra abre a transmissão na filha (tofalany-transmissao-<id>) com a mesma barra e o mesmo volume; fechar a janela devolve ao painel; tela:parada, sair da voz ou desconexão fecham a janela.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T1", "T4"],
-      "criterios": ["CA-5", "CA-10"],
+      "depende_de": [
+        "T1",
+        "T4"
+      ],
+      "criterios": [
+        "CA-5",
+        "CA-10"
+      ],
       "validacao": "vitest do estado; E2E com mídia falsa: transmissão na filha, fechar devolve ao painel, parar a transmissão fecha a filha.",
       "estado": "a_fazer",
       "wi": null,
@@ -75,7 +99,10 @@
       "repo": ".",
       "stack": "front",
       "depende_de": [],
-      "criterios": ["CA-11", "CA-12"],
+      "criterios": [
+        "CA-11",
+        "CA-12"
+      ],
       "validacao": "vitest: sonsDaTransmissao por papel (quem transmite, quem assiste, quem só está na sala, outro canal), intervalo de 1 s, surdo e preferência desligada; mesclarSons com as chaves novas.",
       "estado": "a_fazer",
       "wi": null,
@@ -88,7 +115,11 @@
       "repo": ".",
       "stack": "front",
       "depende_de": [],
-      "criterios": ["CA-13", "CA-14", "CA-15"],
+      "criterios": [
+        "CA-13",
+        "CA-14",
+        "CA-15"
+      ],
       "validacao": "vitest: aparece e some; posição proporcional e volta ao canto; razaoDeContraste e aviso; mesclarContador recusa cor que não é #rrggbb e posição fora de 0..1.",
       "estado": "a_fazer",
       "wi": null,
@@ -100,8 +131,19 @@
       "descricao": "Specs de câmeras (CA-1, CA-2, CA-3), barra em 900 px (CA-7), modo teatro (CA-6), contador (CA-13) e janela própria; validação completa (build, testes, lint, E2E).",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T3", "T5", "T6", "T7"],
-      "criterios": ["CA-1", "CA-3", "CA-6", "CA-7", "CA-13"],
+      "depende_de": [
+        "T3",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-3",
+        "CA-6",
+        "CA-7",
+        "CA-13"
+      ],
       "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
       "estado": "a_fazer",
       "wi": null,
@@ -113,8 +155,15 @@
       "descricao": "Gabriel confere: câmeras e transmissão em outro monitor (CA-4, CA-5), sons entre três pessoas (CA-11, CA-12), contador e cores.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T8"],
-      "criterios": ["CA-4", "CA-5", "CA-11", "CA-12"],
+      "depende_de": [
+        "T8"
+      ],
+      "criterios": [
+        "CA-4",
+        "CA-5",
+        "CA-11",
+        "CA-12"
+      ],
       "validacao": "checklist manual preenchido pelo Gabriel.",
       "estado": "a_fazer",
       "wi": null,

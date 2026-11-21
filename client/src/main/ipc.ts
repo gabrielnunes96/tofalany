@@ -1,4 +1,4 @@
-import { clipboard, ipcMain } from 'electron';
+import { clipboard, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import type { ConfiguracoesLocais, ConviteLink } from '@tofalando/shared';
 import type { SessaoLocal } from '../preload/api';
 import type { ArmazemConfiguracoes } from './configuracoes';
@@ -13,26 +13,49 @@ export function registrarIpc(
   arquivos: ReturnType<typeof criarArquivos>,
   notificacoes: ReturnType<typeof criarNotificacoes>,
   aoMudarConfig: (c: ConfiguracoesLocais) => void = () => undefined,
+  /** A3: só a página do app (frame principal da janela principal) mexe em sessão, arquivos e configurações. */
+  confiavel: (e: IpcMainInvokeEvent) => boolean = () => true,
 ): void {
+  const exigir = (e: IpcMainInvokeEvent) => {
+    if (!confiavel(e)) throw new Error('Pedido recusado.');
+  };
   ipcMain.handle('notificar', (_e, p: PedidoNotificacao) => {
     if (!p || typeof p.titulo !== 'string' || typeof p.corpo !== 'string' || typeof p.chave !== 'string') throw new Error('Pedido inválido.');
-    return notificacoes.mostrar({ titulo: p.titulo, corpo: p.corpo, chave: p.chave, conversaAberta: p.conversaAberta === true, silencioso: p.silencioso === true });
+    return notificacoes.mostrar({
+      titulo: p.titulo,
+      corpo: p.corpo,
+      chave: p.chave,
+      conversaAberta: p.conversaAberta === true,
+      silencioso: p.silencioso === true,
+    });
   });
   ipcMain.handle('config:ler', () => configuracoes.ler());
-  ipcMain.handle('config:gravar', (_evento, parcial: Partial<ConfiguracoesLocais>) => {
+  ipcMain.handle('config:gravar', (evento, parcial: Partial<ConfiguracoesLocais>) => {
+    exigir(evento);
     const novo = configuracoes.gravar(parcial);
     aoMudarConfig(novo);
     return novo;
   });
-  ipcMain.handle('sessao:ler', (_e, url: unknown) => sessao.ler(typeof url === 'string' ? url : undefined));
-  ipcMain.handle('sessao:gravar', (_evento, nova: SessaoLocal) => sessao.gravar(nova));
-  ipcMain.handle('sessao:apagar', (_e, url: unknown) => sessao.apagar(typeof url === 'string' ? url : undefined));
+  ipcMain.handle('sessao:ler', (e, url: unknown) => {
+    exigir(e);
+    return sessao.ler(typeof url === 'string' ? url : undefined);
+  });
+  ipcMain.handle('sessao:gravar', (e, nova: SessaoLocal) => {
+    exigir(e);
+    return sessao.gravar(nova);
+  });
+  ipcMain.handle('sessao:apagar', (e, url: unknown) => {
+    exigir(e);
+    return sessao.apagar(typeof url === 'string' ? url : undefined);
+  });
   ipcMain.handle('deeplink:pendente', () => pegarConvitePendente() ?? null);
-  ipcMain.handle('arquivo:baixar', (_e, url: unknown, nome: unknown) => {
+  ipcMain.handle('arquivo:baixar', (e, url: unknown, nome: unknown) => {
+    exigir(e);
     if (typeof url !== 'string' || typeof nome !== 'string') throw new Error('Pedido inválido.');
     return arquivos.baixar(url, nome);
   });
-  ipcMain.handle('arquivo:abrir', (_e, caminho: unknown) => {
+  ipcMain.handle('arquivo:abrir', (e, caminho: unknown) => {
+    exigir(e);
     if (typeof caminho !== 'string') throw new Error('Pedido inválido.');
     return arquivos.abrir(caminho);
   });
