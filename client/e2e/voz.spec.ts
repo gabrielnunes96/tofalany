@@ -683,15 +683,35 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
   await expect.poll(async () => (await tempo()).largura, { timeout: 15_000 }).toBeGreaterThan(0);
   const t0 = (await tempo()).tempo;
   await expect.poll(async () => (await tempo()).tempo, { timeout: 10_000 }).toBeGreaterThan(t0 + 0.5);
-  // Janelinha guardada fora da tela (outro monitor, janela menor): ao mostrar de novo, ela aparece dentro da janela.
-  await ana.janela.evaluate(() => localStorage.setItem('tofalany.cameras', JSON.stringify({ flutuante: true, x: 9000, y: 6000 })));
-  await ana.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
-  await ana.janela.getByRole('button', { name: 'Mostrar câmeras' }).click();
-  const caixa = (await cameras.boundingBox())!;
+  // video-teatro-cameras-e-sons, CA-1: arrastada para cima da lista de membros (e além da borda), a janelinha fica
+  // inteira na janela e por cima da lista (antes ela ficava presa ao painel do meio e sumia).
+  await cameras.getByRole('button', { name: 'Câmeras flutuantes' }).click();
   const tamanho = await ana.janela.evaluate(() => ({ l: window.innerWidth, a: window.innerHeight }));
-  expect(caixa.x + 40).toBeLessThan(tamanho.l);
-  expect(caixa.y + 40).toBeLessThan(tamanho.a);
+  const inicio = (await cameras.boundingBox())!;
+  await ana.janela.mouse.move(inicio.x + 20, inicio.y + 10);
+  await ana.janela.mouse.down();
+  await ana.janela.mouse.move(tamanho.l + 300, inicio.y + 60, { steps: 10 });
+  await ana.janela.mouse.up();
+  const caixa = (await cameras.boundingBox())!;
+  expect(caixa.x + caixa.width).toBeLessThanOrEqual(tamanho.l);
+  expect(caixa.y + caixa.height).toBeLessThanOrEqual(tamanho.a);
+  const centro = { x: caixa.x + caixa.width / 2, y: caixa.y + caixa.height / 2 };
+  expect(await ana.janela.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[aria-label="Câmeras"]'), centro)).toBe(true);
+  await ana.janela.screenshot({ path: join(__dirname, '../../docs/demandas/video-teatro-cameras-e-sons/prints/cameras-sobre-membros.png') });
+  // CA-2: "Voltar as câmeras ao lugar" (no painel de voz) leva ao canto padrão.
+  await ana.janela.getByRole('button', { name: 'Voltar as câmeras ao lugar' }).click();
+  await expect.poll(async () => Math.round((await cameras.boundingBox())!.x)).toBe(24);
+  // CA-3: em janela própria a câmera do dono toca lá (mesma faixa) e sai do app; fechar a janela traz de volta.
+  const janelaPropria = ana.app.waitForEvent('window');
+  await cameras.getByRole('button', { name: 'Abrir as câmeras em janela própria' }).click();
+  const filha = await janelaPropria;
+  await expect.poll(() => filha.evaluate(() => (document.querySelector('video[aria-label="Vídeo de dono"]') as HTMLVideoElement | null)?.videoWidth ?? 0), { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect(ana.janela.getByText('As câmeras estão numa janela própria.')).toBeVisible();
+  await filha.screenshot({ path: join(__dirname, '../../docs/demandas/video-teatro-cameras-e-sons/prints/cameras-janela-propria.png') });
+  await filha.close();
+  await expect(videoNaAna).toBeVisible();
   await cameras.getByRole('button', { name: 'Prender as câmeras no topo' }).click();
+  const quantasDaAna = () => ana.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
 
   // A minha própria câmera também volta (prévia local).
   const minha = dono.janela.getByLabel('Vídeo de dono');
@@ -705,7 +725,11 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
   const m0 = (await tempoMinha()).tempo;
   await expect.poll(async () => (await tempoMinha()).tempo, { timeout: 10_000 }).toBeGreaterThan(m0 + 0.5);
 
+  // A6: com as câmeras numa janela própria, o vídeo acabar (a câmera desligou ou saí da voz) fecha a janela.
+  await cameras.getByRole('button', { name: 'Abrir as câmeras em janela própria' }).click();
+  await expect.poll(quantasDaAna).toBe(2);
   await dono.janela.getByRole('button', { name: 'Câmera', exact: true }).click();
+  await expect.poll(quantasDaAna, { timeout: 15_000 }).toBe(1);
   await expect(videoNaAna).toHaveCount(0, { timeout: 15_000 });
   await expect(ana.janela.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('câmera ligada')).toHaveCount(0);
 
@@ -770,6 +794,37 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, várias no c
   expect(caixa!.height).toBeGreaterThanOrEqual(video!.height + barra!.height);
   await expect(a.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('transmitindo a tela')).toBeVisible();
   await print(a, 'T21-ana-assiste-tela-do-dono');
+
+  // video-teatro-cameras-e-sons: contador flutuante para os dois (CA-13); modo teatro inteiro na janela (CA-6); a barra
+  // cabe numa janela de 900 px (CA-7).
+  for (const p of [d, a]) await expect(p.locator('.contador-espectadores')).toBeVisible({ timeout: 10_000 });
+  await a.getByRole('button', { name: 'Modo teatro' }).click();
+  const teatro = (await a.locator('.transmissao-grande.teatro').boundingBox())!;
+  const vista = await a.evaluate(() => ({ l: window.innerWidth, a: window.innerHeight }));
+  expect(teatro.x).toBeGreaterThanOrEqual(0);
+  expect(teatro.x + teatro.width).toBeLessThanOrEqual(vista.l);
+  expect(teatro.y + teatro.height).toBeLessThanOrEqual(vista.a);
+  await a.mouse.move(vista.l / 2, vista.a / 2);
+  await a.screenshot({ path: join(__dirname, '../../docs/demandas/video-teatro-cameras-e-sons/prints/teatro.png') });
+  await a.keyboard.press('Escape');
+  await expect(a.locator('.teatro-fundo')).toHaveCount(0);
+  await ana.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(900, 700));
+  await expect.poll(async () => {
+    const largura = await a.evaluate(() => window.innerWidth);
+    const botoes = await a.getByRole('region', { name: 'Transmissão de dono' }).locator('.transmissao-acoes button').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().right));
+    return botoes.every((r) => r <= largura);
+  }).toBe(true);
+  // A barra da prévia ampliada de quem transmite também cabe em 900 px (CA-7), quando a prévia aparece.
+  await dono.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(900, 700));
+  if (await d.getByRole('button', { name: 'Ampliar prévia' }).isVisible().catch(() => false)) {
+    await d.getByRole('button', { name: 'Ampliar prévia' }).click();
+    const larguraD = await d.evaluate(() => window.innerWidth);
+    const direitas = await d.getByRole('dialog', { name: 'Prévia ampliada' }).locator('button').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().right));
+    expect(direitas.every((r) => r <= larguraD)).toBe(true);
+    await d.keyboard.press('Escape');
+  }
+  for (const p of [dono, ana]) await p.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1200, 760));
+  await a.screenshot({ path: join(__dirname, '../../docs/demandas/video-teatro-cameras-e-sons/prints/barra-900px.png') });
 
   // O dono vê que a ana está assistindo (olho com o número).
   await expect(d.getByRole('region', { name: 'Sua transmissão' }).getByRole('button', { name: '1 pessoa assistindo' })).toBeVisible({ timeout: 10_000 });

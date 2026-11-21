@@ -55,7 +55,7 @@ import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { PainelFixadas } from '../componentes/PainelFixadas';
 import { ContadorEspectadores } from '../componentes/ContadorEspectadores';
-import { criarFiltroRepeticao, PREFERENCIA_DO_SOM, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
+import { criarFiltroRepeticao, deveTocar, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
 import { useModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { PainelBusca } from '../componentes/PainelBusca';
 import { criarKlipy } from '../servicos/gif';
@@ -75,9 +75,8 @@ import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soun
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
 import { GradeVideos } from '../componentes/GradeVideos';
 import { SeletorTela, somParaLembrar, type FonteTela } from '../componentes/SeletorTela';
-import { BotaoBarra, PainelTransmissao } from '../componentes/PainelTransmissao';
-import { alternarTelaCheia } from '../componentes/telaCheia';
-import { createPortal } from 'react-dom';
+import { PainelTransmissao } from '../componentes/PainelTransmissao';
+import { PreviaLocal } from '../componentes/PreviaLocal';
 import { TelaEditarServidor } from './TelaEditarServidor';
 import { DialogoModeracao, type TipoModeracao } from '../componentes/DialogoModeracao';
 import { Espectadores } from '../componentes/Espectadores';
@@ -534,7 +533,7 @@ function TelaDoServidor({
   const filtroSonsTela = useRef(criarFiltroRepeticao());
   /** Sons da transmissão: cada um com a sua preferência; nada toca para quem está surdo. */
   const tocarDaTransmissao = (sons: SomTransmissao[]) => {
-    for (const som of sons) if (sonsRef.current[PREFERENCIA_DO_SOM[som]] !== false && !controlesRef.current.surdo) sonsVozRef.current?.tocar(som);
+    for (const som of sons) if (deveTocar(som, sonsRef.current, controlesRef.current.surdo)) sonsVozRef.current?.tocar(som);
   };
   const tocar = (som: SomVoz) => {
     // Com o áudio desligado (deafen), nada toca — nem os avisos.
@@ -2426,69 +2425,5 @@ function TelaDoServidor({
         </ContextoPerfil.Provider>
       </ContextoConvite.Provider>
     </div>
-  );
-}
-
-/**
- * Backlog v2, item 12: o que a minha tela está mandando (mudo, sem rede). "Ampliar" abre grande dentro do app (não em
- * tela cheia). Transmitindo a tela em que o app está, a imagem não é desenhada: ela apareceria dentro da própria
- * transmissão, num espelho infinito para quem assiste.
- */
-function PreviaLocal({ faixa, telaInteira, mesmaTela, aoOcultar }: { faixa: MediaStreamTrack; telaInteira: boolean; mesmaTela: boolean; aoOcultar?: () => void }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [ampliada, setAmpliada] = useState(false);
-  useEffect(() => {
-    const v = ref.current;
-    if (!v || mesmaTela) return;
-    v.srcObject = new MediaStream([faixa]);
-    void v.play().catch(() => undefined);
-    return () => {
-      v.srcObject = null;
-    };
-  }, [faixa, mesmaTela, ampliada]);
-  useEffect(() => {
-    if (!ampliada) return;
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAmpliada(false);
-    };
-    document.addEventListener('keydown', esc);
-    return () => document.removeEventListener('keydown', esc);
-  }, [ampliada]);
-  if (mesmaTela) {
-    return (
-      <p className="previa-minha-tela previa-espelho" role="note">
-        Você está transmitindo a tela em que o ToFalany está aberto: a prévia não aparece aqui para não virar espelho para quem assiste.
-        {telaInteira && ' Para ver a prévia, transmita uma janela ou deixe o ToFalany em outro monitor.'}
-      </p>
-    );
-  }
-  const video = <video ref={ref} aria-label="Prévia da sua transmissão" muted playsInline />;
-  if (ampliada) {
-    // video-teatro-cameras-e-sons (RN-4): no <body> (fora do painel do meio, que cortava a prévia), inteira na janela,
-    // com a barra de controles de quem transmite.
-    return createPortal(
-      <div className="previa-ampliada-fundo" role="presentation" onClick={() => setAmpliada(false)}>
-        <figure className="previa-ampliada" role="dialog" aria-label="Prévia ampliada" onClick={(e) => e.stopPropagation()}>
-          {video}
-          <div className="transmissao-acoes previa-acoes">
-            <span className="com-icone transmissao-nome">
-              <Icone nome="tela" tamanho={16} /> Sua transmissão
-            </span>
-            <BotaoBarra rotulo="Tela cheia" icone="ampliar" onClick={() => alternarTelaCheia(ref.current)} />
-            {aoOcultar && <BotaoBarra rotulo="Ocultar prévia" icone="olho" onClick={aoOcultar} />}
-            <BotaoBarra rotulo="Fechar (Esc)" icone="fechar" onClick={() => setAmpliada(false)} />
-          </div>
-        </figure>
-      </div>,
-      document.body,
-    );
-  }
-  return (
-    <figure className="previa-minha-tela" onDoubleClick={() => setAmpliada(true)}>
-      {video}
-      <button type="button" className="icone quadro-tela-cheia" aria-label="Ampliar prévia" title="Ampliar (ou duplo clique)" onClick={() => setAmpliada(true)}>
-        <Icone nome="ampliar" tamanho={16} />
-      </button>
-    </figure>
   );
 }

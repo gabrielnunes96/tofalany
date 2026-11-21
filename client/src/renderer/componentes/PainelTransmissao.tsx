@@ -81,6 +81,17 @@ export function PainelTransmissao({
   };
   useEffect(() => () => clearTimeout(esconder.current), []);
   const cheia = useEmTelaCheia(caixa, alvoJanela?.ownerDocument ?? document);
+  // RN-6: ao entrar no modo teatro, na tela cheia ou na janela própria (também pelo teclado), o relógio de esconder os
+  // controles começa sem precisar mexer o mouse.
+  const sobreOVideoAgora = assistindo && (exibicao !== 'painel' || cheia);
+  useEffect(() => {
+    if (!sobreOVideoAgora) return;
+    esconder.current = setTimeout(() => setControlesVisiveis(false), ESCONDER_CONTROLES_MS);
+    return () => {
+      clearTimeout(esconder.current);
+      setTimeout(() => setControlesVisiveis(true), 0);
+    };
+  }, [sobreOVideoAgora]);
   // Item 39: ao parar de assistir (Fechar, ou o painel sumir) com o vídeo em tela cheia, sai da tela cheia.
   // Sem isso a janela ficava em tela cheia, toda preta, só com o aviso "fulano está transmitindo" no meio.
   useEffect(() => {
@@ -134,7 +145,15 @@ export function PainelTransmissao({
       onMouseLeave={sobreOVideo ? () => setControlesVisiveis(false) : undefined}
       onClick={teatro ? (e) => e.stopPropagation() : undefined}
     >
-      <video ref={ref} autoPlay playsInline muted aria-label={`Tela de ${nome}`} onDoubleClick={() => alternarTelaCheia(caixa.current)} />
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        muted
+        aria-label={`Tela de ${nome}`}
+        // RF-4: no painel, duplo clique abre o modo teatro; no teatro e na janela própria, alterna a tela cheia.
+        onDoubleClick={() => (exibicao === 'painel' && !cheia ? setExibicao('teatro') : alternarTelaCheia(caixa.current))}
+      />
       <div className="transmissao-acoes">
         <span className="com-icone transmissao-nome">
           <Icone nome="tela" tamanho={16} /> {nome}

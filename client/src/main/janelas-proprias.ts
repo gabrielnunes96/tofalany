@@ -113,15 +113,19 @@ export function criarJanelasProprias(arquivo: string) {
   const abertas = new Map<string, BrowserWindow>();
   let limites = lerLimites(arquivo);
   let gravacao: ReturnType<typeof setTimeout> | undefined;
-  const gravar = () => {
+  const gravarAgora = () => {
     clearTimeout(gravacao);
-    gravacao = setTimeout(() => {
-      try {
-        writeFileSync(arquivo, JSON.stringify(limites), { mode: 0o600 });
-      } catch {
-        // Sem gravar: a próxima abertura usa o padrão.
-      }
-    }, 500);
+    gravacao = undefined;
+    try {
+      writeFileSync(arquivo, JSON.stringify(limites), { mode: 0o600 });
+    } catch {
+      // Sem gravar: a próxima abertura usa o padrão.
+    }
+  };
+  /** Com atraso ao mover e redimensionar (não reescreve o arquivo a cada pixel); na hora ao fechar. */
+  const gravarDepois = () => {
+    clearTimeout(gravacao);
+    gravacao = setTimeout(gravarAgora, 500);
   };
   return {
     /** Já aberta com esse nome (a nova chamada só foca) ou no limite: não abre outra. */
@@ -136,18 +140,37 @@ export function criarJanelasProprias(arquivo: string) {
     limitesSalvos: (nome: string) => limites[tipoDaJanela(nome)],
     registrar(nome: string, janela: BrowserWindow) {
       abertas.set(nome, janela);
-      const guardar = () => {
-        if (janela.isDestroyed() || janela.isMinimized() || janela.isFullScreen()) return;
-        limites = { ...limites, [tipoDaJanela(nome)]: janela.getBounds() };
-        gravar();
+      // Tamanho "normal" (sem o maximizado); minimizada ou em tela cheia não muda o que fica guardado.
+      const ler = () => {
+        if (janela.isDestroyed() || janela.isMinimized() || janela.isFullScreen()) return false;
+        limites = { ...limites, [tipoDaJanela(nome)]: janela.getNormalBounds() };
+        return true;
       };
-      janela.on('moved', guardar);
-      janela.on('resized', guardar);
-      janela.on('close', guardar);
+      // "move" e "resize" valem no Linux também ("moved"/"resized" são só do Windows e do macOS).
+      janela.on('move', () => ler() && gravarDepois());
+      janela.on('resize', () => ler() && gravarDepois());
+      // Ao fechar (inclusive com o app saindo): grava na hora, antes de o processo terminar.
+      janela.on('close', () => {
+        ler();
+        gravarAgora();
+      });
       janela.on('closed', () => abertas.delete(nome));
     },
     /** Ids de captura das janelas próprias (A7: ficam fora do seletor de transmissão). */
     idsDeCaptura: () => [...abertas.values()].filter((j) => !j.isDestroyed()).map((j) => j.getMediaSourceId()),
     todas: () => [...abertas.values()].filter((j) => !j.isDestroyed()),
+    /** A6: a página principal recarregou ou caiu — as janelas ficariam com o vídeo parado e o nome ocupado. */
+    fecharTodas() {
+      for (const j of abertas.values()) if (!j.isDestroyed()) j.close();
+    },
+    /** A5: um monitor saiu — quem ficou fora de todos volta para o monitor da janela principal. */
+    reposicionar(areas: Rectangle[], areaDaPrincipal: Rectangle) {
+      for (const j of abertas.values()) {
+        if (j.isDestroyed()) continue;
+        const atual = j.getBounds();
+        const seguro = limitesSeguros(atual, areas, areaDaPrincipal);
+        if (seguro.x !== atual.x || seguro.y !== atual.y || seguro.width !== atual.width || seguro.height !== atual.height) j.setBounds(seguro);
+      }
+    },
   };
 }

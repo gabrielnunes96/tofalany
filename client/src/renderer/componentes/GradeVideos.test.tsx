@@ -82,6 +82,8 @@ describe('câmeras em janela própria (CA-3, T3)', () => {
     await vi.waitFor(() => expect(doc.querySelectorAll('video').length).toBeGreaterThan(0));
     rerender(<GradeVideos videos={[]} usuarios={[ana]} euId={2} />);
     expect(filha.close).toHaveBeenCalled();
+    // Ao voltar para uma sala com câmera, as câmeras voltam no app (a janela não abre sozinha).
+    expect(lerModoCameras().janela).toBe(false);
   });
 
   it('ligarFaixa: na janela principal usa attach; noutra janela, a mesma faixa e a visibilidade informada pela janela', () => {

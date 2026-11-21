@@ -31,6 +31,17 @@ test('janela própria: só about:blank com nome conhecido; vídeo da principal t
   });
   await janela.waitForTimeout(300);
   expect(await quantas()).toBe(1);
+  // Um iframe (como o do YouTube) não abre a janela própria, nem escondendo o referrer (A1).
+  await janela.evaluate(async () => {
+    const f = document.createElement('iframe');
+    f.srcdoc = '<p>x</p>';
+    document.body.appendChild(f);
+    await new Promise((r) => (f.onload = r));
+    f.contentWindow!.open('about:blank', 'tofalany-cameras', 'noreferrer');
+    f.remove();
+  });
+  await janela.waitForTimeout(500);
+  expect(await quantas()).toBe(1);
 
   // A janela das câmeras: a faixa de um canvas da principal toca num <video> da filha.
   const filhaPromessa = app.waitForEvent('window');

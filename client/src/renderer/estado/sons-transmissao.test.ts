@@ -46,3 +46,13 @@ describe('sons da transmissão', () => {
     for (const som of ['tela-abrir', 'tela-fechar', 'assistir-comecar', 'assistir-parar'] as const) expect(NOTAS[som].freqs.length).toBeGreaterThan(1);
   });
 });
+
+describe('CA-12: quem está surdo ou desligou o som não ouve', () => {
+  it('deveTocar respeita a preferência de cada som e o surdo', async () => {
+    const { deveTocar } = await import('./sons-transmissao');
+    expect(deveTocar('tela-abrir', SONS_PADRAO, false)).toBe(true);
+    expect(deveTocar('tela-abrir', SONS_PADRAO, true)).toBe(false);
+    expect(deveTocar('tela-abrir', { ...SONS_PADRAO, telaAbrir: false }, false)).toBe(false);
+    expect(deveTocar('assistir-parar', { ...SONS_PADRAO, telaAbrir: false }, false)).toBe(true);
+  });
+});

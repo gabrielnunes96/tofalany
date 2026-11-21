@@ -28,7 +28,13 @@ export function useJanelaPropria(nome: string | null, titulo: string, aoFechar: 
       for (const { name, value } of [...document.documentElement.attributes]) doc.documentElement.setAttribute(name, value);
     };
     copiarRaiz();
+    const ehEstilo = (no: Node): no is Element => no instanceof Element && (no.tagName === 'STYLE' || (no.tagName === 'LINK' && no.getAttribute('rel') === 'stylesheet'));
     for (const no of document.head.querySelectorAll('style, link[rel="stylesheet"]')) doc.head.appendChild(no.cloneNode(true));
+    // Estilos que chegam depois (CSS carregado sob demanda; em desenvolvimento, a atualização do Vite) vão junto.
+    const estilosNovos = new MutationObserver((mudancas) => {
+      for (const m of mudancas) for (const no of m.addedNodes) if (ehEstilo(no)) doc.head.appendChild(no.cloneNode(true));
+    });
+    estilosNovos.observe(document.head, { childList: true });
     doc.body.className = 'janela-propria';
     const raiz = doc.createElement('div');
     raiz.className = 'janela-propria-raiz';
@@ -46,6 +52,7 @@ export function useJanelaPropria(nome: string | null, titulo: string, aoFechar: 
     return () => {
       vivo = false;
       tema.disconnect();
+      estilosNovos.disconnect();
       filha.removeEventListener('pagehide', fechouLa);
       fechandoDaqui = true;
       setAlvo(null);

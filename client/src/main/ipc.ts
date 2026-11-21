@@ -14,7 +14,7 @@ export function registrarIpc(
   notificacoes: ReturnType<typeof criarNotificacoes>,
   aoMudarConfig: (c: ConfiguracoesLocais) => void = () => undefined,
   /** A3: só a página do app (frame principal da janela principal) mexe em sessão, arquivos e configurações. */
-  confiavel: (e: IpcMainInvokeEvent) => boolean = () => true,
+  confiavel: (e: Pick<IpcMainInvokeEvent, 'sender' | 'senderFrame'>) => boolean = () => true,
 ): void {
   const exigir = (e: IpcMainInvokeEvent) => {
     if (!confiavel(e)) throw new Error('Pedido recusado.');

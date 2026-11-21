@@ -15,9 +15,9 @@
         "CA-4"
       ],
       "validacao": "vitest: handler (A1), limitesSeguros (A5), fontes sem as janelas do app (A7), IPC de outro frame recusado (A3). E2E: abrir a filha, vídeo tocando nela, window.tofalando undefined na filha, window.open('https://…') não cria janela.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "aaeed4a"
     },
     {
       "id": "T2",
@@ -31,9 +31,9 @@
         "CA-2"
       ],
       "validacao": "vitest: limitarNaJanela e o botão; E2E: soltar sobre a lista de membros e elementFromPoint no centro é a janelinha; voltar ao lugar.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "0d620b4"
     },
     {
       "id": "T3",
@@ -50,9 +50,9 @@
         "CA-4"
       ],
       "validacao": "vitest do estado de modo; E2E: abrir, vídeo na filha, fechar devolve, sair da voz fecha a filha.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "59c75b5"
     },
     {
       "id": "T4",
@@ -69,9 +69,9 @@
         "CA-10"
       ],
       "validacao": "vitest (transmissao.test.tsx): botões por papel, estreito só ícones, Esc, auto-esconder com relógio falso, fechar sai de tudo; E2E: janela de 900 px com todos os botões dentro.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "5c89a72"
     },
     {
       "id": "T5",
@@ -88,9 +88,9 @@
         "CA-10"
       ],
       "validacao": "vitest do estado; E2E com mídia falsa: transmissão na filha, fechar devolve ao painel, parar a transmissão fecha a filha.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "14fa4fa"
     },
     {
       "id": "T6",
@@ -104,9 +104,9 @@
         "CA-12"
       ],
       "validacao": "vitest: sonsDaTransmissao por papel (quem transmite, quem assiste, quem só está na sala, outro canal), intervalo de 1 s, surdo e preferência desligada; mesclarSons com as chaves novas.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "ccb15e0"
     },
     {
       "id": "T7",
@@ -121,9 +121,9 @@
         "CA-15"
       ],
       "validacao": "vitest: aparece e some; posição proporcional e volta ao canto; razaoDeContraste e aviso; mesclarContador recusa cor que não é #rrggbb e posição fora de 0..1.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "ba21c35"
     },
     {
       "id": "T8",
@@ -145,7 +145,7 @@
         "CA-13"
       ],
       "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

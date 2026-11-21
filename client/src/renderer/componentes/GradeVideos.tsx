@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as EventoPonteiro } from 'react';
 import { createPortal } from 'react-dom';
-import { gravarModoCameras, useModoCameras } from '../servicos/modo-cameras';
+import { gravarModoCameras, lerModoCameras, useModoCameras } from '../servicos/modo-cameras';
 import { ligarFaixa } from '../servicos/faixa-em-janela';
 import { useJanelaPropria } from '../servicos/janela-propria';
 import type { UsuarioDto } from '@tofalando/shared';
@@ -47,11 +47,25 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
   const modo = useModoCameras();
   // video-teatro-cameras-e-sons (RF-3): câmeras numa janela própria enquanto houver vídeo (sair da voz fecha, A6).
   const emJanela = !!modo.janela && videos.length > 0;
+  // Saiu da voz (sem vídeo): a janela já fechou; ao voltar, as câmeras voltam ao app (não abre janela sozinha).
+  const semVideo = videos.length === 0;
+  useEffect(() => {
+    if (semVideo && lerModoCameras().janela) gravarModoCameras({ ...lerModoCameras(), janela: false });
+  }, [semVideo]);
   const alvoJanela = useJanelaPropria(emJanela ? 'tofalany-cameras' : null, 'ToFalany – Câmeras', () => gravarModoCameras({ ...modo, janela: false }));
   /** Posição durante o arrasto (só grava ao soltar). */
   const [arrastando, setArrastando] = useState<{ x: number; y: number } | null>(null);
   const arrasto = useRef<{ dx: number; dy: number } | null>(null);
   const caixa = useRef<HTMLElement>(null);
+  /** Tamanho real da janelinha (com 3 ou 4 câmeras ela é mais alta): a posição na tela usa ele (RN-1). */
+  const [tamanho, setTamanho] = useState({ largura: 320, altura: 160 });
+  useEffect(() => {
+    const el = caixa.current;
+    if (!modo.flutuante || !el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(() => setTamanho({ largura: el.offsetWidth || 320, altura: el.offsetHeight || 160 }));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [modo.flutuante, videos.length]);
 
   // Mantém a janelinha inteira dentro da janela do app (RN-1).
   const limitar = (x: number, y: number) => {
@@ -63,7 +77,8 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
 
   const comecar = (e: EventoPonteiro<HTMLElement>) => {
     if (!modo.flutuante || (e.target as HTMLElement).closest('button')) return;
-    arrasto.current = { dx: e.clientX - modo.x, dy: e.clientY - modo.y };
+    // A partir de onde ela aparece (a guardada pode estar fora e ter sido trazida para a borda).
+    arrasto.current = { dx: e.clientX - posicao.x, dy: e.clientY - posicao.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const mover = (e: EventoPonteiro<HTMLElement>) => {
@@ -90,7 +105,7 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
   if (videos.length === 0) return null;
   // Na tela: sem ler o tamanho real (largura do CSS da janelinha e uma altura mínima), só para nunca ficar fora.
   const larguraFlutuante = Math.min(360, window.innerWidth * 0.4);
-  const posicao = arrastando ?? limitarNaJanela(modo.x, modo.y, larguraFlutuante, 160, window.innerWidth, window.innerHeight);
+  const posicao = arrastando ?? limitarNaJanela(modo.x, modo.y, Math.max(larguraFlutuante, tamanho.largura), tamanho.altura, window.innerWidth, window.innerHeight);
   const nome = (id: number) => usuarios.find((u) => u.id === id)?.nomeExibicao ?? 'Alguém';
   const quadros = videos.map((v) => <Quadro key={v.meu ? 'meu' : v.usuarioId} faixa={v.faixa} meu={v.meu} nome={nome(v.meu ? euId : v.usuarioId)} />);
   if (emJanela) {

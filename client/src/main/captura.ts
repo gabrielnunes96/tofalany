@@ -36,13 +36,19 @@ export function registrarCaptura(
   som: Pick<ReturnType<typeof criarSomSistema>, 'disponivel' | 'ligar' | 'desligar'> = criarSomSistema(),
   /** Ids de captura das janelas próprias do app (câmeras e transmissão), que não entram na lista (A7). */
   excluidas: () => string[] = () => [],
+  /** A3: só a página do app lista, escolhe e mexe no som da captura. */
+  confiavel: (e: { sender: Electron.WebContents; senderFrame: Electron.WebFrameMain | null }) => boolean = () => true,
 ) {
+  const exigir = (e: { sender: Electron.WebContents; senderFrame: Electron.WebFrameMain | null }) => {
+    if (!confiavel(e)) throw new Error('Pedido recusado.');
+  };
   let escolhida: { fonteId: string; audio: boolean; janelaId: number; em: number } | undefined;
   /** A última fonte escolhida (para saber se a prévia apareceria na própria tela transmitida). */
   let ultimaEscolhida: string | undefined;
   let ultimas: DesktopCapturerSource[] = [];
 
-  ipcMain.handle('captura:fontes', async (): Promise<FonteCaptura[]> => {
+  ipcMain.handle('captura:fontes', async (e): Promise<FonteCaptura[]> => {
+    exigir(e);
     const fora = new Set(excluidas());
     ultimas = (await listar({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: false })).filter((f) => !fora.has(f.id));
     const telas = monitores();
@@ -57,6 +63,7 @@ export function registrarCaptura(
   // A prévia da minha transmissão apareceria dentro dela mesma (espelho infinito) se eu transmito a tela inteira em
   // que o app está. Com uma janela ou outro monitor, não.
   ipcMain.handle('captura:mesma-tela', (e): boolean => {
+    exigir(e);
     const fonte = ultimas.find((f) => f.id === ultimaEscolhida);
     if (!fonte || !fonte.id.startsWith('screen:')) return false;
     const telas = monitores();
@@ -74,9 +81,13 @@ export function registrarCaptura(
   ipcMain.on('captura:som-disponivel', (e) => {
     e.returnValue = process.platform === 'win32' || som.disponivel();
   });
-  ipcMain.handle('captura:som-parar', () => som.desligar());
+  ipcMain.handle('captura:som-parar', (e) => {
+    exigir(e);
+    som.desligar();
+  });
 
   ipcMain.handle('captura:escolher', (e, pedido: unknown) => {
+    exigir(e);
     const p = pedido as { fonteId?: unknown; audio?: unknown } | null;
     // Só uma fonte que o seletor acabou de mostrar.
     if (!p || typeof p.fonteId !== 'string' || !ultimas.some((f) => f.id === p.fonteId)) throw new Error('Fonte inválida.');

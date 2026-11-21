@@ -297,6 +297,25 @@ describe('modo teatro e barra de controles (video-teatro-cameras-e-sons, T4)', (
     }
   });
 
+  it('RN-6: entrando no modo teatro sem mexer o mouse, os controles somem sozinhos em 3 s', () => {
+    abrir();
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Modo teatro' }));
+      const grande = screen.getByRole('region', { name: 'Transmissão de dono' });
+      act(() => vi.advanceTimersByTime(3100));
+      expect(grande.className).toContain('controles-ocultos');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('RF-4: duplo clique no vídeo do painel abre o modo teatro', () => {
+    abrir();
+    fireEvent.doubleClick(screen.getByLabelText('Tela de dono'));
+    expect(document.querySelector('.teatro-fundo')).toBeTruthy();
+  });
+
   it('CA-10: fechar no modo teatro sai do teatro e volta ao aviso', () => {
     abrir();
     fireEvent.click(screen.getByRole('button', { name: 'Modo teatro' }));

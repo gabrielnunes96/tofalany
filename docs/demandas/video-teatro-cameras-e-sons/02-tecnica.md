@@ -101,6 +101,14 @@ Não se aplica além do que existe: logs do main para janela recusada (nome desc
 | R-7 | Prévia de quem transmite a própria tela inteira | mostrar; esconder | Continua escondida (evita espelho), como hoje; a barra aparece sem o botão de ampliar. |
 | R-8 | Testes de vários monitores e sons entre três pessoas | — | Não rodam no ambiente de teste: validação manual (T final). |
 
+### Decisões na implementação (21/11, revisão)
+- **Posição das câmeras** continua no `localStorage` (`servicos/modo-cameras.ts`), num módulo compartilhado com aviso por evento: o botão "Voltar as câmeras ao lugar" mexe nela de fora, sem passar pelas configurações do main. O modo "janela própria" fica só na memória (reabrir o app não abre a janela).
+- **Soltar fora da área:** a janelinha fica presa na borda mais próxima, inteira e por cima de tudo (em vez de voltar ao canto); o canto padrão vem pelo botão.
+- **Volume e modo da transmissão** ficam no `PainelTransmissao`: ele continua montado enquanto a transmissão existe, inclusive com ela na janela própria.
+- **Quem pediu a janela própria (A1):** o handler do Electron não informa o frame e o referrer pode ser escondido; a conferência é no `did-create-window` (`opener` igual ao frame principal da janela principal), que destrói a janela pedida por outro frame.
+- **API interna do livekit-client:** `observeElementInfo` é marcada `@internal`; o `package-lock` fixa a 2.23.0 e o E2E das câmeras em janela própria cobre o caminho. Atualizar o livekit-client exige rodar esse E2E.
+- **Contador com duas transmissões no canal:** mostra quantas pessoas diferentes assistem alguma delas.
+
 ## 10. Implantação e rollback
 Só o app (release normal, junto da atualização grande). Sem flag. Rollback: versão anterior do app; as chaves novas das configurações são ignoradas por ela.
 

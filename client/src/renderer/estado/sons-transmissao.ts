@@ -51,3 +51,8 @@ export function criarFiltroRepeticao(janelaMs = 1000, agora: () => number = Date
     return antes === undefined || t - antes >= janelaMs;
   };
 }
+
+/** RN-9: toca se a preferência daquele som está ligada e a pessoa não está surda. */
+export function deveTocar(som: SomTransmissao, prefs: PreferenciasSons, surdo: boolean): boolean {
+  return !surdo && prefs[PREFERENCIA_DO_SOM[som]] !== false;
+}

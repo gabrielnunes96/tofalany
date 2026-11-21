@@ -915,7 +915,7 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .pedidos-enviados { margin: 4px 6px 10px; font-size: 0.75rem; }
 
 /* Prévia da minha transmissão ampliada dentro do app (não em tela cheia) e o aviso do espelho. */
-.previa-ampliada-fundo { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: var(--cor-veu); backdrop-filter: blur(6px); animation: surgir 0.14s ease-out; }
+.previa-ampliada-fundo { position: fixed; inset: 0; z-index: 58; display: grid; place-items: center; background: var(--cor-veu); backdrop-filter: blur(6px); animation: surgir 0.14s ease-out; }
 .previa-ampliada { margin: 0; width: min(92vw, 1600px, calc((100vh - 120px) * 16 / 9 + 2px)); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .previa-ampliada video { width: 100%; max-height: calc(100vh - 120px); object-fit: contain; background: var(--cor-video); border: 1px solid var(--cor-borda); border-radius: var(--raio-p); }
 .previa-espelho { aspect-ratio: auto; padding: 10px 12px; font-size: 0.8rem; color: var(--cor-texto-suave); background: color-mix(in srgb, var(--cor-superficie) 80%, transparent); }
@@ -1371,8 +1371,9 @@ body.janela-propria { margin: 0; min-height: 100vh; background: var(--cor-video)
   .botao-barra { padding-inline: 8px; }
 }
 
-/* Modo teatro (RN-4): a transmissão grande por cima do app, inteira na janela e na proporção do vídeo. */
-.teatro-fundo { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: var(--cor-veu); backdrop-filter: blur(6px); animation: surgir 0.14s ease-out; }
+/* Modo teatro (RN-4): a transmissão grande por cima do app, inteira na janela e na proporção do vídeo. Camada 58:
+   acima das câmeras e do contador, abaixo de diálogos, Configurações e cartões (60 em diante). */
+.teatro-fundo { position: fixed; inset: 0; z-index: 58; display: grid; place-items: center; padding: 16px; background: var(--cor-veu); backdrop-filter: blur(6px); animation: surgir 0.14s ease-out; }
 .transmissao-grande.teatro { position: relative; margin: 0; width: min(100%, calc((100vh - 32px) * 16 / 9)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
 .transmissao-grande.teatro video { max-height: calc(100vh - 32px); height: auto; width: 100%; object-fit: contain; }
 .transmissao-grande.teatro .transmissao-acoes {

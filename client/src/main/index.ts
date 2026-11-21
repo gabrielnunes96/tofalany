@@ -143,15 +143,19 @@ function criarJanela(): BrowserWindow {
   });
   // Recarregar a página recria o renderer: até ele pedir de novo, os links ficam guardados.
   janela.webContents.on('did-start-loading', () => links.rendererSaiu());
+  // A6: a página do app recarregou ou o renderer caiu — as janelas próprias (do React de antes) fecham.
+  janela.webContents.on('did-start-navigation', ({ isMainFrame, isSameDocument }) => {
+    if (isMainFrame && !isSameDocument) janelasProprias?.fecharTodas();
+  });
+  janela.webContents.on('render-process-gone', () => janelasProprias?.fecharTodas());
 
   const urlDev = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;
 
   // Links externos abrem no navegador do sistema, nunca dentro do app. A única janela que o app abre é a "janela
-  // própria" (câmeras ou transmissão): about:blank com nome conhecido, pedida pela página do app (o referrer é a
-  // própria página ou vazio; um iframe de fora, como o do YouTube, traria o endereço dele).
-  janela.webContents.setWindowOpenHandler(({ url, frameName, referrer }) => {
-    const doApp = !referrer.url || referrer.url.startsWith('file://') || (!!urlDev && referrer.url.startsWith(urlDev));
-    const decisao = decidirAbertura({ url, nome: frameName, doFramePrincipal: doApp });
+  // própria" (câmeras ou transmissão): about:blank com nome conhecido. Quem pediu (o frame) é conferido quando a janela
+  // nasce (did-create-window): o handler não diz o frame, e o referrer pode ser escondido por um iframe (A1).
+  janela.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    const decisao = decidirAbertura({ url, nome: frameName, doFramePrincipal: true });
     if (decisao === 'externo') void shell.openExternal(url);
     if (decisao !== 'propria' || !janelasProprias?.podeAbrir(frameName)) return { action: 'deny' };
     const area = screen.getDisplayMatching(janela.getBounds()).workArea;
@@ -168,7 +172,14 @@ function criarJanela(): BrowserWindow {
     };
   });
   janela.webContents.on('did-create-window', (filha, { frameName }) => {
+    // A1: só a página do app (frame principal da janela principal) abre janela própria; de um iframe, fecha na hora.
+    if (filha.webContents.opener !== janela.webContents.mainFrame) {
+      filha.destroy();
+      return;
+    }
     filha.setMenuBarVisibility(false);
+    // A10: o título fica o fixo (o documento não troca).
+    filha.on('page-title-updated', (e) => e.preventDefault());
     janelasProprias?.registrar(frameName, filha);
   });
 
@@ -184,6 +195,11 @@ function criarJanela(): BrowserWindow {
   return janela;
 }
 
+/** A3: pedido da página do app (frame principal da janela principal), não de uma janela própria nem de um iframe. */
+function daPaginaDoApp(e: { sender: Electron.WebContents; senderFrame: Electron.WebFrameMain | null }): boolean {
+  return !!janelaPrincipal && !janelaPrincipal.isDestroyed() && e.sender === janelaPrincipal.webContents && !!e.senderFrame && e.senderFrame.parent === null;
+}
+
 // Toda janela do app (inclusive a janela própria) nasce sem navegar para fora e sem abrir outras janelas (A2). A
 // principal troca o handler de abrir pelo dela logo em seguida (links externos e a janela própria).
 app.on('web-contents-created', (_e, conteudo) => {
@@ -196,7 +212,10 @@ app.on('web-contents-created', (_e, conteudo) => {
     if (!(urlDev && url.startsWith(urlDev))) evento.preventDefault();
   };
   conteudo.on('will-navigate', bloquear);
-  conteudo.on('will-redirect', bloquear);
+  // O redirecionamento também chega dos iframes (o do YouTube): só o do frame principal é bloqueado.
+  conteudo.on('will-redirect', (evento) => {
+    if (evento.isMainFrame) bloquear(evento, evento.url);
+  });
 });
 
 // Instância secundária só repassou o link e está saindo: não registra nada nem abre janela.
@@ -295,8 +314,16 @@ if (links.principal) {
     ipcMain.on('app:modo-teste', (e) => {
       e.returnValue = process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged;
     });
-    // As janelas próprias ficam fora da lista de janelas para transmitir (A7).
-    registrarCaptura(undefined, undefined, () => janelasProprias?.idsDeCaptura() ?? []);
+    // As janelas próprias ficam fora da lista de janelas para transmitir (A7); só a página do app captura (A3).
+    registrarCaptura(undefined, undefined, () => janelasProprias?.idsDeCaptura() ?? [], daPaginaDoApp);
+    // A5: um monitor saiu — janela própria que ficou fora volta para o monitor da principal.
+    screen.on('display-removed', () => {
+      if (!janelaPrincipal || janelaPrincipal.isDestroyed()) return;
+      janelasProprias?.reposicionar(
+        screen.getAllDisplays().map((d) => d.workArea),
+        screen.getDisplayMatching(janelaPrincipal.getBounds()).workArea,
+      );
+    });
     registrarIpc(
       configuracoes,
       criarArmazemSessao(join(dados, 'sessao.json'), {
@@ -321,7 +348,7 @@ if (links.principal) {
         }
       },
       // A3: a janela própria não tem a ponte; mesmo assim, só a página do app mexe em sessão, arquivos e configurações.
-      (e) => !!janelaPrincipal && !janelaPrincipal.isDestroyed() && e.senderFrame === janelaPrincipal.webContents.mainFrame,
+      daPaginaDoApp,
     );
     criarJanela();
 
