@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ATALHOS_PADRAO, AUDIO_PADRAO, NOTIFICACOES_PADRAO, TELA_PADRAO, SONS_PADRAO, type ConfiguracoesLocais, type ConviteLink, type ServidorInfo, type UsuarioDto } from '@tofalando/shared';
 import type { ApiTofalando, SessaoLocal } from '../../preload/api';
 
@@ -295,7 +295,9 @@ describe('App — ToOuvini de qualquer servidor (qualidade-de-vida, RF-1)', () =
     ponteFalsa({ servidorUrl: `${B}/c/2`, sessao: { servidorUrl: `${B}/c/2`, token: 't' }, pendente: null });
     render(<App />);
     expect(await screen.findByText(`PRINCIPAL ${B}/c/2`)).toBeTruthy();
-    await new Promise((r) => setTimeout(r, 50));
+    // Espera a conferência na base terminar antes de dizer que a prop não veio.
+    await waitFor(() => expect(euDe).toHaveBeenCalledWith(B));
+    await act(async () => undefined);
     expect(screen.queryByText(/admin da instalação/)).toBeNull();
   });
 });

@@ -1063,8 +1063,10 @@ function TelaDoServidor({
   const permissoes = useMemo(() => permissoesDe(usuario, funcoes), [usuario, funcoes, fimDoCastigo]);
   /** Na lista de membros só aparece o cargo mais alto: administrador esconde o cargo personalizado. */
   const cargoVisivel = (u: UsuarioDto) => (u.cargo === 'admin' ? undefined : funcoes.find((f) => f.id === u.funcaoId));
+  // No principal, o administrador dele já é o da instalação, sem esperar a conferência do App (que pode falhar).
+  const ehAdminDaInstalacao = adminDaInstalacao || (ehAdmin && servidorId === 1);
   const podeVer = (v: Vista) =>
-    v === 'loja' ? pontos !== null : v === 'membros' ? ehAdmin : v === 'auditoria' ? permissoes.has('ver_auditoria') : v === 'convite' ? permissoes.has('gerenciar_convite') : v === 'sons' ? permissoes.has('gerenciar_sons') : true;
+    v === 'toouvini' ? ehAdminDaInstalacao : v === 'loja' ? pontos !== null : v === 'membros' ? ehAdmin : v === 'auditoria' ? permissoes.has('ver_auditoria') : v === 'convite' ? permissoes.has('gerenciar_convite') : v === 'sons' ? permissoes.has('gerenciar_sons') : true;
   const vistaAtual: Vista = !podeVer(vista) ? 'canal' : vista;
 
   /** Conversa na tela agora (null em perfil/administração). */
@@ -1726,7 +1728,7 @@ function TelaDoServidor({
                     Copiar link de convite
                   </button>
                 )}
-                {(ehAdmin || adminDaInstalacao || ['gerenciar_convite', 'gerenciar_sons', 'ver_auditoria'].some((p) => permissoes.has(p as Permissao))) && (
+                {(ehAdmin || ehAdminDaInstalacao || ['gerenciar_convite', 'gerenciar_sons', 'ver_auditoria'].some((p) => permissoes.has(p as Permissao))) && (
                   <>
                     <p className="menu-grupo">Administração</p>
                     {ehAdmin && (
@@ -1744,7 +1746,7 @@ function TelaDoServidor({
                         Soundboard
                       </button>
                     )}
-                    {adminDaInstalacao && (
+                    {ehAdminDaInstalacao && (
                       <button type="button" onClick={() => setVista('toouvini')}>
                         Bot de música (ToOuvini)
                       </button>
