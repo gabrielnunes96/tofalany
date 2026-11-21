@@ -32,6 +32,9 @@ services:
     init: true
     # Sem "ports": ele não tem autenticação e só o servidor fala com ele, pela rede pot.
     networks: [pot]
+    # Conferido em 21/11 com a 2.0.2: gera o token assim (usuário node, 1000), com ~90 MB.
+    read_only: true
+    tmpfs: [/tmp]
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     mem_limit: 256m
