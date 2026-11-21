@@ -1344,3 +1344,8 @@ button.config-fechar:hover:not(:disabled) { color: var(--cor-texto); background:
 .fixada-trecho { overflow-wrap: anywhere; }
 .fixada-por { font-size: 0.75rem; }
 .fixada-desafixar { align-self: flex-end; font-size: 0.8rem; }
+.campo-busca input { width: 160px; padding: 4px 8px; font-size: 0.85rem; }
+.busca-filtros { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 0.85rem; }
+.busca-filtros label { display: flex; flex-direction: column; gap: 2px; }
+.busca-filtros label.caixa { flex-direction: row; align-items: center; gap: 4px; }
+.lista-resultados mark { background: var(--cor-acento-suave); color: inherit; border-radius: 3px; padding: 0 1px; }

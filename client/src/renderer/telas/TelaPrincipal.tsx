@@ -52,6 +52,7 @@ import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { PainelFixadas } from '../componentes/PainelFixadas';
+import { PainelBusca } from '../componentes/PainelBusca';
 import { criarKlipy } from '../servicos/gif';
 import { ProcurarAtualizacao } from '../componentes/ProcurarAtualizacao';
 import { CartaoPessoa } from '../componentes/CartaoPessoa';
@@ -354,6 +355,9 @@ function TelaDoServidor({
   const recursos = useLoja((s) => s.recursos);
   const [painelDireito, setPainelDireito] = useState<'membros' | 'fixadas' | 'busca'>('membros');
   const [erroFixadas, setErroFixadas] = useState<string | null>(null);
+  /** Busca: o texto do campo do topo e o pedido (muda a cada Enter, para buscar de novo o mesmo texto). */
+  const [termoBusca, setTermoBusca] = useState('');
+  const [buscaPedida, setBuscaPedida] = useState({ termo: '', vez: 0 });
   /** Janela de configurações aberta (e em qual seção); null = fechada. */
   const [configAberta, setConfigAberta] = useState<SecaoConfig | null>(null);
   async function sairDoServidor() {
@@ -1073,6 +1077,26 @@ function TelaDoServidor({
   const chaveConversa: Chave | null = dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
   const barraVisao = (
     <span className="barra-visao" role="group" aria-label="Mostrar ou ocultar">
+      {recursos.busca && chaveConversa && (
+        <form
+          className="campo-busca"
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setBuscaPedida((b) => ({ termo: termoBusca, vez: b.vez + 1 }));
+            setPainelDireito('busca');
+          }}
+        >
+          <input
+            type="search"
+            aria-label="Buscar mensagens"
+            placeholder="Buscar"
+            value={termoBusca}
+            maxLength={100}
+            onChange={(e) => setTermoBusca(e.target.value)}
+          />
+        </form>
+      )}
       {recursos.fixar && chaveConversa && (
         <button
           type="button"
@@ -2228,7 +2252,29 @@ function TelaDoServidor({
               />
             )}
             <aside className="coluna-direita">
-              {painelDireito === 'fixadas' && chaveAberta ? (
+              {painelDireito === 'busca' && chaveAberta ? (
+                <PainelBusca
+                  key={chaveAberta}
+                  conversa={chaveAberta.startsWith('d:') ? { dmId: Number(chaveAberta.slice(2)) } : { canalId: Number(chaveAberta.slice(2)) }}
+                  termo={buscaPedida.termo}
+                  pedido={buscaPedida.vez}
+                  buscar={(p) => api.buscar(p)}
+                  usuarios={pessoas}
+                  canais={canais}
+                  aoAbrir={(m) => {
+                    // Resultado de outra conversa: abre ela e vai até a mensagem quando carregar.
+                    if (m.dmId !== null) {
+                      acoes.abrirDm(m.dmId);
+                      acoes.pedirIrAte(chaveDm(m.dmId), m.id);
+                    } else if (m.canalId !== null) {
+                      acoes.abrirCanal(m.canalId);
+                      acoes.pedirIrAte(chaveCanal(m.canalId), m.id);
+                    }
+                    setVista('canal');
+                  }}
+                  aoFechar={() => setPainelDireito('membros')}
+                />
+              ) : painelDireito === 'fixadas' && chaveAberta ? (
                 <PainelFixadas
                   fixadas={fixadasAbertas}
                   erro={erroFixadas}
