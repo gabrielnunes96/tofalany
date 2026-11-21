@@ -80,9 +80,9 @@
         "CA-8"
       ],
       "validacao": "vitest + bash com stubs: dois processos, o segundo espera a trava; dominio com curl falso (token só no stdin, KO falha, nada no log); bash -n e shellcheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "b333949"
     },
     {
       "id": "T6",
@@ -98,9 +98,9 @@
         "CA-7"
       ],
       "validacao": "vitest + bash com stubs: pedido apagado antes de rodar, link simbólico só apagado, conteúdo nunca lido; docker compose config válido (só /pedidos montado rw no server; bgutil sem ports); bash -n e shellcheck.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "efac53a"
     },
     {
       "id": "T7",
@@ -115,9 +115,9 @@
         "CA-10"
       ],
       "validacao": "docker build local (amd64) passa; build com checksum errado falha (uma vez, manual); yt-dlp --version e a lista de plugins dentro da imagem.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "48e50c6"
     },
     {
       "id": "T8",
@@ -132,9 +132,9 @@
         "CA-1"
       ],
       "validacao": "actionlint (pelo contêiner oficial) sem erros; validação real com workflow_dispatch numa tag de teste (passo do Gabriel, que faz o push).",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "375f78c"
     },
     {
       "id": "T9",
@@ -150,9 +150,9 @@
         "CA-3"
       ],
       "validacao": "bash -n e shellcheck; leitura do roteiro na revisão.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "e4ca17c"
     },
     {
       "id": "T10",
