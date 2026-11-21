@@ -111,9 +111,9 @@
         "CA-4"
       ],
       "validacao": "npm run test:e2e com o teste novo verde; CA-21 (sensibilidade) continua verde.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "8458f03"
     },
     {
       "id": "T7",
