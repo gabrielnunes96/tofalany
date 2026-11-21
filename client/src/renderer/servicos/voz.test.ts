@@ -228,6 +228,45 @@ describe('sala de voz (RF-13)', () => {
     expect(faixa('4').f.setVolume).toHaveBeenLastCalledWith(0.2);
   });
 
+  it('volume-da-voz, CA-6/CA-6b/CA-7: volume da chamada × volume da pessoa, até 200%; tela e ToOuvini nos volumes deles', async () => {
+    const { sala, emitir } = salaFalsa();
+    const voz = criarSalaVoz(ouvintesVoz(), () => sala, vi.fn(async () => microfone()));
+    await voz.entrar('ws://lk', 'tok', { ...AUDIO_PADRAO, volumeChamada: 1.5 });
+    const faixa = (id: string, source = 'microphone') => {
+      const el = document.createElement('audio');
+      const f = { kind: 'audio', source, attach: () => el, detach: vi.fn(() => []), setVolume: vi.fn() };
+      emitir(RoomEvent.TrackSubscribed, f, {}, { identity: id });
+      return { el, f };
+    };
+    voz.definirPessoas({ volumes: { '2': 1.2, '3': 1.8, 'bot-musica': 0.4 }, silenciados: [] });
+    const ana = faixa('2');
+    const beto = faixa('3');
+    const bot = faixa('bot-musica');
+    const tela = faixa('2', 'screen_share_audio');
+    voz.somDaTela(2, { assistindo: true, volume: 1 });
+    expect(ana.f.setVolume).toHaveBeenLastCalledWith(1.8);
+    expect(beto.f.setVolume).toHaveBeenLastCalledWith(2);
+    expect(bot.f.setVolume).toHaveBeenLastCalledWith(0.4);
+    expect(tela.f.setVolume).toHaveBeenLastCalledWith(1);
+    // Chamada em 0: a voz some; ToOuvini e transmissão continuam.
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, volumeChamada: 0 });
+    expect(ana.f.setVolume).toHaveBeenLastCalledWith(0);
+    expect(beto.el.dataset.volume).toBe('0');
+    expect(bot.f.setVolume).toHaveBeenLastCalledWith(0.4);
+    expect(tela.f.setVolume).toHaveBeenLastCalledWith(1);
+  });
+
+  it('volume-da-voz, CA-9: nivelamento e ganho mudam ao vivo no microfone, sem reabrir', async () => {
+    const { sala } = salaFalsa();
+    const mic = microfone();
+    const abrir = vi.fn(async () => mic);
+    const voz = criarSalaVoz(ouvintesVoz(), () => sala, abrir);
+    await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
+    await voz.aplicarAudio({ ...AUDIO_PADRAO, nivelarVoz: false, ganhoMicrofone: 2 });
+    expect(abrir).toHaveBeenCalledTimes(1);
+    expect(mic.nivel.definir).toHaveBeenLastCalledWith({ nivelar: false, ganho: 2 });
+  });
+
   it('som da transmissão: só toca para quem assiste, no volume do painel, separado da voz da pessoa', async () => {
     const { sala, emitir } = salaFalsa();
     const voz = criarSalaVoz(ouvintesVoz(), () => sala, vi.fn(async () => microfone()));

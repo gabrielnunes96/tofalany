@@ -1,5 +1,5 @@
 import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
-import { DIMENSOES_TELA, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, type PreferenciasAudio, type QualidadeTela } from '@tofalando/shared';
+import { DIMENSOES_TELA, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, VOLUME_PESSOA_MAX, type PreferenciasAudio, type QualidadeTela } from '@tofalando/shared';
 import { abrirMicrofone, type Microfone } from './pipeline-audio';
 import { criarMedidorFala, fonteDeFaixa } from './medidor-fala';
 
@@ -210,7 +210,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
           : tela.volume
         : controles.surdo || silenciados.has(id)
           ? 0
-          : (volumes[id] ?? (id === IDENTIDADE_BOT_MUSICA ? VOLUME_BOT_PADRAO : 1));
+          : id === IDENTIDADE_BOT_MUSICA
+            ? (volumes[id] ?? VOLUME_BOT_PADRAO)
+            : // volume-da-voz (T-7): a voz de cada pessoa × o volume da chamada, com o total até 200%.
+              Math.round(Math.min(VOLUME_PESSOA_MAX, (volumes[id] ?? 1) * (prefs?.volumeChamada ?? 1)) * 100) / 100;
     const ajustar = (faixa as RemoteTrack & { setVolume?(v: number): void }).setVolume?.bind(faixa);
     try {
       ajustar?.(v);
@@ -280,8 +283,9 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await saida(atual, desejado.saidaId);
     }
     if (micPrefs && mesmoMic(micPrefs, desejado)) {
-      // Sensibilidade e modo vão direto ao portão, sem reabrir o microfone.
+      // Sensibilidade e modo vão direto ao portão, e nivelamento e ganho ao nível, sem reabrir o microfone (RF-6).
       mic?.portao.definir({ modo: desejado.modoMicrofone, limiarDb: desejado.sensibilidadeDb });
+      mic?.nivel.definir({ nivelar: desejado.nivelarVoz, ganho: desejado.ganhoMicrofone });
       micPrefs = desejado;
       return;
     }
@@ -450,7 +454,10 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       await enfileirar(() => sincronizar(atual));
     },
     async aplicarAudio(audio) {
+      const volumeAntes = prefs?.volumeChamada ?? 1;
       prefs = audio;
+      // O volume da chamada vale na hora, mesmo fora de uma sala conectada (não espera a fila do microfone).
+      if (audio.volumeChamada !== volumeAntes) for (const [elemento, t] of faixas) aplicarVolume(elemento, t);
       const atual = sala;
       if (!atual) return;
       await enfileirar(() => sincronizar(atual));

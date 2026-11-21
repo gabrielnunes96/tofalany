@@ -34,9 +34,9 @@
         "CA-5"
       ],
       "validacao": "nivel-voz.test.ts: parâmetros por nivelar/ganho; cruzamento; ordem portão → compressor/direto → ganho → limitador → destino com contexto falso; medição antes; pipeline-audio.test.ts com o campo novo. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "a2100b5"
     },
     {
       "id": "T3",
@@ -54,7 +54,7 @@
         "CA-9"
       ],
       "validacao": "voz.test.ts: 150%×120% = 1,8; 150%×180% = 2; chamada 0 → voz 0 e tela/ToOuvini nos volumes deles; mudar ganho/nivelar na chamada chama nivel.definir sem reabrir; volume da chamada reaplica. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
