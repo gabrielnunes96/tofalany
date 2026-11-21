@@ -43,6 +43,7 @@ function microfone(nome = 'mic') {
     faixa: { nome } as unknown as MediaStreamTrack,
     faixaMedicao: { nome: nome + '-medicao' } as unknown as MediaStreamTrack,
     portao,
+    nivel: { definir: vi.fn() },
     supressao: 'forte' as const,
     usouPadrao: false,
     dispositivoId: nome,

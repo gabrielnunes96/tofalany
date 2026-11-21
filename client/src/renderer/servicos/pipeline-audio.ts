@@ -5,6 +5,7 @@ import rnnoiseWasm from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url';
 import rnnoiseSimdWasm from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url';
 import portaoWorklet from './portao-voz.worklet.js?url';
 import type { PreferenciasAudio } from '@tofalando/shared';
+import { montarNivel, nivelInerte, type Nivel, type OpcoesNivel } from './nivel-voz';
 
 /** Estado do portão do microfone (RF-14, RF-16). */
 export interface EstadoPortao {
@@ -27,6 +28,8 @@ export interface Microfone {
   /** Antes do portão: o que o medidor mostra (para comparar com a marca da sensibilidade). */
   faixaMedicao: MediaStreamTrack;
   portao: Portao;
+  /** volume-da-voz: nivelamento e ganho da voz enviada, ao vivo (sem reabrir o microfone). */
+  nivel: Nivel;
   /** Qual supressão de ruído está valendo de fato. */
   supressao: 'forte' | 'basica' | 'desligada';
   /** O dispositivo escolhido não existe mais e foi usado o padrão. */
@@ -38,7 +41,7 @@ export interface Microfone {
 
 /** Grafo de áudio montado sobre o microfone. */
 export interface Grafo {
-  processar(stream: MediaStream): { faixa: MediaStreamTrack; faixaMedicao: MediaStreamTrack; portao: Portao };
+  processar(stream: MediaStream, nivel: OpcoesNivel): { faixa: MediaStreamTrack; faixaMedicao: MediaStreamTrack; portao: Portao; nivel: Nivel };
   fechar(): void;
 }
 
@@ -69,14 +72,16 @@ const navegador: DependenciasAudio = {
       }
       await ctx.audioWorklet.addModule(portaoWorklet);
       return {
-        processar(stream) {
+        processar(stream, opcoesNivel) {
           const origem = ctx.createMediaStreamSource(stream);
           const tratado: AudioNode = wasmBinary ? origem.connect(new RnnoiseWorkletNode(ctx, { wasmBinary, maxChannels: 1 })) : origem;
           const medicao = ctx.createMediaStreamDestination();
           tratado.connect(medicao);
           const no = new AudioWorkletNode(ctx, 'portao-voz', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
           const destino = ctx.createMediaStreamDestination();
-          tratado.connect(no).connect(destino);
+          tratado.connect(no);
+          // volume-da-voz (T-1): o nivelamento e o ganho vêm depois do portão, que decide pelo som antes deles (RN-6).
+          const nivel = montarNivel(ctx, no, destino, opcoesNivel);
           const ouvintes = new Set<(aberto: boolean) => void>();
           no.port.onmessage = (e: MessageEvent<{ aberto: boolean }>) => {
             for (const fn of ouvintes) fn(e.data.aberto);
@@ -84,6 +89,7 @@ const navegador: DependenciasAudio = {
           return {
             faixa: destino.stream.getAudioTracks()[0]!,
             faixaMedicao: medicao.stream.getAudioTracks()[0]!,
+            nivel,
             portao: {
               definir: (estado) => no.port.postMessage(estado),
               aoMudar(fn) {
@@ -146,7 +152,8 @@ export async function abrirMicrofone(prefs: PreferenciasAudio, deps: Dependencia
   }
 
   const bruta = stream.getAudioTracks()[0]!;
-  const { faixa, faixaMedicao, portao } = grafo ? grafo.processar(stream) : semPortao(bruta);
+  const opcoesNivel = { nivelar: prefs.nivelarVoz, ganho: prefs.ganhoMicrofone };
+  const { faixa, faixaMedicao, portao, nivel } = grafo ? grafo.processar(stream, opcoesNivel) : semPortao(bruta);
   portao.definir({ modo: prefs.modoMicrofone, limiarDb: prefs.sensibilidadeDb });
   // Microfone desconectado: as faixas do grafo não acabam sozinhas; encerra junto.
   bruta.addEventListener?.('ended', () => {
@@ -157,6 +164,7 @@ export async function abrirMicrofone(prefs: PreferenciasAudio, deps: Dependencia
     faixa,
     faixaMedicao,
     portao,
+    nivel,
     supressao: !prefs.supressaoRuido ? 'desligada' : forte ? 'forte' : 'basica',
     usouPadrao,
     dispositivoId: bruta.getSettings?.().deviceId,
@@ -175,6 +183,8 @@ function semPortao(bruta: MediaStreamTrack): ReturnType<Grafo['processar']> {
   return {
     faixa: bruta,
     faixaMedicao: bruta,
+    // Sem grafo (sem AudioWorklet): sem nivelamento nem ganho (T-5).
+    nivel: nivelInerte,
     portao: {
       definir(e) {
         Object.assign(estado, e);

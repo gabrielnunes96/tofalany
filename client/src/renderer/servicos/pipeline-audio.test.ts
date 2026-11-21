@@ -21,6 +21,8 @@ function deps(opcoes: { rnnoise?: 'ok' | 'falha'; semDispositivo?: boolean } = {
   const medicao = faixa('medicao');
   const fechar = vi.fn();
   const definir = vi.fn();
+  const nivel = { definir: vi.fn() };
+  const processar = vi.fn((_s: MediaStream, _n: { nivelar: boolean; ganho: number }) => ({ faixa: saida, faixaMedicao: medicao, portao: { definir, aoMudar: () => () => undefined }, nivel }));
   const d = {
     getUserMedia: vi.fn(async (c: MediaStreamConstraints) => {
       const a = c.audio as MediaTrackConstraints;
@@ -29,10 +31,10 @@ function deps(opcoes: { rnnoise?: 'ok' | 'falha'; semDispositivo?: boolean } = {
     }),
     prepararGrafo: vi.fn(async (rnnoise: boolean) => {
       if (rnnoise && opcoes.rnnoise === 'falha') throw new Error('sem worklet');
-      return { processar: () => ({ faixa: saida, faixaMedicao: medicao, portao: { definir, aoMudar: () => () => undefined } }), fechar };
+      return { processar, fechar };
     }),
   } satisfies DependenciasAudio;
-  return { d, bruta, saida, medicao, fechar, definir };
+  return { d, bruta, saida, medicao, fechar, definir, nivel, processar };
 }
 
 describe('pipeline de áudio (RF-14, RF-17, RF-18)', () => {
@@ -103,5 +105,12 @@ describe('pipeline de áudio (RF-14, RF-17, RF-18)', () => {
     expect(nivelEmDb(new Float32Array(8))).toBe(-100);
     expect(nivelEmDb(new Float32Array(8).fill(1))).toBe(0);
     expect(Math.round(nivelEmDb(new Float32Array(8).fill(0.1)))).toBe(-20);
+  });
+
+  it('volume-da-voz: o grafo recebe o nivelamento e o ganho das preferências, e o microfone expõe o controle ao vivo', async () => {
+    const { d, processar, nivel } = deps();
+    const mic = await abrirMicrofone({ ...AUDIO_PADRAO, nivelarVoz: false, ganhoMicrofone: 2.5 }, d);
+    expect(processar).toHaveBeenCalledWith(expect.anything(), { nivelar: false, ganho: 2.5 });
+    expect(mic.nivel).toBe(nivel);
   });
 });
