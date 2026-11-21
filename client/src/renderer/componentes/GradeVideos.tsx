@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent as EventoPonteiro } from 'react';
 import { createPortal } from 'react-dom';
 import { gravarModoCameras, useModoCameras } from '../servicos/modo-cameras';
+import { ligarFaixa } from '../servicos/faixa-em-janela';
+import { useJanelaPropria } from '../servicos/janela-propria';
 import type { UsuarioDto } from '@tofalando/shared';
 import type { FaixaVideo, VideoSala } from '../servicos/voz';
 import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
@@ -13,10 +15,7 @@ function Quadro({ faixa, nome, meu }: { faixa: FaixaVideo; nome: string; meu: bo
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    faixa.attach(el);
-    return () => {
-      faixa.detach(el);
-    };
+    return ligarFaixa(faixa, el);
   }, [faixa]);
   const cheia = useEmTelaCheia(figura);
   const telaCheia = () => alternarTelaCheia(figura.current);
@@ -46,6 +45,9 @@ function Quadro({ faixa, nome, meu }: { faixa: FaixaVideo; nome: string; meu: bo
  */
 export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; usuarios: UsuarioDto[]; euId: number }) {
   const modo = useModoCameras();
+  // video-teatro-cameras-e-sons (RF-3): câmeras numa janela própria enquanto houver vídeo (sair da voz fecha, A6).
+  const emJanela = !!modo.janela && videos.length > 0;
+  const alvoJanela = useJanelaPropria(emJanela ? 'tofalany-cameras' : null, 'ToFalany – Câmeras', () => gravarModoCameras({ ...modo, janela: false }));
   /** Posição durante o arrasto (só grava ao soltar). */
   const [arrastando, setArrastando] = useState<{ x: number; y: number } | null>(null);
   const arrasto = useRef<{ dx: number; dy: number } | null>(null);
@@ -90,6 +92,27 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
   const larguraFlutuante = Math.min(360, window.innerWidth * 0.4);
   const posicao = arrastando ?? limitarNaJanela(modo.x, modo.y, larguraFlutuante, 160, window.innerWidth, window.innerHeight);
   const nome = (id: number) => usuarios.find((u) => u.id === id)?.nomeExibicao ?? 'Alguém';
+  const quadros = videos.map((v) => <Quadro key={v.meu ? 'meu' : v.usuarioId} faixa={v.faixa} meu={v.meu} nome={nome(v.meu ? euId : v.usuarioId)} />);
+  if (emJanela) {
+    // As câmeras saem do app (RN-3); aqui fica só o aviso para trazer de volta.
+    return (
+      <>
+        <p className="aviso-cameras-janela suave" role="status">
+          As câmeras estão numa janela própria.{' '}
+          <button type="button" className="link" onClick={() => gravarModoCameras({ ...modo, janela: false })}>
+            Trazer de volta
+          </button>
+        </p>
+        {alvoJanela &&
+          createPortal(
+            <section className="grade-videos em-janela" aria-label="Câmeras">
+              {quadros}
+            </section>,
+            alvoJanela,
+          )}
+      </>
+    );
+  }
   const grade = (
     <section
       ref={caixa}
@@ -112,10 +135,17 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
         >
           <Icone nome={modo.flutuante ? 'alfinete' : 'janela'} tamanho={16} />
         </button>
+        <button
+          type="button"
+          className="icone"
+          aria-label="Abrir as câmeras em janela própria"
+          title="Abrir as câmeras numa janela separada (dá para levar a outro monitor)"
+          onClick={() => gravarModoCameras({ ...modo, janela: true })}
+        >
+          <Icone nome="ampliar" tamanho={16} />
+        </button>
       </div>
-      {videos.map((v) => (
-        <Quadro key={v.meu ? 'meu' : v.usuarioId} faixa={v.faixa} meu={v.meu} nome={nome(v.meu ? euId : v.usuarioId)} />
-      ))}
+      {quadros}
     </section>
   );
   return modo.flutuante ? createPortal(grade, document.body) : grade;

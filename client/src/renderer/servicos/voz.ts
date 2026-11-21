@@ -119,7 +119,8 @@ interface CameraLocal {
 }
 
 /** webAudioMix: volume por pessoa acima de 100% e escolha da saída (T15, T17). */
-const novaSala = (): SalaLivekit => new Room({ adaptiveStream: true, dynacast: true, webAudioMix: true }) as unknown as SalaLivekit;
+// video-teatro-cameras-e-sons (R-3): o vídeo não pausa com o app escondido (a janela própria continua mostrando).
+const novaSala = (): SalaLivekit => new Room({ adaptiveStream: { pauseVideoInBackground: false }, dynacast: true, webAudioMix: true }) as unknown as SalaLivekit;
 
 /** Saiu antes de terminar de conectar. */
 export class EntradaCancelada extends Error {

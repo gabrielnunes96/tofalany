@@ -1,13 +1,17 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { UsuarioDto } from '@tofalando/shared';
 import { GradeVideos, limitarNaJanela } from './GradeVideos';
-import { gravarModoCameras, lerModoCameras, POSICAO_PADRAO, voltarCamerasAoLugar } from '../servicos/modo-cameras';
+import { gravarModoCameras, lerModoCameras, POSICAO_PADRAO, reiniciarModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
+import { ligarFaixa } from '../servicos/faixa-em-janela';
 
 /** video-teatro-cameras-e-sons, T2: câmeras flutuantes sempre à vista e "Voltar as câmeras ao lugar". */
 afterEach(cleanup);
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  reiniciarModoCameras();
+});
 
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#fff', avatarUrl: null, cargo: 'membro' };
 const faixa = { attach: () => undefined, detach: () => undefined };
@@ -49,6 +53,61 @@ describe('câmeras flutuantes (CA-1, CA-2)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Prender as câmeras no topo' }));
     expect(container.contains(screen.getByRole('region', { name: 'Câmeras' }))).toBe(true);
     localStorage.setItem('tofalany.cameras', '{"flutuante":true,"x":"abc","y":null}');
+    reiniciarModoCameras();
     expect(lerModoCameras()).toEqual({ flutuante: true, x: POSICAO_PADRAO.x, y: 0 });
+  });
+});
+
+describe('câmeras em janela própria (CA-3, T3)', () => {
+  function janelaFalsa() {
+    const doc = document.implementation.createHTMLDocument('');
+    const ouvintes = new Map<string, () => void>();
+    const filha = { document: doc, closed: false, close: vi.fn(), addEventListener: (t: string, f: () => void) => ouvintes.set(t, f), removeEventListener: vi.fn() };
+    return { filha, doc, fecharPeloSistema: () => ouvintes.get('pagehide')?.() };
+  }
+
+  it('abre a janela com as câmeras, que saem do app; fechar a janela traz de volta; sem vídeo (saiu da voz) fecha', async () => {
+    const { filha, doc, fecharPeloSistema } = janelaFalsa();
+    const abrir = vi.spyOn(window, 'open').mockReturnValue(filha as never);
+    const { container, rerender } = render(<GradeVideos videos={videos} usuarios={[ana]} euId={2} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir as câmeras em janela própria' }));
+    expect(abrir).toHaveBeenCalledWith('about:blank', 'tofalany-cameras', 'popup');
+    await vi.waitFor(() => expect(doc.querySelector('[aria-label="Vídeo de Ana"]')).toBeTruthy());
+    expect(container.querySelector('video')).toBeNull();
+    expect(screen.getByText(/As câmeras estão numa janela própria/)).toBeTruthy();
+    act(() => fecharPeloSistema());
+    expect(container.querySelector('video')).toBeTruthy();
+    // De novo na janela e saiu da voz: a janela fecha.
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir as câmeras em janela própria' }));
+    await vi.waitFor(() => expect(doc.querySelectorAll('video').length).toBeGreaterThan(0));
+    rerender(<GradeVideos videos={[]} usuarios={[ana]} euId={2} />);
+    expect(filha.close).toHaveBeenCalled();
+  });
+
+  it('ligarFaixa: na janela principal usa attach; noutra janela, a mesma faixa e a visibilidade informada pela janela', () => {
+    const attach = vi.fn();
+    const detach = vi.fn();
+    const observeElementInfo = vi.fn((info: { observe(): void }) => info.observe());
+    const stopObservingElementInfo = vi.fn((info: { stopObserving(): void }) => info.stopObserving());
+    const mediaStreamTrack = { kind: 'video' } as unknown as MediaStreamTrack;
+    const faixaRemota = { attach, detach, mediaStreamTrack, observeElementInfo, stopObservingElementInfo };
+    const aqui = document.createElement('video');
+    ligarFaixa(faixaRemota, aqui)();
+    expect(attach).toHaveBeenCalledWith(aqui);
+    expect(detach).toHaveBeenCalledWith(aqui);
+    vi.stubGlobal('MediaStream', class {
+      constructor(public faixas: unknown[]) {}
+    });
+    const outro = document.implementation.createHTMLDocument('').createElement('video');
+    const soltar = ligarFaixa(faixaRemota, outro);
+    expect((outro.srcObject as unknown as { faixas: unknown[] }).faixas).toEqual([mediaStreamTrack]);
+    expect(attach).toHaveBeenCalledTimes(1);
+    const info = observeElementInfo.mock.calls[0]![0] as unknown as { visible: boolean; element: unknown };
+    expect(info.element).toBe(outro);
+    expect(info.visible).toBe(true);
+    soltar();
+    expect(stopObservingElementInfo).toHaveBeenCalled();
+    expect(outro.srcObject).toBeNull();
+    vi.unstubAllGlobals();
   });
 });
