@@ -10,6 +10,7 @@ import { avisoDeRevogacao } from './avisos';
 import { ColunaServidores } from '../componentes/ColunaServidores';
 import { INTERVALO_OUTROS_MS, naoLidasDosOutros } from '../servicos/naolidas-servidores';
 import { JanelaNovidades } from '../componentes/JanelaNovidades';
+import { destinoMovido, moverConfiguracoes } from '../servicos/endereco-movido';
 import { AtualizarAgora } from '../componentes/AtualizarAgora';
 import { procurarEnderecoAntigo, type EnderecoAntigo } from '../servicos/endereco-antigo';
 
@@ -82,8 +83,52 @@ export function App() {
     return null;
   }, []);
 
+  /**
+   * infra-e-atualizacao (RF-4, T-6): o servidor salvo está num endereço que mudou (mapa fixo no código). Confere que o
+   * endereço novo é a mesma instalação (mesmo nome, https) e leva servidores, sessões, status e preferências para ele.
+   * Devolve o endereço novo, ou undefined (fica onde está).
+   */
+  const moverEndereco = useCallback(async (salvo: string, novo: string): Promise<string | undefined> => {
+    const teste = await testarServidor(novo);
+    if (!teste.ok || !teste.valor.endereco.startsWith('https://') || separarComunidade(teste.valor.endereco).base !== separarComunidade(novo).base) return undefined;
+    const antigo = await testarServidor(salvo);
+    const nomeAntigo = antigo.ok ? antigo.valor.nome : servidoresRef.current.find((s) => s.url === salvo)?.nome;
+    if (!nomeAntigo || nomeAntigo !== teste.valor.nome) return undefined;
+    const de = separarComunidade(salvo).base;
+    const para = separarComunidade(novo).base;
+    const config = await ponte()
+      .config.ler()
+      .catch(() => null);
+    if (!config) return undefined;
+    const parcial = moverConfiguracoes(config, de, para);
+    // Sessões: a mesma conta nos dois endereços (o token não muda; só a chave local).
+    const urls = new Set([salvo, ...(config.servidores ?? []).map((s) => s.url)].filter((u) => separarComunidade(u).base === de));
+    for (const u of urls) {
+      const sessao = await ponte()
+        .sessao.ler(u)
+        .catch(() => null);
+      if (!sessao || sessao.servidorUrl !== u) continue;
+      await ponte()
+        .sessao.gravar({ servidorUrl: destinoMovido(u) ?? novo, token: sessao.token })
+        .catch(() => undefined);
+      await ponte()
+        .sessao.apagar(u)
+        .catch(() => undefined);
+    }
+    await ponte()
+      .config.gravar(parcial)
+      .catch(() => undefined);
+    if (parcial.servidores) {
+      servidoresRef.current = parcial.servidores;
+      setServidores(parcial.servidores);
+    }
+    return novo;
+  }, []);
+
   /** Com servidor guardado: usa a sessão se ela for deste servidor e ainda valer (RF-3). */
-  const retomar = useCallback(async (salvo: string) => {
+  const retomar = useCallback(async (salvoOriginal: string) => {
+    const movido = destinoMovido(salvoOriginal);
+    const salvo = (movido && (await moverEndereco(salvoOriginal, movido))) || salvoOriginal;
     let url = salvo;
     let sessao = await ponte()
       .sessao.ler(salvo)
@@ -128,7 +173,7 @@ export function App() {
         setEstado({ fase: 'sem-conexao', url, mensagem: e instanceof Error ? e.message : 'Sem conexão com o servidor.' });
       }
     }
-  }, [tokenDaInstalacao]);
+  }, [tokenDaInstalacao, moverEndereco]);
 
   /**
    * RF-1a: link de convite. Se já há sessão neste servidor, só entra. Senão abre o cadastro com o

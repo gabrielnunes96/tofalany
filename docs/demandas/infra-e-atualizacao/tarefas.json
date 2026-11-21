@@ -31,9 +31,9 @@
         "CA-10"
       ],
       "validacao": "server/test com yt-dlp falso: erro não promove, sucesso promove, envio do admin no meio vence, DELETE no meio continua apagado, cópia 0600 e apagada, máscara no log, env do filho só com a lista; config com MUSICA_POT_URL e recusa das verbosas. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "1831bcb"
     },
     {
       "id": "T3",
@@ -46,7 +46,7 @@
         "CA-4"
       ],
       "validacao": "vitest: função pura (host do mapa migra; host parecido, http e nome diferente não); App.test: app com o sslip salvo retoma no duckdns com a mesma sessão e sem duplicar. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

@@ -104,7 +104,8 @@ function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | 
     sessao: {
       ler: async (url?: string) => (estado.sessao && (!url || estado.sessao.servidorUrl === url) ? estado.sessao : null),
       gravar: async (s) => void (estado.sessao = s),
-      apagar: async () => void (estado.sessao = null),
+      // Como o armazém de verdade: apaga só a sessão do endereço pedido (sem endereço, a atual).
+      apagar: async (url?: string) => void (!url || estado.sessao?.servidorUrl === url ? (estado.sessao = null) : undefined),
     },
     convite: { pendente: async () => estado.pendente, aoChegar: () => () => undefined },
     areaTransferencia: { copiar: async () => undefined },
@@ -343,3 +344,25 @@ describe('App — convite clicado numa mensagem e "Atualizar o app" (qualidade-d
     expect(await screen.findByText('Você já está na versão mais nova.')).toBeTruthy();
   });
 });
+
+describe('App — endereço que mudou para o fixo (infra-e-atualizacao, CA-4)', () => {
+  const DE = 'https://168-138-133-232.sslip.io';
+  const PARA = 'https://tofalany.duckdns.org';
+
+  it('abre no endereço novo com a mesma sessão (sem novo login)', async () => {
+    testar.mockImplementation(async (url: string) => ({ ok: true, valor: { ...info, nome: 'ToFalany', endereco: url.replace(/\/+$/, '') } }));
+    const { estado, gravarConfig } = ponteFalsa({ servidorUrl: DE, sessao: { servidorUrl: DE, token: 'mesmo-token' }, pendente: null });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${PARA}`)).toBeTruthy();
+    expect(estado.sessao).toEqual({ servidorUrl: PARA, token: 'mesmo-token' });
+    expect(gravarConfig).toHaveBeenCalledWith(expect.objectContaining({ servidorUrl: PARA }));
+  });
+
+  it('nome da instalação diferente no endereço novo: não troca', async () => {
+    testar.mockImplementation(async (url: string) => ({ ok: true, valor: { ...info, nome: url.includes('duckdns') ? 'Outro' : 'ToFalany', endereco: url.replace(/\/+$/, '') } }));
+    ponteFalsa({ servidorUrl: DE, sessao: { servidorUrl: DE, token: 'mesmo-token' }, pendente: null });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${DE}`)).toBeTruthy();
+  });
+});
+

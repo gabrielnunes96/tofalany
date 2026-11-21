@@ -898,6 +898,14 @@ export function separarComunidade(url: string): { base: string; comunidade: numb
   return m ? { base: m[1]!, comunidade: Number(m[2]) } : { base: url.replace(/\/+$/, ''), comunidade: COMUNIDADE_PRINCIPAL };
 }
 
+/**
+ * infra-e-atualizacao (T-6): endereços que mudaram para o endereço fixo. Fixo no código, nunca vindo de um servidor: um
+ * servidor (ou quem pegar o IP antigo depois) não consegue mandar o app levar a sessão para outro host. Só https.
+ */
+export const ENDERECOS_MOVIDOS: Readonly<Record<string, string>> = {
+  'https://168-138-133-232.sslip.io': 'https://tofalany.duckdns.org',
+};
+
 /** Identidade do ToOuvini na sala de voz (o volume dele fica guardado por esta chave, como o de uma pessoa). */
 export const IDENTIDADE_BOT_MUSICA = 'bot-musica';
 /** Volume inicial do ToOuvini para quem ouve (música costuma ser mais alta que voz). */
