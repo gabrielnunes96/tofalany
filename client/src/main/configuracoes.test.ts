@@ -72,4 +72,11 @@ describe('criarArmazemConfiguracoes', () => {
     armazem.gravar({ audio: { sensibilidadeDb: 99 } as never });
     expect(criarArmazemConfiguracoes(arquivo).ler().audio).toEqual({ ...AUDIO_PADRAO, entradaId: 'mic-2', cancelamentoEco: false });
   });
+
+  it('volume-da-voz, CA-1: arquivo de uma versão antiga (sem os campos novos) volta com o nivelamento ligado', () => {
+    const arquivo = arquivoTemp();
+    writeFileSync(arquivo, JSON.stringify({ servidorUrl: 'http://a', audio: { supressaoRuido: false, sensibilidadeDb: -40 } }), 'utf8');
+    expect(criarArmazemConfiguracoes(arquivo).ler().audio).toEqual({ ...AUDIO_PADRAO, supressaoRuido: false, sensibilidadeDb: -40 });
+    expect(AUDIO_PADRAO).toMatchObject({ nivelarVoz: true, ganhoMicrofone: 1, volumeChamada: 1 });
+  });
 });

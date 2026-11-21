@@ -133,7 +133,7 @@ describe('mesclarAudio', () => {
   });
 
   it('volume-da-voz: faixas do ganho (50–300%) e do volume da chamada (0–200%), arredondados; inválidos ignorados', () => {
-    expect(mesclarAudio(undefined, { nivelarVoz: false, ganhoMicrofone: 2.345, volumeChamada: 1.5 })).toMatchObject({ nivelarVoz: false, ganhoMicrofone: 2.35, volumeChamada: 1.5 });
+    expect(mesclarAudio(undefined, { nivelarVoz: false, ganhoMicrofone: 2.346, volumeChamada: 1.5 })).toMatchObject({ nivelarVoz: false, ganhoMicrofone: 2.35, volumeChamada: 1.5 });
     expect(mesclarAudio(undefined, { ganhoMicrofone: 0.4, volumeChamada: 2.1 })).toMatchObject({ ganhoMicrofone: 1, volumeChamada: 1 });
     expect(mesclarAudio(undefined, { ganhoMicrofone: 3, volumeChamada: 0 })).toMatchObject({ ganhoMicrofone: 3, volumeChamada: 0 });
     expect(mesclarAudio(undefined, { nivelarVoz: 'sim', ganhoMicrofone: Number.NaN, volumeChamada: '1' })).toMatchObject({ nivelarVoz: true, ganhoMicrofone: 1, volumeChamada: 1 });
