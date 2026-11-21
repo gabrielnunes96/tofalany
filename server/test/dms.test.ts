@@ -28,7 +28,8 @@ async function trio() {
     const s: Cliente = conectar(url, { auth: { token }, transports: ['websocket'], reconnection: false, forceNew: true });
     sockets.push(s);
     const recebidos: { evento: string; dados: unknown }[] = [];
-    // Status das pessoas (RF-37) é público: não entra na conta de "o que vazou".
+    // O status (RF-37) só chega a quem pode ver (qualidade-de-vida, RN-6): entra na conta de "o que vazou". Os três estão
+    // no mesmo servidor, então o status de um chega aos outros; a conta filtra só os eventos da conversa.
     s.onAny((evento, dados) => evento !== 'presenca:atualizada' && recebidos.push({ evento, dados }));
     const ola = await new Promise<OlaPayload>((r) => s.once('ola', r));
     return { s, ola, id: usuario.id as number, token: token as string, recebidos };

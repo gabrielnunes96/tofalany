@@ -69,6 +69,7 @@ export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, co
         registrarAuditoria(banco, { tipo: 'entrou_no_servidor', atorId: req.usuarioId!, comunidadeId: id });
         const linha = buscarNa(banco, req.usuarioId!, id);
         if (linha) tempoReal.io.to(salaComunidade(id)).emit('usuario:criado', paraDto(linha));
+        tempoReal.entrouNaComunidade(req.usuarioId!, id);
       }
       return dto(id, baseServidor(config, req));
     },

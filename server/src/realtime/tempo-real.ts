@@ -26,7 +26,7 @@ import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
 import { buscarPorId, listarMembros, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
-import { conviteDa, donoDa, existeComunidade, membroDe, membroNaComunidade, nomeComunidade, iconeComunidade } from '../dominio/comunidades.js';
+import { conviteDa, donoDa, existeComunidade, idsDosMembros, membroDe, membroNaComunidade, nomeComunidade, iconeComunidade } from '../dominio/comunidades.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
 import { listarDms } from '../dominio/dms.js';
@@ -82,6 +82,8 @@ export interface TempoReal {
   cargoMudou(usuarioId: number, comunidadeId?: number): void;
   /** Derruba as conexões de alguém num servidor (saiu, foi tirado, expulso ou banido; com o motivo para a pessoa). */
   tirarDaComunidade(usuarioId: number, comunidadeId: number, motivo?: MotivoRevogacao, detalhe?: string | null): void;
+  /** Entrou num servidor (convite): quem já estava passa a ver o status e a atividade dela, e ela os deles. */
+  entrouNaComunidade(usuarioId: number, comunidadeId: number): void;
   /** Moderação: tira a pessoa da voz deste servidor (castigo). */
   tirarDaVoz(usuarioId: number, comunidadeId: number): void;
   /** Moderação: avisa só a pessoa (nas conexões dela neste servidor) que o castigo começou ou acabou. */
@@ -172,13 +174,13 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     if (JSON.stringify(depois) !== antes) emitirAtividade(id, depois);
   }
   /**
-   * Quem pode ver a atividade de `id` nesta conexão (RN-2): a própria pessoa, um membro do servidor da conexão ou um
-   * amigo. É a mesma regra do `ola`.
+   * Quem pode ver a atividade e o status de `id` nesta conexão (RN-2 de correcoes-atividade, RN-6 de qualidade-de-vida):
+   * a própria pessoa, um membro do servidor da conexão ou um amigo. É a mesma regra do `ola`.
    */
-  const podeVerAtividade = (s: SocketTofalando, id: number) =>
+  const podeVer = (s: SocketTofalando, id: number) =>
     s.data.usuarioId === id || !!membroDe(banco, s.data.comunidadeId, id) || saoAmigos(banco, s.data.usuarioId, id);
   function emitirAtividade(id: number, atividade: AtividadeDto | null) {
-    for (const s of io.of('/').sockets.values()) if (podeVerAtividade(s, id)) s.emit('atividade:atualizada', { id, atividade });
+    for (const s of io.of('/').sockets.values()) if (podeVer(s, id)) s.emit('atividade:atualizada', { id, atividade });
   }
   /**
    * No máximo uma mudança de atividade a cada ATIVIDADE_INTERVALO_MS por pessoa (cada uma consulta o banco por conexão):
@@ -209,16 +211,25 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     relogio.unref?.();
     atividadeAdiada.set(id, { atividade, relogio });
   }
-  /** Amizade aceita ou desfeita: cada um recebe a atividade atual do outro, ou null se deixou de poder ver. */
-  function reenviarAtividades(a: number, b: number) {
+  function emitirStatus(id: number, novo: StatusPessoa) {
+    for (const s of io.of('/').sockets.values()) if (podeVer(s, id)) s.emit('presenca:atualizada', { id, status: novo });
+  }
+  /**
+   * Mudou quem vê quem (amizade aceita ou desfeita, entrar ou sair de um servidor): cada um recebe a atividade e o
+   * status atuais do outro, ou null e offline se deixou de poder ver.
+   */
+  function reenviarVisibilidade(a: number, b: number) {
     for (const [de, para] of [
       [a, b],
       [b, a],
     ] as const) {
       const atividade = atividadeVisivel(de) ?? null;
+      const st = status.get(de) ?? 'offline';
       for (const s of io.of('/').sockets.values()) {
         if (s.data.usuarioId !== para) continue;
-        s.emit('atividade:atualizada', { id: de, atividade: podeVerAtividade(s, de) ? atividade : null });
+        const ve = podeVer(s, de);
+        s.emit('atividade:atualizada', { id: de, atividade: ve ? atividade : null });
+        s.emit('presenca:atualizada', { id: de, status: ve ? st : 'offline' });
       }
     }
   }
@@ -240,13 +251,13 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     if (antes === novo) return;
     if (novo === 'offline') status.delete(usuarioId);
     else status.set(usuarioId, novo);
-    io.emit('presenca:atualizada', { id: usuarioId, status: novo });
+    emitirStatus(usuarioId, novo);
   }
   const lerEscolha = (valor: unknown): EscolhaStatus | undefined =>
     typeof valor === 'string' && (ESCOLHAS_STATUS as string[]).includes(valor) ? (valor as EscolhaStatus) : undefined;
   const presenca = criarPresenca((tipo, usuarioId, motivo) => {
     if (tipo === 'offline') escolhas.delete(usuarioId);
-    if (tipo === 'offline' && status.delete(usuarioId)) io.emit('presenca:atualizada', { id: usuarioId, status: 'offline' });
+    if (tipo === 'offline' && status.delete(usuarioId)) emitirStatus(usuarioId, 'offline');
     try {
       registrarAuditoria(banco, { tipo, atorId: usuarioId, detalhes: motivo ? { motivo } : undefined });
     } catch (erro) {
@@ -373,7 +384,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     musica.registrar(socket);
     tela.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e), config.gif);
-    registrarEventosAmizades(io, socket, banco, (e) => app.log.error(e), reenviarAtividades);
+    registrarEventosAmizades(io, socket, banco, (e) => app.log.error(e), reenviarVisibilidade);
     presenca.entrou(eu.id);
     // RN-25: quem reconecta já ausente avisa no handshake (sem piscar "online" para os outros).
     if (socket.handshake.auth?.ausente === true) ausentes.add(socket.id);
@@ -443,6 +454,11 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     cargoMudou: (usuarioId) => tela.cargoMudou(usuarioId),
     tirarDaComunidade(usuarioId, comunidadeId, motivo = 'fora_do_servidor', detalhe) {
       for (const s of io.of('/').sockets.values()) if (s.data.usuarioId === usuarioId && s.data.comunidadeId === comunidadeId) derrubar(s, motivo, detalhe);
+      // Quem ficou deixa de ver a pessoa (e ela a eles), se não restar outro servidor em comum nem amizade (RF-7).
+      for (const m of idsDosMembros(banco, comunidadeId)) if (m !== usuarioId) reenviarVisibilidade(usuarioId, m);
+    },
+    entrouNaComunidade(usuarioId, comunidadeId) {
+      for (const m of idsDosMembros(banco, comunidadeId)) if (m !== usuarioId) reenviarVisibilidade(usuarioId, m);
     },
     tirarDaVoz(usuarioId, comunidadeId) {
       const p = voz.presenca(usuarioId);
