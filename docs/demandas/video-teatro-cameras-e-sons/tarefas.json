@@ -145,9 +145,9 @@
         "CA-13"
       ],
       "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "2e21d6a"
     },
     {
       "id": "T9",

@@ -42,7 +42,7 @@ Decisão de 20/11: **tudo o que está no backlog vai ser feito**, cada bloco com
 | 3 | `volume-da-voz` **(T1–T6 feitas em 21/11; falta a T7 manual)** | 45 (voz baixa: ganho com compressor e volume geral da chamada) | Melhoria | Médio |
 | 4 | `infra-e-atualizacao` **(T1–T9 feitas em 21/11; falta a T10 na VM)** | 46 (imagem arm64 no CI), 47 (domínio fixo), 29 parte do servidor (atualizar a VM na hora + trava do `vm.sh atualizar`), 33 (cookies do ToOuvini e gerador de token) | Melhoria | Médio |
 | 5 | `chat-fixar-e-buscar` **(T1–T9 feitas em 21/11; falta a T10 manual)** | 26 (fixar mensagem), 25 (busca no chat), 51 ("Apagar" para quem tem a permissão, mesmo menu da mensagem) | Feature | Médio |
-| 6 | `video-teatro-cameras-e-sons` | 50 (câmera flutuante que some + janela própria em outro monitor), 49 (modo teatro e barra de controles), 38 (sons e contador flutuante) | Bug + feature | Médio a grande |
+| 6 | `video-teatro-cameras-e-sons` **(T1–T8 feitas em 21/11; falta a T9 manual)** | 50 (câmera flutuante que some + janela própria em outro monitor), 49 (modo teatro e barra de controles), 38 (sons e contador flutuante) | Bug + feature | Médio a grande |
 | 7 | `mover-e-afk` | 43 (mover membros entre salas), 42 (sala de AFK, usa o 43) | Feature | Médio |
 | 8 | `audios-na-loja` | 28 (áudios com raridade) | Feature | Médio |
 | 9 | `som-sistema-windows` | 31 definitivo (captura que exclui o próprio app) | Bug | Grande; precisa de Windows real para validar |
