@@ -305,3 +305,46 @@ describe('modo teatro e barra de controles (video-teatro-cameras-e-sons, T4)', (
     expect(screen.getByRole('button', { name: 'Assistir' })).toBeTruthy();
   });
 });
+
+describe('transmissão em janela própria (video-teatro-cameras-e-sons, T5)', () => {
+  function janelaFalsa() {
+    const doc = document.implementation.createHTMLDocument('');
+    const ouvintes = new Map<string, () => void>();
+    const filha = { document: doc, closed: false, close: vi.fn(), addEventListener: (t: string, f: () => void) => ouvintes.set(t, f), removeEventListener: vi.fn() };
+    return { filha, doc, fecharPeloSistema: () => ouvintes.get('pagehide')?.() };
+  }
+
+  it('CA-5: abre a transmissão na janela (mesma barra), o app mostra o aviso; fechar a janela volta ao painel; Fechar fecha a janela', async () => {
+    const { filha, doc, fecharPeloSistema } = janelaFalsa();
+    const abrirJanela = vi.spyOn(window, 'open').mockReturnValue(filha as never);
+    const faixa = { attach: vi.fn(), detach: vi.fn() };
+    render(<PainelTransmissao id={7} nome="dono" faixa={faixa} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Assistir' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir em janela própria' }));
+    expect(abrirJanela).toHaveBeenCalledWith('about:blank', 'tofalany-transmissao-7', 'popup');
+    await vi.waitFor(() => expect(doc.querySelector('[aria-label="Tela de dono"]')).toBeTruthy());
+    expect(doc.querySelector('[aria-label="Volume da transmissão"]')).toBeTruthy();
+    expect(doc.querySelector('[aria-label="Modo teatro"]')).toBeNull();
+    expect(screen.getByText(/numa janela própria/)).toBeTruthy();
+    act(() => fecharPeloSistema());
+    expect(screen.getByLabelText('Tela de dono')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir em janela própria' }));
+    await vi.waitFor(() => expect(doc.querySelectorAll('[aria-label="Tela de dono"]').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+    expect(filha.close).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Assistir' })).toBeTruthy();
+    abrirJanela.mockRestore();
+  });
+
+  it('a transmissão acabou (o painel sai) com ela numa janela própria: a janela fecha', async () => {
+    const { filha, doc } = janelaFalsa();
+    vi.spyOn(window, 'open').mockReturnValue(filha as never);
+    const { unmount } = render(<PainelTransmissao id={7} nome="dono" faixa={{ attach: vi.fn(), detach: vi.fn() }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Assistir' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir em janela própria' }));
+    await vi.waitFor(() => expect(doc.querySelector('video')).toBeTruthy());
+    unmount();
+    expect(filha.close).toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+});

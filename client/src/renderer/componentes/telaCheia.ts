@@ -5,17 +5,19 @@ import { useEffect, useState, type RefObject } from 'react';
  * (antes, dentro da tela cheia, o botão pedia tela cheia de novo e nada acontecia).
  */
 export function alternarTelaCheia(el: HTMLElement | null) {
-  if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+  // O documento do próprio elemento (numa janela própria, o dela).
+  const doc = el?.ownerDocument ?? document;
+  if (doc.fullscreenElement) void doc.exitFullscreen().catch(() => undefined);
   else void el?.requestFullscreen?.().catch(() => undefined);
 }
 
 /** Este elemento está em tela cheia agora (atualiza com Esc, F11 ou o botão). */
-export function useEmTelaCheia(ref: RefObject<HTMLElement | null>): boolean {
+export function useEmTelaCheia(ref: RefObject<HTMLElement | null>, documento: Document = document): boolean {
   const [cheia, setCheia] = useState(false);
   useEffect(() => {
-    const atualizar = () => setCheia(!!ref.current && document.fullscreenElement === ref.current);
-    document.addEventListener('fullscreenchange', atualizar);
-    return () => document.removeEventListener('fullscreenchange', atualizar);
-  }, [ref]);
+    const atualizar = () => setCheia(!!ref.current && documento.fullscreenElement === ref.current);
+    documento.addEventListener('fullscreenchange', atualizar);
+    return () => documento.removeEventListener('fullscreenchange', atualizar);
+  }, [ref, documento]);
   return cheia;
 }

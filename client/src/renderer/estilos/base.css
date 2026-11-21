@@ -1385,3 +1385,14 @@ body.janela-propria { margin: 0; min-height: 100vh; background: var(--cor-video)
 .transmissao-grande.teatro.controles-ocultos .transmissao-acoes:not(:focus-within) { opacity: 0; transform: translateY(8px); pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .teatro-fundo { animation: none; } .transmissao-grande.teatro .transmissao-acoes { transition: none; } }
 .previa-acoes { align-self: stretch; border-radius: var(--raio-p); }
+/* Transmissão numa janela própria: o vídeo ocupa a janela e a barra fica por cima, como no modo teatro. */
+.transmissao-grande.em-janela { position: relative; margin: 0; height: 100vh; border: 0; border-radius: 0; }
+.transmissao-grande.em-janela video { width: 100%; height: 100vh; max-height: none; object-fit: contain; }
+.transmissao-grande.em-janela .transmissao-acoes {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 28px 16px 12px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78)); color: #fff;
+  transition: opacity var(--dur-media) var(--curva-padrao), transform var(--dur-media) var(--curva-padrao);
+}
+.transmissao-grande.em-janela .transmissao-acoes .com-icone { color: #fff; }
+.transmissao-grande.em-janela.controles-ocultos { cursor: none; }
+.transmissao-grande.em-janela.controles-ocultos .transmissao-acoes:not(:focus-within) { opacity: 0; transform: translateY(8px); pointer-events: none; }

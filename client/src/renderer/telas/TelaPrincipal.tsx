@@ -2105,6 +2105,7 @@ function TelaDoServidor({
                   .map((t) => (
                     <PainelTransmissao
                       key={t.usuarioId}
+                      id={t.usuarioId}
                       nome={usuarios.find((u) => u.id === t.usuarioId)?.nomeExibicao ?? 'Alguém'}
                       faixa={telasRemotas.find((v) => v.usuarioId === t.usuarioId)?.faixa}
                       espectadores={nomesDeIds(t.espectadores)}

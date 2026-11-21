@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { FaixaVideo } from '../servicos/voz';
 import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
 import { Espectadores } from './Espectadores';
 import { Icone } from './Icone';
+import { ligarFaixa } from '../servicos/faixa-em-janela';
+import { useJanelaPropria } from '../servicos/janela-propria';
 
 /**
  * RF-30: a transmissão de alguém do meu canal — aviso com "Assistir", e grande com tela cheia ao assistir.
  * Abrir e fechar avisa o servidor (`aoAssistir`), para todos verem quem está assistindo.
  */
 export function PainelTransmissao({
+  id,
   nome,
   faixa,
   espectadores = [],
@@ -17,6 +20,8 @@ export function PainelTransmissao({
   conectado = true,
   aoSom,
 }: {
+  /** Quem transmite (o nome da janela própria: uma por transmissão). */
+  id?: number;
   nome: string;
   faixa: FaixaVideo | undefined;
   espectadores?: string[];
@@ -30,7 +35,14 @@ export function PainelTransmissao({
    * video-teatro-cameras-e-sons (RF-4, RF-5): onde a transmissão aparece enquanto assisto — no painel, no modo teatro
    * (por cima do app, desenhado no <body>) ou numa janela própria (T5). Fechar volta ao painel e sai de tudo (RN-7).
    */
-  const [exibicao, setExibicao] = useState<'painel' | 'teatro'>('painel');
+  const [exibicao, setExibicao] = useState<'painel' | 'teatro' | 'janela'>('painel');
+  // RF-3/CA-5: janela própria; fechar a janela pelo sistema volta ao painel; parar de assistir ou o painel sumir
+  // (a transmissão acabou, saí da voz) fecha a janela (A6).
+  const alvoJanela = useJanelaPropria(
+    assistindo && exibicao === 'janela' && id ? `tofalany-transmissao-${id}` : null,
+    'ToFalany – Transmissão',
+    useCallback(() => setExibicao('painel'), []),
+  );
   const setAssistindo = (sim: boolean) => {
     setAssistindoEstado(sim);
     if (!sim) setExibicao('painel');
@@ -68,25 +80,24 @@ export function PainelTransmissao({
     esconder.current = setTimeout(() => setControlesVisiveis(false), ESCONDER_CONTROLES_MS);
   };
   useEffect(() => () => clearTimeout(esconder.current), []);
-  const cheia = useEmTelaCheia(caixa);
+  const cheia = useEmTelaCheia(caixa, alvoJanela?.ownerDocument ?? document);
   // Item 39: ao parar de assistir (Fechar, ou o painel sumir) com o vídeo em tela cheia, sai da tela cheia.
   // Sem isso a janela ficava em tela cheia, toda preta, só com o aviso "fulano está transmitindo" no meio.
   useEffect(() => {
     if (!assistindo) return;
     const el = caixa.current;
     return () => {
-      if (el && document.fullscreenElement === el) void document.exitFullscreen().catch(() => undefined);
+      const doc = el?.ownerDocument ?? document;
+      if (el && doc.fullscreenElement === el) void doc.exitFullscreen().catch(() => undefined);
     };
   }, [assistindo]);
   // O <video> muda de lugar ao entrar e sair do modo teatro: prende a faixa de novo no elemento novo.
   useEffect(() => {
     const el = ref.current;
     if (!assistindo || !el || !faixa) return;
-    faixa.attach(el);
-    return () => {
-      faixa.detach(el);
-    };
-  }, [assistindo, faixa, exibicao]);
+    // Numa janela própria, a mesma faixa com a visibilidade informada por ela (faixa-em-janela).
+    return ligarFaixa(faixa, el);
+  }, [assistindo, faixa, exibicao, alvoJanela]);
   // Modo teatro: Esc sai (a tela cheia trata o Esc dela).
   useEffect(() => {
     if (exibicao !== 'teatro') return;
@@ -111,12 +122,13 @@ export function PainelTransmissao({
     );
   }
   const teatro = exibicao === 'teatro';
-  const sobreOVideo = cheia || teatro;
+  const emJanela = exibicao === 'janela';
+  const sobreOVideo = cheia || teatro || emJanela;
   const grande = (
     <section
       key="assistindo"
       ref={caixa}
-      className={`transmissao-grande${teatro ? ' teatro' : ''}${sobreOVideo && !controlesVisiveis ? ' controles-ocultos' : ''}`}
+      className={`transmissao-grande${teatro ? ' teatro' : ''}${emJanela ? ' em-janela' : ''}${sobreOVideo && !controlesVisiveis ? ' controles-ocultos' : ''}`}
       aria-label={`Transmissão de ${nome}`}
       onMouseMove={sobreOVideo ? mostrarControles : undefined}
       onMouseLeave={sobreOVideo ? () => setControlesVisiveis(false) : undefined}
@@ -154,17 +166,46 @@ export function PainelTransmissao({
             }}
           />
         </div>
-        <BotaoBarra
-          rotulo={teatro ? 'Sair do modo teatro' : 'Modo teatro'}
-          icone={teatro ? 'reduzir' : 'janela'}
-          pressionado={teatro}
-          onClick={() => setExibicao(teatro ? 'painel' : 'teatro')}
-        />
+        {!emJanela && (
+          <BotaoBarra
+            rotulo={teatro ? 'Sair do modo teatro' : 'Modo teatro'}
+            icone={teatro ? 'reduzir' : 'janela'}
+            pressionado={teatro}
+            onClick={() => setExibicao(teatro ? 'painel' : 'teatro')}
+          />
+        )}
+        {id !== undefined && (
+          <BotaoBarra
+            rotulo={emJanela ? 'Trazer de volta para o app' : 'Abrir em janela própria'}
+            icone={emJanela ? 'alfinete' : 'ampliar'}
+            onClick={() => setExibicao(emJanela ? 'painel' : 'janela')}
+          />
+        )}
         <BotaoBarra rotulo={cheia ? 'Sair da tela cheia' : 'Tela cheia'} icone={cheia ? 'reduzir' : 'ampliar'} onClick={() => alternarTelaCheia(caixa.current)} />
         <BotaoBarra rotulo="Fechar" icone="fechar" onClick={() => setAssistindo(false)} />
       </div>
     </section>
   );
+  if (emJanela) {
+    // A transmissão sai do app (RN-3); aqui fica o aviso para trazer de volta.
+    return (
+      <>
+        <section className="aviso-transmissao" aria-label={`Transmissão de ${nome}`}>
+          <span>
+            <Icone nome="tela" tamanho={16} /> Assistindo <strong>{nome}</strong> numa janela própria.
+          </span>
+          <Espectadores nomes={espectadores} />
+          <button type="button" className="secundario" onClick={() => setExibicao('painel')}>
+            Trazer de volta
+          </button>
+          <button type="button" className="secundario" onClick={() => setAssistindo(false)}>
+            Fechar
+          </button>
+        </section>
+        {alvoJanela && createPortal(grande, alvoJanela)}
+      </>
+    );
+  }
   if (!teatro) return grande;
   // RN-4: por cima do app, no <body> (fora do painel do meio, que tem vidro e cortaria a camada), inteiro na janela.
   return createPortal(
