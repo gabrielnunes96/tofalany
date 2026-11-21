@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { FaixaVideo } from '../servicos/voz';
 import { alternarTelaCheia, useEmTelaCheia } from './telaCheia';
 import { Espectadores } from './Espectadores';
@@ -24,7 +25,16 @@ export function PainelTransmissao({
   /** Som da transmissão aqui: toca só assistindo, no volume escolhido (0 = mudo). */
   aoSom?: (o: { assistindo: boolean; volume: number }) => void;
 }) {
-  const [assistindo, setAssistindo] = useState(false);
+  const [assistindo, setAssistindoEstado] = useState(false);
+  /**
+   * video-teatro-cameras-e-sons (RF-4, RF-5): onde a transmissão aparece enquanto assisto — no painel, no modo teatro
+   * (por cima do app, desenhado no <body>) ou numa janela própria (T5). Fechar volta ao painel e sai de tudo (RN-7).
+   */
+  const [exibicao, setExibicao] = useState<'painel' | 'teatro'>('painel');
+  const setAssistindo = (sim: boolean) => {
+    setAssistindoEstado(sim);
+    if (!sim) setExibicao('painel');
+  };
   const [volume, setVolume] = useState(1);
   const [mudo, setMudo] = useState(false);
   const som = useRef(aoSom);
@@ -48,13 +58,14 @@ export function PainelTransmissao({
   }, [assistindo, conectado]);
   const ref = useRef<HTMLVideoElement>(null);
   const caixa = useRef<HTMLElement>(null);
-  // Em tela cheia, os controles ficam por cima do vídeo: aparecem ao mexer o mouse e somem depois de 2,5 s parado.
+  // Em tela cheia e no modo teatro, os controles ficam por cima do vídeo: aparecem ao mexer o mouse e somem depois de
+  // 3 s parado (RN-6).
   const [controlesVisiveis, setControlesVisiveis] = useState(true);
   const esconder = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mostrarControles = () => {
     setControlesVisiveis(true);
     clearTimeout(esconder.current);
-    esconder.current = setTimeout(() => setControlesVisiveis(false), 2500);
+    esconder.current = setTimeout(() => setControlesVisiveis(false), ESCONDER_CONTROLES_MS);
   };
   useEffect(() => () => clearTimeout(esconder.current), []);
   const cheia = useEmTelaCheia(caixa);
@@ -67,6 +78,7 @@ export function PainelTransmissao({
       if (el && document.fullscreenElement === el) void document.exitFullscreen().catch(() => undefined);
     };
   }, [assistindo]);
+  // O <video> muda de lugar ao entrar e sair do modo teatro: prende a faixa de novo no elemento novo.
   useEffect(() => {
     const el = ref.current;
     if (!assistindo || !el || !faixa) return;
@@ -74,7 +86,16 @@ export function PainelTransmissao({
     return () => {
       faixa.detach(el);
     };
-  }, [assistindo, faixa]);
+  }, [assistindo, faixa, exibicao]);
+  // Modo teatro: Esc sai (a tela cheia trata o Esc dela).
+  useEffect(() => {
+    if (exibicao !== 'teatro') return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.fullscreenElement) setExibicao('painel');
+    };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [exibicao]);
 
   if (!assistindo) {
     return (
@@ -89,18 +110,21 @@ export function PainelTransmissao({
       </section>
     );
   }
-  return (
+  const teatro = exibicao === 'teatro';
+  const sobreOVideo = cheia || teatro;
+  const grande = (
     <section
       key="assistindo"
       ref={caixa}
-      className={`transmissao-grande${cheia && !controlesVisiveis ? ' controles-ocultos' : ''}`}
+      className={`transmissao-grande${teatro ? ' teatro' : ''}${sobreOVideo && !controlesVisiveis ? ' controles-ocultos' : ''}`}
       aria-label={`Transmissão de ${nome}`}
-      onMouseMove={cheia ? mostrarControles : undefined}
-      onMouseLeave={cheia ? () => setControlesVisiveis(false) : undefined}
+      onMouseMove={sobreOVideo ? mostrarControles : undefined}
+      onMouseLeave={sobreOVideo ? () => setControlesVisiveis(false) : undefined}
+      onClick={teatro ? (e) => e.stopPropagation() : undefined}
     >
       <video ref={ref} autoPlay playsInline muted aria-label={`Tela de ${nome}`} onDoubleClick={() => alternarTelaCheia(caixa.current)} />
       <div className="transmissao-acoes">
-        <span className="com-icone">
+        <span className="com-icone transmissao-nome">
           <Icone nome="tela" tamanho={16} /> {nome}
         </span>
         <Espectadores nomes={espectadores} />
@@ -130,13 +154,40 @@ export function PainelTransmissao({
             }}
           />
         </div>
-        <button type="button" className="secundario" onClick={() => alternarTelaCheia(caixa.current)}>
-          {cheia ? 'Sair da tela cheia' : 'Tela cheia'}
-        </button>
-        <button type="button" className="secundario" onClick={() => setAssistindo(false)}>
-          Fechar
-        </button>
+        <BotaoBarra
+          rotulo={teatro ? 'Sair do modo teatro' : 'Modo teatro'}
+          icone={teatro ? 'reduzir' : 'janela'}
+          pressionado={teatro}
+          onClick={() => setExibicao(teatro ? 'painel' : 'teatro')}
+        />
+        <BotaoBarra rotulo={cheia ? 'Sair da tela cheia' : 'Tela cheia'} icone={cheia ? 'reduzir' : 'ampliar'} onClick={() => alternarTelaCheia(caixa.current)} />
+        <BotaoBarra rotulo="Fechar" icone="fechar" onClick={() => setAssistindo(false)} />
       </div>
     </section>
+  );
+  if (!teatro) return grande;
+  // RN-4: por cima do app, no <body> (fora do painel do meio, que tem vidro e cortaria a camada), inteiro na janela.
+  return createPortal(
+    <div className="teatro-fundo" role="presentation" onClick={() => setExibicao('painel')}>
+      {grande}
+    </div>,
+    document.body,
+  );
+}
+
+/** Controles some depois deste tempo parado (tela cheia e modo teatro). */
+export const ESCONDER_CONTROLES_MS = 3000;
+
+/**
+ * Botão da barra de controles (RN-5): ícone e texto; em largura estreita o texto some (CSS), o nome acessível fica.
+ */
+export function BotaoBarra({ rotulo, icone, onClick, pressionado }: { rotulo: string; icone: Parameters<typeof Icone>[0]['nome']; onClick: () => void; pressionado?: boolean }) {
+  return (
+    <button type="button" className="secundario botao-barra" aria-label={rotulo} title={rotulo} aria-pressed={pressionado} onClick={onClick}>
+      <Icone nome={icone} tamanho={16} />
+      <span className="botao-barra-texto" aria-hidden="true">
+        {rotulo}
+      </span>
+    </button>
   );
 }

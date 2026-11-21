@@ -71,7 +71,9 @@ import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soun
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
 import { GradeVideos } from '../componentes/GradeVideos';
 import { SeletorTela, somParaLembrar, type FonteTela } from '../componentes/SeletorTela';
-import { PainelTransmissao } from '../componentes/PainelTransmissao';
+import { BotaoBarra, PainelTransmissao } from '../componentes/PainelTransmissao';
+import { alternarTelaCheia } from '../componentes/telaCheia';
+import { createPortal } from 'react-dom';
 import { TelaEditarServidor } from './TelaEditarServidor';
 import { DialogoModeracao, type TipoModeracao } from '../componentes/DialogoModeracao';
 import { Espectadores } from '../componentes/Espectadores';
@@ -2095,7 +2097,7 @@ function TelaDoServidor({
                     <button type="button" className="perigo" disabled={iniciandoTela} onClick={() => void pararTela()}>
                       Parar transmissão
                     </button>
-                    {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} telaInteira={previaDaTelaInteira} mesmaTela={previaMesmaTela} />}
+                    {faixaPrevia && verPrevia && <PreviaLocal faixa={faixaPrevia} telaInteira={previaDaTelaInteira} mesmaTela={previaMesmaTela} aoOcultar={() => setVerPrevia(false)} />}
                   </section>
                 )}
                 {transmissoes
@@ -2385,7 +2387,7 @@ function TelaDoServidor({
  * tela cheia). Transmitindo a tela em que o app está, a imagem não é desenhada: ela apareceria dentro da própria
  * transmissão, num espelho infinito para quem assiste.
  */
-function PreviaLocal({ faixa, telaInteira, mesmaTela }: { faixa: MediaStreamTrack; telaInteira: boolean; mesmaTela: boolean }) {
+function PreviaLocal({ faixa, telaInteira, mesmaTela, aoOcultar }: { faixa: MediaStreamTrack; telaInteira: boolean; mesmaTela: boolean; aoOcultar?: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [ampliada, setAmpliada] = useState(false);
   useEffect(() => {
@@ -2415,15 +2417,23 @@ function PreviaLocal({ faixa, telaInteira, mesmaTela }: { faixa: MediaStreamTrac
   }
   const video = <video ref={ref} aria-label="Prévia da sua transmissão" muted playsInline />;
   if (ampliada) {
-    return (
+    // video-teatro-cameras-e-sons (RN-4): no <body> (fora do painel do meio, que cortava a prévia), inteira na janela,
+    // com a barra de controles de quem transmite.
+    return createPortal(
       <div className="previa-ampliada-fundo" role="presentation" onClick={() => setAmpliada(false)}>
         <figure className="previa-ampliada" role="dialog" aria-label="Prévia ampliada" onClick={(e) => e.stopPropagation()}>
           {video}
-          <button type="button" className="secundario" onClick={() => setAmpliada(false)}>
-            Fechar (Esc)
-          </button>
+          <div className="transmissao-acoes previa-acoes">
+            <span className="com-icone transmissao-nome">
+              <Icone nome="tela" tamanho={16} /> Sua transmissão
+            </span>
+            <BotaoBarra rotulo="Tela cheia" icone="ampliar" onClick={() => alternarTelaCheia(ref.current)} />
+            {aoOcultar && <BotaoBarra rotulo="Ocultar prévia" icone="olho" onClick={aoOcultar} />}
+            <BotaoBarra rotulo="Fechar (Esc)" icone="fechar" onClick={() => setAmpliada(false)} />
+          </div>
         </figure>
-      </div>
+      </div>,
+      document.body,
     );
   }
   return (

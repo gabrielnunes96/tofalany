@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { SeletorTela, somParaLembrar } from './SeletorTela';
 import { PainelTransmissao } from './PainelTransmissao';
 
@@ -241,5 +241,67 @@ describe('PainelTransmissao (RF-30)', () => {
     expect(aoSom).toHaveBeenLastCalledWith({ assistindo: true, volume: 0.4 });
     unmount();
     expect(aoSom).toHaveBeenLastCalledWith({ assistindo: false, volume: 1 });
+  });
+});
+
+describe('modo teatro e barra de controles (video-teatro-cameras-e-sons, T4)', () => {
+  const abrir = () => {
+    const faixa = { attach: vi.fn(), detach: vi.fn() };
+    const r = render(
+      <main className="conteudo">
+        <PainelTransmissao nome="dono" faixa={faixa} />
+      </main>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Assistir' }));
+    return { faixa, ...r };
+  };
+
+  it('CA-8: quem assiste tem volume, modo teatro, tela cheia e fechar (sem prévia)', () => {
+    abrir();
+    for (const nome of ['Volume da transmissão', 'Modo teatro', 'Tela cheia', 'Fechar']) expect(screen.getByLabelText(nome)).toBeTruthy();
+    expect(screen.queryByLabelText(/prévia/i)).toBeNull();
+  });
+
+  it('CA-6: modo teatro desenhado no <body> (fora do painel do meio); a faixa vai para o vídeo novo; Esc e clique fora saem', () => {
+    const { faixa, container } = abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Modo teatro' }));
+    const grande = screen.getByRole('region', { name: 'Transmissão de dono' });
+    expect(container.contains(grande)).toBe(false);
+    expect(grande.closest('.teatro-fundo')?.parentElement).toBe(document.body);
+    expect(faixa.attach).toHaveBeenLastCalledWith(screen.getByLabelText('Tela de dono'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(container.contains(screen.getByRole('region', { name: 'Transmissão de dono' }))).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Modo teatro' }));
+    // Clicar no vídeo não sai; clicar no fundo sai.
+    fireEvent.click(screen.getByLabelText('Tela de dono'));
+    expect(document.querySelector('.teatro-fundo')).toBeTruthy();
+    fireEvent.click(document.querySelector('.teatro-fundo')!);
+    expect(document.querySelector('.teatro-fundo')).toBeNull();
+  });
+
+  it('CA-9: no modo teatro os controles somem com o mouse parado por 3 s e voltam ao mexer', () => {
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Modo teatro' }));
+    vi.useFakeTimers();
+    try {
+      const grande = screen.getByRole('region', { name: 'Transmissão de dono' });
+      fireEvent.mouseMove(grande);
+      act(() => vi.advanceTimersByTime(2900));
+      expect(grande.className).not.toContain('controles-ocultos');
+      act(() => vi.advanceTimersByTime(200));
+      expect(grande.className).toContain('controles-ocultos');
+      fireEvent.mouseMove(grande);
+      expect(grande.className).not.toContain('controles-ocultos');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('CA-10: fechar no modo teatro sai do teatro e volta ao aviso', () => {
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Modo teatro' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+    expect(document.querySelector('.teatro-fundo')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Assistir' })).toBeTruthy();
   });
 });
