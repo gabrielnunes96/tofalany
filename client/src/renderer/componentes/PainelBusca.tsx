@@ -107,7 +107,7 @@ export function PainelBusca({ conversa, termo, pedido, buscar, usuarios, canais,
           Onde
           <select value={onde} onChange={(e) => setOnde(e.target.value as 'conversa' | 'todos')}>
             <option value="conversa">Nesta conversa</option>
-            <option value="todos">{ehDm ? 'Em todas as minhas DMs' : 'Em todos os canais do servidor'}</option>
+            <option value="todos">{ehDm ? 'Todas as minhas DMs' : 'Todos os canais do servidor'}</option>
           </select>
         </label>
         <label>

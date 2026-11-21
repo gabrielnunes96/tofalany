@@ -140,9 +140,9 @@
         "CA-15"
       ],
       "validacao": "vitest client: 1 letra sem filtro não chama a API e mostra o aviso; destaques viram <mark>; texto com <img onerror> aparece como texto; filtros vão no corpo; 'Mais resultados' manda antes; clique em resultado de outro canal chama irAte.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "7f1949e"
     },
     {
       "id": "T8",
@@ -155,9 +155,9 @@
         "item 51"
       ],
       "validacao": "vitest client: membro com cargo que tem 'Apagar mensagens' vê 'Apagar' na mensagem de outro no canal; sem a permissão não vê; na DM só nas próprias.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "92c00db"
     },
     {
       "id": "T9",
@@ -179,7 +179,7 @@
         "CA-13"
       ],
       "validacao": "npm run test:e2e com o spec novo passando; prints gerados.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

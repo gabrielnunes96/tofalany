@@ -1333,19 +1333,21 @@ button.config-fechar:hover:not(:disabled) { color: var(--cor-texto); background:
 /* chat-fixar-e-buscar: linha "fulano fixou", selo da mensagem fixada e o painel da coluna direita. */
 .mensagem.linha-sistema { display: flex; align-items: baseline; gap: 8px; padding: 2px 10px 2px 56px; font-size: 0.85rem; color: var(--cor-texto-suave); }
 .mensagem.linha-sistema time { font-size: 0.75rem; opacity: 0.7; }
-.link { background: none; border: none; padding: 0; color: var(--cor-acento); text-decoration: underline; cursor: pointer; font: inherit; }
+button.link { background: none; border: none; box-shadow: none; padding: 0; margin: 0; min-height: 0; color: var(--cor-acento); text-decoration: underline; cursor: pointer; font: inherit; }
+button.link:hover:not(:disabled) { box-shadow: none; transform: none; background: none; }
 .selo-fixada { font-size: 0.75rem; opacity: 0.75; }
 .painel-lateral { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .painel-lateral-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lista-fixadas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 .lista-fixadas li { display: flex; flex-direction: column; gap: 4px; }
-.fixada-ir { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; background: var(--cor-superficie-2); border: 1px solid var(--cor-borda); border-radius: 8px; padding: 6px 8px; cursor: pointer; color: inherit; font: inherit; }
+.fixada-ir { display: flex; flex-direction: column; align-items: stretch; gap: 2px; text-align: left; width: 100%; background: var(--cor-superficie-2); border: 1px solid var(--cor-borda); border-radius: 8px; padding: 6px 8px; cursor: pointer; color: inherit; font: inherit; }
 .fixada-topo { display: flex; justify-content: space-between; gap: 6px; font-size: 0.85rem; }
 .fixada-trecho { overflow-wrap: anywhere; }
 .fixada-por { font-size: 0.75rem; }
 .fixada-desafixar { align-self: flex-end; font-size: 0.8rem; }
 .campo-busca input { width: 160px; padding: 4px 8px; font-size: 0.85rem; }
 .busca-filtros { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 0.85rem; }
-.busca-filtros label { display: flex; flex-direction: column; gap: 2px; }
-.busca-filtros label.caixa { flex-direction: row; align-items: center; gap: 4px; }
+.busca-filtros label { display: flex; flex-direction: column; gap: 2px; flex: 1 1 100%; min-width: 0; }
+.busca-filtros select { background: var(--cor-campo); color: var(--cor-texto); border: 1px solid var(--cor-borda); border-radius: var(--raio-p); padding: 4px 6px; font: inherit; width: 100%; box-sizing: border-box; }
+.busca-filtros label.caixa { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 4px; }
 .lista-resultados mark { background: var(--cor-acento-suave); color: inherit; border-radius: 3px; padding: 0 1px; }

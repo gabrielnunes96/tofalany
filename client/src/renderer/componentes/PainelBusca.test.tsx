@@ -103,7 +103,7 @@ describe('PainelBusca', () => {
     render(
       <PainelBusca conversa={{ dmId: 7 }} termo="oi oi" pedido={1} buscar={buscar} usuarios={[ana]} canais={canais} aoAbrir={aoAbrir} aoFechar={vi.fn()} />,
     );
-    expect(screen.getByRole('option', { name: 'Em todas as minhas DMs' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Todas as minhas DMs' })).toBeTruthy();
     fireEvent.click(await screen.findByText('oi'));
     expect(aoAbrir).toHaveBeenCalledWith(dmMsg);
     falhar = true;
