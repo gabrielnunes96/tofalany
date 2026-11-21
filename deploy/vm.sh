@@ -214,7 +214,8 @@ atualizar() {
 # Uma atualização por vez (timer, pedido pelo app ou à mão), na mesma trava. "esperar": espera até 30 min a outra
 # terminar; "nao-esperar": sai com 1 se houver outra. A trava fica no fd 9 até o fim do processo.
 com_trava() {
-  exec 9> "$PASTA/.atualizando.lock"
+  # Sem abrir a trava (ex.: criada como root por um "sudo ./vm.sh"), não dá para dizer que há outra rodando.
+  exec 9> "$PASTA/.atualizando.lock" || erro "Não consegui abrir a trava (dono ou permissão de $PASTA/.atualizando.lock)."
   if flock -n 9; then return 0; fi
   if [ "${1:-esperar}" = esperar ]; then
     info "Outra atualização em andamento; esperando ela terminar (até 30 min)"
@@ -223,6 +224,13 @@ com_trava() {
   fi
   echo "Já há uma atualização em andamento."
   return 1
+}
+
+# IPv4 com cada parte de 0 a 255.
+ip_valido() {
+  [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || return 1
+  local parte
+  for parte in "${BASH_REMATCH[@]:1}"; do ((10#$parte <= 255)) || return 1; done
 }
 
 # Aponta o nome do DuckDNS para o IP desta VM (ou o IP dado). O token vai pelo stdin do curl: não aparece no ps,
@@ -235,8 +243,12 @@ dominio() {
   token=$(sed -n 2p "$TOKEN_DUCKDNS" | tr -d '[:space:]')
   [[ "$nome" =~ ^[a-z0-9-]{1,63}$ ]] || erro "Nome do DuckDNS inválido na linha 1 de ${TOKEN_DUCKDNS}."
   [[ "$token" =~ ^[a-f0-9-]{20,64}$ ]] || erro "Token do DuckDNS inválido na linha 2 de ${TOKEN_DUCKDNS}."
-  ip="${1:-$(curl -fsS -m 10 https://checkip.amazonaws.com | tr -d '[:space:]')}"
-  [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || erro "IP inválido: ${ip}"
+  ip="${1:-}"
+  if [ -z "$ip" ]; then
+    ip=$(curl -fsS -m 10 https://checkip.amazonaws.com) || erro "Não consegui descobrir o IP público (checkip)."
+    ip=$(printf '%s' "$ip" | tr -d '[:space:]')
+  fi
+  ip_valido "$ip" || erro "IP inválido: ${ip}"
   resposta=$(printf 'url = "https://www.duckdns.org/update?domains=%s&token=%s&ip=%s"\n' "$nome" "$token" "$ip" | curl -fsS -m 20 -K -) || erro "O DuckDNS não respondeu."
   [ "$resposta" = OK ] || erro "O DuckDNS recusou a atualização (confira o nome e o token)."
   ok "${nome}.duckdns.org aponta para ${ip}"
@@ -326,6 +338,8 @@ case "${1:-}" in
     gerar_configuracao
     com_trava esperar
     atualizar
+    # Domínio fixo (RF-3): só com o token já salvo na VM; sem ele, o servidor segue pelo endereço do IP.
+    if [ -f "$TOKEN_DUCKDNS" ]; then dominio || info "O domínio não foi atualizado; rode ./vm.sh dominio depois."; else info "Sem ${TOKEN_DUCKDNS}: domínio fixo não configurado (veja docs/vps.md)."; fi
     echo
     ok "Pronto. Código de convite: $(grep '^CODIGO_CONVITE=' .env | cut -d= -f2)"
     echo "   Libere na Security List da Oracle: TCP 80, 443, 7881 e UDP 443, 7882 (origem 0.0.0.0/0)."
