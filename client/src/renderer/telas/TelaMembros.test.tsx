@@ -141,7 +141,7 @@ describe('TelaMembros em outro servidor (item 52)', () => {
     expect(await screen.findByText('WXYZ-1234')).toBeTruthy();
     expect(contaApi.gerarRedefinicao).toHaveBeenCalledWith(2);
     expect(api.gerarRedefinicao).not.toHaveBeenCalled();
-    fireEvent.click(await within(linha).findByRole('button', { name: /dois fatores/i }));
+    fireEvent.click(await within(linha).findByRole('button', { name: 'Desligar 2 fatores' }));
     await waitFor(() => expect(contaApi.desligarDoisFatoresDe).toHaveBeenCalledWith(2));
   });
 });
