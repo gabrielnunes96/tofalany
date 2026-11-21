@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, ipcMain, shell, type BrowserWindow } from 'electron';
+import { app, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { abrirEsperaAtualizacao } from './espera-atualizacao';
 import { caminhoIcone } from './bandeja';
@@ -58,11 +58,16 @@ export function iniciarAtualizacao(
     estado = e;
     paraJanela('atualizacao:estado', e);
   };
+  /** Só a janela principal (o quadro dela, não um embutido) pede para instalar ou atualizar (defesa em profundidade). */
+  const daJanela = (e: IpcMainInvokeEvent) => {
+    const j = obterJanela();
+    return !!j && !j.isDestroyed() && e.senderFrame === j.webContents.mainFrame;
+  };
 
   ipcMain.handle('atualizacao:estado', () => estado);
   ipcMain.handle('atualizacao:pagina', () => shell.openExternal(PAGINA_VERSOES));
-  ipcMain.handle('atualizacao:instalar', () => {
-    if (estado?.modo !== 'reiniciar') return;
+  ipcMain.handle('atualizacao:instalar', (e) => {
+    if (!daJanela(e) || estado?.modo !== 'reiniciar') return;
     // Backlog 18 e 21: a janela de espera cobre o tempo do instalador (Windows) ou da senha e do dpkg (.deb).
     abrirEsperaAtualizacao({ plataforma: process.platform, icone: caminhoIcone(), pacote: lerTipoPacote() });
     autoUpdater.quitAndInstall(true, true);
@@ -73,7 +78,8 @@ export function iniciarAtualizacao(
   ipcMain.handle('atualizacao:procurar', () => procurar());
   // qualidade-de-vida, RF-5: procura já marcando o pedido; baixando, o progresso vai para a janela, e a versão pronta
   // chega com `pedido` (a janela instala, ou pergunta se a pessoa está numa chamada).
-  ipcMain.handle('atualizacao:agora', async () => {
+  ipcMain.handle('atualizacao:agora', async (e): Promise<ResultadoProcura> => {
+    if (!daJanela(e)) return { situacao: 'erro' };
     pedido = true;
     const r = await procurar(() => {
       // Só a falha do download deste pedido (a promessa do próprio download), não a de uma conferência qualquer.
@@ -82,13 +88,21 @@ export function iniciarAtualizacao(
       registrar('atualizacao', 'download: erro');
       paraJanela('atualizacao:falhou', null);
     });
-    if (r.situacao === 'pronta' && estado) enviar({ ...estado, pedido: true });
-    else if (r.situacao !== 'baixando') pedido = false;
+    if (r.situacao === 'pronta' && estado) {
+      // Entregue com o pedido: o próximo download (outra versão, mais tarde) não herda a marca.
+      pedido = false;
+      enviar({ ...estado, pedido: true });
+    } else if (r.situacao !== 'baixando') {
+      pedido = false;
+      // Pacote que não se instala sozinho: a página já abriu; o aviso do canto volta a valer.
+      if (estado?.pedido) enviar({ ...estado, pedido: false });
+    }
     if (r.situacao === 'erro') registrar('atualizacao', 'procura: erro');
     return r;
   });
   // Recusou reiniciar agora (em chamada): volta o aviso do canto.
-  ipcMain.handle('atualizacao:recusar', () => {
+  ipcMain.handle('atualizacao:recusar', (e) => {
+    if (!daJanela(e)) return;
     pedido = false;
     if (estado) enviar({ ...estado, pedido: false });
   });
@@ -101,7 +115,12 @@ export function iniciarAtualizacao(
   autoUpdater.on('update-available', (info) => {
     if (!sozinho) enviar({ versao: info.version, modo: 'pagina', ...(pedido ? { pedido: true } : {}) });
   });
-  autoUpdater.on('update-downloaded', (info) => enviar({ versao: info.version, modo: 'reiniciar', ...(pedido ? { pedido: true } : {}) }));
+  autoUpdater.on('update-downloaded', (info) => {
+    // A marca vale para esta versão só: zera ao entregar.
+    const doPedido = pedido;
+    pedido = false;
+    enviar({ versao: info.version, modo: 'reiniciar', ...(doPedido ? { pedido: true } : {}) });
+  });
   autoUpdater.on('download-progress', (p: { percent?: number }) => {
     if (pedido) paraJanela('atualizacao:progresso', Math.max(0, Math.min(100, Math.round(p.percent ?? 0))));
   });
