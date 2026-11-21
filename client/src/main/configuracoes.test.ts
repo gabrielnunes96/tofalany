@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { ATALHOS_PADRAO, AUDIO_PADRAO, NOTIFICACOES_PADRAO, SONS_PADRAO, TELA_PADRAO } from '@tofalando/shared';
@@ -75,6 +75,7 @@ describe('criarArmazemConfiguracoes', () => {
 
   it('volume-da-voz, CA-1: arquivo de uma versão antiga (sem os campos novos) volta com o nivelamento ligado', () => {
     const arquivo = arquivoTemp();
+    mkdirSync(dirname(arquivo), { recursive: true });
     writeFileSync(arquivo, JSON.stringify({ servidorUrl: 'http://a', audio: { supressaoRuido: false, sensibilidadeDb: -40 } }), 'utf8');
     expect(criarArmazemConfiguracoes(arquivo).ler().audio).toEqual({ ...AUDIO_PADRAO, supressaoRuido: false, sensibilidadeDb: -40 });
     expect(AUDIO_PADRAO).toMatchObject({ nivelarVoz: true, ganhoMicrofone: 1, volumeChamada: 1 });
