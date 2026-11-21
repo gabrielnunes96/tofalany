@@ -15,7 +15,7 @@
         "CA-12"
       ],
       "validacao": "presenca-status.test.ts/atividade.test.ts: conta sem relação não recebe status; sair de B → os dois recebem null e offline; entrar por convite e aceitar amizade reemitem o status; servidor excluído reemite; dms.test.ts sem o filtro. npm test (server), lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

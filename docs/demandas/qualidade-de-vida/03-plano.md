@@ -1,6 +1,6 @@
 # Qualidade de vida: plano de desenvolvimento
 
-> Demanda: `qualidade-de-vida` · Base: técnica v1 (aprovada em 20/11/2026) · 20/11/2026 · Situação: **rascunho**
+> Demanda: `qualidade-de-vida` · Base: técnica v1 (aprovada em 20/11/2026) · 20/11/2026 · Situação: **aprovado em 20/11/2026**
 > Fonte da verdade das tarefas: `tarefas.json`.
 
 ## Ordem e paralelismo
