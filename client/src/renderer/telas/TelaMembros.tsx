@@ -11,9 +11,17 @@ interface Props {
   usuarios: UsuarioDto[];
   servidorUrl: string;
   api: Pick<ClienteApi, 'mudarCargo' | 'removerConta' | 'gerarRedefinicao'> &
-    Partial<Pick<ClienteApi, 'definirFuncao' | 'criarFuncao' | 'editarFuncao' | 'removerFuncao' | 'banidos' | 'desbanir' | 'usuariosAdmin' | 'desligarDoisFatoresDe'>>;
+    Partial<
+      Pick<ClienteApi, 'definirFuncao' | 'criarFuncao' | 'editarFuncao' | 'removerFuncao' | 'banidos' | 'desbanir' | 'usuariosAdmin' | 'desligarDoisFatoresDe'>
+    >;
   /** Backlog v2, item 10c: cargos personalizados (sem eles, a tela fica como antes). */
   funcoes?: FuncaoDto[];
+  /**
+   * Item 52: o administrador da instalação (do servidor principal) gera código de senha e desliga os dois fatores de
+   * quem está em qualquer servidor; o pedido vai pelo principal (`contaApi`), que é quem confere.
+   */
+  adminDaInstalacao?: boolean;
+  contaApi?: Pick<ClienteApi, 'gerarRedefinicao'> & Partial<Pick<ClienteApi, 'usuariosAdmin' | 'desligarDoisFatoresDe'>>;
   /** Copia o código para a área de transferência (padrão: a do navegador). */
   copiar?: (texto: string) => Promise<void>;
   /** Aplica na hora o resultado (o evento do servidor também chega, mas pode atrasar com a conexão caída). */
@@ -23,9 +31,24 @@ interface Props {
 }
 
 /** RF-6 (administrador): promover, rebaixar e remover contas. O servidor confere tudo (RN-5, RN-16). */
-export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualizar, aoRemover, aoVoltar, copiar = (t) => navigator.clipboard.writeText(t) }: Props) {
-  // Servidor criado na mesma instalação (/c/<id>): remover tira só daqui; código de senha é coisa da conta (principal).
-  const principal = separarComunidade(servidorUrl).comunidade === COMUNIDADE_PRINCIPAL;
+export function TelaMembros({
+  eu,
+  usuarios,
+  servidorUrl,
+  api,
+  funcoes,
+  adminDaInstalacao = false,
+  contaApi,
+  aoAtualizar,
+  aoRemover,
+  aoVoltar,
+  copiar = (t) => navigator.clipboard.writeText(t),
+}: Props) {
+  // Servidor criado na mesma instalação (/c/<id>): remover tira só daqui; código de senha é coisa da conta, do
+  // administrador da instalação (no principal, ou em qualquer servidor pelo principal).
+  const noPrincipal = separarComunidade(servidorUrl).comunidade === COMUNIDADE_PRINCIPAL;
+  const principal = noPrincipal || (adminDaInstalacao && !!contaApi);
+  const conta = noPrincipal ? api : (contaApi ?? api);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [confirmando, setConfirmando] = useState<number | null>(null);
@@ -36,16 +59,16 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
   const [comDoisFatores, setComDoisFatores] = useState<Set<number>>(new Set());
   const [avisoDoisFatores, setAvisoDoisFatores] = useState<string | null>(null);
   useEffect(() => {
-    if (!principal || !api.usuariosAdmin) return;
+    if (!principal || !conta.usuariosAdmin) return;
     let vivo = true;
-    api
+    conta
       .usuariosAdmin()
       .then((lista) => vivo && setComDoisFatores(new Set(lista.filter((x) => x.doisFatores).map((x) => x.id))))
       .catch(() => undefined);
     return () => {
       vivo = false;
     };
-  }, [api, principal]);
+  }, [conta, principal]);
 
   async function agir(id: number, acao: () => Promise<unknown>) {
     setErro(null);
@@ -64,11 +87,11 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
   const gerarCodigo = (u: UsuarioDto) =>
     agir(u.id, async () => {
       setCopiado(false);
-      setCodigo({ ...(await api.gerarRedefinicao(u.id)), nome: u.nomeExibicao });
+      setCodigo({ ...(await conta.gerarRedefinicao(u.id)), nome: u.nomeExibicao });
     });
   const desligarDoisFatores = (u: UsuarioDto) =>
     agir(u.id, async () => {
-      await api.desligarDoisFatoresDe!(u.id);
+      await conta.desligarDoisFatoresDe!(u.id);
       setComDoisFatores((atual) => new Set([...atual].filter((id) => id !== u.id)));
       setAvisoDoisFatores(`Autenticação em dois fatores de ${u.nomeExibicao} desligada. A pessoa entra só com a senha e pode ligar de novo.`);
     });
@@ -102,8 +125,8 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
             Código para <strong>{codigo.nome}</strong> trocar a senha: <code>{codigo.codigo}</code>
           </p>
           <p className="suave">
-            Vale uma vez, até {new Date(codigo.expiraEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. Mande para a pessoa: ela usa “Esqueci a
-            senha” na tela de entrar. Gerar outro invalida este.
+            Vale uma vez, até {new Date(codigo.expiraEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. Mande para a pessoa: ela usa
+            “Esqueci a senha” na tela de entrar. Gerar outro invalida este.
           </p>
           <div>
             <button type="button" onClick={() => void copiar(codigo.codigo).then(() => setCopiado(true))}>
@@ -158,8 +181,14 @@ export function TelaMembros({ eu, usuarios, servidorUrl, api, funcoes, aoAtualiz
                 Gerar código de senha
               </button>
             )}
-            {principal && api.desligarDoisFatoresDe && comDoisFatores.has(u.id) && u.id !== eu.id && (
-              <button type="button" className="secundario" disabled={ocupado !== null} title="Para quem perdeu o celular e os códigos de recuperação" onClick={() => void desligarDoisFatores(u)}>
+            {principal && conta.desligarDoisFatoresDe && comDoisFatores.has(u.id) && u.id !== eu.id && (
+              <button
+                type="button"
+                className="secundario"
+                disabled={ocupado !== null}
+                title="Para quem perdeu o celular e os códigos de recuperação"
+                onClick={() => void desligarDoisFatores(u)}
+              >
                 Desligar 2 fatores
               </button>
             )}

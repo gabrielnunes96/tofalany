@@ -35,10 +35,16 @@ describe('TelaMembros', () => {
 
 describe('TelaMembros (sucesso)', () => {
   it('aplica o resultado na hora, fecha a confirmação e não mostra erro', async () => {
-    const api = { mudarCargo: vi.fn(async () => ({ ...ana, cargo: 'admin' as const })), removerConta: vi.fn(async () => undefined), gerarRedefinicao: vi.fn(async () => ({ codigo: 'ABCD-EFGH', expiraEm: 0 })) };
+    const api = {
+      mudarCargo: vi.fn(async () => ({ ...ana, cargo: 'admin' as const })),
+      removerConta: vi.fn(async () => undefined),
+      gerarRedefinicao: vi.fn(async () => ({ codigo: 'ABCD-EFGH', expiraEm: 0 })),
+    };
     const aoAtualizar = vi.fn();
     const aoRemover = vi.fn();
-    render(<TelaMembros eu={dono} usuarios={[ana, dono]} servidorUrl="http://s" api={api} aoAtualizar={aoAtualizar} aoRemover={aoRemover} aoVoltar={vi.fn()} />);
+    render(
+      <TelaMembros eu={dono} usuarios={[ana, dono]} servidorUrl="http://s" api={api} aoAtualizar={aoAtualizar} aoRemover={aoRemover} aoVoltar={vi.fn()} />,
+    );
     const linhaAna = screen.getByRole('listitem', { name: 'Ana' });
     fireEvent.click(within(linhaAna).getByRole('button', { name: 'Tornar administrador' }));
     await waitFor(() => expect(aoAtualizar).toHaveBeenCalledWith({ ...ana, cargo: 'admin' }));
@@ -70,7 +76,18 @@ describe('TelaConvite', () => {
   it('backlog v2, item 3: gera o código de senha e mostra para copiar', async () => {
     const api = { mudarCargo: vi.fn(), removerConta: vi.fn(), gerarRedefinicao: vi.fn(async () => ({ codigo: 'ABCD-EFGH', expiraEm: Date.now() + 1000 })) };
     const copiar = vi.fn(async () => undefined);
-    render(<TelaMembros eu={dono} usuarios={[ana, dono]} servidorUrl="http://s" api={api as never} aoAtualizar={vi.fn()} aoRemover={vi.fn()} aoVoltar={vi.fn()} copiar={copiar} />);
+    render(
+      <TelaMembros
+        eu={dono}
+        usuarios={[ana, dono]}
+        servidorUrl="http://s"
+        api={api as never}
+        aoAtualizar={vi.fn()}
+        aoRemover={vi.fn()}
+        aoVoltar={vi.fn()}
+        copiar={copiar}
+      />,
+    );
     fireEvent.click(within(screen.getByRole('listitem', { name: 'Ana' })).getByRole('button', { name: 'Gerar código de senha' }));
     const caixa = await screen.findByRole('status', { name: 'Código de redefinição de senha' });
     expect(caixa.textContent).toContain('ABCD-EFGH');
@@ -78,5 +95,53 @@ describe('TelaConvite', () => {
     fireEvent.click(within(caixa).getByRole('button', { name: 'Copiar código' }));
     await waitFor(() => expect(copiar).toHaveBeenCalledWith('ABCD-EFGH'));
     expect(await within(caixa).findByRole('button', { name: 'Copiado' })).toBeTruthy();
+  });
+});
+
+describe('TelaMembros em outro servidor (item 52)', () => {
+  const api = { mudarCargo: vi.fn(), removerConta: vi.fn(), gerarRedefinicao: vi.fn(async () => ({ codigo: 'NAO-USAR', expiraEm: 0 })) };
+
+  it('administrador só deste servidor: sem "Gerar código de senha"', () => {
+    render(
+      <TelaMembros
+        eu={dono}
+        usuarios={[ana, dono]}
+        servidorUrl="http://s/c/2"
+        api={api as never}
+        aoAtualizar={vi.fn()}
+        aoRemover={vi.fn()}
+        aoVoltar={vi.fn()}
+      />,
+    );
+    expect(within(screen.getByRole('listitem', { name: 'Ana' })).queryByRole('button', { name: 'Gerar código de senha' })).toBeNull();
+  });
+
+  it('administrador da instalação: gera o código pelo servidor principal e desliga os dois fatores por ele', async () => {
+    const contaApi = {
+      gerarRedefinicao: vi.fn(async () => ({ codigo: 'WXYZ-1234', expiraEm: 0 })),
+      usuariosAdmin: vi.fn(async () => [{ ...ana, doisFatores: true }]),
+      desligarDoisFatoresDe: vi.fn(async () => undefined),
+    };
+    render(
+      <TelaMembros
+        eu={dono}
+        usuarios={[ana, dono]}
+        servidorUrl="http://s/c/2"
+        api={api as never}
+        adminDaInstalacao
+        contaApi={contaApi as never}
+        aoAtualizar={vi.fn()}
+        aoRemover={vi.fn()}
+        aoVoltar={vi.fn()}
+        copiar={vi.fn(async () => undefined)}
+      />,
+    );
+    const linha = screen.getByRole('listitem', { name: 'Ana' });
+    fireEvent.click(within(linha).getByRole('button', { name: 'Gerar código de senha' }));
+    expect(await screen.findByText('WXYZ-1234')).toBeTruthy();
+    expect(contaApi.gerarRedefinicao).toHaveBeenCalledWith(2);
+    expect(api.gerarRedefinicao).not.toHaveBeenCalled();
+    fireEvent.click(await within(linha).findByRole('button', { name: /dois fatores/i }));
+    await waitFor(() => expect(contaApi.desligarDoisFatoresDe).toHaveBeenCalledWith(2));
   });
 });

@@ -2113,6 +2113,8 @@ function TelaDoServidor({
                     aoVoltar={voltar}
                     copiar={(texto) => ponte().areaTransferencia.copiar(texto)}
                     funcoes={funcoes}
+                    adminDaInstalacao={ehAdminDaInstalacao}
+                    contaApi={apiPrincipal}
                   />
                 ) : vistaAtual === 'servidor' ? (
                   <TelaEditarServidor
