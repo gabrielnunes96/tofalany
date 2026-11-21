@@ -35,6 +35,9 @@ describe('podeAtualizarSozinho (backlog v2, item 1d)', () => {
   });
 });
 
+const plataformaOriginal = Object.getOwnPropertyDescriptor(process, 'platform')!;
+const plataforma = (p: NodeJS.Platform) => Object.defineProperty(process, 'platform', { ...plataformaOriginal, value: p });
+
 describe('Atualizar o app na hora (qualidade-de-vida, RF-5, T-6)', () => {
   let enviados: [string, unknown][];
   const janela = () => ({ isDestroyed: () => false, webContents: { send: (canal: string, v: unknown) => enviados.push([canal, v]) } });
@@ -44,14 +47,15 @@ describe('Atualizar o app na hora (qualidade-de-vida, RF-5, T-6)', () => {
     ipc.clear();
     enviados = [];
     eletron.empacotado = true;
-    vi.stubGlobal('process', { ...process, platform: 'win32' });
+    plataforma('win32');
     const u = Object.assign(new EventEmitter(), { checkForUpdates: vi.fn() });
     atualizador.atual = u;
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.unstubAllGlobals();
+    Object.defineProperty(process, 'platform', plataformaOriginal);
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -93,11 +97,48 @@ describe('Atualizar o app na hora (qualidade-de-vida, RF-5, T-6)', () => {
   it('download que falha: a janela fica sabendo e o log recebe um motivo fixo', async () => {
     const registrar = vi.fn();
     iniciarAtualizacao(janela as never, registrar);
-    atualizador.atual!.checkForUpdates.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version: '0.18.0' } });
+    let falhar: (e: Error) => void = () => undefined;
+    const downloadPromise = new Promise((_r, rej) => (falhar = rej));
+    atualizador.atual!.checkForUpdates.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version: '0.18.0' }, downloadPromise });
+    await ipc.get('atualizacao:agora')!();
+    falhar(new Error('rede caiu em https://x'));
+    await vi.waitFor(() => expect(enviados.at(-1)).toEqual(['atualizacao:falhou', null]));
+    expect(registrar).toHaveBeenCalledWith('atualizacao', 'download: erro');
+  });
+
+  it('erro de uma conferência (automática ou não) não cancela o pedido nem avisa a janela', async () => {
+    iniciarAtualizacao(janela as never);
+    atualizador.atual!.checkForUpdates.mockResolvedValue({ isUpdateAvailable: true, updateInfo: { version: '0.18.0' }, downloadPromise: new Promise(() => undefined) });
     await ipc.get('atualizacao:agora')!();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    atualizador.atual!.emit('error', new Error('rede caiu em https://x'));
-    expect(enviados.at(-1)).toEqual(['atualizacao:falhou', null]);
-    expect(registrar).toHaveBeenCalledWith('atualizacao', 'download: erro');
+    atualizador.atual!.emit('error', new Error('soluço de rede'));
+    atualizador.atual!.emit('download-progress', { percent: 80 });
+    expect(enviados).toEqual([['atualizacao:progresso', 80]]);
+  });
+
+  it('procura que falha: devolve "erro" e o log diz que foi a procura', async () => {
+    const registrar = vi.fn();
+    iniciarAtualizacao(janela as never, registrar);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    atualizador.atual!.checkForUpdates.mockImplementation(async () => {
+      // Como a biblioteca: emite 'error' antes de rejeitar.
+      atualizador.atual!.emit('error', new Error('sem rede'));
+      throw new Error('sem rede');
+    });
+    expect(await ipc.get('atualizacao:agora')!()).toEqual({ situacao: 'erro' });
+    expect(enviados).toEqual([]);
+    expect(registrar.mock.calls).toEqual([['atualizacao', 'procura: erro']]);
+  });
+
+  it('pacote que não se instala sozinho: "nova", e o estado vai com pedido (o aviso do canto não aparece)', async () => {
+    plataforma('linux');
+    vi.stubEnv('APPIMAGE', '');
+    iniciarAtualizacao(janela as never);
+    atualizador.atual!.checkForUpdates.mockImplementation(async () => {
+      atualizador.atual!.emit('update-available', { version: '0.18.0' });
+      return { isUpdateAvailable: true, updateInfo: { version: '0.18.0' } };
+    });
+    expect(await ipc.get('atualizacao:agora')!()).toEqual({ situacao: 'nova', versao: '0.18.0' });
+    expect(enviados).toEqual([['atualizacao:estado', { versao: '0.18.0', modo: 'pagina', pedido: true }]]);
   });
 });

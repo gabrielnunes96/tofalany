@@ -69,15 +69,22 @@ export function iniciarAtualizacao(
   });
 
   // Backlog 27: "Procurar atualização" pergunta na hora, sem esperar o intervalo da conferência automática.
-  let procurar: () => Promise<ResultadoProcura> = async () => ({ situacao: 'indisponivel' });
+  let procurar: (aoFalharDownload?: () => void) => Promise<ResultadoProcura> = async () => ({ situacao: 'indisponivel' });
   ipcMain.handle('atualizacao:procurar', () => procurar());
   // qualidade-de-vida, RF-5: procura já marcando o pedido; baixando, o progresso vai para a janela, e a versão pronta
   // chega com `pedido` (a janela instala, ou pergunta se a pessoa está numa chamada).
   ipcMain.handle('atualizacao:agora', async () => {
     pedido = true;
-    const r = await procurar();
+    const r = await procurar(() => {
+      // Só a falha do download deste pedido (a promessa do próprio download), não a de uma conferência qualquer.
+      if (!pedido) return;
+      pedido = false;
+      registrar('atualizacao', 'download: erro');
+      paraJanela('atualizacao:falhou', null);
+    });
     if (r.situacao === 'pronta' && estado) enviar({ ...estado, pedido: true });
     else if (r.situacao !== 'baixando') pedido = false;
+    if (r.situacao === 'erro') registrar('atualizacao', 'procura: erro');
     return r;
   });
   // Recusou reiniciar agora (em chamada): volta o aviso do canto.
@@ -92,20 +99,15 @@ export function iniciarAtualizacao(
   autoUpdater.autoInstallOnAppQuit = sozinho;
   autoUpdater.logger = null;
   autoUpdater.on('update-available', (info) => {
-    if (!sozinho) enviar({ versao: info.version, modo: 'pagina' });
+    if (!sozinho) enviar({ versao: info.version, modo: 'pagina', ...(pedido ? { pedido: true } : {}) });
   });
   autoUpdater.on('update-downloaded', (info) => enviar({ versao: info.version, modo: 'reiniciar', ...(pedido ? { pedido: true } : {}) }));
   autoUpdater.on('download-progress', (p: { percent?: number }) => {
     if (pedido) paraJanela('atualizacao:progresso', Math.max(0, Math.min(100, Math.round(p.percent ?? 0))));
   });
-  // Sem internet ou GitHub fora: tenta de novo na próxima rodada, sem incomodar. Pedida pelo botão, a janela fica sabendo.
-  autoUpdater.on('error', (erro) => {
-    console.warn('Atualização: não foi possível conferir agora.', erro?.message ?? erro);
-    if (!pedido) return;
-    pedido = false;
-    registrar('atualizacao', 'download: erro');
-    paraJanela('atualizacao:falhou', null);
-  });
+  // Sem internet ou GitHub fora: tenta de novo na próxima rodada, sem incomodar. A falha do pedido do botão chega
+  // pela promessa do download (em `procurar`), não por aqui.
+  autoUpdater.on('error', (erro) => console.warn('Atualização: não foi possível conferir agora.', erro?.message ?? erro));
 
   let ultima = 0;
   const conferir = () => {
@@ -114,12 +116,13 @@ export function iniciarAtualizacao(
     ultima = Date.now();
     void autoUpdater.checkForUpdates().catch(() => undefined);
   };
-  procurar = async () => {
+  procurar = async (aoFalharDownload) => {
     if (estado?.modo === 'reiniciar') return { situacao: 'pronta', versao: estado.versao };
     ultima = Date.now();
     try {
       const r = await autoUpdater.checkForUpdates();
       if (!r?.isUpdateAvailable) return { situacao: 'atualizado' };
+      r.downloadPromise?.catch(() => aoFalharDownload?.());
       // Onde instala sozinho, o download já começou: o aviso de reiniciar aparece quando terminar.
       return { situacao: sozinho ? 'baixando' : 'nova', versao: r.updateInfo.version };
     } catch {
