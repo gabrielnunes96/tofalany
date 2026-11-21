@@ -2,7 +2,7 @@
  * volume-da-voz (T-1 a T-3): o nivelamento da voz enviada, depois do portão da detecção de voz.
  *
  *   portão ─┬→ compressor → cruzamento "nivelado" ─┐
- *           └──────────────→ cruzamento "direto" ──┴→ ganho do microfone → limitador → faixa publicada
+ *           └──────────────→ cruzamento "direto" ──┴→ ganho do microfone → limitador → correção → faixa publicada
  *
  * Ligar e desligar o nivelamento troca os dois cruzamentos com uma rampa (sem estalo, sem religar nós). Tudo usa o
  * processamento de áudio do próprio navegador (DynamicsCompressorNode e GainNode).
@@ -24,8 +24,13 @@ interface ParametrosCompressor {
 
 export interface ParametrosNivel {
   compressor: ParametrosCompressor;
-  /** Ganho do ramo nivelado, além da compensação automática do compressor do navegador (ajustada pela medição do E2E). */
+  /**
+   * Ganho do ramo nivelado. O compressor do navegador já aplica uma compensação automática ((1/curva(0 dBFS))^0,6 na
+   * especificação do Web Audio, ~+20 dB aqui); este fator a corrige para a fala comum (−20 dBFS) sair no nível de hoje.
+   */
   compensacao: number;
+  /** Ganho depois do limitador, que desfaz a compensação automática dele (~+1,1 dB): o pico fica abaixo de −1 dBFS. */
+  correcao: number;
   /** Peso de cada ramo (0 ou 1). */
   nivelado: number;
   direto: number;
@@ -34,13 +39,18 @@ export interface ParametrosNivel {
 }
 
 /**
- * Parâmetros (T-2). Compressor de voz: a partir de −45 dBFS, 4:1, ataque rápido, soltura de 250 ms. Limitador em
- * −2 dBFS (o nativo não é rígido: a margem mantém o pico abaixo de −1 dBFS).
+ * Parâmetros (T-2, ajustados na execução): compressor de voz a partir de −45 dBFS, 4:1 (com −30 dB, como na técnica, a
+ * diferença entre −40 e −6 dBFS ficaria em ~16 dB e o CA-2 não passaria). Limitador em −2 dBFS com correção da
+ * compensação automática dele. `compensacao` e `correcao` partem da fórmula da especificação e são conferidos pela
+ * medição no Chromium (E2E da T6).
  */
 export function parametrosNivel({ nivelar, ganho }: OpcoesNivel): ParametrosNivel {
   return {
     compressor: { threshold: -45, knee: 6, ratio: 4, attack: 0.003, release: 0.25 },
-    compensacao: 1,
+    // Fala a −20 dBFS: o compressor leva a ~−38,75 dB e a compensação automática soma ~+20,25 dB; −1,5 dB a corrige.
+    compensacao: 10 ** (-1.5 / 20),
+    // Limitador: curva(0 dBFS) = −2 + 2/20 = −1,9 dB → compensação automática de 1,9 × 0,6 = 1,14 dB, desfeita aqui.
+    correcao: 10 ** (-1.14 / 20),
     nivelado: nivelar ? 1 : 0,
     direto: nivelar ? 0 : 1,
     ganho,
@@ -80,12 +90,14 @@ export function montarNivel(ctx: ContextoNivel, entrada: AudioNode, saida: Audio
   const ganho = ctx.createGain();
   const limitador = ctx.createDynamicsCompressor();
   configurar(limitador, p.limitador);
+  const correcao = ctx.createGain();
+  correcao.gain.value = p.correcao;
   nivelado.gain.value = p.nivelado * p.compensacao;
   direto.gain.value = p.direto;
   ganho.gain.value = p.ganho;
   entrada.connect(compressor).connect(nivelado).connect(ganho);
   entrada.connect(direto).connect(ganho);
-  ganho.connect(limitador).connect(saida);
+  ganho.connect(limitador).connect(correcao).connect(saida);
   return {
     definir(opcoes) {
       const n = parametrosNivel(opcoes);

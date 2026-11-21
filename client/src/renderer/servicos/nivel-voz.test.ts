@@ -48,15 +48,18 @@ describe('nivelamento da voz (volume-da-voz, T-1 a T-3)', () => {
     const portao = no('portao');
     const saida = no('destino');
     montarNivel(ctx, portao as unknown as AudioNode, saida as unknown as AudioNode, { nivelar: true, ganho: 1 });
-    const [compressor, nivelado, direto, ganho, limitador] = nos;
+    const [compressor, nivelado, direto, ganho, limitador, correcao] = nos;
     expect(portao.saidas).toEqual([compressor!.nome, direto!.nome]);
     expect(compressor!.saidas).toEqual([nivelado!.nome]);
     expect(nivelado!.saidas).toEqual([ganho!.nome]);
     expect(direto!.saidas).toEqual([ganho!.nome]);
     expect(ganho!.saidas).toEqual([limitador!.nome]);
-    expect(limitador!.saidas).toEqual(['destino']);
-    // Valores iniciais sem rampa.
-    expect([nivelado!.gain.value, direto!.gain.value, ganho!.gain.value]).toEqual([1, 0, 1]);
+    expect(limitador!.saidas).toEqual([correcao!.nome]);
+    expect(correcao!.saidas).toEqual(['destino']);
+    // Valores iniciais sem rampa: o ramo nivelado já com a compensação; a correção do limitador abaixo de 1.
+    const p = parametrosNivel({ nivelar: true, ganho: 1 });
+    expect([nivelado!.gain.value, direto!.gain.value, ganho!.gain.value, correcao!.gain.value]).toEqual([p.compensacao, 0, 1, p.correcao]);
+    expect(p.correcao).toBeCloseTo(0.877, 2);
     expect(compressor!.threshold.value).toBe(-45);
     expect(limitador!.threshold.value).toBe(-2);
   });
@@ -66,7 +69,10 @@ describe('nivelamento da voz (volume-da-voz, T-1 a T-3)', () => {
     const portao = no('portao');
     const nivel = montarNivel(ctx, portao as unknown as AudioNode, no('destino') as unknown as AudioNode, { nivelar: true, ganho: 1 });
     const [, nivelado, direto, ganho] = nos;
+    const p = parametrosNivel({ nivelar: true, ganho: 1 });
     const ligacoes = portao.saidas.length;
+    nivel.definir({ nivelar: true, ganho: 1 });
+    expect(nivelado!.gain.setTargetAtTime).toHaveBeenLastCalledWith(p.compensacao, 3, expect.any(Number));
     nivel.definir({ nivelar: false, ganho: 2 });
     expect(nivelado!.gain.setTargetAtTime).toHaveBeenLastCalledWith(0, 3, expect.any(Number));
     expect(direto!.gain.setTargetAtTime).toHaveBeenLastCalledWith(1, 3, expect.any(Number));
