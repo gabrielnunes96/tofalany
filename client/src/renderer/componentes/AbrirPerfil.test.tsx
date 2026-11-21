@@ -13,14 +13,40 @@ afterEach(cleanup);
 
 const beto: UsuarioDto = { id: 2, usuario: 'beto', nomeExibicao: 'Beto', cor: '#fff', avatarUrl: null, cargo: 'membro' };
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#0ff', avatarUrl: null, cargo: 'membro' };
-const msg = (extra: Partial<MensagemDto> = {}): MensagemDto => ({ id: 9, canalId: 1, dmId: null, autorId: 2, texto: 'oi @ana', criadaEm: 1, editadaEm: null, anexos: [], mencoes: [1], ...extra });
+const msg = (extra: Partial<MensagemDto> = {}): MensagemDto => ({
+  id: 9,
+  canalId: 1,
+  dmId: null,
+  autorId: 2,
+  texto: 'oi @ana',
+  criadaEm: 1,
+  editadaEm: null,
+  anexos: [],
+  mencoes: [1],
+  ...extra,
+});
 
 function montar(m: MensagemDto, autor: UsuarioDto | undefined) {
   const abrir = vi.fn();
   render(
     <ContextoPerfil.Provider value={abrir}>
       <ul>
-        <ItemMensagem mensagem={m} autor={autor} servidorUrl="http://s" podeEditar={false} podeApagar={false} aoEditar={vi.fn(async () => null)} aoApagar={vi.fn(async () => null)} usuarios={new Map([[1, ana], [2, beto]])} euId={1} />
+        <ItemMensagem
+          mensagem={m}
+          autor={autor}
+          servidorUrl="http://s"
+          podeEditar={false}
+          podeApagar={false}
+          aoEditar={vi.fn(async () => null)}
+          aoApagar={vi.fn(async () => null)}
+          usuarios={
+            new Map([
+              [1, ana],
+              [2, beto],
+            ])
+          }
+          euId={1}
+        />
       </ul>
     </ContextoPerfil.Provider>,
   );
@@ -62,7 +88,21 @@ describe('onde o cartão abre (mini perfil T4)', () => {
     const fn = () => vi.fn(async () => null);
     render(
       <ContextoPerfil.Provider value={abrir}>
-        <BarraLateral nomeServidor="T" canais={[]} canalAtivo={null} ehAdmin={false} aoAbrir={vi.fn()} aoCriar={fn()} aoRenomear={fn()} aoRemover={fn()} dms={[{ id: 7, outroId: 2, ultimaEm: 1 }]} usuarios={[beto]} dmAtiva={null} aoAbrirDm={aoAbrirDm} aba="diretas" />
+        <BarraLateral
+          nomeServidor="T"
+          canais={[]}
+          canalAtivo={null}
+          ehAdmin={false}
+          aoAbrir={vi.fn()}
+          aoCriar={fn()}
+          aoRenomear={fn()}
+          aoRemover={fn()}
+          dms={[{ id: 7, outroId: 2, ultimaEm: 1 }]}
+          usuarios={[beto]}
+          dmAtiva={null}
+          aoAbrirDm={aoAbrirDm}
+          aba="diretas"
+        />
       </ContextoPerfil.Provider>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Perfil de Beto' }));

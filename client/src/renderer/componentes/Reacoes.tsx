@@ -34,7 +34,13 @@ interface Props {
  * Um emoji com a contagem. Sem permissão continua focável (aria-disabled), para quem usa o teclado também ver quem
  * reagiu; a dica fica ligada ao botão (aria-describedby) para o leitor de tela.
  */
-function BotaoReacao({ reacao: r, usuarios, euId, podeReagir, aoAlternar }: Omit<Props, 'reacoes' | 'aoAbrirSeletor' | 'seletorAberto'> & { reacao: ReacaoDto }) {
+function BotaoReacao({
+  reacao: r,
+  usuarios,
+  euId,
+  podeReagir,
+  aoAlternar,
+}: Omit<Props, 'reacoes' | 'aoAbrirSeletor' | 'seletorAberto'> & { reacao: ReacaoDto }) {
   const dica = useId();
   const minha = euId !== undefined && r.usuarios.includes(euId);
   return (
@@ -69,7 +75,13 @@ export function Reacoes({ reacoes, usuarios, euId, podeReagir, aoAlternar, aoAbr
         <BotaoReacao key={r.emoji} reacao={r} usuarios={usuarios} euId={euId} podeReagir={podeReagir} aoAlternar={aoAlternar} />
       ))}
       {podeReagir && (
-        <button type="button" className="reacao reacao-mais" aria-label="Adicionar reação" aria-expanded={seletorAberto} onClick={(e) => aoAbrirSeletor(e.currentTarget)}>
+        <button
+          type="button"
+          className="reacao reacao-mais"
+          aria-label="Adicionar reação"
+          aria-expanded={seletorAberto}
+          onClick={(e) => aoAbrirSeletor(e.currentTarget)}
+        >
           +
         </button>
       )}

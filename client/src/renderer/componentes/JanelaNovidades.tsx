@@ -68,4 +68,3 @@ export function NotasDasVersoes({ versaoAtual, notas = NOVIDADES }: { versaoAtua
     </div>
   );
 }
-

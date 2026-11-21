@@ -523,13 +523,18 @@ function AbaAmigos({
   const [adicionando, setAdicionando] = useState(false);
   const pessoa = (id: number) => usuarios.find((u) => u.id === id);
   const situacao = new Map(amizades.map((a) => [a.usuarioId, a.situacao]));
-  const amigos = amizades.filter((a) => a.situacao === 'amigo').map((a) => pessoa(a.usuarioId)).filter((u): u is UsuarioDto => !!u);
+  const amigos = amizades
+    .filter((a) => a.situacao === 'amigo')
+    .map((a) => pessoa(a.usuarioId))
+    .filter((u): u is UsuarioDto => !!u);
   const recebidos = amizades.filter((a) => a.situacao === 'recebido');
   const enviados = amizades.filter((a) => a.situacao === 'enviado');
   const dmDe = (id: number) => dms.find((d) => d.outroId === id);
   const outras = dms.filter((d) => situacao.get(d.outroId) !== 'amigo');
   const ordem: Record<string, number> = { online: 0, naoIncomodar: 1, ausente: 2 };
-  amigos.sort((a, b) => (ordem[presencas[a.id] ?? 'offline'] ?? 3) - (ordem[presencas[b.id] ?? 'offline'] ?? 3) || a.nomeExibicao.localeCompare(b.nomeExibicao));
+  amigos.sort(
+    (a, b) => (ordem[presencas[a.id] ?? 'offline'] ?? 3) - (ordem[presencas[b.id] ?? 'offline'] ?? 3) || a.nomeExibicao.localeCompare(b.nomeExibicao),
+  );
   const abrirPerfil = useContext(ContextoPerfil);
   const menu = (id: number) => (e: React.MouseEvent) => {
     if (!aoMenuPessoa) return;
@@ -582,10 +587,22 @@ function AbaAmigos({
             {recebidos.map((a) => (
               <li key={a.usuarioId}>
                 {linhaPessoa(pessoa(a.usuarioId), a.usuarioId)}
-                <button type="button" className="icone aceitar" aria-label={`Aceitar ${pessoa(a.usuarioId)?.nomeExibicao ?? ''}`} title="Aceitar" onClick={() => aoAceitarAmizade?.(a.usuarioId)}>
+                <button
+                  type="button"
+                  className="icone aceitar"
+                  aria-label={`Aceitar ${pessoa(a.usuarioId)?.nomeExibicao ?? ''}`}
+                  title="Aceitar"
+                  onClick={() => aoAceitarAmizade?.(a.usuarioId)}
+                >
                   ✓
                 </button>
-                <button type="button" className="icone recusar" aria-label={`Recusar ${pessoa(a.usuarioId)?.nomeExibicao ?? ''}`} title="Recusar" onClick={() => aoRemoverAmizade?.(a.usuarioId)}>
+                <button
+                  type="button"
+                  className="icone recusar"
+                  aria-label={`Recusar ${pessoa(a.usuarioId)?.nomeExibicao ?? ''}`}
+                  title="Recusar"
+                  onClick={() => aoRemoverAmizade?.(a.usuarioId)}
+                >
                   ✕
                 </button>
               </li>
@@ -596,14 +613,23 @@ function AbaAmigos({
       <div className="grupo-topo">
         <h2 id="grupo-amigos">Amigos{amigos.length ? ` — ${amigos.length}` : ''}</h2>
         {aoPedirAmizade && (
-          <button type="button" className="icone" aria-expanded={adicionando} aria-label="Adicionar amigo" title="Adicionar amigo" onClick={() => setAdicionando(!adicionando)}>
+          <button
+            type="button"
+            className="icone"
+            aria-expanded={adicionando}
+            aria-label="Adicionar amigo"
+            title="Adicionar amigo"
+            onClick={() => setAdicionando(!adicionando)}
+          >
             <Icone nome="mais" tamanho={16} />
           </button>
         )}
       </div>
       {adicionando && aoPedirAmizade && (
         <ul className="escolher-pessoa" aria-label="Adicionar amigo">
-          {usuarios.filter((u) => u.id !== euId && !situacao.has(u.id)).length === 0 && <li className="suave">Todo mundo daqui já é seu amigo (ou tem pedido).</li>}
+          {usuarios.filter((u) => u.id !== euId && !situacao.has(u.id)).length === 0 && (
+            <li className="suave">Todo mundo daqui já é seu amigo (ou tem pedido).</li>
+          )}
           {usuarios
             .filter((u) => u.id !== euId && !situacao.has(u.id))
             .map((u) => (
@@ -645,9 +671,7 @@ function AbaAmigos({
         })}
       </ul>
       {enviados.length > 0 && (
-        <p className="suave pedidos-enviados">
-          Aguardando: {enviados.map((a) => pessoa(a.usuarioId)?.nomeExibicao ?? 'alguém').join(', ')}
-        </p>
+        <p className="suave pedidos-enviados">Aguardando: {enviados.map((a) => pessoa(a.usuarioId)?.nomeExibicao ?? 'alguém').join(', ')}</p>
       )}
       <div className="grupo-topo">
         <h2>Outras conversas</h2>
@@ -657,7 +681,12 @@ function AbaAmigos({
         {outras.map((d) => (
           <li key={d.id} onContextMenu={menu(d.outroId)} className="linha-pessoa">
             {fotoPessoa(pessoa(d.outroId), d.outroId)}
-            <button type="button" className={`canal${d.id === dmAtiva ? ' ativo' : ''}`} aria-current={d.id === dmAtiva ? 'page' : undefined} onClick={() => aoAbrirDm(d.id)}>
+            <button
+              type="button"
+              className={`canal${d.id === dmAtiva ? ' ativo' : ''}`}
+              aria-current={d.id === dmAtiva ? 'page' : undefined}
+              onClick={() => aoAbrirDm(d.id)}
+            >
               {linhaPessoa(pessoa(d.outroId), d.outroId)}
               <span className="so-leitor">{presencas[d.outroId] ?? 'offline'}</span>
               {silenciadas.includes(`d:${d.id}`) && <Silenciada />}

@@ -75,7 +75,13 @@ export function MenuPessoa({
   };
 
   return (
-    <div ref={caixa} className="menu-pessoa" role="menu" aria-label={`Opções de ${usuario.nomeExibicao}`} style={{ left: esquerda, top: Math.max(8, topo), width: largura }}>
+    <div
+      ref={caixa}
+      className="menu-pessoa"
+      role="menu"
+      aria-label={`Opções de ${usuario.nomeExibicao}`}
+      style={{ left: esquerda, top: Math.max(8, topo), width: largura }}
+    >
       <div className="menu-pessoa-topo">
         <Avatar usuario={usuario} servidorUrl={servidorUrl} tamanho={32} />
         <strong>{usuario.nomeExibicao}</strong>

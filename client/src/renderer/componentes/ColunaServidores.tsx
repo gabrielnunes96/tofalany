@@ -114,7 +114,9 @@ export function ColunaServidores({
   }, [menuServidor]);
   function remover(s: ServidorConhecido) {
     const nome = s.nome ?? s.url;
-    const sim = window.confirm(`Tirar ${nome} da lista? Ele só some da lista neste computador; você continua no servidor. Para voltar, entre de novo pelo endereço dele.`);
+    const sim = window.confirm(
+      `Tirar ${nome} da lista? Ele só some da lista neste computador; você continua no servidor. Para voltar, entre de novo pelo endereço dele.`,
+    );
     fecharMenu(!sim);
     if (sim) aoRemover?.(s.url);
   }

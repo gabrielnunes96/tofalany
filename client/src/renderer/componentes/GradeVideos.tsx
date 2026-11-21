@@ -72,7 +72,10 @@ export function GradeVideos({ videos, usuarios, euId }: { videos: VideoSala[]; u
     const el = caixa.current;
     const largura = el?.offsetWidth ?? 320;
     const altura = el?.offsetHeight ?? 200;
-    return { x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - largura - 8)), y: Math.min(Math.max(8, y), Math.max(8, window.innerHeight - altura - 8)) };
+    return {
+      x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - largura - 8)),
+      y: Math.min(Math.max(8, y), Math.max(8, window.innerHeight - altura - 8)),
+    };
   };
 
   const comecar = (e: EventoPonteiro<HTMLElement>) => {

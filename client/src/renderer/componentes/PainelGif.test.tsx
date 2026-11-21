@@ -104,7 +104,14 @@ describe('PainelGif (T3)', () => {
     const aoFechar = vi.fn();
     const ancora = document.createElement('button');
     document.body.appendChild(ancora);
-    render(<PainelGif klipy={{ emAlta: vi.fn(async () => pagina(['a', 'b', 'c', 'd', 'e'])), buscar: vi.fn() }} aoEscolher={aoEscolher} aoFechar={aoFechar} ancora={ancora} />);
+    render(
+      <PainelGif
+        klipy={{ emAlta: vi.fn(async () => pagina(['a', 'b', 'c', 'd', 'e'])), buscar: vi.fn() }}
+        aoEscolher={aoEscolher}
+        aoFechar={aoFechar}
+        ancora={ancora}
+      />,
+    );
     await esperar(0);
     const campo = screen.getByRole('searchbox');
     fireEvent.keyDown(campo, { key: 'ArrowDown' });
@@ -131,7 +138,9 @@ describe('PainelGif (T3)', () => {
   it('corridas: resposta ou falha de uma consulta antiga não mexe na que está na tela; voltar aos em alta não traz o aviso', async () => {
     vi.useFakeTimers();
     let falharGato!: () => void;
-    const buscar = vi.fn((q: string) => (q === 'gato' ? new Promise<PaginaGifs>((_, rej) => (falharGato = () => rej(new Error('fora')))) : Promise.resolve(pagina(['cao-1']))));
+    const buscar = vi.fn((q: string) =>
+      q === 'gato' ? new Promise<PaginaGifs>((_, rej) => (falharGato = () => rej(new Error('fora')))) : Promise.resolve(pagina(['cao-1'])),
+    );
     render(<PainelGif klipy={{ emAlta: vi.fn(async () => pagina(['alta-1'])), buscar }} aoEscolher={vi.fn()} aoFechar={vi.fn()} />);
     await esperar(0);
     const campo = screen.getByRole('searchbox', { name: 'Buscar GIF' });
@@ -160,7 +169,9 @@ describe('PainelGif (T3)', () => {
     const ver = observador();
     let resolver!: (p: PaginaGifs) => void;
     let rejeitar!: () => void;
-    const emAlta = vi.fn((n?: number) => (n === 1 ? Promise.resolve(pagina(['a'], true)) : new Promise<PaginaGifs>((res, rej) => ((resolver = res), (rejeitar = () => rej(new Error('x')))))));
+    const emAlta = vi.fn((n?: number) =>
+      n === 1 ? Promise.resolve(pagina(['a'], true)) : new Promise<PaginaGifs>((res, rej) => ((resolver = res), (rejeitar = () => rej(new Error('x'))))),
+    );
     render(<PainelGif klipy={{ emAlta, buscar: vi.fn() }} aoEscolher={vi.fn()} aoFechar={vi.fn()} />);
     await esperar(0);
     ver();

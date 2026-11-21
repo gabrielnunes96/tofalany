@@ -60,7 +60,14 @@ export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, ao
       ) : (
         <div className="sons-grade">
           {sons.map((s) => (
-            <button key={s.id} type="button" className="secundario" disabled={!!motivo} aria-describedby={motivo ? 'soundboard-motivo' : undefined} onClick={() => void tocar(s)}>
+            <button
+              key={s.id}
+              type="button"
+              className="secundario"
+              disabled={!!motivo}
+              aria-describedby={motivo ? 'soundboard-motivo' : undefined}
+              onClick={() => void tocar(s)}
+            >
               {s.nome}
             </button>
           ))}

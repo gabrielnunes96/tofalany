@@ -46,7 +46,13 @@ describe('BarraLateral', () => {
   it('RF-13: mostra quem está na voz, quem fala, mute/deafen e entra ao clicar', () => {
     const u = (id: number, nome: string) => ({ id, usuario: nome, nomeExibicao: nome, cor: '#00f0ff', avatarUrl: null, cargo: 'membro' as const });
     const aoEntrarVoz = vi.fn();
-    const base = { ...props, ehAdmin: false, aoRenomear: vi.fn(async () => null), aoRemover: vi.fn(async () => null), usuarios: [u(1, 'dono'), u(2, 'ana'), u(3, 'bia')] };
+    const base = {
+      ...props,
+      ehAdmin: false,
+      aoRenomear: vi.fn(async () => null),
+      aoRemover: vi.fn(async () => null),
+      usuarios: [u(1, 'dono'), u(2, 'ana'), u(3, 'bia')],
+    };
     const voz = [
       { usuarioId: 1, canalVozId: 2, mudo: false, surdo: false, camera: false },
       { usuarioId: 2, canalVozId: 2, mudo: true, surdo: false, camera: false },
@@ -54,7 +60,11 @@ describe('BarraLateral', () => {
     ];
     const { rerender } = render(<BarraLateral {...base} voz={voz} falando={[1]} minhaVoz={null} aoEntrarVoz={aoEntrarVoz} />);
     const lista = screen.getByRole('list', { name: 'Na voz em Sala 1' });
-    expect(within(lista).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'))).toEqual(['dono, falando', 'ana', 'bia']);
+    expect(
+      within(lista)
+        .getAllByRole('listitem')
+        .map((li) => li.getAttribute('aria-label')),
+    ).toEqual(['dono, falando', 'ana', 'bia']);
     expect(within(lista).getByLabelText('microfone desligado')).toBeTruthy();
     expect(within(lista).getByLabelText('sem áudio')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Entrar no canal de voz Sala 1' }));
@@ -72,11 +82,29 @@ describe('BarraLateral', () => {
     const base = { ...props, ehAdmin: false, aoRenomear: vi.fn(async () => null), aoRemover: vi.fn(async () => null), usuarios: [u(1, 'dono'), u(2, 'ana')] };
     const voz = [1, 2].map((usuarioId) => ({ usuarioId, canalVozId: 2, mudo: false, surdo: false, camera: false }));
     const { rerender } = render(
-      <BarraLateral {...base} voz={voz} minhaVoz={null} euId={1} pessoasVoz={{ volumes: { '2': 0.5 }, silenciados: [] }} aoVolumePessoa={aoVolumePessoa} aoSilenciarPessoa={aoSilenciarPessoa} />,
+      <BarraLateral
+        {...base}
+        voz={voz}
+        minhaVoz={null}
+        euId={1}
+        pessoasVoz={{ volumes: { '2': 0.5 }, silenciados: [] }}
+        aoVolumePessoa={aoVolumePessoa}
+        aoSilenciarPessoa={aoSilenciarPessoa}
+      />,
     );
     // Fora do canal: sem ajustes.
     expect(screen.queryByRole('button', { name: /Ajustes de voz/ })).toBeNull();
-    rerender(<BarraLateral {...base} voz={voz} minhaVoz={2} euId={1} pessoasVoz={{ volumes: { '2': 0.5 }, silenciados: [2] }} aoVolumePessoa={aoVolumePessoa} aoSilenciarPessoa={aoSilenciarPessoa} />);
+    rerender(
+      <BarraLateral
+        {...base}
+        voz={voz}
+        minhaVoz={2}
+        euId={1}
+        pessoasVoz={{ volumes: { '2': 0.5 }, silenciados: [2] }}
+        aoVolumePessoa={aoVolumePessoa}
+        aoSilenciarPessoa={aoSilenciarPessoa}
+      />,
+    );
     expect(screen.queryByRole('button', { name: 'Ajustes de voz de dono' })).toBeNull();
     expect(screen.getByLabelText('silenciado por você')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ajustes de voz de ana' }));
@@ -124,7 +152,12 @@ describe('BarraLateral', () => {
 const extras = {
   usuarios: [],
   servidorUrl: 'http://s',
-  api: { enviarAnexo: vi.fn(async () => { throw new Error('sem anexo no teste'); }), mensagensCanal: vi.fn(async () => ({ mensagens: [], fim: true })) },
+  api: {
+    enviarAnexo: vi.fn(async () => {
+      throw new Error('sem anexo no teste');
+    }),
+    mensagensCanal: vi.fn(async () => ({ mensagens: [], fim: true })),
+  },
   aoEnviar: vi.fn(async () => null),
   euId: 1,
   aoEditarMensagem: vi.fn(async () => null),

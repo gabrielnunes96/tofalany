@@ -10,11 +10,14 @@
       "repo": ".",
       "stack": "node",
       "depende_de": [],
-      "criterios": ["CA-14", "CA-1"],
+      "criterios": [
+        "CA-14",
+        "CA-1"
+      ],
       "validacao": "vitest server: migração de um banco na versão 21 com mensagens e anexos indexa as antigas; inserir, editar, vincular anexo e apagar (inclusive por cascata de canal, servidor e DM) mantêm o índice; integrity-check ok; permissoesDe sem fixar_mensagens para membro sem cargo e de castigo.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "37578fb"
     },
     {
       "id": "T2",
@@ -22,12 +25,21 @@
       "descricao": "dominio/fixadas.ts; socket mensagem:fixar/desafixar com ack (buscarMensagem, doServidor, participantesDa, temPermissao no canal, DM só leitura com conta removida), transação imediata com limite de 50, linha tipo 'fixou' com anti-spam de 10 min e rajada de 5 por 30 s, evento fixadas:mudou, auditoria só em canal; GET /api/canais/:id/fixadas e /api/dms/:id/fixadas; linha de sistema fora das não lidas e recusada em editar, responder, reagir e fixar.",
       "repo": ".",
       "stack": "node",
-      "depende_de": ["T1"],
-      "criterios": ["CA-1", "CA-2", "CA-3", "CA-4", "CA-5", "CA-7"],
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-7"
+      ],
       "validacao": "vitest server com sockets: sem permissão e de castigo recusam; canal de outro servidor e DM alheia recusam (admin também); 51ª recusada com o texto do CA-4; segundo socket recebe fixadas:mudou e a linha; contarNaoLidas ignora a linha; apagar tira das fixadas; editar a linha recusa; auditoria com ator e id, sem texto.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "60b1234"
     },
     {
       "id": "T3",
@@ -35,12 +47,22 @@
       "descricao": "dominio/busca.ts: montador de termos (NFKC, até 8 de 2 a 32 caracteres, \"termo\"*), escopo em SQL (conversa, canais de texto do servidor do pedido, DMs da pessoa visíveis neste servidor), filtros autor, com anexo e com GIF, paginação por rowid < antes (25 + mais), destaques [início, fim] calculados com a mesma normalização; rota POST com schema fechado e limitador de 10 por 10 s por pessoa.",
       "repo": ".",
       "stack": "node",
-      "depende_de": ["T1"],
-      "criterios": ["CA-8", "CA-9", "CA-10", "CA-11", "CA-12", "CA-15", "CA-16"],
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-8",
+        "CA-9",
+        "CA-10",
+        "CA-11",
+        "CA-12",
+        "CA-15",
+        "CA-16"
+      ],
       "validacao": "vitest server: 'voce jog' acha 'Você vai jogar hoje?' com os dois destaques; canal de outro servidor (com e sem /c/) 404 sem resultado, DM alheia 403, expulso 403; filtros; termo de 1 letra 400; entradas com aspas, NEAR, OR, coluna:, * e ( sem 500; 11ª busca 429; termo fora do log; 100 mil mensagens em 5 servidores e 50 DMs abaixo de 500 ms.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "227ad7d"
     },
     {
       "id": "T4",
@@ -49,11 +71,14 @@
       "repo": ".",
       "stack": "node",
       "depende_de": [],
-      "criterios": ["CA-6", "CA-13"],
+      "criterios": [
+        "CA-6",
+        "CA-13"
+      ],
       "validacao": "vitest server: com 3000 mensagens depois da alvo, em devolve a janela certa e os dois indicadores; depois pagina até o fim; canal de outro servidor 404; DM alheia 403.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "3c9fcf5"
     },
     {
       "id": "T5",
@@ -61,12 +86,17 @@
       "descricao": "loja: histórico com noFim e pedido irAte {chave, id} consumido depois de abrir a conversa (inclusive trocando de canal ou DM); Conversa carrega a janela por em quando a mensagem não está carregada, pagina para baixo com depois, não acrescenta mensagem nova quando não está no fim e mostra 'Ir para as mais recentes'. api.ts com em/depois.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T4"],
-      "criterios": ["CA-6", "CA-13"],
+      "depende_de": [
+        "T4"
+      ],
+      "criterios": [
+        "CA-6",
+        "CA-13"
+      ],
       "validacao": "vitest client (jsdom): irAte de mensagem fora do histórico pede a janela, rola e destaca; mensagem nova fora do fim não entra e aparece o botão; o botão volta ao fim; irAte de outro canal abre o canal e depois destaca.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "2c821c3"
     },
     {
       "id": "T6",
@@ -74,10 +104,20 @@
       "descricao": "ItemMensagem com Fixar/Desafixar por permissões.has('fixar_mensagens') no canal e para os dois na DM (só com recursos.fixar); linha 'fulano fixou uma mensagem' clicável, sem não lida nem notificação; botão 'Fixadas' no topo de CanalAberto e DmAberta; painel na coluna direita (autor, data, trecho, quem fixou; desafixar; clique usa irAte); loja aplica fixadas:mudou, mensagem:editada e mensagem:apagada; GerenciarCargos mostra a permissão nova.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T2", "T5"],
-      "criterios": ["CA-1", "CA-2", "CA-3", "CA-5", "CA-6", "CA-7"],
+      "depende_de": [
+        "T2",
+        "T5"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-5",
+        "CA-6",
+        "CA-7"
+      ],
       "validacao": "vitest client: sem permissão não vê Fixar; com servidor sem recursos nada aparece; painel lista e reage a fixadas:mudou, editada e apagada; linha 'fixou' não passa em decidirMensagemNova; clique na fixada chama irAte.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
@@ -87,8 +127,18 @@
       "descricao": "Campo no topo da conversa (canal e DM, só com recursos.busca); painel na coluna direita com filtros de quem, onde (conversa / todos os canais do servidor ou todas as minhas DMs), com anexo e com GIF; 25 por vez com 'Mais resultados'; trecho com <mark> montado por intervalos (sem HTML); nome do canal na busca do servidor; clique usa irAte; aviso de 2 letras; 429 com mensagem.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T3", "T5"],
-      "criterios": ["CA-8", "CA-10", "CA-11", "CA-12", "CA-13", "CA-15"],
+      "depende_de": [
+        "T3",
+        "T5"
+      ],
+      "criterios": [
+        "CA-8",
+        "CA-10",
+        "CA-11",
+        "CA-12",
+        "CA-13",
+        "CA-15"
+      ],
       "validacao": "vitest client: 1 letra sem filtro não chama a API e mostra o aviso; destaques viram <mark>; texto com <img onerror> aparece como texto; filtros vão no corpo; 'Mais resultados' manda antes; clique em resultado de outro canal chama irAte.",
       "estado": "a_fazer",
       "wi": null,
@@ -101,7 +151,9 @@
       "repo": ".",
       "stack": "front",
       "depende_de": [],
-      "criterios": ["item 51"],
+      "criterios": [
+        "item 51"
+      ],
       "validacao": "vitest client: membro com cargo que tem 'Apagar mensagens' vê 'Apagar' na mensagem de outro no canal; sem a permissão não vê; na DM só nas próprias.",
       "estado": "a_fazer",
       "wi": null,
@@ -113,8 +165,19 @@
       "descricao": "Spec Playwright com dois apps e servidor em memória: dar a permissão no cargo, fixar, ver a linha e a lista no outro app, clicar numa fixada antiga, buscar com filtros e abrir resultado de outro canal; prints em docs/demandas/chat-fixar-e-buscar/prints.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T6", "T7"],
-      "criterios": ["CA-1", "CA-2", "CA-5", "CA-6", "CA-8", "CA-10", "CA-13"],
+      "depende_de": [
+        "T6",
+        "T7"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-5",
+        "CA-6",
+        "CA-8",
+        "CA-10",
+        "CA-13"
+      ],
       "validacao": "npm run test:e2e com o spec novo passando; prints gerados.",
       "estado": "a_fazer",
       "wi": null,
@@ -126,8 +189,15 @@
       "descricao": "Gabriel confere no servidor de verdade: fixar e desafixar em canal e DM, a linha 'fixou', a busca em português com acentos e o ir até mensagens antigas.",
       "repo": ".",
       "stack": "front",
-      "depende_de": ["T9"],
-      "criterios": ["CA-3", "CA-6", "CA-8", "CA-16"],
+      "depende_de": [
+        "T9"
+      ],
+      "criterios": [
+        "CA-3",
+        "CA-6",
+        "CA-8",
+        "CA-16"
+      ],
       "validacao": "checklist manual preenchido pelo Gabriel.",
       "estado": "a_fazer",
       "wi": null,

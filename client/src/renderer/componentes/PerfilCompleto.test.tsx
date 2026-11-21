@@ -6,7 +6,14 @@ import { PerfilCompleto, type PropsPerfilCompleto } from './PerfilCompleto';
 
 afterEach(cleanup);
 
-const pessoa = (id: number, nome: string): UsuarioDto => ({ id, usuario: nome.toLowerCase(), nomeExibicao: nome, cor: '#fff', avatarUrl: null, cargo: 'membro' });
+const pessoa = (id: number, nome: string): UsuarioDto => ({
+  id,
+  usuario: nome.toLowerCase(),
+  nomeExibicao: nome,
+  cor: '#fff',
+  avatarUrl: null,
+  cargo: 'membro',
+});
 const beto = { ...pessoa(2, 'Beto'), membroDesde: '2026-10-12', sobreMim: 'oi' };
 
 function montar(extra: Partial<PropsPerfilCompleto> = {}) {
@@ -16,7 +23,10 @@ function montar(extra: Partial<PropsPerfilCompleto> = {}) {
     eu: false,
     status: 'online',
     pessoas: [pessoa(5, 'Caio'), pessoa(6, 'Dani')],
-    carregarPerfil: async () => ({ emComum: { amigos: [5, 6, 77], servidores: [{ id: 1, nome: 'ToFalany', url: 'http://s', iconeUrl: null }] }, contaDesde: '2025-01-02' }),
+    carregarPerfil: async () => ({
+      emComum: { amigos: [5, 6, 77], servidores: [{ id: 1, nome: 'ToFalany', url: 'http://s', iconeUrl: null }] },
+      contaDesde: '2025-01-02',
+    }),
     amizade: undefined,
     aoConversar: vi.fn(),
     aoPedirAmizade: vi.fn(),

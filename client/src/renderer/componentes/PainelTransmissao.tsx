@@ -100,7 +100,9 @@ export function PainelTransmissao({
     >
       <video ref={ref} autoPlay playsInline muted aria-label={`Tela de ${nome}`} onDoubleClick={() => alternarTelaCheia(caixa.current)} />
       <div className="transmissao-acoes">
-        <span className="com-icone"><Icone nome="tela" tamanho={16} /> {nome}</span>
+        <span className="com-icone">
+          <Icone nome="tela" tamanho={16} /> {nome}
+        </span>
         <Espectadores nomes={espectadores} />
         <div className="transmissao-volume">
           <button

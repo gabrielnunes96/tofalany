@@ -29,12 +29,60 @@ interface Props {
   aoIrPara?: (id: number) => void;
   /** Destaque de alguns segundos ao chegar nela por uma resposta. */
   destacada?: boolean;
+  /** chat-fixar-e-buscar: está na lista de fixadas da conversa. */
+  fixada?: boolean;
+  /** Fixar/desafixar (só quem pode). Devolve a mensagem de erro ou null. */
+  aoFixar?: (id: number, fixar: boolean) => Promise<string | null>;
 }
 
 const horario = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
 /** Uma mensagem com editar (autor) e apagar (autor ou administrador em canal) — RF-11, RN-9. */
-export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, podeApagar, aoEditar, aoApagar, usuarios, euId, aoReagir, aoResponder, aoIrPara, destacada = false }: Props) {
+export function ItemMensagem(props: Props) {
+  // Linha de sistema "fulano fixou uma mensagem" (chat-fixar-e-buscar): sem ações, clicável até a fixada.
+  if (props.mensagem.fixou) return <LinhaFixou {...props} />;
+  return <MensagemComum {...props} />;
+}
+
+function LinhaFixou({ mensagem: m, autor, aoIrPara, destacada = false }: Props) {
+  const nome = autor?.nomeExibicao ?? 'conta removida';
+  const ref = m.fixou!;
+  return (
+    <li className={`mensagem linha-sistema${destacada ? ' destacada' : ''}`} aria-label={`${nome} fixou uma mensagem`} data-mensagem-id={m.id}>
+      <span aria-hidden="true">📌</span>
+      <span>
+        <strong>{nome}</strong> fixou{' '}
+        {ref.apagada || !aoIrPara ? (
+          <span>{ref.apagada ? 'uma mensagem (apagada)' : 'uma mensagem'}</span>
+        ) : (
+          <button type="button" className="link" onClick={() => aoIrPara(ref.mensagemId)}>
+            uma mensagem
+          </button>
+        )}
+        .
+      </span>
+      <time dateTime={new Date(m.criadaEm).toISOString()}>{horario.format(m.criadaEm)}</time>
+    </li>
+  );
+}
+
+function MensagemComum({
+  mensagem: m,
+  autor,
+  servidorUrl,
+  podeEditar,
+  podeApagar,
+  aoEditar,
+  aoApagar,
+  usuarios,
+  euId,
+  aoReagir,
+  aoResponder,
+  aoIrPara,
+  destacada = false,
+  fixada = false,
+  aoFixar,
+}: Props) {
   const mencoes: MencoesDoTexto | undefined =
     m.mencoes?.length || m.mencionaTodos
       ? {
@@ -129,7 +177,13 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
       data-mensagem-id={m.id}
     >
       {abrirPerfil ? (
-        <button type="button" className="mensagem-foto" tabIndex={-1} aria-label={`Perfil de ${autor?.nomeExibicao ?? 'conta removida'}`} onClick={(e) => abrirPerfil(m.autorId, e.currentTarget)}>
+        <button
+          type="button"
+          className="mensagem-foto"
+          tabIndex={-1}
+          aria-label={`Perfil de ${autor?.nomeExibicao ?? 'conta removida'}`}
+          onClick={(e) => abrirPerfil(m.autorId, e.currentTarget)}
+        >
           <Avatar usuario={autor ?? { nomeExibicao: '?', cor: '#3a2f5c', avatarUrl: null }} servidorUrl={servidorUrl} tamanho={36} />
         </button>
       ) : (
@@ -138,7 +192,11 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
       <div className="mensagem-corpo">
         <div className="mensagem-topo">
           {abrirPerfil ? (
-            <button type="button" className={autor ? 'autor autor-botao' : 'autor removido autor-botao'} onClick={(e) => abrirPerfil(m.autorId, e.currentTarget)}>
+            <button
+              type="button"
+              className={autor ? 'autor autor-botao' : 'autor removido autor-botao'}
+              onClick={(e) => abrirPerfil(m.autorId, e.currentTarget)}
+            >
               {autor ? autor.nomeExibicao : 'conta removida'}
             </button>
           ) : (
@@ -146,7 +204,12 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
           )}
           <time dateTime={new Date(m.criadaEm).toISOString()}>{horario.format(m.criadaEm)}</time>
           {m.editadaEm !== null && <span className="editada">(editada)</span>}
-          {modo === 'ver' && (podeEditar || podeApagar || podeReagir || !!aoResponder) && (
+          {fixada && (
+            <span className="selo-fixada" title="Mensagem fixada">
+              📌 fixada
+            </span>
+          )}
+          {modo === 'ver' && (podeEditar || podeApagar || podeReagir || !!aoResponder || !!aoFixar) && (
             <span className="mensagem-acoes">
               {podeReagir && (
                 <>
@@ -163,6 +226,11 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
               {aoResponder && (
                 <button type="button" className="icone" onClick={() => aoResponder(m)}>
                   Responder
+                </button>
+              )}
+              {aoFixar && (
+                <button type="button" className="icone" onClick={() => void aoFixar(m.id, !fixada).then((falha) => setErroReacao(falha))}>
+                  {fixada ? 'Desafixar' : 'Fixar'}
                 </button>
               )}
               {podeEditar && (
@@ -211,7 +279,15 @@ export function ItemMensagem({ mensagem: m, autor, servidorUrl, podeEditar, pode
         )}
         {m.gif && <GifMensagem gif={m.gif} />}
         <ListaAnexos anexos={m.anexos} servidorUrl={servidorUrl} />
-        <Reacoes reacoes={m.reacoes ?? []} usuarios={usuarios} euId={euId} podeReagir={podeReagir} aoAlternar={(e) => void reagir(e)} aoAbrirSeletor={alternarSeletor} seletorAberto={seletor} />
+        <Reacoes
+          reacoes={m.reacoes ?? []}
+          usuarios={usuarios}
+          euId={euId}
+          podeReagir={podeReagir}
+          aoAlternar={(e) => void reagir(e)}
+          aoAbrirSeletor={alternarSeletor}
+          seletorAberto={seletor}
+        />
         {seletor && <SeletorEmoji aoEscolher={(e) => void reagir(e)} aoFechar={fecharSeletor} ancora={quemAbriu} />}
         {erroReacao && (
           <p className="erro" role="alert">

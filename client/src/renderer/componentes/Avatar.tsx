@@ -26,21 +26,15 @@ export function Avatar({ usuario, servidorUrl, tamanho = 32 }: Props) {
   const [falhou, setFalhou] = useState<string | null>(null);
   if (usuario.avatarUrl && falhou !== usuario.avatarUrl) {
     const url = usuario.avatarUrl;
-    return (
-      <img
-        className="avatar"
-        src={`${servidorUrl}${url}`}
-        alt=""
-        width={tamanho}
-        height={tamanho}
-        style={estilo}
-        onError={() => setFalhou(url)}
-      />
-    );
+    return <img className="avatar" src={`${servidorUrl}${url}`} alt="" width={tamanho} height={tamanho} style={estilo} onError={() => setFalhou(url)} />;
   }
   const inicial = [...usuario.nomeExibicao.trim()][0]?.toUpperCase() ?? '?';
   return (
-    <span className="avatar avatar-inicial" style={{ ...estilo, background: usuario.cor, color: corDoTexto(usuario.cor), fontSize: tamanho * 0.45 }} aria-hidden="true">
+    <span
+      className="avatar avatar-inicial"
+      style={{ ...estilo, background: usuario.cor, color: corDoTexto(usuario.cor), fontSize: tamanho * 0.45 }}
+      aria-hidden="true"
+    >
       {inicial}
     </span>
   );

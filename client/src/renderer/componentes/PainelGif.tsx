@@ -170,7 +170,12 @@ export function PainelGif({ klipy, aoEscolher, aoFechar, ancora }: Props) {
       </p>
       <div className="painel-gif-lista">
         {itens.length > 0 && (
-          <div className="painel-gif-grade" role="group" aria-label={consulta ? `Resultados de ${consulta}` : 'Em alta'} style={{ gridTemplateColumns: `repeat(${COLUNAS}, 1fr)` }}>
+          <div
+            className="painel-gif-grade"
+            role="group"
+            aria-label={consulta ? `Resultados de ${consulta}` : 'Em alta'}
+            style={{ gridTemplateColumns: `repeat(${COLUNAS}, 1fr)` }}
+          >
             {itens.map((g, i) => (
               <button
                 key={`${g.slug}-${i}`}

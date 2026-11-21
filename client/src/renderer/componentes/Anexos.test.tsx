@@ -7,7 +7,15 @@ import { problemaDoArquivo } from './MensagensCanal';
 
 afterEach(cleanup);
 
-const pdf: AnexoDto = { id: 'a'.repeat(24), url: `/files/${'b'.repeat(32)}.pdf`, tipo: 'documento', nome: 'r.pdf', bytes: 5 * 1024 * 1024, largura: null, altura: null };
+const pdf: AnexoDto = {
+  id: 'a'.repeat(24),
+  url: `/files/${'b'.repeat(32)}.pdf`,
+  tipo: 'documento',
+  nome: 'r.pdf',
+  bytes: 5 * 1024 * 1024,
+  largura: null,
+  altura: null,
+};
 const img: AnexoDto = { ...pdf, id: 'c'.repeat(24), url: `/files/${'d'.repeat(32)}.png`, tipo: 'imagem', nome: 'f.png', largura: 10, altura: 10 };
 
 describe('regras de anexo no app', () => {

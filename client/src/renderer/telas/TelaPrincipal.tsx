@@ -51,6 +51,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
+import { PainelFixadas } from '../componentes/PainelFixadas';
 import { criarKlipy } from '../servicos/gif';
 import { ProcurarAtualizacao } from '../componentes/ProcurarAtualizacao';
 import { CartaoPessoa } from '../componentes/CartaoPessoa';
@@ -243,6 +244,8 @@ function TelaDoServidor({
   );
   const acoes = useLoja(
     useShallow((s) => ({
+      receberFixadas: s.receberFixadas,
+      pedirIrAte: s.pedirIrAte,
       definirConexao: s.definirConexao,
       aplicarOla: s.aplicarOla,
       adicionarUsuario: s.adicionarUsuario,
@@ -347,6 +350,10 @@ function TelaDoServidor({
   const { servidorId, donoServidor } = useLoja(useShallow((s) => ({ servidorId: s.servidorId, donoServidor: s.donoServidor })));
   /** Pontos e loja: saldo e itens da conta (null = servidor sem loja, a loja some). */
   const pontos = useLoja((s) => s.pontos);
+  /** chat-fixar-e-buscar: o que o servidor oferece e o painel da coluna direita (membros, fixadas ou busca). */
+  const recursos = useLoja((s) => s.recursos);
+  const [painelDireito, setPainelDireito] = useState<'membros' | 'fixadas' | 'busca'>('membros');
+  const [erroFixadas, setErroFixadas] = useState<string | null>(null);
   /** Janela de configurações aberta (e em qual seção); null = fechada. */
   const [configAberta, setConfigAberta] = useState<SecaoConfig | null>(null);
   async function sairDoServidor() {
@@ -974,6 +981,10 @@ function TelaDoServidor({
       },
       aoMensagemEditada: acoes.atualizarMensagem,
       aoReacoes: acoes.aplicarReacoes,
+      // Lista já carregada daquela conversa: recarrega (a mensagem fixada pode não estar no histórico).
+      aoFixadas: (chave) => {
+        if (useLoja.getState().fixadas[chave]) void carregarFixadasRef.current(chave);
+      },
       aoMensagemApagada: (id, chave) => {
         acoes.removerMensagem(id, chave);
         if (chave) acoes.descontarApagada(chave, id);
@@ -1058,8 +1069,22 @@ function TelaDoServidor({
   }, [nomeServidor, iconeServidor, servidorUrl, aoNomeServidor]);
   const usuario = eu ?? usuarioInicial;
   const pessoas = useMemo(() => [...usuarios, ...conhecidos.filter((c) => !usuarios.some((u) => u.id === c.id))], [usuarios, conhecidos]);
+  /** Conversa escolhida (canal ou DM), para os botões do topo dela. */
+  const chaveConversa: Chave | null = dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
   const barraVisao = (
     <span className="barra-visao" role="group" aria-label="Mostrar ou ocultar">
+      {recursos.fixar && chaveConversa && (
+        <button
+          type="button"
+          className="icone"
+          aria-pressed={painelDireito === 'fixadas'}
+          aria-label="Mensagens fixadas"
+          title="Mensagens fixadas"
+          onClick={() => setPainelDireito((p) => (p === 'fixadas' ? 'membros' : 'fixadas'))}
+        >
+          📌
+        </button>
+      )}
       {videos.length > 0 && (
         <button
           type="button"
@@ -1226,6 +1251,30 @@ function TelaDoServidor({
   );
 
   /** Ação em tempo real; devolve a mensagem de erro (ou null) e aplica o resultado na hora. */
+  /** chat-fixar-e-buscar: lista de fixadas da conversa (guardada por conversa na loja). */
+  const carregarFixadas = async (chave: Chave) => {
+    const [tipo, id] = [chave[0], Number(chave.slice(2))];
+    try {
+      const r = tipo === 'c' ? await api.fixadasCanal(id) : await api.fixadasDm(id);
+      acoes.receberFixadas(chave, r.fixadas);
+      setErroFixadas(null);
+    } catch (e) {
+      setErroFixadas(e instanceof ErroApiCliente ? e.message : 'Não foi possível carregar as fixadas.');
+    }
+  };
+  const carregarFixadasRef = useRef(carregarFixadas);
+  carregarFixadasRef.current = carregarFixadas;
+  // Abrir uma conversa carrega as fixadas dela (o menu da mensagem mostra "Fixar" ou "Desafixar").
+  useEffect(() => {
+    if (recursos.fixar && chaveAberta && !useLoja.getState().fixadas[chaveAberta]) void carregarFixadasRef.current(chaveAberta);
+  }, [recursos.fixar, chaveAberta, useLoja]);
+  const fixarMensagem = (id: number, fixar: boolean) =>
+    pedir(
+      (c) => c.pedir(fixar ? 'mensagem:fixar' : 'mensagem:desafixar', { id }),
+      () => undefined,
+    );
+  const fixadasAbertas = useLoja((s) => (chaveAberta ? s.fixadas[chaveAberta] : undefined));
+
   async function pedir<T>(fn: (c: ConexaoTempoReal) => Promise<{ ok: true; valor: T } | { ok: false; erro: string }>, aplicar: (v: T) => void) {
     const c = conexaoRef.current;
     if (!c) return 'Sem conexão com o servidor.';
@@ -1616,7 +1665,7 @@ function TelaDoServidor({
       )}
       <ContextoConvite.Provider value={contextoConvite}>
         <ContextoPerfil.Provider value={abrirPerfil}>
-          <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros ? ' sem-membros' : ''}`}>
+          <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros && painelDireito === 'membros' ? ' sem-membros' : ''}`}>
             <aside className="coluna-esquerda">
               <BarraLateral
                 aoEsconder={() => alternarParte('canais')}
@@ -2073,6 +2122,7 @@ function TelaDoServidor({
                     aoEditarMensagem={editarMensagem}
                     aoApagarMensagem={apagarMensagem}
                     aoReagirMensagem={reagirMensagem}
+                    aoFixarMensagem={recursos.fixar ? fixarMensagem : undefined}
                     klipy={klipy}
                     aoDigitar={(dmId) => conexaoRef.current?.avisarDigitando({ dmId })}
                     silenciada={silenciadasAqui.includes(`d:${dmAtiva}`)}
@@ -2102,6 +2152,7 @@ function TelaDoServidor({
                     aoEditarMensagem={editarMensagem}
                     aoApagarMensagem={apagarMensagem}
                     aoReagirMensagem={reagirMensagem}
+                    aoFixarMensagem={recursos.fixar && permissoes.has('fixar_mensagens') ? fixarMensagem : undefined}
                     klipy={klipy}
                     aoDigitar={(canalId) => conexaoRef.current?.avisarDigitando({ canalId })}
                     silenciada={canalAtivo !== null && silenciadasAqui.includes(`c:${canalAtivo}`)}
@@ -2177,73 +2228,86 @@ function TelaDoServidor({
               />
             )}
             <aside className="coluna-direita">
-              <h2 className="subtitulo">Membros — {usuarios.length}</h2>
-              {/* RF-37: online/ausente primeiro, depois offline; cada um com a bolinha de status. */}
-              <ul className="lista-membros" aria-label="Membros">
-                {membrosPorStatus.map((item) =>
-                  'grupo' in item ? (
-                    <li key={item.grupo} className="grupo-membros" aria-hidden="true">
-                      {item.grupo}
-                    </li>
-                  ) : (
-                    <li
-                      key={item.u.id}
-                      aria-label={`${item.u.nomeExibicao}, ${TEXTO_STATUS[item.status]}`}
-                      className={item.fundo ? 'com-fundo' : undefined}
-                      style={item.fundo ? ({ '--fundo-membro': item.fundo } as CSSProperties) : undefined}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        abrirMenuPessoa(item.u.id, e.clientX, e.clientY);
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="membro-abrir"
-                        aria-label={`Perfil de ${item.u.nomeExibicao}`}
-                        onClick={(e) => abrirPerfil(item.u.id, e.currentTarget)}
-                      >
-                        <span className="avatar-com-status">
-                          <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
-                          <StatusPonto status={item.status} />
-                        </span>
-                        <span className="nome-membro" style={cargoVisivel(item.u) ? { color: cargoVisivel(item.u)!.cor } : undefined}>
-                          {item.u.nomeExibicao}
-                        </span>
-                      </button>
-                      {atividades[item.u.id] && (
-                        <span className="atividade-membro" title={textosAtividade(atividades[item.u.id]).join('\n')}>
-                          {textosAtividade(atividades[item.u.id])[0]}
-                        </span>
-                      )}
-                      {item.u.cargo === 'admin' && <span className="selo">admin</span>}
-                      {item.u.castigoAte && item.u.castigoAte > Date.now() && (
-                        <span
-                          className="selo selo-castigo"
-                          title={`De castigo até ${new Date(item.u.castigoAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+              {painelDireito === 'fixadas' && chaveAberta ? (
+                <PainelFixadas
+                  fixadas={fixadasAbertas}
+                  erro={erroFixadas}
+                  usuarios={new Map(pessoas.map((u) => [u.id, u]))}
+                  aoDesafixar={chaveAberta.startsWith('d:') || permissoes.has('fixar_mensagens') ? (id) => fixarMensagem(id, false) : undefined}
+                  aoIr={(id) => acoes.pedirIrAte(chaveAberta, id)}
+                  aoFechar={() => setPainelDireito('membros')}
+                />
+              ) : (
+                <>
+                  <h2 className="subtitulo">Membros — {usuarios.length}</h2>
+                  {/* RF-37: online/ausente primeiro, depois offline; cada um com a bolinha de status. */}
+                  <ul className="lista-membros" aria-label="Membros">
+                    {membrosPorStatus.map((item) =>
+                      'grupo' in item ? (
+                        <li key={item.grupo} className="grupo-membros" aria-hidden="true">
+                          {item.grupo}
+                        </li>
+                      ) : (
+                        <li
+                          key={item.u.id}
+                          aria-label={`${item.u.nomeExibicao}, ${TEXTO_STATUS[item.status]}`}
+                          className={item.fundo ? 'com-fundo' : undefined}
+                          style={item.fundo ? ({ '--fundo-membro': item.fundo } as CSSProperties) : undefined}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            abrirMenuPessoa(item.u.id, e.clientX, e.clientY);
+                          }}
                         >
-                          castigo
-                        </span>
-                      )}
-                      {cargoVisivel(item.u) && (
-                        <span className="selo selo-funcao" style={{ color: cargoVisivel(item.u)!.cor, borderColor: cargoVisivel(item.u)!.cor }}>
-                          {cargoVisivel(item.u)!.nome}
-                        </span>
-                      )}
-                      {item.u.id !== usuario.id && (
-                        <button
-                          type="button"
-                          className="icone conversar"
-                          aria-label={`Conversar com ${item.u.nomeExibicao}`}
-                          title="Mensagem direta"
-                          onClick={() => conversarCom(item.u.id)}
-                        >
-                          <Icone nome="carta" tamanho={16} />
-                        </button>
-                      )}
-                    </li>
-                  ),
-                )}
-              </ul>
+                          <button
+                            type="button"
+                            className="membro-abrir"
+                            aria-label={`Perfil de ${item.u.nomeExibicao}`}
+                            onClick={(e) => abrirPerfil(item.u.id, e.currentTarget)}
+                          >
+                            <span className="avatar-com-status">
+                              <Avatar usuario={item.u} servidorUrl={servidorUrl} tamanho={28} />
+                              <StatusPonto status={item.status} />
+                            </span>
+                            <span className="nome-membro" style={cargoVisivel(item.u) ? { color: cargoVisivel(item.u)!.cor } : undefined}>
+                              {item.u.nomeExibicao}
+                            </span>
+                          </button>
+                          {atividades[item.u.id] && (
+                            <span className="atividade-membro" title={textosAtividade(atividades[item.u.id]).join('\n')}>
+                              {textosAtividade(atividades[item.u.id])[0]}
+                            </span>
+                          )}
+                          {item.u.cargo === 'admin' && <span className="selo">admin</span>}
+                          {item.u.castigoAte && item.u.castigoAte > Date.now() && (
+                            <span
+                              className="selo selo-castigo"
+                              title={`De castigo até ${new Date(item.u.castigoAte).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+                            >
+                              castigo
+                            </span>
+                          )}
+                          {cargoVisivel(item.u) && (
+                            <span className="selo selo-funcao" style={{ color: cargoVisivel(item.u)!.cor, borderColor: cargoVisivel(item.u)!.cor }}>
+                              {cargoVisivel(item.u)!.nome}
+                            </span>
+                          )}
+                          {item.u.id !== usuario.id && (
+                            <button
+                              type="button"
+                              className="icone conversar"
+                              aria-label={`Conversar com ${item.u.nomeExibicao}`}
+                              title="Mensagem direta"
+                              onClick={() => conversarCom(item.u.id)}
+                            >
+                              <Icone nome="carta" tamanho={16} />
+                            </button>
+                          )}
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </>
+              )}
             </aside>
           </div>
         </ContextoPerfil.Provider>

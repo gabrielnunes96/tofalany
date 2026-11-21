@@ -60,7 +60,11 @@ function Documento({ anexo, servidorUrl }: { anexo: AnexoDto; servidorUrl: strin
         <button
           type="button"
           className="secundario"
-          onClick={() => void ponte().arquivos.abrir(salvo).catch(() => setErro('Não foi possível abrir o arquivo.'))}
+          onClick={() =>
+            void ponte()
+              .arquivos.abrir(salvo)
+              .catch(() => setErro('Não foi possível abrir o arquivo.'))
+          }
         >
           Abrir
         </button>

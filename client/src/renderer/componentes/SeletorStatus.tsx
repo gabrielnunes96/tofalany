@@ -34,7 +34,12 @@ export function SeletorStatus({ valor, aoMudar }: { valor: EscolhaStatus; aoMuda
   const abrir = () => {
     const r = caixa.current?.getBoundingClientRect();
     if (r) setPosicao({ left: Math.max(8, Math.min(r.left, window.innerWidth - 258)), bottom: window.innerHeight - r.top + 6 });
-    setFoco(Math.max(0, OPCOES.findIndex((o) => o.valor === valor)));
+    setFoco(
+      Math.max(
+        0,
+        OPCOES.findIndex((o) => o.valor === valor),
+      ),
+    );
     setAberto(true);
   };
   const escolher = (v: EscolhaStatus) => {
@@ -52,14 +57,30 @@ export function SeletorStatus({ valor, aoMudar }: { valor: EscolhaStatus; aoMuda
 
   return (
     <div className="seletor-status" ref={caixa}>
-      <button type="button" className="seletor-status-botao" aria-haspopup="listbox" aria-expanded={aberto} aria-label={`Meu status: ${atual.texto}`} onClick={() => (aberto ? setAberto(false) : abrir())}>
+      <button
+        type="button"
+        className="seletor-status-botao"
+        aria-haspopup="listbox"
+        aria-expanded={aberto}
+        aria-label={`Meu status: ${atual.texto}`}
+        onClick={() => (aberto ? setAberto(false) : abrir())}
+      >
         <span className={`status-ponto status-${atual.cor}`} aria-hidden="true" />
         <span>{atual.texto}</span>
         <Icone nome="setaBaixo" tamanho={14} />
       </button>
       {aberto &&
         createPortal(
-          <ul ref={lista} className="seletor-status-lista" style={posicao} role="listbox" aria-label="Meu status" tabIndex={-1} aria-activedescendant={`status-${OPCOES[foco]!.valor}`} onKeyDown={teclado}>
+          <ul
+            ref={lista}
+            className="seletor-status-lista"
+            style={posicao}
+            role="listbox"
+            aria-label="Meu status"
+            tabIndex={-1}
+            aria-activedescendant={`status-${OPCOES[foco]!.valor}`}
+            onKeyDown={teclado}
+          >
             {OPCOES.map((o, i) => (
               <li
                 key={o.valor}

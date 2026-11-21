@@ -30,7 +30,12 @@ export function TrechoResposta({ resposta: r, usuarios, euId, aoIrPara }: Props)
     </>
   );
   return aoIrPara ? (
-    <button type="button" className="trecho-resposta" aria-label={`Resposta a ${autor}: ${r.soAnexo ? 'anexo' : r.trecho}. Ir até a mensagem`} onClick={() => aoIrPara(r.id)}>
+    <button
+      type="button"
+      className="trecho-resposta"
+      aria-label={`Resposta a ${autor}: ${r.soAnexo ? 'anexo' : r.trecho}. Ir até a mensagem`}
+      onClick={() => aoIrPara(r.id)}
+    >
       {conteudo}
     </button>
   ) : (

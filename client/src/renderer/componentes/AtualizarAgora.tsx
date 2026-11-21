@@ -60,7 +60,9 @@ export function AtualizarAgora({
       .estado()
       .then((e) => vivo && e?.pedido && e.modo === 'reiniciar' && setFase((f) => (f.tipo === 'parado' ? { tipo: 'perguntar', versao: e.versao } : f)))
       .catch(() => undefined);
-    const pararFalha = atualizacao.aoFalhar(() => setFase({ tipo: 'aviso', texto: 'Não deu para baixar a atualização. Tente de novo mais tarde.', erro: true }));
+    const pararFalha = atualizacao.aoFalhar(() =>
+      setFase({ tipo: 'aviso', texto: 'Não deu para baixar a atualização. Tente de novo mais tarde.', erro: true }),
+    );
     return () => {
       vivo = false;
       pararProgresso();

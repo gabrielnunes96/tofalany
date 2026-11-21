@@ -1,6 +1,6 @@
 # Fixar e buscar mensagens: plano de desenvolvimento
 
-> Demanda: `chat-fixar-e-buscar` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **rascunho**
+> Demanda: `chat-fixar-e-buscar` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **aprovado em 21/11/2026**
 > Fonte da verdade das tarefas: `tarefas.json`.
 
 ## Ordem e paralelismo

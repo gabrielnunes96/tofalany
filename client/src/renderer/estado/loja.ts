@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { create } from 'zustand';
-import { textoSemGif, trechoDeResposta } from '@tofalando/shared';
+import { textoSemGif, trechoDeResposta, type FixadaDto } from '@tofalando/shared';
 import type {
   CanalDto,
   DmDto,
@@ -53,6 +53,10 @@ interface Loja {
   historicos: Partial<Record<Chave, Historico>>;
   /** chat-fixar-e-buscar: ir até esta mensagem quando a conversa dela estiver aberta. */
   irAte: { chave: Chave; id: number } | null;
+  /** chat-fixar-e-buscar: o que o servidor oferece (servidor antigo: nada). */
+  recursos: { fixar?: boolean; busca?: boolean };
+  /** Fixadas de cada conversa já aberta (da mais nova para a mais antiga). */
+  fixadas: Partial<Record<Chave, FixadaDto[]>>;
   /** Mensagens não lidas por conversa (RF-12). */
   naoLidas: Partial<Record<Chave, number>>;
   /** Ids das não lidas que chegaram nesta conexão (para descontar se forem apagadas e para o aviso de leitura). */
@@ -119,6 +123,7 @@ interface Loja {
   /** Pedido de ir até uma mensagem (fixadas, busca), consumido pela conversa quando ela estiver aberta. */
   pedirIrAte(chave: Chave, id: number): void;
   consumirIrAte(): void;
+  receberFixadas(chave: Chave, lista: FixadaDto[]): void;
   adicionarMensagem(mensagem: MensagemDto): void;
   atualizarMensagem(mensagem: MensagemDto): void;
   removerMensagem(id: number, chave: Chave | null): void;
@@ -176,6 +181,8 @@ const inicial = {
   dmAtiva: null as number | null,
   historicos: {} as Partial<Record<Chave, Historico>>,
   irAte: null as { chave: Chave; id: number } | null,
+  recursos: {} as { fixar?: boolean; busca?: boolean },
+  fixadas: {} as Partial<Record<Chave, FixadaDto[]>>,
   naoLidas: {} as Partial<Record<Chave, number>>,
   naoLidasIds: {} as Partial<Record<Chave, number[]>>,
   digitando: {} as Partial<Record<Chave, Record<number, number>>>,
@@ -265,6 +272,7 @@ export const criarLoja = () =>
       conhecidos,
       atividades,
       loja,
+      recursos,
     }) =>
       set((s) => {
         const ordenados = ordenarCanais(canais);
@@ -287,6 +295,8 @@ export const criarLoja = () =>
           amizades: amizades ?? [],
           conhecidos: conhecidos ?? [],
           pontos: loja ?? null,
+          recursos: recursos ?? {},
+          fixadas: {},
           presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),
           atividades: Object.fromEntries(Object.entries(atividades ?? {}).map(([id, a]) => [Number(id), a])),
           dmAtiva: dms.some((d) => d.id === s.dmAtiva) ? s.dmAtiva : null,
@@ -348,6 +358,7 @@ export const criarLoja = () =>
       }),
     pedirIrAte: (chave, id) => set({ irAte: { chave, id } }),
     consumirIrAte: () => set({ irAte: null }),
+    receberFixadas: (chave, lista) => set((s) => ({ fixadas: { ...s.fixadas, [chave]: lista } })),
     falharCarga: (chave, erro, geracao) =>
       set((s) => {
         const atual = s.historicos[chave];
@@ -372,12 +383,18 @@ export const criarLoja = () =>
       set((s) => {
         const chave = chaveDe(m);
         const atual = chave ? s.historicos[chave] : undefined;
-        if (!chave || !atual) return {};
+        // A lista de fixadas mostra o texto novo (RN-5), mesmo com o histórico ainda não carregado.
+        const fixadas = chave ? s.fixadas[chave] : undefined;
+        const comFixadas =
+          chave && fixadas?.some((f) => f.mensagem.id === m.id)
+            ? { fixadas: { ...s.fixadas, [chave]: fixadas.map((f) => (f.mensagem.id === m.id ? { ...f, mensagem: m } : f)) } }
+            : {};
+        if (!chave || !atual) return comFixadas;
         // As respostas a ela mostram o texto novo (CA-13).
         const trecho = trechoDeResposta(textoSemGif(m.texto, m.gif)) || (m.gif ? 'GIF' : '');
         const resposta: RespostaDto = { id: m.id, autorId: m.autorId, trecho, ...(!trecho && m.anexos.length ? { soAnexo: true as const } : {}) };
         const mensagens = atual.mensagens.map((x) => (x.id === m.id ? m : x.resposta?.id === m.id && !x.resposta.apagada ? { ...x, resposta } : x));
-        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } }, ...comFixadas };
       }),
     aplicarReacoes: (id, chave, reacoes) =>
       set((s) => {
@@ -394,12 +411,24 @@ export const criarLoja = () =>
     removerMensagem: (id, chave) =>
       set((s) => {
         const atual = chave ? s.historicos[chave] : undefined;
-        if (!chave || !atual) return {};
+        const fixadasAntes = chave ? s.fixadas[chave] : undefined;
+        const semFixada =
+          chave && fixadasAntes?.some((f) => f.mensagem.id === id)
+            ? { fixadas: { ...s.fixadas, [chave]: fixadasAntes.filter((f) => f.mensagem.id !== id) } }
+            : {};
+        if (!chave || !atual) return semFixada;
         // As respostas a ela ficam com "Mensagem original apagada" (CA-12).
+        // A linha "fulano fixou" de uma mensagem apagada mostra "apagada" (RN-5).
         const mensagens = atual.mensagens
           .filter((x) => x.id !== id)
-          .map((x) => (x.resposta?.id === id ? { ...x, resposta: { id, apagada: true as const } } : x));
-        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } } };
+          .map((x) =>
+            x.resposta?.id === id
+              ? { ...x, resposta: { id, apagada: true as const } }
+              : x.fixou?.mensagemId === id
+                ? { ...x, fixou: { mensagemId: id, apagada: true } }
+                : x,
+          );
+        return { historicos: { ...s.historicos, [chave]: { ...atual, mensagens } }, ...semFixada };
       }),
     registrarDigitando: (chave, usuarioId, ate) =>
       set((s) => ({ digitando: { ...s.digitando, [chave]: { ...(s.digitando[chave] ?? {}), [usuarioId]: ate } } })),

@@ -97,7 +97,10 @@ describe('CartaoPessoa (mini perfil T4)', () => {
   });
 
   it('sem "membro desde" (conversa direta), mostra a data da conta', async () => {
-    montar({ usuario: { ...beto, membroDesde: undefined }, carregarPerfil: async () => ({ emComum: { amigos: [], servidores: [] }, contaDesde: '2025-03-04' }) });
+    montar({
+      usuario: { ...beto, membroDesde: undefined },
+      carregarPerfil: async () => ({ emComum: { amigos: [], servidores: [] }, contaDesde: '2025-03-04' }),
+    });
     await waitFor(() => expect(screen.getByRole('dialog').textContent).toContain('Conta desde 04/03/2025'));
   });
 
@@ -111,7 +114,12 @@ describe('estiloFundo (segurança, T-6)', () => {
     expect(estiloFundo({ cores: ['#112233'] }, '#000000', 'http://s')).toEqual({ backgroundColor: '#112233' });
     expect(estiloFundo({ cores: ['red' as string] as [string] }, '#abcdef', 'http://s')).toEqual({ backgroundColor: '#abcdef' });
     expect(estiloFundo({ url: 'https://x.io/a.webp' }, '#abcdef', 'http://s')).toEqual({ backgroundColor: '#abcdef' });
-    const ok = estiloFundo({ url: '/files/0123456789abcdef0123456789abcdef.webp', miniUrl: '/files/fedcba9876543210fedcba9876543210.webp' }, '#abcdef', 'http://s', { parado: true });
+    const ok = estiloFundo(
+      { url: '/files/0123456789abcdef0123456789abcdef.webp', miniUrl: '/files/fedcba9876543210fedcba9876543210.webp' },
+      '#abcdef',
+      'http://s',
+      { parado: true },
+    );
     expect(ok.backgroundImage).toBe('url("http://s/files/fedcba9876543210fedcba9876543210.webp")');
     expect(estiloFundo(null, '#abcdef', 'http://s')).toEqual({ backgroundColor: '#abcdef' });
   });

@@ -42,7 +42,9 @@ export function PainelMusica({
     <div className={`painel-musica${pausado ? ' pausado' : ''}`} role="region" aria-label="Música no canal">
       <p className="musica-bot">
         <Icone nome="sons" tamanho={14} /> <strong>ToOuvini</strong>
-        <span className="suave">{tocando ? (carregando ? ' · carregando…' : pausado ? ' · pausado' : ' · tocando') : ' · na sala, sem música (/play para pedir)'}</span>
+        <span className="suave">
+          {tocando ? (carregando ? ' · carregando…' : pausado ? ' · pausado' : ' · tocando') : ' · na sala, sem música (/play para pedir)'}
+        </span>
       </p>
       {tocando && (
         <p className="musica-atual">
@@ -72,7 +74,15 @@ export function PainelMusica({
       {aoVolume && (
         <label className="musica-volume" title="Volume do ToOuvini (só para você)">
           <Icone nome={volume === 0 ? 'volumeMudo' : volume < 0.5 ? 'volumeBaixo' : 'altoFalante'} tamanho={16} />
-          <input type="range" min={0} max={100} step={5} value={Math.round(volume * 100)} aria-label="Volume do ToOuvini" onChange={(e) => aoVolume(Number(e.target.value) / 100)} />
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(volume * 100)}
+            aria-label="Volume do ToOuvini"
+            onChange={(e) => aoVolume(Number(e.target.value) / 100)}
+          />
           <span className="suave musica-volume-valor">{Math.round(volume * 100)}%</span>
         </label>
       )}
@@ -100,7 +110,13 @@ export function PainelMusica({
         <button type="button" className="secundario" aria-pressed={filaAberta} aria-label="Fila" title="Fila" onClick={aoAlternarFila}>
           ☰{fila.length ? ` ${fila.length}` : ''}
         </button>
-        <button type="button" className="secundario" aria-label="Tirar o ToOuvini da sala" title="Tirar o ToOuvini da sala" onClick={() => void mandar({ comando: 'expulsar' })}>
+        <button
+          type="button"
+          className="secundario"
+          aria-label="Tirar o ToOuvini da sala"
+          title="Tirar o ToOuvini da sala"
+          onClick={() => void mandar({ comando: 'expulsar' })}
+        >
           ⏏
         </button>
       </div>

@@ -10,7 +10,14 @@ afterEach(() => {
   localStorage.clear();
 });
 
-const pessoa = (id: number, nome: string): UsuarioDto => ({ id, usuario: nome.toLowerCase(), nomeExibicao: nome, cor: '#fff', avatarUrl: null, cargo: 'membro' });
+const pessoa = (id: number, nome: string): UsuarioDto => ({
+  id,
+  usuario: nome.toLowerCase(),
+  nomeExibicao: nome,
+  cor: '#fff',
+  avatarUrl: null,
+  cargo: 'membro',
+});
 const nomes = ['Ana', 'Beto', 'Carla', 'Davi', 'Eva', 'Fabi', 'Gil', 'Hugo', 'Iara', 'Juca', 'Kika', 'Lia'];
 const usuarios = new Map(nomes.map((n, i) => [i + 1, pessoa(i + 1, n)] as const));
 
@@ -18,14 +25,31 @@ describe('Reacoes (T3)', () => {
   it('CA-4: quem reagiu, com "e mais N" acima de 10', () => {
     expect(quemReagiu([1, 2], usuarios)).toBe('Ana e Beto');
     expect(quemReagiu([1, 2, 3], usuarios, 3)).toBe('Ana, Beto e você');
-    expect(quemReagiu(nomes.map((_, i) => i + 1), usuarios)).toBe('Ana, Beto, Carla, Davi, Eva, Fabi, Gil, Hugo, Iara, Juca e mais 2');
+    expect(
+      quemReagiu(
+        nomes.map((_, i) => i + 1),
+        usuarios,
+      ),
+    ).toBe('Ana, Beto, Carla, Davi, Eva, Fabi, Gil, Hugo, Iara, Juca e mais 2');
     expect(quemReagiu([99], usuarios)).toBe('conta removida');
   });
 
   it('CA-1/CA-19: contagem, a minha em destaque e o rótulo para leitor de tela', () => {
     expect(rotuloReacao({ emoji: '👍', usuarios: [1, 2] }, true)).toBe('👍, 2 reações, inclusive você');
     expect(rotuloReacao({ emoji: '😂', usuarios: [2] }, false)).toBe('😂, 1 reação');
-    render(<Reacoes reacoes={[{ emoji: '👍', usuarios: [1] }, { emoji: '😂', usuarios: [2, 3] }]} usuarios={usuarios} euId={1} podeReagir aoAlternar={vi.fn()} aoAbrirSeletor={vi.fn()} />);
+    render(
+      <Reacoes
+        reacoes={[
+          { emoji: '👍', usuarios: [1] },
+          { emoji: '😂', usuarios: [2, 3] },
+        ]}
+        usuarios={usuarios}
+        euId={1}
+        podeReagir
+        aoAlternar={vi.fn()}
+        aoAbrirSeletor={vi.fn()}
+      />,
+    );
     const minha = screen.getByRole('button', { name: '👍, 1 reação, inclusive você' });
     expect(minha.className).toContain('minha');
     expect(minha.getAttribute('aria-pressed')).toBe('true');
@@ -38,7 +62,9 @@ describe('Reacoes (T3)', () => {
   it('CA-2: clicar alterna; sem permissão, só olha (sem "+")', () => {
     const aoAlternar = vi.fn();
     const aoAbrirSeletor = vi.fn();
-    const { rerender } = render(<Reacoes reacoes={[{ emoji: '👍', usuarios: [1] }]} euId={1} podeReagir aoAlternar={aoAlternar} aoAbrirSeletor={aoAbrirSeletor} />);
+    const { rerender } = render(
+      <Reacoes reacoes={[{ emoji: '👍', usuarios: [1] }]} euId={1} podeReagir aoAlternar={aoAlternar} aoAbrirSeletor={aoAbrirSeletor} />,
+    );
     fireEvent.click(screen.getByRole('button', { name: /👍/ }));
     expect(aoAlternar).toHaveBeenCalledWith('👍');
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar reação' }));
@@ -58,11 +84,32 @@ describe('Reacoes (T3)', () => {
 });
 
 describe('ItemMensagem com reações (T3)', () => {
-  const m: MensagemDto = { id: 7, canalId: 1, dmId: null, autorId: 2, texto: 'oi', criadaEm: 1, editadaEm: null, anexos: [], reacoes: [{ emoji: '🔥', usuarios: [2] }] };
+  const m: MensagemDto = {
+    id: 7,
+    canalId: 1,
+    dmId: null,
+    autorId: 2,
+    texto: 'oi',
+    criadaEm: 1,
+    editadaEm: null,
+    anexos: [],
+    reacoes: [{ emoji: '🔥', usuarios: [2] }],
+  };
   const item = (aoReagir?: (id: number, e: string) => Promise<string | null>) =>
     render(
       <ol>
-        <ItemMensagem mensagem={m} autor={usuarios.get(2)} servidorUrl="http://s" podeEditar={false} podeApagar={false} aoEditar={vi.fn()} aoApagar={vi.fn()} usuarios={usuarios} euId={1} aoReagir={aoReagir} />
+        <ItemMensagem
+          mensagem={m}
+          autor={usuarios.get(2)}
+          servidorUrl="http://s"
+          podeEditar={false}
+          podeApagar={false}
+          aoEditar={vi.fn()}
+          aoApagar={vi.fn()}
+          usuarios={usuarios}
+          euId={1}
+          aoReagir={aoReagir}
+        />
       </ol>,
     );
 
@@ -108,7 +155,18 @@ describe('ItemMensagem com reações (T3)', () => {
     const ok = vi.fn(async () => null);
     render(
       <ol>
-        <ItemMensagem mensagem={{ ...m, reacoes: [{ emoji: '🔥', usuarios: [1] }] }} autor={usuarios.get(2)} servidorUrl="http://s" podeEditar={false} podeApagar={false} aoEditar={vi.fn()} aoApagar={vi.fn()} usuarios={usuarios} euId={1} aoReagir={ok} />
+        <ItemMensagem
+          mensagem={{ ...m, reacoes: [{ emoji: '🔥', usuarios: [1] }] }}
+          autor={usuarios.get(2)}
+          servidorUrl="http://s"
+          podeEditar={false}
+          podeApagar={false}
+          aoEditar={vi.fn()}
+          aoApagar={vi.fn()}
+          usuarios={usuarios}
+          euId={1}
+          aoReagir={ok}
+        />
       </ol>,
     );
     fireEvent.click(screen.getByRole('button', { name: '🔥, 1 reação, inclusive você' }));

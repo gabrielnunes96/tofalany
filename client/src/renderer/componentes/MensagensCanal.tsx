@@ -56,6 +56,8 @@ interface Props {
   comandos?: readonly ComandoBot[];
   /** Menções: a lista ao digitar "@" (só em canal) e se @todos aparece nela. */
   mencoes?: { podeTodos: boolean };
+  /** chat-fixar-e-buscar: fixar e desafixar (só para quem pode). */
+  aoFixar?: (id: number, fixar: boolean) => Promise<string | null>;
 }
 
 /** Resposta (RF-6): a original e se o autor dela é avisado. */
@@ -132,10 +134,13 @@ export function Conversa({
   somenteLeitura,
   comandos,
   mencoes,
+  aoFixar,
 }: Props) {
   const chave = conversa.chave;
   const useLoja = useLojaDaTela();
   const historico = useLoja((s) => s.historicos[chave]);
+  const listaFixadas = useLoja((s) => s.fixadas[chave]);
+  const idsFixados = new Set(listaFixadas?.map((f) => f.mensagem.id));
   const digitandoAte = useLoja((s) => s.digitando[chave]);
   const [agora, setAgora] = useState(() => Date.now());
   const ultimoSinal = useRef(0);
@@ -640,6 +645,8 @@ export function Conversa({
               aoResponder={somenteLeitura ? undefined : responder}
               aoIrPara={(id) => void irPara(id)}
               destacada={destacada === m.id}
+              fixada={idsFixados.has(m.id)}
+              aoFixar={aoFixar}
             />
           ))}
         </ol>

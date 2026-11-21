@@ -27,6 +27,8 @@ interface Props {
   /** Busca de GIF (só com a busca ligada no servidor). */
   klipy?: Klipy;
   aoDigitar: (dmId: number) => void;
+  /** chat-fixar-e-buscar: fixar e desafixar (os dois participantes). */
+  aoFixarMensagem?: (id: number, fixar: boolean) => Promise<string | null>;
   /** RF-40: notificações desta conversa silenciadas. */
   silenciada?: boolean;
   aoSilenciar?: (sim: boolean) => void;
@@ -46,6 +48,7 @@ export function DmAberta({
   aoReagirMensagem,
   klipy,
   aoDigitar,
+  aoFixarMensagem,
   silenciada = false,
   aoSilenciar,
   extras,
@@ -99,6 +102,7 @@ export function DmAberta({
         klipy={klipy}
         aoDigitar={() => aoDigitar(dm.id)}
         somenteLeitura={outro ? undefined : 'Essa conta foi removida. A conversa ficou só para leitura.'}
+        aoFixar={outro ? aoFixarMensagem : undefined}
       />
     </section>
   );

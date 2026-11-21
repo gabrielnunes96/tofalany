@@ -18,9 +18,7 @@ function lista(ui: React.ReactElement) {
 describe('ItemMensagem', () => {
   it('editar: Enter salva, Esc cancela; "(editada)" aparece quando editadaEm vem preenchido', async () => {
     const aoEditar = vi.fn(async () => null);
-    const { rerender } = lista(
-      <ItemMensagem mensagem={m} autor={ana} servidorUrl="http://s" podeEditar podeApagar aoEditar={aoEditar} aoApagar={vi.fn()} />,
-    );
+    const { rerender } = lista(<ItemMensagem mensagem={m} autor={ana} servidorUrl="http://s" podeEditar podeApagar aoEditar={aoEditar} aoApagar={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
     const campo = screen.getByLabelText('Editar mensagem');
     fireEvent.change(campo, { target: { value: 'mudou' } });
@@ -34,7 +32,15 @@ describe('ItemMensagem', () => {
     await waitFor(() => expect(aoEditar).toHaveBeenCalledWith(7, 'corrigida'));
     rerender(
       <ol>
-        <ItemMensagem mensagem={{ ...m, texto: 'corrigida', editadaEm: 1 }} autor={ana} servidorUrl="http://s" podeEditar podeApagar aoEditar={aoEditar} aoApagar={vi.fn()} />
+        <ItemMensagem
+          mensagem={{ ...m, texto: 'corrigida', editadaEm: 1 }}
+          autor={ana}
+          servidorUrl="http://s"
+          podeEditar
+          podeApagar
+          aoEditar={aoEditar}
+          aoApagar={vi.fn()}
+        />
       </ol>,
     );
     expect(screen.getByText('(editada)')).toBeTruthy();
@@ -42,7 +48,9 @@ describe('ItemMensagem', () => {
 
   it('apagar pede confirmação e mostra o erro do servidor; sem permissão, sem botões', async () => {
     const aoApagar = vi.fn(async () => 'Você só pode apagar as suas mensagens.');
-    const { rerender } = lista(<ItemMensagem mensagem={m} autor={ana} servidorUrl="http://s" podeEditar={false} podeApagar aoEditar={vi.fn()} aoApagar={aoApagar} />);
+    const { rerender } = lista(
+      <ItemMensagem mensagem={m} autor={ana} servidorUrl="http://s" podeEditar={false} podeApagar aoEditar={vi.fn()} aoApagar={aoApagar} />,
+    );
     expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Apagar' }));
     expect(aoApagar).not.toHaveBeenCalled();
@@ -80,7 +88,12 @@ describe('sinal de digitando', () => {
         canal={{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }}
         usuarios={[ana]}
         servidorUrl="http://s"
-        api={{ enviarAnexo: vi.fn(async () => { throw new Error('sem anexo no teste'); }), mensagensCanal: async () => ({ mensagens: [], fim: true }) }}
+        api={{
+          enviarAnexo: vi.fn(async () => {
+            throw new Error('sem anexo no teste');
+          }),
+          mensagensCanal: async () => ({ mensagens: [], fim: true }),
+        }}
         aoEnviar={vi.fn()}
         euId={1}
         ehAdmin={false}
@@ -114,7 +127,12 @@ describe('aviso de digitando expira (CA-17)', () => {
         canal={{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }}
         usuarios={[ana, bia]}
         servidorUrl="http://s"
-        api={{ enviarAnexo: vi.fn(async () => { throw new Error('sem anexo no teste'); }), mensagensCanal: () => new Promise(() => undefined) }}
+        api={{
+          enviarAnexo: vi.fn(async () => {
+            throw new Error('sem anexo no teste');
+          }),
+          mensagensCanal: () => new Promise(() => undefined),
+        }}
         aoEnviar={vi.fn()}
         euId={1}
         ehAdmin={false}
@@ -139,7 +157,23 @@ describe('trecho da original (T5)', () => {
   const item = (m: MensagemDto, aoIrPara?: (id: number) => void) =>
     render(
       <ol>
-        <ItemMensagem mensagem={m} autor={beto} servidorUrl="http://s" podeEditar={false} podeApagar={false} aoEditar={vi.fn()} aoApagar={vi.fn()} usuarios={new Map([[1, ana], [2, beto]])} euId={1} aoIrPara={aoIrPara} />
+        <ItemMensagem
+          mensagem={m}
+          autor={beto}
+          servidorUrl="http://s"
+          podeEditar={false}
+          podeApagar={false}
+          aoEditar={vi.fn()}
+          aoApagar={vi.fn()}
+          usuarios={
+            new Map([
+              [1, ana],
+              [2, beto],
+            ])
+          }
+          euId={1}
+          aoIrPara={aoIrPara}
+        />
       </ol>,
     );
 

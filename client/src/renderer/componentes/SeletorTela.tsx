@@ -32,7 +32,17 @@ interface Props {
 }
 
 /** RF-26: seletor próprio com miniaturas das telas e janelas abertas. */
-export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, avisoSomChamada = false, comLoja = false, qualidades = ['720p30'], qualidadePadrao = '720p30', aoEscolher, aoCancelar }: Props) {
+export function SeletorTela({
+  listar,
+  audioDisponivel,
+  audioPadrao = true,
+  avisoSomChamada = false,
+  comLoja = false,
+  qualidades = ['720p30'],
+  qualidadePadrao = '720p30',
+  aoEscolher,
+  aoCancelar,
+}: Props) {
   const [fontes, setFontes] = useState<FonteTela[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [audio, setAudio] = useState(audioDisponivel && audioPadrao && !avisoSomChamada);
@@ -131,7 +141,14 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, aviso
                     : undefined
               }
             >
-              <input type="radio" name="qualidade-tela" checked={qualidadeVista === q} disabled={!qualidades.includes(q) || semMonitor(q)} onChange={() => setQualidade(q)} /> {q}
+              <input
+                type="radio"
+                name="qualidade-tela"
+                checked={qualidadeVista === q}
+                disabled={!qualidades.includes(q) || semMonitor(q)}
+                onChange={() => setQualidade(q)}
+              />{' '}
+              {q}
               {qualidades.includes(q) && semMonitor(q) && <span className="suave"> (monitor não tem)</span>}
               {!qualidades.includes(q) && comLoja && q !== '1440p60' && <span className="suave"> (libere na loja)</span>}
             </label>
@@ -169,7 +186,11 @@ export function SeletorTela({ listar, audioDisponivel, audioPadrao = true, aviso
  * O que guardar da escolha do som para a próxima transmissão (undefined = nada). No Windows (item 31, contorno) nada é
  * guardado: toda transmissão abre desmarcada.
  */
-export function somParaLembrar(o: { audioDisponivel: boolean; somLevaChamada: boolean }, escolhido: boolean, guardado: boolean | undefined): boolean | undefined {
+export function somParaLembrar(
+  o: { audioDisponivel: boolean; somLevaChamada: boolean },
+  escolhido: boolean,
+  guardado: boolean | undefined,
+): boolean | undefined {
   if (!o.audioDisponivel || o.somLevaChamada) return undefined;
   return escolhido !== (guardado ?? true) ? escolhido : undefined;
 }

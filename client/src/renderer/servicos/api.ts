@@ -1,4 +1,7 @@
 import type {
+  FixadaDto,
+  PedidoBusca,
+  RespostaBusca,
   AnexoDto,
   AtualizarPerfilRequest,
   CadastroRequest,
@@ -115,6 +118,10 @@ export interface ClienteApi {
   /** `janela.em`: em volta de uma mensagem; `janela.depois`: para baixo (chat-fixar-e-buscar). */
   mensagensCanal(canalId: number, antes?: number, ate?: number, janela?: JanelaHistorico): Promise<PaginaMensagens>;
   mensagensDm(dmId: number, antes?: number, ate?: number, janela?: JanelaHistorico): Promise<PaginaMensagens>;
+  /** chat-fixar-e-buscar: fixadas da conversa e a busca. */
+  fixadasCanal(canalId: number): Promise<{ fixadas: FixadaDto[] }>;
+  fixadasDm(dmId: number): Promise<{ fixadas: FixadaDto[] }>;
+  buscar(pedido: PedidoBusca): Promise<RespostaBusca>;
   enviarAnexo(arquivo: Blob, nome: string): Promise<AnexoDto>;
   sons(): Promise<SomDto[]>;
   cadastrarSom(nome: string, arquivo: Blob, nomeArquivo: string): Promise<SomDto>;
@@ -265,6 +272,9 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
       await chamar('POST', `/api/admin/usuarios/${usuarioId}/2fa/desligar`);
     },
     mensagensDm: (dmId, antes, ate, janela) => chamar('GET', `/api/dms/${dmId}/mensagens${consulta({ antes, ate, ...janela })}`),
+    fixadasCanal: (canalId) => chamar('GET', `/api/canais/${canalId}/fixadas`),
+    fixadasDm: (dmId) => chamar('GET', `/api/dms/${dmId}/fixadas`),
+    buscar: (pedido) => chamar('POST', '/api/busca', pedido),
     mensagensCanal: (canalId, antes, ate, janela) => chamar('GET', `/api/canais/${canalId}/mensagens${consulta({ antes, ate, ...janela })}`),
     enviarAvatar: (arquivo, nome) => {
       const form = new FormData();

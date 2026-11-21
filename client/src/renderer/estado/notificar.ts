@@ -30,7 +30,8 @@ export function decidirMensagemNova(
   },
 ): DecisaoMensagemNova | undefined {
   const chave = chaveDe(m);
-  if (!chave || m.autorId === contexto.euId) return undefined;
+  // Linha "fulano fixou uma mensagem": não é não lida nem notifica (chat-fixar-e-buscar, CA-5).
+  if (!chave || m.autorId === contexto.euId || m.fixou) return undefined;
   const aberta = contexto.chaveAberta === chave;
   const autor = contexto.usuarios.find((u) => u.id === m.autorId)?.nomeExibicao ?? 'Alguém';
   const canal = m.canalId !== null ? contexto.canais.find((c) => c.id === m.canalId) : undefined;

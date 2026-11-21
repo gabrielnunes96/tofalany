@@ -33,6 +33,8 @@ interface Props {
   aoDigitar: (canalId: number) => void;
   /** Pode marcar @todos (administrador ou "Mencionar @todos"). */
   podeMencionarTodos?: boolean;
+  /** chat-fixar-e-buscar: fixar e desafixar (só quem tem "Fixar mensagens"). */
+  aoFixarMensagem?: (id: number, fixar: boolean) => Promise<string | null>;
   /** RF-40: notificações deste canal silenciadas. */
   silenciada?: boolean;
   aoSilenciar?: (sim: boolean) => void;
@@ -55,6 +57,7 @@ export function CanalAberto({
   aoReagirMensagem,
   klipy,
   aoDigitar,
+  aoFixarMensagem,
   silenciada = false,
   podeMencionarTodos = false,
   aoSilenciar,
@@ -154,6 +157,7 @@ export function CanalAberto({
         comandos={COMANDOS_MUSICA}
         mencoes={{ podeTodos: podeMencionarTodos }}
         somenteLeitura={somenteLeitura}
+        aoFixar={aoFixarMensagem}
       />
     </section>
   );

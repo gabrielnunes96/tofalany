@@ -86,7 +86,16 @@ describe('SeletorTela (RF-26, RF-29)', () => {
   });
 
   it('CA-14: com o vale de 1080p60, as quatro primeiras liberadas e o 2K bloqueado', async () => {
-    render(<SeletorTela listar={async () => fontes} audioDisponivel={false} comLoja qualidades={['720p30', '720p60', '1080p30', '1080p60']} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    render(
+      <SeletorTela
+        listar={async () => fontes}
+        audioDisponivel={false}
+        comLoja
+        qualidades={['720p30', '720p60', '1080p30', '1080p60']}
+        aoEscolher={vi.fn()}
+        aoCancelar={vi.fn()}
+      />,
+    );
     await screen.findByText('Tela 1');
     for (const q of ['720p30', '720p60', '1080p30', '1080p60']) expect((screen.getByLabelText(new RegExp(q)) as HTMLInputElement).disabled).toBe(false);
     expect((screen.getByLabelText(/1440p60/) as HTMLInputElement).disabled).toBe(true);

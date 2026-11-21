@@ -49,7 +49,23 @@ function textoEmComum(p: PerfilDto): string {
 }
 
 /** Mini perfil (RF-2, RF-5): cartão com o fundo, a foto, o nome, os cargos, o status, o "sobre mim" e o campo de mensagem. */
-export function CartaoPessoa({ usuario, servidorUrl, x, y, eu, status, atividade = [], funcao, carregarPerfil, aoMensagem, aoConversar, aoVerPerfil, aoEditarPerfil, convite, aoFechar }: PropsCartao) {
+export function CartaoPessoa({
+  usuario,
+  servidorUrl,
+  x,
+  y,
+  eu,
+  status,
+  atividade = [],
+  funcao,
+  carregarPerfil,
+  aoMensagem,
+  aoConversar,
+  aoVerPerfil,
+  aoEditarPerfil,
+  convite,
+  aoFechar,
+}: PropsCartao) {
   const caixa = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLInputElement>(null);
   const fechar = useRef(aoFechar);
@@ -122,8 +138,19 @@ export function CartaoPessoa({ usuario, servidorUrl, x, y, eu, status, atividade
   const emComum = perfil ? textoEmComum(perfil) : '';
 
   return (
-    <div ref={caixa} className="cartao-pessoa" role="dialog" tabIndex={-1} aria-label={`Perfil de ${nome}`} style={{ left: esquerda, top: topo, width: LARGURA }}>
-      <div className="cartao-pessoa-fundo" style={usuario ? estiloFundo(usuario.fundo, usuario.cor, servidorUrl, { parado: reduzirMovimento }) : undefined} aria-hidden="true" />
+    <div
+      ref={caixa}
+      className="cartao-pessoa"
+      role="dialog"
+      tabIndex={-1}
+      aria-label={`Perfil de ${nome}`}
+      style={{ left: esquerda, top: topo, width: LARGURA }}
+    >
+      <div
+        className="cartao-pessoa-fundo"
+        style={usuario ? estiloFundo(usuario.fundo, usuario.cor, servidorUrl, { parado: reduzirMovimento }) : undefined}
+        aria-hidden="true"
+      />
       <div className="cartao-pessoa-foto">
         <Avatar usuario={usuario ?? { nomeExibicao: '?', cor: '#3a2f5c', avatarUrl: null }} servidorUrl={servidorUrl} tamanho={72} />
         {usuario && <StatusPonto status={status} />}

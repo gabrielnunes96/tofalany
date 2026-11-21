@@ -11,7 +11,12 @@ interface Props {
   gerarQr?: (texto: string) => Promise<string>;
 }
 
-type Etapa = { nome: 'situacao' } | { nome: 'senha' } | { nome: 'ler'; inicio: InicioDoisFatoresDto; qr: string } | { nome: 'codigos'; codigos: string[] } | { nome: 'desligar' };
+type Etapa =
+  | { nome: 'situacao' }
+  | { nome: 'senha' }
+  | { nome: 'ler'; inicio: InicioDoisFatoresDto; qr: string }
+  | { nome: 'codigos'; codigos: string[] }
+  | { nome: 'desligar' };
 
 const qrPadrao = (texto: string) => QRCode.toDataURL(texto, { margin: 1, width: 220, errorCorrectionLevel: 'M' });
 /** Segredo em grupos de 4 (mais fácil de digitar à mão). */
@@ -91,8 +96,8 @@ export function SegurancaConta({ api, copiar, gerarQr = qrPadrao }: Props) {
     <div className="seguranca-conta">
       <h2>Autenticação em dois fatores</h2>
       <p className="suave">
-        Além da senha, o login pede um código do app de autenticação do seu celular (Google Authenticator, Microsoft Authenticator ou outro). É opcional e só é pedido
-        quando você entra numa conta; neste computador você continua entrando direto.
+        Além da senha, o login pede um código do app de autenticação do seu celular (Google Authenticator, Microsoft Authenticator ou outro). É opcional e só é
+        pedido quando você entra numa conta; neste computador você continua entrando direto.
       </p>
       {aviso && (
         <p className="aviso-ok" role="status">
@@ -175,7 +180,8 @@ export function SegurancaConta({ api, copiar, gerarQr = qrPadrao }: Props) {
             Autenticação em dois fatores ligada.
           </p>
           <p>
-            Guarde estes <strong>códigos de recuperação</strong> num lugar seguro. Cada um entra uma vez só, se você ficar sem o celular. Eles não aparecem de novo.
+            Guarde estes <strong>códigos de recuperação</strong> num lugar seguro. Cada um entra uma vez só, se você ficar sem o celular. Eles não aparecem de
+            novo.
           </p>
           <ul aria-label="Códigos de recuperação">
             {etapa.codigos.map((c) => (

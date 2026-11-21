@@ -17,11 +17,24 @@ const canal = { id: 1, tipo: 'texto' as const, nome: 'geral', posicao: 1 };
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#00f0ff', avatarUrl: null, cargo: 'membro' };
 const beto: UsuarioDto = { id: 2, usuario: 'beto', nomeExibicao: 'Beto', cor: '#fff', avatarUrl: null, cargo: 'membro' };
 const GIF: GifDto = { slug: 'gato-1', url: 'https://static.klipy.com/gato-md.webp', largura: 600, altura: 300, descricao: 'Gato dançando' };
-const msg = (id: number, autorId = 1, extra: Partial<MensagemDto> = {}): MensagemDto => ({ id, canalId: 1, dmId: null, autorId, texto: `texto ${id}`, criadaEm: 1_700_000_000_000 + id, editadaEm: null, anexos: [], ...extra });
+const msg = (id: number, autorId = 1, extra: Partial<MensagemDto> = {}): MensagemDto => ({
+  id,
+  canalId: 1,
+  dmId: null,
+  autorId,
+  texto: `texto ${id}`,
+  criadaEm: 1_700_000_000_000 + id,
+  editadaEm: null,
+  anexos: [],
+  ...extra,
+});
 
 function klipyFalsa(): Klipy {
   return {
-    emAlta: vi.fn(async () => ({ itens: [{ slug: GIF.slug, descricao: GIF.descricao, miniatura: { url: 'https://static.klipy.com/gato-sm.webp', largura: 220, altura: 110 }, gif: GIF }], temMais: false })),
+    emAlta: vi.fn(async () => ({
+      itens: [{ slug: GIF.slug, descricao: GIF.descricao, miniatura: { url: 'https://static.klipy.com/gato-sm.webp', largura: 220, altura: 110 }, gif: GIF }],
+      temMais: false,
+    })),
     buscar: vi.fn(async () => ({ itens: [], temMais: false })),
     compartilhar: vi.fn(async () => undefined),
   };
@@ -29,7 +42,17 @@ function klipyFalsa(): Klipy {
 
 function montar(aoEnviar: (t: string, a: string[], o?: object) => Promise<string | null>, klipy?: Klipy, mensagens: MensagemDto[] = []) {
   const mensagensCanal = vi.fn(async (): Promise<PaginaMensagens> => ({ mensagens, fim: true }));
-  render(<MensagensCanal canal={canal} usuarios={[ana, beto]} servidorUrl="http://s" api={{ mensagensCanal, enviarAnexo: vi.fn() }} aoEnviar={aoEnviar} klipy={klipy} {...extras} />);
+  render(
+    <MensagensCanal
+      canal={canal}
+      usuarios={[ana, beto]}
+      servidorUrl="http://s"
+      api={{ mensagensCanal, enviarAnexo: vi.fn() }}
+      aoEnviar={aoEnviar}
+      klipy={klipy}
+      {...extras}
+    />,
+  );
 }
 
 describe('GIF no compositor (T4)', () => {
@@ -60,7 +83,7 @@ describe('GIF no compositor (T4)', () => {
   it('busca: Enter no campo não envia a mensagem; o registro leva o termo buscado; GIF nunca vira comando do bot', async () => {
     const aoEnviar = vi.fn(async () => null);
     const klipy = klipyFalsa();
-    (klipy.buscar as ReturnType<typeof vi.fn>).mockImplementation(async () => (await klipy.emAlta()));
+    (klipy.buscar as ReturnType<typeof vi.fn>).mockImplementation(async () => await klipy.emAlta());
     montar(aoEnviar, klipy);
     fireEvent.change(screen.getByLabelText('Mensagem para #geral'), { target: { value: '/tocar algo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar GIF' }));
@@ -77,7 +100,10 @@ describe('GIF no compositor (T4)', () => {
 
   it('CA-2: recusa do servidor aparece, o texto fica e nada é registrado na Klipy', async () => {
     const klipy = klipyFalsa();
-    montar(vi.fn(async () => 'Seu cargo não permite enviar arquivos nos canais.'), klipy);
+    montar(
+      vi.fn(async () => 'Seu cargo não permite enviar arquivos nos canais.'),
+      klipy,
+    );
     const campo = screen.getByLabelText('Mensagem para #geral') as HTMLTextAreaElement;
     fireEvent.change(campo, { target: { value: 'oi' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar GIF' }));
@@ -88,7 +114,10 @@ describe('GIF no compositor (T4)', () => {
   });
 
   it('CA-11: Esc fecha o painel e devolve o foco ao botão GIF', async () => {
-    montar(vi.fn(async () => null), klipyFalsa());
+    montar(
+      vi.fn(async () => null),
+      klipyFalsa(),
+    );
     const botao = screen.getByRole('button', { name: 'Enviar GIF' });
     fireEvent.click(botao);
     fireEvent.keyDown(screen.getByRole('searchbox', { name: 'Buscar GIF' }), { key: 'Escape' });
@@ -102,7 +131,15 @@ describe('GIF na mensagem (T4)', () => {
     const m = msg(7, 2, { texto: `olha isso\n${GIF.url}`, gif: GIF });
     render(
       <ul>
-        <ItemMensagem mensagem={m} autor={beto} servidorUrl="http://s" podeEditar podeApagar aoEditar={vi.fn(async () => null)} aoApagar={vi.fn(async () => null)} />
+        <ItemMensagem
+          mensagem={m}
+          autor={beto}
+          servidorUrl="http://s"
+          podeEditar
+          podeApagar
+          aoEditar={vi.fn(async () => null)}
+          aoApagar={vi.fn(async () => null)}
+        />
       </ul>,
     );
     const item = screen.getByRole('listitem');

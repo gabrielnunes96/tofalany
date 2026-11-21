@@ -117,7 +117,9 @@ export function SeletorEmoji({ aoEscolher, aoFechar, ancora }: Props) {
       return;
     }
     if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
-    const grades = [...(ref.current?.querySelectorAll('.grade-emojis') ?? [])].map((d) => [...d.querySelectorAll<HTMLButtonElement>('.emoji')]).filter((l) => l.length);
+    const grades = [...(ref.current?.querySelectorAll('.grade-emojis') ?? [])]
+      .map((d) => [...d.querySelectorAll<HTMLButtonElement>('.emoji')])
+      .filter((l) => l.length);
     if (grades.length === 0) return;
     const ativo = document.activeElement as HTMLButtonElement;
     const g = grades.findIndex((l) => l.includes(ativo));

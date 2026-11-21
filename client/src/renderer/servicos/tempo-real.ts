@@ -1,5 +1,28 @@
 import { io, type Socket } from 'socket.io-client';
-import { separarComunidade, ERRO_HANDSHAKE_NAO_AUTENTICADO, type EventosCliente, type EventosServidor, type MotivoRevogacao, type CanalDto, type DmDto, type MensagemDto, type OlaPayload, type SomDto, type VozEstadoDto, type StatusPessoa, type TransmissaoDto, type UsuarioDto, type Destino, type EscolhaStatus, type FuncaoDto, type EstadoMusica, type AmizadeDto, type AtividadeDto, type LojaEstadoDto, type ReacaoDto } from '@tofalando/shared';
+import {
+  separarComunidade,
+  ERRO_HANDSHAKE_NAO_AUTENTICADO,
+  type EventosCliente,
+  type EventosServidor,
+  type MotivoRevogacao,
+  type CanalDto,
+  type DmDto,
+  type MensagemDto,
+  type OlaPayload,
+  type SomDto,
+  type VozEstadoDto,
+  type StatusPessoa,
+  type TransmissaoDto,
+  type UsuarioDto,
+  type Destino,
+  type EscolhaStatus,
+  type FuncaoDto,
+  type EstadoMusica,
+  type AmizadeDto,
+  type AtividadeDto,
+  type LojaEstadoDto,
+  type ReacaoDto,
+} from '@tofalando/shared';
 import { chaveDe, type Chave } from '../estado/chaves';
 
 export type EstadoConexao = 'conectando' | 'conectado' | 'reconectando';
@@ -23,6 +46,8 @@ export interface OuvintesTempoReal {
   aoMensagemApagada(id: number, chave: Chave | null): void;
   /** As reações de uma mensagem mudaram (lista inteira). */
   aoReacoes(id: number, chave: Chave | null, reacoes: ReacaoDto[]): void;
+  /** chat-fixar-e-buscar: uma mensagem foi fixada ou desafixada na conversa. */
+  aoFixadas?(chave: Chave, mensagemId: number, fixada: boolean): void;
   aoDigitando(chave: Chave, usuarioId: number): void;
   aoDmAtualizada(dm: DmDto): void;
   aoLidoAtualizado(chave: Chave, ultimaMensagemId: number): void;
@@ -155,6 +180,10 @@ export function conectarTempoReal(
   socket.on('mensagem:editada', (m) => ouvintes.aoMensagemEditada(m));
   socket.on('mensagem:apagada', (p) => ouvintes.aoMensagemApagada(p.id, chaveDe(p)));
   socket.on('mensagem:reacoes', (p) => ouvintes.aoReacoes(p.id, chaveDe(p), p.reacoes));
+  socket.on('fixadas:mudou', (p) => {
+    const chave = chaveDe(p);
+    if (chave) ouvintes.aoFixadas?.(chave, p.mensagemId, p.fixada);
+  });
   socket.on('digitando', (p) => {
     const chave = chaveDe(p);
     if (chave) ouvintes.aoDigitando(chave, p.usuarioId);

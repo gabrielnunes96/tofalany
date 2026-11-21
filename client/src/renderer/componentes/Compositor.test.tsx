@@ -9,7 +9,15 @@ beforeEach(() => useLoja.getState().limpar());
 afterEach(cleanup);
 
 const ana: UsuarioDto = { id: 1, usuario: 'ana', nomeExibicao: 'Ana', cor: '#00f0ff', avatarUrl: null, cargo: 'membro' };
-const anexo = (n: number): AnexoDto => ({ id: String(n).padStart(24, '0'), url: `/files/${'a'.repeat(32)}.pdf`, tipo: 'documento', nome: `${n}.pdf`, bytes: 10, largura: null, altura: null });
+const anexo = (n: number): AnexoDto => ({
+  id: String(n).padStart(24, '0'),
+  url: `/files/${'a'.repeat(32)}.pdf`,
+  tipo: 'documento',
+  nome: `${n}.pdf`,
+  bytes: 10,
+  largura: null,
+  altura: null,
+});
 const arquivo = (nome: string, bytes = 10) => new File([new Uint8Array(bytes)], nome, { type: 'application/pdf' });
 
 function montar(subir: (f: Blob, nome: string) => Promise<AnexoDto>) {

@@ -98,7 +98,10 @@ describe('BarraLateral — contadores de não lidas', () => {
     render(
       <BarraLateral
         nomeServidor="T"
-        canais={[{ id: 1, tipo: 'texto', nome: 'geral', posicao: 1 }, { id: 2, tipo: 'texto', nome: 'jogos', posicao: 2 }]}
+        canais={[
+          { id: 1, tipo: 'texto', nome: 'geral', posicao: 1 },
+          { id: 2, tipo: 'texto', nome: 'jogos', posicao: 2 },
+        ]}
         canalAtivo={1}
         ehAdmin={false}
         aoAbrir={vi.fn()}

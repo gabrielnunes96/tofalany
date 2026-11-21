@@ -25,7 +25,22 @@ export interface PropsPerfilCompleto {
 }
 
 /** Mini perfil (RF-3): a janela maior, com os amigos e os servidores em comum e o botão de amizade. */
-export function PerfilCompleto({ usuario, servidorUrl, eu, status, atividade = [], funcao, pessoas, carregarPerfil, amizade, aoConversar, aoPedirAmizade, aoAceitarAmizade, aoRemoverAmizade, aoFechar }: PropsPerfilCompleto) {
+export function PerfilCompleto({
+  usuario,
+  servidorUrl,
+  eu,
+  status,
+  atividade = [],
+  funcao,
+  pessoas,
+  carregarPerfil,
+  amizade,
+  aoConversar,
+  aoPedirAmizade,
+  aoAceitarAmizade,
+  aoRemoverAmizade,
+  aoFechar,
+}: PropsPerfilCompleto) {
   const janela = useRef<HTMLDivElement>(null);
   const fechar = useRef(aoFechar);
   useEffect(() => {
@@ -150,7 +165,9 @@ export function PerfilCompleto({ usuario, servidorUrl, eu, status, atividade = [
           {!eu && (
             <div className="perfil-completo-listas">
               <section aria-labelledby="perfil-amigos-comum">
-                <h3 id="perfil-amigos-comum">{perfil ? `${amigos.length} ${amigos.length === 1 ? 'amigo em comum' : 'amigos em comum'}` : 'Amigos em comum'}</h3>
+                <h3 id="perfil-amigos-comum">
+                  {perfil ? `${amigos.length} ${amigos.length === 1 ? 'amigo em comum' : 'amigos em comum'}` : 'Amigos em comum'}
+                </h3>
                 {perfil && amigos.length === 0 && <p className="suave">Nenhum amigo em comum.</p>}
                 <ul className="perfil-completo-lista">
                   {amigos.map((a) => (
@@ -162,7 +179,9 @@ export function PerfilCompleto({ usuario, servidorUrl, eu, status, atividade = [
                 </ul>
               </section>
               <section aria-labelledby="perfil-servidores-comum">
-                <h3 id="perfil-servidores-comum">{perfil ? `${servidores.length} ${servidores.length === 1 ? 'servidor em comum' : 'servidores em comum'}` : 'Servidores em comum'}</h3>
+                <h3 id="perfil-servidores-comum">
+                  {perfil ? `${servidores.length} ${servidores.length === 1 ? 'servidor em comum' : 'servidores em comum'}` : 'Servidores em comum'}
+                </h3>
                 {perfil && servidores.length === 0 && <p className="suave">Nenhum servidor em comum.</p>}
                 <ul className="perfil-completo-lista">
                   {servidores.map((s) => (
