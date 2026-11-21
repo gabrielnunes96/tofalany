@@ -1,8 +1,19 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ATALHOS_PADRAO, AUDIO_PADRAO, NOTIFICACOES_PADRAO, TELA_PADRAO, SONS_PADRAO, type ConfiguracoesLocais, type ConviteLink, type ServidorInfo, type UsuarioDto } from '@tofalando/shared';
+import {
+  ATALHOS_PADRAO,
+  AUDIO_PADRAO,
+  NOTIFICACOES_PADRAO,
+  TELA_PADRAO,
+  SONS_PADRAO,
+  type ConfiguracoesLocais,
+  type ConviteLink,
+  type ServidorInfo,
+  type UsuarioDto,
+} from '@tofalando/shared';
 import type { ApiTofalando, SessaoLocal } from '../../preload/api';
+import type { ServidorConhecido } from '@tofalando/shared';
 
 // A tela principal abre o tempo real; aqui só importa saber que chegou nela.
 const montagens = vi.fn();
@@ -87,26 +98,78 @@ const info: ServidorInfo = { app: 'tofalany', nome: 'B', versao: '0.1.0', contas
 const A = 'http://servidor-a:3000';
 const B = 'http://servidor-b:3000';
 
-function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | null; pendente: ConviteLink | null }) {
-  const gravarConfig = vi.fn(async (p: { servidorUrl?: string | null }): Promise<ConfiguracoesLocais> => {
+function ponteFalsa(estado: {
+  servidorUrl: string | null;
+  sessao: SessaoLocal | null;
+  pendente: ConviteLink | null;
+  /** Modo armazém: uma sessão por endereço (como o de verdade). */
+  sessoes?: Record<string, SessaoLocal>;
+  servidores?: ServidorConhecido[];
+}) {
+  const gravarConfig = vi.fn(async (p: { servidorUrl?: string | null; servidores?: ServidorConhecido[] }): Promise<ConfiguracoesLocais> => {
     if (p.servidorUrl !== undefined) estado.servidorUrl = p.servidorUrl;
-    return { servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO };
+    if (p.servidores !== undefined) estado.servidores = p.servidores;
+    return {
+      servidorUrl: estado.servidorUrl,
+      servidores: estado.servidores,
+      audio: AUDIO_PADRAO,
+      atalhos: ATALHOS_PADRAO,
+      pessoas: {},
+      sons: SONS_PADRAO,
+      notificacoes: NOTIFICACOES_PADRAO,
+      tela: TELA_PADRAO,
+    };
   });
   const api: ApiTofalando = {
     versao: '0.0.0-teste',
     modoTeste: false,
     atalhos: { aoEvento: () => () => undefined, pausar: async () => undefined },
     presenca: { ausente: async () => false, aoMudar: () => () => undefined },
-    captura: { fontes: async () => [], escolher: async () => false, audioDisponivel: false, somLevaChamada: false, pararSom: async () => undefined, mesmaTela: async () => false },
-    rede: { servidorPendente: async () => undefined, video: async () => undefined, gif: async () => undefined },
-    atualizacao: { estado: async () => null, aoMudar: () => () => undefined, instalar: async () => undefined, abrirPagina: async () => undefined, procurar: async () => ({ situacao: 'atualizado' as const }), agora: async () => ({ situacao: 'atualizado' as const }), recusar: async () => undefined, aoProgresso: () => () => undefined, aoFalhar: () => () => undefined },
-    config: { ler: async () => ({ servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO }), gravar: gravarConfig },
-    sessao: {
-      ler: async (url?: string) => (estado.sessao && (!url || estado.sessao.servidorUrl === url) ? estado.sessao : null),
-      gravar: async (s) => void (estado.sessao = s),
-      // Como o armazém de verdade: apaga só a sessão do endereço pedido (sem endereço, a atual).
-      apagar: async (url?: string) => void (!url || estado.sessao?.servidorUrl === url ? (estado.sessao = null) : undefined),
+    captura: {
+      fontes: async () => [],
+      escolher: async () => false,
+      audioDisponivel: false,
+      somLevaChamada: false,
+      pararSom: async () => undefined,
+      mesmaTela: async () => false,
     },
+    rede: { servidorPendente: async () => undefined, video: async () => undefined, gif: async () => undefined },
+    atualizacao: {
+      estado: async () => null,
+      aoMudar: () => () => undefined,
+      instalar: async () => undefined,
+      abrirPagina: async () => undefined,
+      procurar: async () => ({ situacao: 'atualizado' as const }),
+      agora: async () => ({ situacao: 'atualizado' as const }),
+      recusar: async () => undefined,
+      aoProgresso: () => () => undefined,
+      aoFalhar: () => () => undefined,
+    },
+    config: {
+      ler: async () => ({
+        servidorUrl: estado.servidorUrl,
+        servidores: estado.servidores,
+        audio: AUDIO_PADRAO,
+        atalhos: ATALHOS_PADRAO,
+        pessoas: {},
+        sons: SONS_PADRAO,
+        notificacoes: NOTIFICACOES_PADRAO,
+        tela: TELA_PADRAO,
+      }),
+      gravar: gravarConfig,
+    },
+    sessao: estado.sessoes
+      ? {
+          ler: async (url?: string) => (url ? (estado.sessoes![url] ?? null) : null),
+          gravar: async (s) => void (estado.sessoes![s.servidorUrl] = s),
+          apagar: async (url?: string) => void (url && delete estado.sessoes![url]),
+        }
+      : {
+          ler: async (url?: string) => (estado.sessao && (!url || estado.sessao.servidorUrl === url) ? estado.sessao : null),
+          gravar: async (s) => void (estado.sessao = s),
+          // Como o armazém de verdade: apaga só a sessão do endereço pedido (sem endereço, a atual).
+          apagar: async (url?: string) => void (!url || estado.sessao?.servidorUrl === url ? (estado.sessao = null) : undefined),
+        },
     convite: { pendente: async () => estado.pendente, aoChegar: () => () => undefined },
     areaTransferencia: { copiar: async () => undefined },
     arquivos: { baixar: async () => null, abrir: async () => undefined },
@@ -180,7 +243,13 @@ describe('App — voz continua ao olhar outro servidor', () => {
     const { gravarConfig } = ponteFalsa({ servidorUrl: A, sessao: { servidorUrl: A, token: 't' }, pendente: null });
     testar.mockResolvedValue({ ok: true, valor: info });
     const config = window.tofalando.config.ler;
-    window.tofalando.config.ler = async () => ({ ...(await config()), servidores: [{ url: A, nome: 'Turma' }, { url: A2, nome: 'Família' }] });
+    window.tofalando.config.ler = async () => ({
+      ...(await config()),
+      servidores: [
+        { url: A, nome: 'Turma' },
+        { url: A2, nome: 'Família' },
+      ],
+    });
     window.tofalando.sessao.ler = async (url?: string) => ({ servidorUrl: url ?? A, token: 't' });
     render(<App />);
     expect(await screen.findByText(`PRINCIPAL ${A}`)).toBeTruthy();
@@ -227,7 +296,6 @@ describe('App — novidades da versão', () => {
     expect(screen.queryByRole('dialog', { name: /Novidades/ })).toBeNull();
   });
 });
-
 
 describe('App — servidor que mudou de endereço (item 41)', () => {
   const ANTIGO = 'http://servidor-velho:3000';
@@ -358,11 +426,68 @@ describe('App — endereço que mudou para o fixo (infra-e-atualizacao, CA-4)', 
     expect(gravarConfig).toHaveBeenCalledWith(expect.objectContaining({ servidorUrl: PARA }));
   });
 
+  it('várias entradas do endereço antigo (servidores e sessões): todas vão para o novo; o que já estava no novo fica', async () => {
+    testar.mockImplementation(async (url: string) => ({ ok: true, valor: { ...info, nome: 'ToFalany', endereco: url.replace(/\/+$/, '') } }));
+    const sessoes: Record<string, SessaoLocal> = {
+      [DE]: { servidorUrl: DE, token: 't1' },
+      [`${DE}/c/2`]: { servidorUrl: `${DE}/c/2`, token: 't2' },
+      [`${PARA}/c/2`]: { servidorUrl: `${PARA}/c/2`, token: 'ja-no-novo' },
+    };
+    const { estado } = ponteFalsa({
+      servidorUrl: DE,
+      sessao: null,
+      pendente: null,
+      sessoes,
+      servidores: [
+        { url: DE, nome: 'ToFalany' },
+        { url: `${DE}/c/2`, nome: 'Família antigo' },
+        { url: `${PARA}/c/2`, nome: 'Família' },
+      ],
+    });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${PARA}`)).toBeTruthy();
+    expect(estado.servidores!.map((s) => s.url).sort()).toEqual([PARA, `${PARA}/c/2`]);
+    expect(estado.servidores!.find((s) => s.url === `${PARA}/c/2`)!.nome).toBe('Família');
+    expect(sessoes[PARA]).toEqual({ servidorUrl: PARA, token: 't1' });
+    expect(sessoes[`${PARA}/c/2`]!.token).toBe('ja-no-novo');
+    expect(sessoes[DE]).toBeUndefined();
+    expect(sessoes[`${DE}/c/2`]).toBeUndefined();
+  });
+
+  it('endereço antigo fora do ar: troca mesmo assim (o mapa no código é a autoridade)', async () => {
+    testar.mockImplementation(async (url: string) =>
+      url.includes('sslip') ? { ok: false, erro: 'sem conexão' } : { ok: true, valor: { ...info, nome: 'ToFalany', endereco: url.replace(/\/+$/, '') } },
+    );
+    const sessoes: Record<string, SessaoLocal> = { [DE]: { servidorUrl: DE, token: 't1' } };
+    ponteFalsa({ servidorUrl: DE, sessao: null, pendente: null, sessoes, servidores: [{ url: DE, nome: 'ToFalany' }] });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${PARA}`)).toBeTruthy();
+    expect(sessoes[PARA]?.token).toBe('t1');
+  });
+
+  it('configuração que não grava: nada muda (nem as sessões)', async () => {
+    testar.mockImplementation(async (url: string) => ({ ok: true, valor: { ...info, nome: 'ToFalany', endereco: url.replace(/\/+$/, '') } }));
+    const sessoes: Record<string, SessaoLocal> = { [DE]: { servidorUrl: DE, token: 't1' } };
+    const { gravarConfig } = ponteFalsa({ servidorUrl: DE, sessao: null, pendente: null, sessoes, servidores: [{ url: DE, nome: 'ToFalany' }] });
+    // Falha só na gravação da troca (outras gravações do início, como a versão vista, seguem).
+    const original = gravarConfig.getMockImplementation()!;
+    gravarConfig.mockImplementation(async (p) => {
+      if (p.servidores?.some((s) => s.url.startsWith(PARA))) throw new Error('disco cheio');
+      return original(p);
+    });
+    render(<App />);
+    expect(await screen.findByText(`PRINCIPAL ${DE}`)).toBeTruthy();
+    expect(sessoes[DE]?.token).toBe('t1');
+    expect(sessoes[PARA]).toBeUndefined();
+  });
+
   it('nome da instalação diferente no endereço novo: não troca', async () => {
-    testar.mockImplementation(async (url: string) => ({ ok: true, valor: { ...info, nome: url.includes('duckdns') ? 'Outro' : 'ToFalany', endereco: url.replace(/\/+$/, '') } }));
+    testar.mockImplementation(async (url: string) => ({
+      ok: true,
+      valor: { ...info, nome: url.includes('duckdns') ? 'Outro' : 'ToFalany', endereco: url.replace(/\/+$/, '') },
+    }));
     ponteFalsa({ servidorUrl: DE, sessao: { servidorUrl: DE, token: 'mesmo-token' }, pendente: null });
     render(<App />);
     expect(await screen.findByText(`PRINCIPAL ${DE}`)).toBeTruthy();
   });
 });
-

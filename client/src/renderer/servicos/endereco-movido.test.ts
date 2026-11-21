@@ -30,9 +30,10 @@ describe('endereço movido (infra-e-atualizacao, RF-4, T-6)', () => {
     } as unknown as ConfiguracoesLocais;
     const r = moverConfiguracoes(c, DE, PARA);
     expect(r.servidorUrl).toBe(`${PARA}/c/2`);
+    // A entrada que já estava no endereço novo vale (no lugar dela); a antiga equivalente sai.
     expect(r.servidores).toEqual([
-      { url: PARA, nome: 'ToFalany' },
       { url: `${PARA}/c/2`, nome: 'Família' },
+      { url: PARA, nome: 'ToFalany' },
       { url: 'https://outro.exemplo', nome: 'Outro', icone: 'https://outro.exemplo/files/b.webp' },
     ]);
     expect(r.statusEscolhido).toEqual({ [PARA]: 'ausente', 'https://outro.exemplo': 'naoIncomodar' });

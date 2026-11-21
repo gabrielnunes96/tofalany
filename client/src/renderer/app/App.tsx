@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { caminhoComunidade, decidirNovidades, separarComunidade, type NotasVersao, type ConviteLink, type MotivoRevogacao, type ServidorConhecido, type SessaoResponse, type UsuarioDto } from '@tofalando/shared';
+import {
+  caminhoComunidade,
+  decidirNovidades,
+  separarComunidade,
+  type NotasVersao,
+  type ConviteLink,
+  type MotivoRevogacao,
+  type ServidorConhecido,
+  type SessaoResponse,
+  type UsuarioDto,
+} from '@tofalando/shared';
 import { testarServidor } from '../servicos/servidor';
 import { ponte } from '../servicos/ponte';
 import { criarApi, ErroApiCliente } from '../servicos/api';
@@ -73,7 +83,9 @@ export function App() {
    */
   const tokenDaInstalacao = useCallback(async (url: string): Promise<string | null> => {
     const { base } = separarComunidade(url);
-    const candidatos = [base, ...servidoresRef.current.map((s) => s.url)].filter((u, i, l) => u !== url && l.indexOf(u) === i && separarComunidade(u).base === base);
+    const candidatos = [base, ...servidoresRef.current.map((s) => s.url)].filter(
+      (u, i, l) => u !== url && l.indexOf(u) === i && separarComunidade(u).base === base,
+    );
     for (const u of candidatos) {
       const s = await ponte()
         .sessao.ler(u)
@@ -84,96 +96,125 @@ export function App() {
   }, []);
 
   /**
-   * infra-e-atualizacao (RF-4, T-6): o servidor salvo está num endereço que mudou (mapa fixo no código). Confere que o
-   * endereço novo é a mesma instalação (mesmo nome, https) e leva servidores, sessões, status e preferências para ele.
-   * Devolve o endereço novo, ou undefined (fica onde está).
+   * infra-e-atualizacao (RF-4, T-6): leva tudo de uma base antiga (`de`, do mapa fixo no código) para a nova (`para`):
+   * servidores, servidor aberto, status, preferências e sessões. O mapa é a autoridade; o endereço novo precisa responder
+   * como ToFalany, e o antigo, se ainda estiver no ar, com o mesmo nome (os dois nomes atendem o mesmo servidor).
+   * A configuração é gravada antes das sessões; se ela falhar, nada muda. Devolve se a troca aconteceu.
    */
-  const moverEndereco = useCallback(async (salvo: string, novo: string): Promise<string | undefined> => {
-    const teste = await testarServidor(novo);
-    if (!teste.ok || !teste.valor.endereco.startsWith('https://') || separarComunidade(teste.valor.endereco).base !== separarComunidade(novo).base) return undefined;
-    const antigo = await testarServidor(salvo);
-    const nomeAntigo = antigo.ok ? antigo.valor.nome : servidoresRef.current.find((s) => s.url === salvo)?.nome;
-    if (!nomeAntigo || nomeAntigo !== teste.valor.nome) return undefined;
-    const de = separarComunidade(salvo).base;
-    const para = separarComunidade(novo).base;
+  const moverBase = useCallback(async (de: string, para: string): Promise<boolean> => {
+    const novo = await testarServidor(para);
+    if (!novo.ok || separarComunidade(novo.valor.endereco).base !== para) return false;
+    const antigo = await testarServidor(de);
+    if (antigo.ok && antigo.valor.nome !== novo.valor.nome) return false;
     const config = await ponte()
       .config.ler()
       .catch(() => null);
-    if (!config) return undefined;
+    if (!config) return false;
     const parcial = moverConfiguracoes(config, de, para);
-    // Sessões: a mesma conta nos dois endereços (o token não muda; só a chave local).
-    const urls = new Set([salvo, ...(config.servidores ?? []).map((s) => s.url)].filter((u) => separarComunidade(u).base === de));
+    try {
+      await ponte().config.gravar(parcial);
+    } catch {
+      return false;
+    }
+    if (parcial.servidores) {
+      servidoresRef.current = parcial.servidores;
+      setServidores(parcial.servidores);
+    }
+    // Sessões: a mesma conta nos dois endereços (o token não muda; só a chave local). Uma sessão que já existe no
+    // endereço novo vale; a antiga só sai depois que a nova estiver gravada.
+    const urls = new Set([de, config.servidorUrl ?? '', ...(config.servidores ?? []).map((s) => s.url)].filter((u) => u && separarComunidade(u).base === de));
     for (const u of urls) {
       const sessao = await ponte()
         .sessao.ler(u)
         .catch(() => null);
       if (!sessao || sessao.servidorUrl !== u) continue;
-      await ponte()
-        .sessao.gravar({ servidorUrl: destinoMovido(u) ?? novo, token: sessao.token })
-        .catch(() => undefined);
+      const destino = `${para}${caminhoComunidade(separarComunidade(u).comunidade)}`;
+      const existente = await ponte()
+        .sessao.ler(destino)
+        .catch(() => null);
+      if (!existente || existente.servidorUrl !== destino) {
+        try {
+          await ponte().sessao.gravar({ servidorUrl: destino, token: sessao.token });
+        } catch {
+          continue;
+        }
+      }
       await ponte()
         .sessao.apagar(u)
         .catch(() => undefined);
     }
-    await ponte()
-      .config.gravar(parcial)
-      .catch(() => undefined);
-    if (parcial.servidores) {
-      servidoresRef.current = parcial.servidores;
-      setServidores(parcial.servidores);
-    }
-    return novo;
+    return true;
   }, []);
 
   /** Com servidor guardado: usa a sessão se ela for deste servidor e ainda valer (RF-3). */
-  const retomar = useCallback(async (salvoOriginal: string) => {
-    const movido = destinoMovido(salvoOriginal);
-    const salvo = (movido && (await moverEndereco(salvoOriginal, movido))) || salvoOriginal;
-    let url = salvo;
-    let sessao = await ponte()
-      .sessao.ler(salvo)
-      .catch(() => null);
-    // Endereço http:// de um servidor que redireciona para HTTPS: o tempo real (WebSocket) não segue redirecionamento.
-    if (url.startsWith('http:')) {
-      const teste = await testarServidor(url);
-      if (teste.ok && teste.valor.endereco !== url) {
-        url = teste.valor.endereco;
-        await ponte().config.gravar({ servidorUrl: url }).catch(() => undefined);
-        if (sessao) {
-          sessao = { ...sessao, servidorUrl: url };
-          await ponte().sessao.gravar(sessao).catch(() => undefined);
-          await ponte().sessao.apagar(salvo).catch(() => undefined);
+  const retomar = useCallback(
+    async (salvoOriginal: string) => {
+      // Endereços que mudaram (mapa fixo): todos os da configuração, não só o aberto.
+      const config = await ponte()
+        .config.ler()
+        .catch(() => null);
+      const bases = new Set(
+        [salvoOriginal, config?.servidorUrl ?? '', ...(config?.servidores ?? []).map((s) => s.url)]
+          .filter(Boolean)
+          .map((u) => separarComunidade(u).base)
+          .filter((b) => destinoMovido(b)),
+      );
+      const movidas = new Set<string>();
+      for (const b of bases) if (await moverBase(b, destinoMovido(b)!)) movidas.add(b);
+      const salvo = movidas.has(separarComunidade(salvoOriginal).base) ? destinoMovido(salvoOriginal)! : salvoOriginal;
+      let url = salvo;
+      let sessao = await ponte()
+        .sessao.ler(salvo)
+        .catch(() => null);
+      // Endereço http:// de um servidor que redireciona para HTTPS: o tempo real (WebSocket) não segue redirecionamento.
+      if (url.startsWith('http:')) {
+        const teste = await testarServidor(url);
+        if (teste.ok && teste.valor.endereco !== url) {
+          url = teste.valor.endereco;
+          await ponte()
+            .config.gravar({ servidorUrl: url })
+            .catch(() => undefined);
+          if (sessao) {
+            sessao = { ...sessao, servidorUrl: url };
+            await ponte()
+              .sessao.gravar(sessao)
+              .catch(() => undefined);
+            await ponte()
+              .sessao.apagar(salvo)
+              .catch(() => undefined);
+          }
         }
       }
-    }
-    if (!sessao || sessao.servidorUrl !== url) {
-      // Outro servidor da mesma instalação: a mesma conta entra sem pedir senha.
-      const token = await tokenDaInstalacao(url);
-      if (!token) {
-        setEstado({ fase: 'entrar', url });
-        return;
+      if (!sessao || sessao.servidorUrl !== url) {
+        // Outro servidor da mesma instalação: a mesma conta entra sem pedir senha.
+        const token = await tokenDaInstalacao(url);
+        if (!token) {
+          setEstado({ fase: 'entrar', url });
+          return;
+        }
+        sessao = { servidorUrl: url, token };
       }
-      sessao = { servidorUrl: url, token };
-    }
-    try {
-      const usuario = await criarApi(url, sessao.token).eu();
-      await ponte()
-        .sessao.gravar({ servidorUrl: url, token: sessao.token })
-        .catch(() => undefined);
-      setEstado({ fase: 'principal', url, token: sessao.token, usuario });
-    } catch (e) {
-      if (e instanceof ErroApiCliente && e.codigo === 'nao_membro') {
-        setEstado({ fase: 'sem-conexao', url, mensagem: 'Você não participa deste servidor. Peça um convite para quem administra.' });
-      } else if (e instanceof ErroApiCliente && e.status === 401) {
+      try {
+        const usuario = await criarApi(url, sessao.token).eu();
         await ponte()
-          .sessao.apagar(url)
+          .sessao.gravar({ servidorUrl: url, token: sessao.token })
           .catch(() => undefined);
-        setEstado({ fase: 'entrar', url });
-      } else {
-        setEstado({ fase: 'sem-conexao', url, mensagem: e instanceof Error ? e.message : 'Sem conexão com o servidor.' });
+        setEstado({ fase: 'principal', url, token: sessao.token, usuario });
+      } catch (e) {
+        if (e instanceof ErroApiCliente && e.codigo === 'nao_membro') {
+          setEstado({ fase: 'sem-conexao', url, mensagem: 'Você não participa deste servidor. Peça um convite para quem administra.' });
+        } else if (e instanceof ErroApiCliente && e.status === 401) {
+          await ponte()
+            .sessao.apagar(url)
+            .catch(() => undefined);
+          setEstado({ fase: 'entrar', url });
+        } else {
+          setEstado({ fase: 'sem-conexao', url, mensagem: e instanceof Error ? e.message : 'Sem conexão com o servidor.' });
+        }
       }
-    }
-  }, [tokenDaInstalacao, moverEndereco]);
+    },
+    [tokenDaInstalacao, moverBase],
+  );
 
   /**
    * RF-1a: link de convite. Se já há sessão neste servidor, só entra. Senão abre o cadastro com o
@@ -182,7 +223,10 @@ export function App() {
    * guardando o convite para "Tentar de novo".
    */
   const abrirConvite = useCallback(
-    async (convite: ConviteLink) => {
+    async (recebido: ConviteLink) => {
+      // Link de convite do endereço antigo (mapa fixo): vale no endereço novo.
+      const movido = destinoMovido(recebido.servidor);
+      const convite = movido ? { ...recebido, servidor: movido } : recebido;
       const { codigo } = convite;
       const teste = await testarServidor(convite.servidor);
       if (!teste.ok) {
@@ -191,7 +235,9 @@ export function App() {
       }
       const servidor = teste.valor.endereco;
       // O processo principal só deixa falar com o servidor salvo; este, já testado, vale enquanto o convite estiver aberto.
-      await ponte().rede.servidorPendente(servidor).catch(() => undefined);
+      await ponte()
+        .rede.servidorPendente(servidor)
+        .catch(() => undefined);
       const sessao = await ponte()
         .sessao.ler(servidor)
         .catch(() => null);
@@ -224,7 +270,9 @@ export function App() {
   useEffect(() => {
     const parar = ponte().convite.aoChegar((c) => void abrirConvite(c));
     void (async () => {
-      const pendente = await ponte().convite.pendente().catch(() => null);
+      const pendente = await ponte()
+        .convite.pendente()
+        .catch(() => null);
       if (pendente) return abrirConvite(pendente);
       const c = await ponte().config.ler();
       // Novidades da versão: uma vez, depois de atualizar (instalação nova só guarda a versão).
@@ -263,7 +311,9 @@ export function App() {
   }
 
   async function sair(url: string, token: string) {
-    await criarApi(url, token).sair().catch(() => undefined);
+    await criarApi(url, token)
+      .sair()
+      .catch(() => undefined);
     await ponte()
       .sessao.apagar(url)
       .catch((e: unknown) => console.error('Não foi possível apagar a sessão guardada.', e));
@@ -462,7 +512,12 @@ export function App() {
       void naoLidasDosOutros(
         servidores,
         urlAtiva,
-        async (url) => (await ponte().sessao.ler(url).catch(() => null))?.token ?? null,
+        async (url) =>
+          (
+            await ponte()
+              .sessao.ler(url)
+              .catch(() => null)
+          )?.token ?? null,
         (url, token) => criarApi(url, token).naoLidas(),
       ).then((r) => {
         if (vivo) setNaoLidasOutros(r);
@@ -499,9 +554,9 @@ export function App() {
       <div className="dialogo cartao" role="alertdialog" aria-labelledby="titulo-endereco-antigo" aria-describedby="texto-endereco-antigo">
         <h2 id="titulo-endereco-antigo">O servidor mudou de endereço?</h2>
         <p id="texto-endereco-antigo">
-          <strong>{enderecoAntigo.nome}</strong> também está na sua lista pelo endereço <strong>{enderecoAntigo.host}</strong>, que não responde mais.
-          Tirar {enderecoAntigo.urls.length === 1 ? 'esse servidor' : `os ${enderecoAntigo.urls.length} servidores desse endereço`} da lista? Isso só muda a
-          lista neste computador.
+          <strong>{enderecoAntigo.nome}</strong> também está na sua lista pelo endereço <strong>{enderecoAntigo.host}</strong>, que não responde mais. Tirar{' '}
+          {enderecoAntigo.urls.length === 1 ? 'esse servidor' : `os ${enderecoAntigo.urls.length} servidores desse endereço`} da lista? Isso só muda a lista
+          neste computador.
         </p>
         <div className="dialogo-acoes">
           {/* A janela abre sozinha (a pessoa pode estar digitando): o foco vai para a opção que não tira nada. */}
@@ -529,7 +584,9 @@ export function App() {
       </div>
     </div>
   );
-  const atualizarAgora = <AtualizarAgora key="atualizar-agora" atualizacao={ponte().atualizacao} controleRef={controleAtualizar} emChamada={vozViva !== null} />;
+  const atualizarAgora = (
+    <AtualizarAgora key="atualizar-agora" atualizacao={ponte().atualizacao} controleRef={controleAtualizar} emChamada={vozViva !== null} />
+  );
   /** A coluna de servidores aparece quando já há algum servidor (na primeira execução, não). */
   const janelaNovidades = notas && (
     <JanelaNovidades
@@ -628,7 +685,15 @@ export function App() {
     if (outra) filhos.push(outra);
     return <>{filhos}</>;
   }
-  const comVoz = (chave: string, tela: ReactNode) => (vozViva ? montarTelas(null, <div key={`fase:${chave}`} className="tela-servidor">{tela}</div>) : tela);
+  const comVoz = (chave: string, tela: ReactNode) =>
+    vozViva
+      ? montarTelas(
+          null,
+          <div key={`fase:${chave}`} className="tela-servidor">
+            {tela}
+          </div>,
+        )
+      : tela;
 
   const conteudo = (() => {
     switch (estado.fase) {
@@ -636,50 +701,57 @@ export function App() {
         return vozViva ? comColuna(montarTelas(null)) : null;
       case 'escolher-servidor': {
         const { voltar } = estado;
-        return comColuna(comVoz('escolher', <TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />));
+        return comColuna(
+          comVoz(
+            'escolher',
+            <TelaServidor aoConectar={guardarServidor} aoConvite={(c) => void abrirConvite(c)} aoCancelar={voltar ? () => setEstado(voltar) : undefined} />,
+          ),
+        );
       }
       case 'sem-conexao':
         return comColuna(
           comVoz(
             'sem-conexao',
-          <main className="tela-centro">
-            <section className="cartao">
-              <h1>Sem conexão</h1>
-              <p className="erro" role="alert">
-                {estado.mensagem}
-              </p>
-              <button type="button" onClick={() => void (estado.convite ? abrirConvite(estado.convite) : retomar(estado.url))}>
-                Tentar de novo
-              </button>
-              <button type="button" className="link" onClick={trocarServidor}>
-                Trocar servidor
-              </button>
-              {servidores.some((s) => s.url === estado.url) && (
-                <button
-                  type="button"
-                  className="link"
-                  onClick={() => {
-                    if (window.confirm('Tirar este servidor da lista? Isso só muda a lista neste computador.')) void removerDaLista([estado.url]);
-                  }}
-                >
-                  Tirar da lista
+            <main className="tela-centro">
+              <section className="cartao">
+                <h1>Sem conexão</h1>
+                <p className="erro" role="alert">
+                  {estado.mensagem}
+                </p>
+                <button type="button" onClick={() => void (estado.convite ? abrirConvite(estado.convite) : retomar(estado.url))}>
+                  Tentar de novo
                 </button>
-              )}
-            </section>
-          </main>,
+                <button type="button" className="link" onClick={trocarServidor}>
+                  Trocar servidor
+                </button>
+                {servidores.some((s) => s.url === estado.url) && (
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => {
+                      if (window.confirm('Tirar este servidor da lista? Isso só muda a lista neste computador.')) void removerDaLista([estado.url]);
+                    }}
+                  >
+                    Tirar da lista
+                  </button>
+                )}
+              </section>
+            </main>,
           ),
         );
       case 'entrar':
         return comColuna(
           comVoz(
             'entrar',
-          <TelaEntrar
-            key={`${estado.url}|${estado.convite ?? ''}`}
-            servidorUrl={estado.url}
-            aviso={estado.aviso}
-            conviteInicial={estado.convite}
-            aoCancelarConvite={estado.voltar && estado.voltar.fase !== 'carregando' ? () => setEstado(estado.voltar!) : undefined}
-            aoEntrar={(s) => entrou(estado.url, s)} aoTrocarServidor={trocarServidor} />,
+            <TelaEntrar
+              key={`${estado.url}|${estado.convite ?? ''}`}
+              servidorUrl={estado.url}
+              aviso={estado.aviso}
+              conviteInicial={estado.convite}
+              aoCancelarConvite={estado.voltar && estado.voltar.fase !== 'carregando' ? () => setEstado(estado.voltar!) : undefined}
+              aoEntrar={(s) => entrou(estado.url, s)}
+              aoTrocarServidor={trocarServidor}
+            />,
           ),
         );
       case 'principal':
