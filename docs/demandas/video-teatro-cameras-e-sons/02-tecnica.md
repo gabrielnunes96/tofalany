@@ -1,6 +1,6 @@
 # Vídeo: modo teatro, câmeras e sons da transmissão — especificação técnica
 
-> Demanda: `video-teatro-cameras-e-sons` · Base: funcional v1 · 21/11/2026 · Situação: **rascunho**
+> Demanda: `video-teatro-cameras-e-sons` · Base: funcional v1 · 21/11/2026 · Situação: **aprovada em 21/11/2026**
 
 ## 1. Visão da solução
 Só o app muda (servidor, protocolo e banco ficam iguais).
