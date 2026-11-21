@@ -42,8 +42,8 @@ export function registrarRotasConvitesPessoa(app: FastifyInstance, banco: Banco,
   const impedimento = (eu: number, alvo: number, c: number): ErroHttp | null => {
     if (!membroDe(banco, c, eu) || !temPermissao(banco, eu, 'gerenciar_convite', c)) return new ErroHttp(403, 'sem_permissao', 'Você não pode convidar para esse servidor.');
     if (membroDe(banco, c, alvo)) return new ErroHttp(409, 'ja_membro', 'Essa pessoa já está nesse servidor.');
-    if (estaBanido(banco, c, alvo)) return new ErroHttp(409, 'banido', 'Essa pessoa foi banida desse servidor.');
-    if (!conviteDa(banco, c)) return new ErroHttp(409, 'sem_convite', 'Esse servidor está sem código de convite.');
+    // Banimento e servidor sem código: a mesma resposta (quem só tem "Gerenciar convite" não descobre quem foi banido).
+    if (estaBanido(banco, c, alvo) || !conviteDa(banco, c)) return new ErroHttp(409, 'nao_convidavel', 'Não dá para convidar essa pessoa para esse servidor.');
     return null;
   };
 
@@ -72,18 +72,19 @@ export function registrarRotasConvitesPessoa(app: FastifyInstance, banco: Banco,
     async (req): Promise<{ ok: true }> => {
       const { eu, alvo } = alvoDe(req);
       const { comunidadeId } = req.body as { comunidadeId: number };
+      // O limite conta também as tentativas recusadas (sem sondar servidor por servidor à vontade).
+      if (!limite.permitir(String(eu))) throw new ErroHttp(429, 'muitas_tentativas', 'Muitos convites seguidos. Tente de novo daqui a pouco.');
       const erro = impedimento(eu, alvo, comunidadeId);
       if (erro) throw erro;
-      if (!limite.permitir(String(eu))) throw new ErroHttp(429, 'muitas_tentativas', 'Muitos convites seguidos. Tente de novo daqui a pouco.');
       const nome = nomeComunidade(banco, comunidadeId, config.nomeServidor) ?? 'servidor';
       // O link é montado aqui, nunca vem do app.
       const link = montarLinkConvite(baseServidor(config, req) + caminhoComunidade(comunidadeId), conviteDa(banco, comunidadeId)!);
       const mensagem = banco.transaction(() => {
         const dmId = abrirDm(banco, eu, alvo);
         const id = inserirMensagem(banco, { dmId }, eu, `Convite para o servidor ${nome}: ${link}`, Date.now());
+        registrarAuditoria(banco, { tipo: 'convite_enviado', atorId: eu, alvoUsuarioId: alvo, comunidadeId });
         return buscarMensagem(banco, id)!;
       })();
-      registrarAuditoria(banco, { tipo: 'convite_enviado', atorId: eu, alvoUsuarioId: alvo, comunidadeId });
       tempoReal.entregarMensagemDm(mensagem);
       return { ok: true };
     },

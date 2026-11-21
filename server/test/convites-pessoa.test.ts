@@ -89,16 +89,16 @@ describe('convidar para servidor pelo cartão da pessoa (qualidade-de-vida, RF-2
     expect(await listar(dono, ana).then((r) => r.json())).toEqual([]);
     const banido = await convidar(dono, ana, 2);
     expect(banido.statusCode).toBe(409);
-    expect(banido.json().erro).toBe('banido');
+    expect(banido.json().erro).toBe('nao_convidavel');
   });
 
-  it('servidor sem código de convite não aparece e o envio devolve 409 sem_convite', async () => {
+  it('servidor sem código de convite não aparece e o envio devolve 409 nao_convidavel (a mesma resposta do banido)', async () => {
     const { dono, ana, listar, convidar, app: servidor } = await preparar();
     servidor.banco.prepare('UPDATE comunidades SET convite = NULL WHERE id = 2').run();
     expect(await listar(dono, ana).then((r) => r.json())).toEqual([]);
     const r = await convidar(dono, ana, 2);
     expect(r.statusCode).toBe(409);
-    expect(r.json().erro).toBe('sem_convite');
+    expect(r.json().erro).toBe('nao_convidavel');
   });
 
   it('CA-5: o convite chega como mensagem direta com o nome do servidor e o link de convite dele', async () => {
@@ -111,6 +111,12 @@ describe('convidar para servidor pelo cartão da pessoa (qualidade-de-vida, RF-2
     expect(m.dmId).not.toBeNull();
     expect(m.autorId).toBe(dono.usuario.id);
     expect(m.texto).toMatch(/^Convite para o servidor Família: http:\/\/[^ ]+\/c\/2\/convite\/[^ ]+$/);
+  });
+
+  it('limite: tentativas recusadas também contam', async () => {
+    const { ana, dono, convidar } = await preparar();
+    for (let i = 0; i < 10; i++) expect((await convidar(ana, dono, 1)).statusCode).toBe(403);
+    expect((await convidar(ana, dono, 1)).statusCode).toBe(429);
   });
 
   it('limite: o 11º convite em 10 minutos recebe 429', async () => {
