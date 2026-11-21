@@ -83,9 +83,9 @@
         "CA-2"
       ],
       "validacao": "App.test.tsx/TelaPrincipal: com adminDaInstalacao fora do principal o item aparece e a tela usa a API da base; sem ela, não aparece. Conferir no app num servidor que não é o principal. npm test, lint e typecheck.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "49ef8f9"
     },
     {
       "id": "T6",
@@ -100,7 +100,7 @@
         "CA-10"
       ],
       "validacao": "atualizacao.test.ts: pedido esconde o aviso; progresso repassado; resultados indisponivel/atualizado/nova. npm test, lint e typecheck.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

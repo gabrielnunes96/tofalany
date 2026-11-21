@@ -15,6 +15,8 @@ const INTERVALO_MINIMO_MS = 10 * 60 * 1000;
 export interface EstadoAtualizacao {
   versao: string;
   modo: 'reiniciar' | 'pagina';
+  /** qualidade-de-vida, RF-5: pedida pelo "Atualizar o app": quem conduz é a janela (o aviso do canto não aparece). */
+  pedido?: boolean;
 }
 
 /**
@@ -41,12 +43,20 @@ function lerTipoPacote(): string | undefined {
   }
 }
 
-export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined): { conferir(): void } {
+export function iniciarAtualizacao(
+  obterJanela: () => BrowserWindow | undefined,
+  registrar: (area: string, motivo: string) => void = () => undefined,
+): { conferir(): void } {
   let estado: EstadoAtualizacao | null = null;
+  // RF-5: "Atualizar o app" em andamento (do clique até a pessoa instalar ou recusar).
+  let pedido = false;
+  const paraJanela = (canal: string, valor: unknown) => {
+    const j = obterJanela();
+    if (j && !j.isDestroyed()) j.webContents.send(canal, valor);
+  };
   const enviar = (e: EstadoAtualizacao) => {
     estado = e;
-    const j = obterJanela();
-    if (j && !j.isDestroyed()) j.webContents.send('atualizacao:estado', e);
+    paraJanela('atualizacao:estado', e);
   };
 
   ipcMain.handle('atualizacao:estado', () => estado);
@@ -61,6 +71,20 @@ export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined)
   // Backlog 27: "Procurar atualização" pergunta na hora, sem esperar o intervalo da conferência automática.
   let procurar: () => Promise<ResultadoProcura> = async () => ({ situacao: 'indisponivel' });
   ipcMain.handle('atualizacao:procurar', () => procurar());
+  // qualidade-de-vida, RF-5: procura já marcando o pedido; baixando, o progresso vai para a janela, e a versão pronta
+  // chega com `pedido` (a janela instala, ou pergunta se a pessoa está numa chamada).
+  ipcMain.handle('atualizacao:agora', async () => {
+    pedido = true;
+    const r = await procurar();
+    if (r.situacao === 'pronta' && estado) enviar({ ...estado, pedido: true });
+    else if (r.situacao !== 'baixando') pedido = false;
+    return r;
+  });
+  // Recusou reiniciar agora (em chamada): volta o aviso do canto.
+  ipcMain.handle('atualizacao:recusar', () => {
+    pedido = false;
+    if (estado) enviar({ ...estado, pedido: false });
+  });
 
   if (!app.isPackaged) return { conferir: () => undefined };
   const sozinho = podeAtualizarSozinho(process.platform, process.env.APPIMAGE, lerTipoPacote());
@@ -70,9 +94,18 @@ export function iniciarAtualizacao(obterJanela: () => BrowserWindow | undefined)
   autoUpdater.on('update-available', (info) => {
     if (!sozinho) enviar({ versao: info.version, modo: 'pagina' });
   });
-  autoUpdater.on('update-downloaded', (info) => enviar({ versao: info.version, modo: 'reiniciar' }));
-  // Sem internet ou GitHub fora: tenta de novo na próxima rodada, sem incomodar.
-  autoUpdater.on('error', (erro) => console.warn('Atualização: não foi possível conferir agora.', erro?.message ?? erro));
+  autoUpdater.on('update-downloaded', (info) => enviar({ versao: info.version, modo: 'reiniciar', ...(pedido ? { pedido: true } : {}) }));
+  autoUpdater.on('download-progress', (p: { percent?: number }) => {
+    if (pedido) paraJanela('atualizacao:progresso', Math.max(0, Math.min(100, Math.round(p.percent ?? 0))));
+  });
+  // Sem internet ou GitHub fora: tenta de novo na próxima rodada, sem incomodar. Pedida pelo botão, a janela fica sabendo.
+  autoUpdater.on('error', (erro) => {
+    console.warn('Atualização: não foi possível conferir agora.', erro?.message ?? erro);
+    if (!pedido) return;
+    pedido = false;
+    registrar('atualizacao', 'download: erro');
+    paraJanela('atualizacao:falhou', null);
+  });
 
   let ultima = 0;
   const conferir = () => {

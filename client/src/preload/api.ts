@@ -80,12 +80,21 @@ export interface ApiTofalando {
   };
   /** Backlog v2, 1d: versão nova (baixada, para reiniciar; ou só disponível, para baixar pela página). */
   atualizacao: {
-    estado(): Promise<{ versao: string; modo: 'reiniciar' | 'pagina' } | null>;
-    aoMudar(fn: (e: { versao: string; modo: 'reiniciar' | 'pagina' }) => void): () => void;
+    /** `pedido`: veio do "Atualizar o app" (quem conduz é o App; o aviso do canto não aparece). */
+    estado(): Promise<{ versao: string; modo: 'reiniciar' | 'pagina'; pedido?: boolean } | null>;
+    aoMudar(fn: (e: { versao: string; modo: 'reiniciar' | 'pagina'; pedido?: boolean }) => void): () => void;
     instalar(): Promise<void>;
     abrirPagina(): Promise<void>;
     /** Backlog 27: procura agora, sem esperar o intervalo automático. */
     procurar(): Promise<{ situacao: 'atualizado' | 'nova' | 'baixando' | 'pronta' | 'erro' | 'indisponivel'; versao?: string }>;
+    /** qualidade-de-vida, RF-5: procura e, havendo versão, baixa com o progresso e a deixa pronta com `pedido`. */
+    agora(): Promise<{ situacao: 'atualizado' | 'nova' | 'baixando' | 'pronta' | 'erro' | 'indisponivel'; versao?: string }>;
+    /** Não reiniciar agora (em chamada): volta o aviso do canto. */
+    recusar(): Promise<void>;
+    /** Percentual do download (0–100) do pedido em andamento. */
+    aoProgresso(fn: (percentual: number) => void): () => void;
+    /** O download do pedido falhou. */
+    aoFalhar(fn: () => void): () => void;
   };
   arquivos: {
     /** Pergunta onde salvar e baixa; null se a pessoa cancelar. */

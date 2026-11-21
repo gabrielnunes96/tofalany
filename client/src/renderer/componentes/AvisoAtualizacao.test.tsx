@@ -5,7 +5,7 @@ import { AvisoAtualizacao } from './AvisoAtualizacao';
 
 afterEach(cleanup);
 
-type Estado = { versao: string; modo: 'reiniciar' | 'pagina' };
+type Estado = { versao: string; modo: 'reiniciar' | 'pagina'; pedido?: boolean };
 
 function ponte(inicial: Estado | null) {
   let ouvinte: ((e: Estado) => void) | undefined;
@@ -18,6 +18,10 @@ function ponte(inicial: Estado | null) {
     instalar: vi.fn(async () => undefined),
     abrirPagina: vi.fn(async () => undefined),
     procurar: vi.fn(async () => ({ situacao: 'atualizado' as const })),
+    agora: vi.fn(async () => ({ situacao: 'atualizado' as const })),
+    recusar: vi.fn(async () => undefined),
+    aoProgresso: vi.fn(() => () => undefined),
+    aoFalhar: vi.fn(() => () => undefined),
   };
   return { api, avisar: (e: Estado) => act(() => ouvinte?.(e)) };
 }
@@ -65,5 +69,15 @@ describe('aviso de versão nova (backlog v2, 1d)', () => {
     render(<AvisoAtualizacao atualizacao={api} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Baixar a versão nova' }));
     expect(api.abrirPagina).toHaveBeenCalled();
+  });
+
+  it('qualidade-de-vida, RF-5: versão pedida pelo "Atualizar o app" não mostra o aviso do canto; recusada, mostra', async () => {
+    const { api, avisar } = ponte(null);
+    render(<AvisoAtualizacao atualizacao={api} />);
+    await act(async () => undefined);
+    avisar({ versao: '0.18.0', modo: 'reiniciar', pedido: true });
+    expect(screen.queryByRole('status', { name: 'Versão nova' })).toBeNull();
+    avisar({ versao: '0.18.0', modo: 'reiniciar', pedido: false });
+    expect(screen.getByRole('status', { name: 'Versão nova' })).toBeTruthy();
   });
 });

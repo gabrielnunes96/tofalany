@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ApiTofalando } from '../../preload/api';
 import icone from '../assets/icone.png';
 
-type Estado = { versao: string; modo: 'reiniciar' | 'pagina' };
+type Estado = { versao: string; modo: 'reiniciar' | 'pagina'; pedido?: boolean };
 
 /**
  * Backlog v2, 1d: aviso de versão nova, num canto da tela (não mexe no layout).
@@ -43,7 +43,8 @@ export function AvisoAtualizacao({ atualizacao }: { atualizacao: ApiTofalando['a
       </div>
     );
   }
-  if (!estado || fechado === `${estado.versao}:${estado.modo}`) return null;
+  // Pedida pelo "Atualizar o app" (qualidade-de-vida, RF-5): quem mostra o progresso e instala é o App.
+  if (!estado || estado.pedido || fechado === `${estado.versao}:${estado.modo}`) return null;
   return (
     <aside className="aviso-atualizacao" role="status" aria-label="Versão nova">
       <p>

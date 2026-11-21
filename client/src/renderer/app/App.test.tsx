@@ -83,7 +83,7 @@ function ponteFalsa(estado: { servidorUrl: string | null; sessao: SessaoLocal | 
     presenca: { ausente: async () => false, aoMudar: () => () => undefined },
     captura: { fontes: async () => [], escolher: async () => false, audioDisponivel: false, somLevaChamada: false, pararSom: async () => undefined, mesmaTela: async () => false },
     rede: { servidorPendente: async () => undefined, video: async () => undefined, gif: async () => undefined },
-    atualizacao: { estado: async () => null, aoMudar: () => () => undefined, instalar: async () => undefined, abrirPagina: async () => undefined, procurar: async () => ({ situacao: 'atualizado' as const }) },
+    atualizacao: { estado: async () => null, aoMudar: () => () => undefined, instalar: async () => undefined, abrirPagina: async () => undefined, procurar: async () => ({ situacao: 'atualizado' as const }), agora: async () => ({ situacao: 'atualizado' as const }), recusar: async () => undefined, aoProgresso: () => () => undefined, aoFalhar: () => () => undefined },
     config: { ler: async () => ({ servidorUrl: estado.servidorUrl, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO }), gravar: gravarConfig },
     sessao: {
       ler: async (url?: string) => (estado.sessao && (!url || estado.sessao.servidorUrl === url) ? estado.sessao : null),

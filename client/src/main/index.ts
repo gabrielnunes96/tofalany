@@ -203,7 +203,9 @@ if (links.principal) {
     );
     atalhos.definir(configuracoes.ler().atalhos);
     // Backlog v2, 1d: confere as releases do GitHub e avisa a janela (só no app empacotado).
-    conferirAtualizacao = iniciarAtualizacao(() => janelaPrincipal).conferir;
+    // Log do app (tofalany.log na pasta de logs): falhas da atividade e da atualização, sem nomes de processo nem músicas.
+    const registrar = criarRegistro(app.getPath('logs'));
+    conferirAtualizacao = iniciarAtualizacao(() => janelaPrincipal, registrar).conferir;
     app.on('will-quit', () => atalhos.parar());
     // RN-25: ocioso há 10 min → ausente (o renderer avisa o servidor).
     let ociosoForcado: number | undefined;
@@ -216,8 +218,6 @@ if (links.principal) {
     app.on('will-quit', () => ociosidade.parar());
     ipcMain.handle('presenca:ausente', () => ociosidade.ausente());
     // Atividade (jogo da Steam, música do Spotify): só o que a pessoa ligou nas configurações.
-    // Falhas da leitura vão para o log do app (tofalany.log na pasta de logs), sem nomes de processo nem músicas.
-    const registrar = criarRegistro(app.getPath('logs'));
     const atividade = criarAtividade(
       () => configuracoes.ler().atividade ?? ATIVIDADE_PADRAO,
       (a) => {

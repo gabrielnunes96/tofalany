@@ -73,13 +73,25 @@ const api: ApiTofalando = {
   atualizacao: {
     estado: () => ipcRenderer.invoke('atualizacao:estado'),
     aoMudar: (fn) => {
-      const ouvinte = (_e: IpcRendererEvent, estado: { versao: string; modo: 'reiniciar' | 'pagina' }) => fn(estado);
+      const ouvinte = (_e: IpcRendererEvent, estado: { versao: string; modo: 'reiniciar' | 'pagina'; pedido?: boolean }) => fn(estado);
       ipcRenderer.on('atualizacao:estado', ouvinte);
       return () => ipcRenderer.removeListener('atualizacao:estado', ouvinte);
     },
     instalar: () => ipcRenderer.invoke('atualizacao:instalar'),
     abrirPagina: () => ipcRenderer.invoke('atualizacao:pagina'),
     procurar: () => ipcRenderer.invoke('atualizacao:procurar'),
+    agora: () => ipcRenderer.invoke('atualizacao:agora'),
+    recusar: () => ipcRenderer.invoke('atualizacao:recusar'),
+    aoProgresso: (fn) => {
+      const ouvinte = (_e: IpcRendererEvent, percentual: number) => fn(percentual);
+      ipcRenderer.on('atualizacao:progresso', ouvinte);
+      return () => ipcRenderer.removeListener('atualizacao:progresso', ouvinte);
+    },
+    aoFalhar: (fn) => {
+      const ouvinte = () => fn();
+      ipcRenderer.on('atualizacao:falhou', ouvinte);
+      return () => ipcRenderer.removeListener('atualizacao:falhou', ouvinte);
+    },
   },
   arquivos: {
     baixar: (url, nome) => ipcRenderer.invoke('arquivo:baixar', url, nome),
