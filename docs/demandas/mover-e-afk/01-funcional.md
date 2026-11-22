@@ -1,6 +1,6 @@
 # Mover membros e sala de AFK — especificação funcional
 
-> Demanda: `mover-e-afk` · Versão 1 · 21/11/2026 · Situação: **rascunho**
+> Demanda: `mover-e-afk` · Versão 1 · 21/11/2026 · Situação: **aprovada em 21/11/2026**
 
 ## 1. Objetivo
 Organizar quem está nas salas de voz:
