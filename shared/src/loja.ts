@@ -96,6 +96,8 @@ export interface MovimentoDto {
   item: string | null;
   valor: number;
   em: number;
+  /** audios-na-loja: nome do item quando ele não está no app (o áudio comprado, com o nome de hoje). */
+  nomeItem?: string;
 }
 
 /**

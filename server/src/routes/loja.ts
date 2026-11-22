@@ -5,6 +5,8 @@ import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
 import { exigirSessao } from '../auth/sessao-http.js';
 import { comprar, estadoLoja, extrato } from '../dominio/loja.js';
+import { audiosAVenda, buscarAudio } from '../dominio/audios-loja.js';
+import { criarLimitador } from '../auth/limitador.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import type { TempoReal } from '../realtime/tempo-real.js';
 
@@ -12,7 +14,7 @@ import type { TempoReal } from '../realtime/tempo-real.js';
 const corpoCompra = {
   type: 'object',
   additionalProperties: false,
-  properties: { tipo: {}, tema: {}, qualidade: {} },
+  properties: { tipo: {}, tema: {}, qualidade: {}, audioId: {} },
 } as const;
 
 const consultaExtrato = {
@@ -24,25 +26,33 @@ const consultaExtrato = {
 /** Pontos e loja: catálogo com preços, compra e extrato. Tudo da conta: vale em qualquer servidor da instalação. */
 export function registrarRotasLoja(app: FastifyInstance, banco: Banco, config: Config, tempoReal: TempoReal): void {
   const daConta = exigirSessao(banco, { daConta: true });
+  const limiteCompras = criarLimitador(10, 60_000);
 
   app.get('/api/loja', { preHandler: daConta }, async (req): Promise<CatalogoLojaDto> => ({
     precos: config.pontos.precos,
     pontosPorMinuto: config.pontos.porMinuto,
     estado: estadoLoja(banco, req.usuarioId!),
+    audios: audiosAVenda(banco),
   }));
 
   app.post('/api/loja/comprar', { preHandler: daConta, schema: { body: corpoCompra } }, async (req): Promise<LojaEstadoDto> => {
     const item = lerItemLoja(req.body);
     if (!item) throw new ErroHttp(400, 'item_invalido', 'Esse item não existe na loja.');
+    // A15: muitas tentativas de compra seguidas.
+    if (!limiteCompras.permitir(String(req.usuarioId!))) throw new ErroHttp(429, 'muitas_tentativas', 'Calma: muitas compras seguidas.');
     try {
       const { estado, valor } = comprar(banco, req.usuarioId!, item, config.pontos.precos);
       registrarAuditoria(banco, {
         tipo: 'loja_compra',
         atorId: req.usuarioId!,
-        detalhes: { item: item.tipo === 'tema' ? `tema ${item.tema}` : item.tipo === 'vale' ? `vale ${item.qualidade}` : `áudio ${item.audioId}`, pontos: valor },
+        detalhes: {
+          item: item.tipo === 'tema' ? `tema ${item.tema}` : item.tipo === 'vale' ? `vale ${item.qualidade}` : `áudio ${buscarAudio(banco, item.audioId)?.nome ?? item.audioId}`,
+          pontos: valor,
+        },
       });
       req.log.info({ usuarioId: req.usuarioId!, item, valor, saldo: estado.saldo }, 'compra na loja');
       tempoReal.avisarLoja(req.usuarioId!);
+      if (item.tipo === 'audio') tempoReal.avisarAudiosLoja();
       return estado;
     } catch (erro) {
       if (erro instanceof ErroHttp && erro.codigo === 'saldo_insuficiente') req.log.warn({ usuarioId: req.usuarioId!, item }, 'compra recusada: saldo insuficiente');

@@ -14,6 +14,7 @@ import {
   type PrecosLoja,
   type QualidadeTela,
   type QualidadeVale,
+  type RaridadeAudio,
   type TemaLoja,
   type ValeDto,
 } from '@tofalando/shared';
@@ -81,7 +82,7 @@ export const precoDe = (precos: PrecosLoja, item: Exclude<ItemLoja, { tipo: 'aud
  */
 export function comprar(banco: Banco, usuarioId: number, item: ItemLoja, precos: PrecosLoja, agora: number = Date.now()): { estado: LojaEstadoDto; valor: number } {
   if (ehAdminDaInstalacao(banco, usuarioId)) throw new ErroHttp(409, 'tudo_liberado', 'O administrador já tem tudo liberado.');
-  if (item.tipo === 'audio') throw new ErroHttp(400, 'item_invalido', 'Esse item não existe na loja.');
+  if (item.tipo === 'audio') return comprarAudio(banco, usuarioId, item.audioId, precos, agora);
   const valor = precoDe(precos, item);
   banco.transaction(() => {
     if (item.tipo === 'tema' && banco.prepare('SELECT 1 FROM loja_temas WHERE usuario_id = ? AND tema = ?').get(usuarioId, item.tema)) {
@@ -107,6 +108,29 @@ export function comprar(banco: Banco, usuarioId: number, item: ItemLoja, precos:
   return { estado: estadoLoja(banco, usuarioId, agora), valor };
 }
 
+/**
+ * audios-na-loja (RN-3 a RN-5, A5–A7): o áudio precisa estar à venda; raridade e preço são lidos dentro da transação
+ * (vale o preço do momento da compra); a posse é única por (conta, áudio) e o débito é condicional.
+ */
+function comprarAudio(banco: Banco, usuarioId: number, audioId: number, precos: PrecosLoja, agora: number): { estado: LojaEstadoDto; valor: number } {
+  const valor = banco.transaction(() => {
+    const audio = banco.prepare('SELECT raridade FROM loja_audios WHERE id = ? AND retirado_em IS NULL').get(audioId) as { raridade: RaridadeAudio } | undefined;
+    if (!audio || !precos.audios) throw new ErroHttp(404, 'item_invalido', 'Esse áudio não está à venda.');
+    if (banco.prepare('SELECT 1 FROM loja_audios_compras WHERE usuario_id = ? AND audio_id = ?').get(usuarioId, audioId)) {
+      throw new ErroHttp(409, 'item_ja_comprado', 'Você já tem este áudio.');
+    }
+    const preco = precos.audios[audio.raridade];
+    const r = banco.prepare('UPDATE pontos_saldos SET saldo = saldo - ?, atualizado_em = ? WHERE usuario_id = ? AND saldo >= ?').run(preco, agora, usuarioId, preco);
+    if (r.changes === 0) throw new ErroHttp(409, 'saldo_insuficiente', `Faltam ${preco - saldoDe(banco, usuarioId)} pontos.`);
+    banco.prepare('INSERT INTO loja_audios_compras (usuario_id, audio_id, comprado_em) VALUES (?, ?, ?)').run(usuarioId, audioId, agora);
+    banco
+      .prepare("INSERT INTO pontos_movimentos (usuario_id, tipo, item, valor, criado_em, atualizado_em) VALUES (?, 'compra', ?, ?, ?, ?)")
+      .run(usuarioId, chaveItem({ tipo: 'audio', audioId }), -preco, agora, agora);
+    return preco;
+  })();
+  return { estado: estadoLoja(banco, usuarioId, agora), valor };
+}
+
 /** Extrato da conta, do mais novo para o mais antigo (RF-9); `antes` pagina pelo id. */
 export function extrato(banco: Banco, usuarioId: number, opcoes: { antes?: number; limite?: number } = {}): MovimentoDto[] {
   const pedido = Math.trunc(Number(opcoes.limite ?? 50));
@@ -115,5 +139,15 @@ export function extrato(banco: Banco, usuarioId: number, opcoes: { antes?: numbe
   const linhas = banco
     .prepare('SELECT id, tipo, item, valor, atualizado_em FROM pontos_movimentos WHERE usuario_id = ? AND (? IS NULL OR id < ?) ORDER BY id DESC LIMIT ?')
     .all(usuarioId, antes, antes, limite) as { id: number; tipo: 'ganho' | 'compra'; item: string | null; valor: number; atualizado_em: number }[];
-  return linhas.map((l) => ({ id: l.id, tipo: l.tipo, item: l.item, valor: l.valor, em: l.atualizado_em }));
+  // audios-na-loja (RF-3): o nome do áudio é o de hoje (técnica R-4); áudio apagado fica sem nome.
+  const nomeAudio = banco.prepare('SELECT nome FROM loja_audios WHERE id = ?');
+  return linhas.map((l) => {
+    const m: MovimentoDto = { id: l.id, tipo: l.tipo, item: l.item, valor: l.valor, em: l.atualizado_em };
+    const audio = /^audio:(\d+)$/.exec(l.item ?? '');
+    if (audio) {
+      const nome = (nomeAudio.get(Number(audio[1])) as { nome: string } | undefined)?.nome;
+      if (nome) m.nomeItem = nome;
+    }
+    return m;
+  });
 }
