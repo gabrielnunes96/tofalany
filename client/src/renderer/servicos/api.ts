@@ -1,5 +1,8 @@
 import type {
   AfkDto,
+  AudioLojaAdminDto,
+  AudioLojaDto,
+  RaridadeAudio,
   FixadaDto,
   PedidoBusca,
   RespostaBusca,
@@ -136,6 +139,11 @@ export interface ClienteApi {
   loja(): Promise<CatalogoLojaDto>;
   comprarNaLoja(item: ItemLoja): Promise<LojaEstadoDto>;
   extratoLoja(antes?: number): Promise<{ movimentos: MovimentoDto[] }>;
+  /** audios-na-loja (administrador da instalação, pelo principal): áudios da loja. */
+  audiosLojaAdmin?(): Promise<AudioLojaAdminDto[]>;
+  cadastrarAudioLoja?(nome: string, raridade: RaridadeAudio, arquivo: Blob, nomeArquivo: string): Promise<AudioLojaDto>;
+  alterarAudioLoja?(id: number, mudanca: { nome?: string; raridade?: RaridadeAudio }): Promise<AudioLojaDto>;
+  retirarAudioLoja?(id: number): Promise<void>;
   /** Autenticação em dois fatores da minha conta; o administrador desliga a de alguém. */
   doisFatores(): Promise<DoisFatoresDto>;
   iniciarDoisFatores(senha: string): Promise<InicioDoisFatoresDto>;
@@ -268,6 +276,16 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     loja: () => chamar('GET', '/api/loja'),
     comprarNaLoja: (item) => chamar('POST', '/api/loja/comprar', item),
     extratoLoja: (antes) => chamar('GET', `/api/loja/extrato${consulta({ antes })}`),
+    audiosLojaAdmin: () => chamar('GET', '/api/admin/loja/audios'),
+    cadastrarAudioLoja: (nome, raridade, arquivo, nomeArquivo) => {
+      const form = new FormData();
+      form.append('nome', nome);
+      form.append('raridade', raridade);
+      form.append('arquivo', arquivo, nomeArquivo);
+      return chamar('POST', '/api/admin/loja/audios', form);
+    },
+    alterarAudioLoja: (id, mudanca) => chamar('PATCH', `/api/admin/loja/audios/${id}`, mudanca),
+    retirarAudioLoja: (id) => chamar('DELETE', `/api/admin/loja/audios/${id}`),
     doisFatores: () => chamar('GET', '/api/conta/2fa'),
     iniciarDoisFatores: (senha) => chamar('POST', '/api/conta/2fa/iniciar', { senha }),
     ativarDoisFatores: (codigo) => chamar('POST', '/api/conta/2fa/ativar', { codigo }),

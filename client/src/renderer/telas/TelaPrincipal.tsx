@@ -94,6 +94,7 @@ import { TelaConvite } from './TelaConvite';
 import { TelaSons } from './TelaSons';
 import { TelaLoja } from './TelaLoja';
 import { TelaToOuvini } from './TelaToOuvini';
+import { TelaAudiosLoja } from './TelaAudiosLoja';
 import { TelaConfiguracoes, type SecaoConfig } from './TelaConfiguracoes';
 import { SegurancaConta } from '../componentes/SegurancaConta';
 import { NotasDasVersoes } from '../componentes/JanelaNovidades';
@@ -163,7 +164,7 @@ interface GravacaoAdiada {
 const valesDe = (pontos: LojaEstadoDto | null): QualidadeTela[] =>
   !pontos ? [] : pontos.tudoLiberado ? QUALIDADES_VALE : qualidadesDosVales(pontos.vales, Date.now());
 
-type Vista = 'canal' | 'auditoria' | 'membros' | 'convite' | 'sons' | 'toouvini' | 'servidor' | 'loja';
+type Vista = 'canal' | 'auditoria' | 'membros' | 'convite' | 'sons' | 'toouvini' | 'audios-loja' | 'servidor' | 'loja';
 
 /** "c:1" → { canalId: 1 }; "d:2" → { dmId: 2 }. */
 const destinoDe = (chave: Chave): Destino => {
@@ -1316,7 +1317,7 @@ function TelaDoServidor({
   // No principal, o administrador dele já é o da instalação, sem esperar a conferência do App (que pode falhar).
   const ehAdminDaInstalacao = adminDaInstalacao || (ehAdmin && servidorId === 1);
   const podeVer = (v: Vista) =>
-    v === 'toouvini'
+    v === 'toouvini' || v === 'audios-loja'
       ? ehAdminDaInstalacao
       : v === 'loja'
         ? pontos !== null
@@ -2207,6 +2208,11 @@ function TelaDoServidor({
                             Bot de música (ToOuvini)
                           </button>
                         )}
+                        {ehAdminDaInstalacao && pontos && (
+                          <button type="button" onClick={() => setVista('audios-loja')}>
+                            Áudios da loja
+                          </button>
+                        )}
                         {/* Pelo principal (a rota exige o administrador do principal), mesmo aberto noutro servidor. */}
                         <BotaoAtualizarServidor
                           podePedir={ehAdminDaInstalacao}
@@ -2372,6 +2378,9 @@ function TelaDoServidor({
                 ) : vistaAtual === 'toouvini' ? (
                   // O ToOuvini é da instalação: fala sempre com o servidor principal (o mesmo login vale lá).
                   <TelaToOuvini api={apiPrincipal} aoVoltar={voltar} />
+                ) : vistaAtual === 'audios-loja' ? (
+                  // Áudios da loja: da instalação, pelo servidor principal (audios-na-loja, A8).
+                  <TelaAudiosLoja api={apiPrincipal as Parameters<typeof TelaAudiosLoja>[0]['api']} servidorUrl={separarComunidade(servidorUrl).base} aoVoltar={voltar} />
                 ) : vistaAtual === 'loja' && pontos ? (
                   <TelaLoja estado={pontos} api={api} servidorUrl={servidorUrl} temaAtual={tema} aoUsarTema={mudarTema} aoComprar={acoes.definirPontos} aoVoltar={voltar} />
                 ) : vistaAtual === 'sons' ? (
