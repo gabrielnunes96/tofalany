@@ -121,9 +121,9 @@
         "CA-11"
       ],
       "validacao": "vitest client com relógio falso: ocioso e calado → vai; falando ou mexendo → não vai; câmera ou tela → não vai; sozinho → vai; AFK desligada → não vai.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "38e5c27"
     },
     {
       "id": "T7",
