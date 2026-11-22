@@ -2108,7 +2108,7 @@ function TelaDoServidor({
                   aoVolume={(v) => mudarSons({ ...sonsRef.current, soundboard: v })}
                   aoTocar={tocarSom}
                   meusSons={audiosLoja}
-                  aoTocarAudio={pontos ? tocarAudio : undefined}
+                  aoTocarAudio={pontos?.audiosIds !== undefined ? tocarAudio : undefined}
                   aoAbrirLoja={() => setVista('loja')}
                   aoFechar={() => setSoundboardAberto(false)}
                 />
@@ -2208,7 +2208,8 @@ function TelaDoServidor({
                             Bot de música (ToOuvini)
                           </button>
                         )}
-                        {ehAdminDaInstalacao && pontos && (
+                        {/* Só com servidor que já tem os áudios da loja (servidor antigo não manda audiosIds). */}
+                        {ehAdminDaInstalacao && pontos?.audiosIds !== undefined && (
                           <button type="button" onClick={() => setVista('audios-loja')}>
                             Áudios da loja
                           </button>

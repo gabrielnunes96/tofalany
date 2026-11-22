@@ -100,6 +100,56 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
   return { app, janela };
 }
 
+test('audios-na-loja CA-3, CA-5, CA-8: o administrador cadastra um áudio raro; a ana compra na loja, toca em Meus sons e o dono ouve', async () => {
+  test.setTimeout(120_000);
+  const dono = await entrar('dono', true);
+  const r = await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
+  const anaId = (r.json() as { usuario: { id: number } }).usuario.id;
+  const { creditar } = await import('../../server/dist/dominio/loja.js');
+  creditar(servidor.banco as Parameters<typeof creditar>[0], anaId, 350, null);
+  const ana = await entrar('ana', false);
+  const j = dono.janela;
+
+  // Administração → Áudios da loja (só o administrador da instalação).
+  await noMenu(j, 'Áudios da loja');
+  await j.getByLabel('Nome do áudio').fill('Trovão');
+  await j.getByLabel('Raridade', { exact: true }).selectOption('raro');
+  await j.getByLabel('Arquivo de áudio').setInputFiles({ name: 'trovao.wav', mimeType: 'audio/wav', buffer: wavTom(1) });
+  await j.getByRole('button', { name: 'Cadastrar na loja' }).click();
+  await expect(j.getByRole('status')).toContainText('"Trovão" está na loja.');
+  await j.getByRole('button', { name: 'Voltar' }).click();
+
+  // CA-3/CA-5: a ana vê o áudio com a raridade e compra.
+  await noMenu(ana.janela, 'Loja');
+  const item = ana.janela.locator('li.loja-audio', { has: ana.janela.getByRole('heading', { name: 'Trovão' }) });
+  await expect(item).toContainText('Raro');
+  await item.getByRole('button', { name: 'Comprar por 300 pontos' }).click();
+  await ana.janela.getByRole('dialog', { name: 'Confirmar compra' }).getByRole('button', { name: 'Comprar' }).click();
+  await expect(item).toContainText('Comprado');
+  await expect(ana.janela.getByTestId('saldo-loja')).toHaveText('50 pontos');
+  await item.scrollIntoViewIfNeeded();
+  await ana.janela.screenshot({ path: join(__dirname, '../../docs/demandas/audios-na-loja/prints/loja-audio-comprado.png') });
+  await ana.janela.getByRole('button', { name: 'Voltar' }).click();
+
+  // CA-8: na voz, a ana toca em Meus sons; o dono (que também tem, como administrador) ouve e vê quem tocou.
+  await j.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await j.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await j.getByRole('button', { name: 'Criar', exact: true }).click();
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+  await ana.janela.getByRole('button', { name: 'Tocar sons' }).click();
+  const painel = ana.janela.getByRole('region', { name: 'Soundboard' });
+  await painel.getByRole('button', { name: 'Trovão (Raro)' }).click();
+  await expect(j.locator('.aviso-som')).toHaveText('🔊 ana tocou Trovão');
+  await expect.poll(() => j.evaluate(() => document.documentElement.dataset.somSoundboard ?? '')).toMatch(/^audio-\d+:/);
+  await ana.janela.screenshot({ path: join(__dirname, '../../docs/demandas/audios-na-loja/prints/meus-sons.png') });
+
+  await dono.app.close();
+  await ana.app.close();
+});
+
 const ocioso = (app: ElectronApplication, segundos: number | undefined) =>
   app.evaluate((_e, s) => (globalThis as unknown as { __ociosoSegundos: (s: number | undefined) => void }).__ociosoSegundos(s), segundos);
 

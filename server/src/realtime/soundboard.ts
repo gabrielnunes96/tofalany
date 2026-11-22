@@ -31,10 +31,11 @@ export function criarSoundboard(io: ServidorTempoReal, banco: Banco, voz: Pick<V
           if (!onde) throw new ErroHttp(403, 'sem_permissao', 'Entre num canal de voz para tocar sons.');
           // audios-na-loja (A1): o canal da voz precisa ser deste servidor (a presença é uma por conta).
           if (comunidadeDoCanal(banco, onde.canalVozId) !== socket.data.comunidadeId) throw new ErroHttp(403, 'sem_permissao', 'Toque os sons pelo servidor da sua chamada.');
-          if (!temPermissao(banco, usuarioId, 'tocar_sons', socket.data.comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite tocar sons.');
-          // A2: na sala de AFK ninguém toca (RN-11); de castigo também não.
-          if (ehSalaAfk(banco, onde.canalVozId)) throw new ErroHttp(403, 'sem_permissao', 'Na sala de AFK não se tocam sons.');
+          // Castigo antes da permissão (o castigo também tira "Soundboard"), para a mensagem certa.
           if (meuCastigo(banco, socket.data.comunidadeId, usuarioId)) throw new ErroHttp(403, 'sem_permissao', 'Você está de castigo.');
+          if (!temPermissao(banco, usuarioId, 'tocar_sons', socket.data.comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite tocar sons.');
+          // A2: na sala de AFK ninguém toca (RN-11).
+          if (ehSalaAfk(banco, onde.canalVozId)) throw new ErroHttp(403, 'sem_permissao', 'Na sala de AFK não se tocam sons.');
           const falta = (ultimo.get(usuarioId) ?? -Infinity) + SOM_INTERVALO_MS - agora();
           if (falta > 0) throw new ErroHttp(429, 'muitas_tentativas', `Aguarde ${Math.ceil(falta / 1000)} s para tocar outro som.`);
           if (daLoja) {

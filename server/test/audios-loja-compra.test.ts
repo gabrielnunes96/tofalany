@@ -17,8 +17,8 @@ afterEach(async () => {
 });
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
-async function preparar(pontos: number) {
-  app = await appTeste();
+async function preparar(pontos: number, extra: Record<string, string> = {}) {
+  app = await appTeste(extra);
   const dono = (await cadastrar(app, 'dono')).json() as { token: string; usuario: { id: number } };
   const ana = (await cadastrar(app, 'ana')).json() as { token: string; usuario: { id: number } };
   if (pontos > 0) creditar(app.banco, ana.usuario.id, pontos, null);
@@ -99,6 +99,19 @@ describe('áudios da loja: compra', () => {
     const bia = (await cadastrar(app!, 'bia')).json() as { token: string; usuario: { id: number } };
     creditar(app!.banco, bia.usuario.id, 2500, null);
     expect((await comprar(bia.token, { tipo: 'audio', audioId: id })).json()).toMatchObject({ saldo: 500 });
+  });
+
+  it('CA-14: o preço da configuração vale na compra', async () => {
+    const { ana, audio, comprar } = await preparar(300, { PRECO_AUDIO_RARO: '250' });
+    expect((await comprar(ana.token, { tipo: 'audio', audioId: audio('Trovão', 'raro') })).json()).toMatchObject({ saldo: 50 });
+  });
+
+  it('A15: mais de 10 compras por minuto são recusadas', async () => {
+    const { ana, comprar } = await preparar(0);
+    const respostas = [];
+    for (let i = 0; i < 11; i++) respostas.push((await comprar(ana.token, { tipo: 'audio', audioId: 999 })).statusCode);
+    expect(respostas.slice(0, 10).every((s) => s === 404)).toBe(true);
+    expect(respostas[10]).toBe(429);
   });
 
   it('CA-13: o administrador da instalação tem todos (inclusive retirados com comprador) sem comprar', async () => {

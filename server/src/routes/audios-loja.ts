@@ -65,6 +65,8 @@ export function registrarRotasAudiosLoja(app: FastifyInstance, banco: Banco, arm
       if (!atual) throw new ErroHttp(404, 'nao_encontrado', 'Áudio não encontrado na loja.');
       const nome = novoNome?.ok ? novoNome.valor : atual.nome;
       const raridade = corpo.raridade ?? atual.raridade;
+      // Nada mudou: sem gravar nem auditar.
+      if (nome === atual.nome && raridade === atual.raridade) return { audio: atual.dto, mudou: false };
       banco.prepare('UPDATE loja_audios SET nome = ?, raridade = ? WHERE id = ?').run(nome, raridade, id);
       const detalhes: Record<string, string> = { audio: nome };
       if (nome !== atual.nome) detalhes.nomeAntes = atual.nome;
@@ -73,10 +75,10 @@ export function registrarRotasAudiosLoja(app: FastifyInstance, banco: Banco, arm
         detalhes.para = raridade;
       }
       registrarAuditoria(banco, { tipo: 'loja_audio_alterado', atorId: req.usuarioId!, detalhes });
-      return buscarAudio(banco, id)!.dto;
+      return { audio: buscarAudio(banco, id)!.dto, mudou: true };
     })();
-    tempoReal.avisarAudiosLoja();
-    return audio;
+    if (audio.mudou) tempoReal.avisarAudiosLoja();
+    return audio.audio;
   });
 
   app.delete('/api/admin/loja/audios/:id', { preHandler: soAdminDaInstalacao, schema: { params: paramId } }, async (req, reply) => {

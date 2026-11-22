@@ -3,6 +3,7 @@ import {
   ITENS_TEMA,
   NOMES_RARIDADE,
   QUALIDADES_VALE,
+  SOM_DURACAO_MAX_MS,
   VALE_DIAS,
   chaveItem,
   type AudioLojaDto,
@@ -84,9 +85,12 @@ export function TelaLoja({ estado, api, servidorUrl = '', temaAtual, aoUsarTema,
   useEffect(() => () => previaAudio.current?.pause(), []);
   function ouvir(a: AudioLojaDto) {
     previaAudio.current?.pause();
+    // Só arquivos da própria instalação, e no máximo 10 s (como no soundboard).
+    if (!/^\/files\/[\w-]+\.(mp3|ogg|wav)$/.test(a.url)) return setErro('Não foi possível tocar a prévia.');
     const el = new Audio(`${servidorUrl}${a.url}`);
     previaAudio.current = el;
     void el.play().catch(() => setErro('Não foi possível tocar a prévia.'));
+    setTimeout(() => el.pause(), SOM_DURACAO_MAX_MS);
   }
   const audioDe = (id: number) => catalogo?.audios?.find((a) => a.id === id);
   const nomeItem = (item: ItemLoja) =>

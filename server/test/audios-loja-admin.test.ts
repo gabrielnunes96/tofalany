@@ -91,6 +91,10 @@ describe('áudios da loja: administração', () => {
     expect(alterado.json()).toMatchObject({ id: a.id, nome: 'Trovão', raridade: 'lendario' });
     expect((await app!.inject({ method: 'PATCH', url: `/api/admin/loja/audios/${a.id}`, headers: auth(dono.token), payload: { raridade: 'mitico' } })).statusCode).toBe(400);
     expect((await app!.inject({ method: 'PATCH', url: `/api/admin/loja/audios/${a.id}`, headers: auth(ana.token), payload: { nome: 'X' } })).statusCode).toBe(403);
+    expect((await app!.inject({ method: 'DELETE', url: `/api/admin/loja/audios/${a.id}`, headers: auth(ana.token) })).statusCode).toBe(403);
+    expect((await app!.inject({ method: 'DELETE', url: `/c/2/api/admin/loja/audios/${a.id}`, headers: auth(dono.token) })).statusCode).not.toBe(204);
+    // Sem mudança real, nada vai à auditoria.
+    await app!.inject({ method: 'PATCH', url: `/api/admin/loja/audios/${a.id}`, headers: auth(dono.token), payload: { raridade: 'lendario' } });
     // Ana comprou o Trovão.
     app!.banco.prepare('INSERT INTO loja_audios_compras (usuario_id, audio_id, comprado_em) VALUES (?, ?, 0)').run(ana.usuario.id, a.id);
     const disco = (x: AudioLojaDto) => join(app!.armazem.pasta, x.url.replace('/files/', ''));
