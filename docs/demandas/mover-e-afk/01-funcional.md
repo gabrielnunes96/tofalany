@@ -1,6 +1,6 @@
 # Mover membros e sala de AFK — especificação funcional
 
-> Demanda: `mover-e-afk` · Versão 1 · 21/11/2026 · Situação: **aprovada em 21/11/2026**
+> Demanda: `mover-e-afk` · Versão 2 · 21/11/2026 · Situação: **aprovada em 21/11/2026** (v2: RN-13 a RN-15, respostas do Gabriel na técnica)
 
 ## 1. Objetivo
 Organizar quem está nas salas de voz:
@@ -52,6 +52,9 @@ Organizar quem está nas salas de voz:
 | RN-10 | Quem foi para a AFK fica lá até escolher outra sala (D-1). | D-1 |
 | RN-11 | Quem continua na sala original ouve o som de "saiu da voz" (o mesmo de hoje); quem foi movido vê o aviso "Você foi para a sala de AFK por inatividade". | Item 42 |
 | RN-12 | Mover, desconectar e ir para a AFK entram na auditoria do servidor (quem, quem foi movido, de onde, para onde). | Item 43 |
+| RN-13 | Quem não é administrador também não move nem desconecta quem tem "Mover membros" (igual à moderação de hoje). | D-5 |
+| RN-14 | Tempo na sala de AFK não conta pontos da loja. | D-6 |
+| RN-15 | Ao sair da AFK para outra sala, o microfone volta como estava antes de ir para a AFK. | D-7 |
 
 ## 6. Requisitos funcionais
 | ID | Requisito | Regras |
@@ -86,6 +89,9 @@ Organizar quem está nas salas de voz:
 - **CA-13** (RN-10): Dado Bia na AFK, quando volta a mexer no computador, então continua na AFK até clicar noutra sala.
 - **CA-14** (RF-8, RN-12): Dado um mover, um desconectar e uma ida para a AFK, então a auditoria mostra as três ações com quem fez, quem foi movido e as salas.
 - **CA-15** (RN-6): Dado a sala de AFK apagada, então a AFK fica desligada e ninguém é movido.
+- **CA-16** (RN-13): Dado Ana e Caio com "Mover membros" (nenhum administrador), quando Ana tenta mover Caio, então o servidor recusa.
+- **CA-17** (RN-14): Dado duas pessoas na sala de AFK, quando passa um minuto, então nenhuma ganha pontos.
+- **CA-18** (RN-15): Dado Bia com o microfone ligado ido para a AFK, quando ela entra noutra sala, então o microfone volta ligado; se estava mutada antes, volta mutada.
 
 ## 9. Impacto em consumidores
 - **Servidor:** permissão nova, configuração de AFK por servidor (banco), eventos de mover e desconectar, auditoria.
@@ -99,3 +105,6 @@ Organizar quem está nas salas de voz:
 | D-2 | ~~Tempo padrão?~~ | Gabriel | 21/11: 15 min (5, 10, 15, 30 ou 60). |
 | D-3 | ~~Sozinho na sala também vai?~~ | Gabriel | 21/11: sim. |
 | D-4 | ~~"Mover membros" também desconecta?~~ | Gabriel | 21/11: sim, a mesma permissão. |
+| D-5 | ~~Quem tem "Mover membros" move outro que também tem?~~ | Gabriel | 21/11: não; só o administrador. |
+| D-6 | ~~AFK conta pontos?~~ | Gabriel | 21/11: não. |
+| D-7 | ~~Ao sair da AFK, o microfone?~~ | Gabriel | 21/11: volta como estava antes. |
