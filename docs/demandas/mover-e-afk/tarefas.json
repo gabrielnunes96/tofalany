@@ -102,9 +102,9 @@
         "CA-8"
       ],
       "validacao": "vitest client: itens só com a permissão; Mover para chama voz:mover; arrastar chama voz:mover; ícone na sala de AFK; Editar servidor grava a AFK.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "3746ee6"
     },
     {
       "id": "T6",
