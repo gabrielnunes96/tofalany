@@ -117,9 +117,9 @@
         "CA-15"
       ],
       "validacao": "vitest client: tela lista, cadastra, troca raridade, retira; item do menu só para admin da instalação.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "766805d"
     },
     {
       "id": "T7",
