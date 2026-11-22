@@ -56,9 +56,9 @@
         "CA-13"
       ],
       "validacao": "vitest: 350→50 e extrato 'Áudio: <nome>'; duas compras simultâneas cobram uma; saldo 200 × épico 409; trocar raridade não afeta quem comprou; corpo com preco/raridade ignorado; áudio retirado 404; admin recebe todos.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "6567000"
     },
     {
       "id": "T4",
