@@ -29,7 +29,7 @@ describe('domínio da loja (pontos-e-loja)', () => {
     for (const tabela of ['pontos_saldos', 'pontos_movimentos', 'loja_temas', 'loja_vales']) {
       expect(banco.prepare(`SELECT COUNT(*) AS n FROM ${tabela}`).get()).toEqual({ n: 0 });
     }
-    expect(estadoLoja(banco, ana)).toEqual({ saldo: 0, temas: [], vales: [], tudoLiberado: false });
+    expect(estadoLoja(banco, ana)).toEqual({ saldo: 0, temas: [], vales: [], tudoLiberado: false, audiosIds: [] });
   });
 
   it('crédito por sessão: a mesma linha de ganho soma os minutos; sessão nova abre outra', async () => {

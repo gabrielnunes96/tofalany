@@ -47,7 +47,7 @@ describe('rotas da loja (pontos-e-loja)', () => {
     expect(r.json()).toEqual({
       precos: { tema: 600, vales: { '720p60': 200, '1080p30': 300, '1080p60': 600 }, audios: { comum: 100, raro: 300, epico: 800, lendario: 2000 } },
       pontosPorMinuto: 1,
-      estado: { saldo: 50, temas: [], vales: [], tudoLiberado: false },
+      estado: { saldo: 50, temas: [], vales: [], tudoLiberado: false, audiosIds: [] },
     });
     expect((await app!.inject({ method: 'GET', url: '/api/loja' })).statusCode).toBe(401);
   });
@@ -116,7 +116,7 @@ describe('rotas da loja (pontos-e-loja)', () => {
     expect((await app!.inject({ method: 'POST', url: '/api/comunidades/entrar', headers: auth(ana), payload: { codigo } })).statusCode).toBe(200);
     const um = await abrir(ana);
     const dois = await abrir(ana, 2);
-    expect(um.ola.loja).toEqual({ saldo: 700, temas: [], vales: [], tudoLiberado: false });
+    expect(um.ola.loja).toEqual({ saldo: 700, temas: [], vales: [], tudoLiberado: false, audiosIds: [] });
     const avisos = [um, dois].map((c) => new Promise<LojaEstadoDto>((r) => c.s.once('loja:estado', r)));
     expect((await comprarTema(ana)).statusCode).toBe(200);
     for (const aviso of avisos) expect(await aviso).toMatchObject({ saldo: 100, temas: ['cinzas'] });
