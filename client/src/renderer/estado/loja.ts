@@ -321,7 +321,8 @@ export const criarLoja = () =>
         const canais = s.canais.filter((c) => c.id !== id);
         const historicos = { ...s.historicos };
         delete historicos[chaveCanal(id)];
-        return { canais, canalAtivo: canalValido(canais, s.canalAtivo), historicos };
+        // mover-e-afk (CA-15): apagar a sala de AFK desliga a AFK.
+        return { canais, canalAtivo: canalValido(canais, s.canalAtivo), historicos, afk: s.afk?.canalId === id ? null : s.afk };
       }),
     salvarDm: (dm) => set((s) => ({ dms: ordenarDms([...s.dms.filter((d) => d.id !== dm.id), dm]) })),
     abrirDm: (id) => set((s) => ({ dmAtiva: s.dms.some((d) => d.id === id) ? id : s.dmAtiva })),

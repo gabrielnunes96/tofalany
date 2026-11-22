@@ -58,6 +58,12 @@ describe('sala de AFK na voz', () => {
     expect(JSON.parse(reg[0]!.detalhes)).toMatchObject({ de: 'Papo' });
   });
 
+  it('A8: fora da chamada, o motivo afk é recusado (nada vai à auditoria)', async () => {
+    const { banco, afk, pedir } = preparar();
+    expect((await pedir(estado(afk.id, { motivo: 'afk' }))).erro).toMatch(/está em chamada/);
+    expect(banco.prepare("SELECT COUNT(*) AS n FROM auditoria WHERE tipo = 'voz_afk'").get()).toEqual({ n: 0 });
+  });
+
   it('A6: quem entra numa sala do LiveKit sem estar nela pela presença é tirado depois do prazo; quem está, não', async () => {
     const { voz, papo, afk, pedir, removerDaMidia } = preparar();
     await pedir(estado(papo.id));
@@ -75,6 +81,20 @@ describe('sala de AFK na voz', () => {
     voz.afkMudou(1);
     expect(voz.estados()).toMatchObject([{ canalVozId: papo.id, mudo: true, camera: false }]);
     expect(calarNaMidia).toHaveBeenCalledWith(1, papo.id);
+  });
+
+  it('A7: a sala que deixou de ser AFK tira quem estava nela (o token não deixa falar); entra de novo pelo app', async () => {
+    const { banco, voz, papo, afk, pedir, removerDaMidia } = preparar();
+    await pedir(estado(afk.id));
+    banco.prepare('UPDATE comunidades SET afk_canal_id = ? WHERE id = 1').run(papo.id);
+    voz.afkMudou(1, afk.id);
+    expect(voz.estados()).toEqual([]);
+    expect(removerDaMidia).toHaveBeenCalledWith(1, afk.id);
+    // Desligar a AFK também.
+    await pedir(estado(papo.id));
+    banco.prepare('UPDATE comunidades SET afk_canal_id = NULL WHERE id = 1').run();
+    voz.afkMudou(1, papo.id);
+    expect(voz.estados()).toEqual([]);
   });
 });
 

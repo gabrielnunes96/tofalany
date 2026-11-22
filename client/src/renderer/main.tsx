@@ -23,6 +23,12 @@ if (ponte().modoTeste) {
   void import('./servicos/nivel-voz-medicao').then(({ medirNivel }) => {
     (window as unknown as { __medirNivel?: typeof medirNivel }).__medirNivel = medirNivel;
   });
+  // E2E (mover-e-afk): adianta o relógio da vigia de inatividade.
+  void import('./estado/afk').then(({ relogioAfk }) => {
+    (window as unknown as { __adiantarRelogioAfk?: (ms: number) => void }).__adiantarRelogioAfk = (ms) => {
+      relogioAfk.adiantarMs = ms;
+    };
+  });
 }
 
 const raiz = document.getElementById('raiz');

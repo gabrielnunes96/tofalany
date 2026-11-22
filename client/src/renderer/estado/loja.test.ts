@@ -155,6 +155,12 @@ describe('histórico de mensagens na loja', () => {
     l.receberPagina('c:2', { mensagens: [msg(2, 2)], fim: true }, l.iniciarCarga('c:2'));
     l.removerCanal(2);
     expect(useLoja.getState().historicos['c:2']).toBeUndefined();
+    // mover-e-afk (CA-15): apagar a sala de AFK desliga a AFK; apagar outra sala, não.
+    useLoja.setState({ afk: { canalId: 7, minutos: 15 } });
+    l.removerCanal(8);
+    expect(useLoja.getState().afk).toEqual({ canalId: 7, minutos: 15 });
+    l.removerCanal(7);
+    expect(useLoja.getState().afk).toBeNull();
     l.aplicarOla({ servidor: { nome: 'T' }, convite: { link: 'x' }, eu, usuarios: [eu], canais: [], dms: [], naoLidas: {}, sons: [], voz: [], presencas: {}, transmissoes: [] });
     expect(useLoja.getState().historicos).toEqual({});
   });

@@ -35,7 +35,8 @@ export interface Voz {
    */
   midiaEntrou(usuarioId: number, canalVozId: number): void;
   /** mover-e-afk (A7): a sala de AFK do servidor mudou — quem já está nela passa a ficar mudo. */
-  afkMudou(comunidadeId: number): void;
+  /** `anterior`: a sala que era a AFK antes da mudança (quem está nela sai da mídia e entra de novo pelo app). */
+  afkMudou(comunidadeId: number, anterior?: number | null): void;
   /** Sessão derrubada (conta removida, saiu, revogada): se era este socket que estava na voz, sai da presença e da mídia. */
   revogar(usuarioId: number, socketId: string): void;
   fechar(): void;
@@ -53,6 +54,8 @@ interface Presente {
   sid: string | undefined;
   /** Socket caiu: espera a carência antes de tirar (a mídia pode continuar e o app reenviar ao reconectar). */
   pendente?: NodeJS.Timeout;
+  /** mover-e-afk (A5): muda a cada entrada numa sala; o prazo do mover só tira quem segue na mesma entrada. */
+  entrada: number;
 }
 
 const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -87,6 +90,7 @@ export function criarVoz(
 ): Voz {
   const presentes = new Map<number, Presente>();
   const prazoMover = opcoes.prazoMoverMs ?? 10_000;
+  let entradas = 0;
   /** A10: até 5 mover/desconectar a cada 10 s por moderador e 1 a cada 3 s por pessoa movida. */
   const limiteAtor = criarLimitador(5, 10_000);
   const limiteAlvo = criarLimitador(1, 3_000);
@@ -176,6 +180,8 @@ export function criarVoz(
           }
           if (pedido.afk) {
             if (!naAfk) throw new ErroHttp(400, 'dados_invalidos', 'Essa sala não é a de AFK.');
+            // A ida por inatividade é de quem já está em chamada por este app (A8).
+            if (!atual || atual.socketId !== socket.id) throw new ErroHttp(400, 'dados_invalidos', 'Só vai para a AFK quem está em chamada.');
             if (atual?.estado.canalVozId === canal.id) return undefined;
             if (!limiteAfk.permitir(String(usuarioId))) throw new ErroHttp(429, 'muitas_tentativas', 'Calma: idas seguidas para a AFK.');
             const de = atual ? buscarCanal(banco, atual.estado.canalVozId) : undefined;
@@ -195,6 +201,7 @@ export function criarVoz(
           }
           if (!presentes.has(usuarioId)) auditar('voz_entrou', usuarioId, canal.id, undefined, canal.nome);
           presentes.set(usuarioId, {
+            entrada: atual && atual.socketId === socket.id && atual.estado.canalVozId === canal.id ? atual.entrada : ++entradas,
             socketId: socket.id,
             sid: pedido.sid ?? (atual?.estado.canalVozId === canal.id ? atual.sid : undefined),
             estado: { usuarioId, canalVozId: canal.id, mudo: pedido.mudo, surdo: pedido.surdo, camera: pedido.camera },
@@ -231,9 +238,10 @@ export function criarVoz(
         return { alvoId, p, destino, origem: buscarCanal(banco, p.estado.canalVozId) };
       };
       /** Tira à força quem continua na sala de antes pela mesma conexão (A5). */
-      const tirarSeNaoSaiu = (alvoId: number, socketId: string, canalAntigo: number, motivo: string) => {
+      // Quem saiu e voltou para a sala antiga por conta própria (nova entrada) não é tirado.
+      const tirarSeNaoSaiu = (alvoId: number, socketId: string, canalAntigo: number, entrada: number, motivo: string) => {
         const atual = presentes.get(alvoId);
-        if (!atual || atual.socketId !== socketId || atual.estado.canalVozId !== canalAntigo) return;
+        if (!atual || atual.socketId !== socketId || atual.estado.canalVozId !== canalAntigo || atual.entrada !== entrada) return;
         tirar(alvoId, motivo);
         removerDaMidia(alvoId, canalAntigo);
         avisar();
@@ -250,7 +258,7 @@ export function criarVoz(
             detalhes: { de: origem?.nome ?? String(p.estado.canalVozId) },
           });
           io.to(p.socketId).emit('voz:movido', { canalVozId: destino!.id, canalNome: destino!.nome, porNome: nomeDe(usuarioId) });
-          const t = setTimeout(() => tirarSeNaoSaiu(alvoId, p.socketId, p.estado.canalVozId, 'movido'), prazoMover);
+          const t = setTimeout(() => tirarSeNaoSaiu(alvoId, p.socketId, p.estado.canalVozId, p.entrada, 'movido'), prazoMover);
           t.unref();
           return undefined;
         }),
@@ -261,7 +269,7 @@ export function criarVoz(
           const { alvoId, p, origem } = conferirAlvo(dados, false);
           registrarAuditoria(banco, { tipo: 'voz_desconectado', atorId: usuarioId, alvoUsuarioId: alvoId, canal: origem ?? undefined });
           io.to(p.socketId).emit('voz:desconectado', { porNome: nomeDe(usuarioId) });
-          tirarSeNaoSaiu(alvoId, p.socketId, p.estado.canalVozId, 'desconectado');
+          tirarSeNaoSaiu(alvoId, p.socketId, p.estado.canalVozId, p.entrada, 'desconectado');
           return undefined;
         }),
       );
@@ -300,17 +308,27 @@ export function criarVoz(
     },
     midiaEntrou(usuarioId, canalVozId) {
       const t = setTimeout(() => {
-        if (presentes.get(usuarioId)?.estado.canalVozId === canalVozId) return;
+        const c = comunidadeDoCanal(banco, canalVozId);
+        const pode = c !== undefined && temPermissao(banco, usuarioId, 'entrar_voz', c);
+        if (pode && presentes.get(usuarioId)?.estado.canalVozId === canalVozId) return;
         removerDaMidia(usuarioId, canalVozId);
       }, prazoMover);
       t.unref();
     },
-    afkMudou(comunidadeId) {
+    afkMudou(comunidadeId, anterior) {
       const afk = afkDa(banco, comunidadeId);
-      if (!afk) return;
       let mudou = false;
-      for (const p of presentes.values()) {
-        if (p.estado.canalVozId !== afk.canalId) continue;
+      // Na sala que deixou de ser AFK, o token de quem estava lá segue sem poder publicar: sai da voz e da mídia (A7).
+      if (anterior && anterior !== afk?.canalId) {
+        for (const p of [...presentes.values()]) {
+          if (p.estado.canalVozId !== anterior) continue;
+          tirar(p.estado.usuarioId, 'afk_mudou');
+          removerDaMidia(p.estado.usuarioId, anterior);
+          mudou = true;
+        }
+      }
+      for (const p of afk ? presentes.values() : []) {
+        if (!afk || p.estado.canalVozId !== afk.canalId) continue;
         p.estado = { ...p.estado, mudo: true, camera: false };
         opcoes.calarNaMidia?.(p.estado.usuarioId, afk.canalId).catch(registrarErro);
         mudou = true;

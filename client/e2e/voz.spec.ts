@@ -12,6 +12,7 @@ const CONVITE = 'convite-e2e';
 /** Prints das telas principais, para conferir a olho (ficam em docs/demandas/.../prints). */
 const PRINTS = join(__dirname, '../../docs/demandas/to-falando-v1/prints');
 const print = (janela: Page, nome: string) => janela.screenshot({ path: join(PRINTS, `${nome}.png`) });
+const PRINTS_AFK = join(__dirname, '../../docs/demandas/mover-e-afk/prints');
 
 // O indicador de fala vem da detecção do LiveKit, que fica lenta com a máquina carregada (suíte inteira):
 // uma repetição em caso de falha (registrado para a T23).
@@ -99,6 +100,9 @@ async function entrar(nome: string, criar: boolean): Promise<{ app: ElectronAppl
   return { app, janela };
 }
 
+const ocioso = (app: ElectronApplication, segundos: number | undefined) =>
+  app.evaluate((_e, s) => (globalThis as unknown as { __ociosoSegundos: (s: number | undefined) => void }).__ociosoSegundos(s), segundos);
+
 test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de fala acende e a auditoria registra', async () => {
   test.setTimeout(90_000);
   const dono = await entrar('dono', true);
@@ -151,6 +155,84 @@ test('CA-20, CA-49: dois apps no canal de voz; um ouve o outro, o indicador de f
     ['voz_entrou', 'Jogo'],
   ]);
 
+  await dono.app.close();
+  await ana.app.close();
+});
+
+test('mover-e-afk CA-2, CA-3, CA-6, CA-9, CA-12: mover pelo menu e arrastando, desconectar e AFK por inatividade', async () => {
+  test.setTimeout(150_000);
+  const dono = await entrar('dono', true);
+  for (const nome of ['Papo', 'Jogo', 'Descanso']) {
+    await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
+    await dono.janela.getByLabel('Nome do novo canal de voz').fill(nome);
+    await dono.janela.getByRole('button', { name: 'Criar', exact: true }).click();
+    await expect(dono.janela.getByRole('button', { name: `Entrar no canal de voz ${nome}` })).toBeVisible();
+  }
+  // AFK de 5 min no Descanso (a tela de Editar servidor tem teste próprio); a ana entra depois e já recebe no "olá".
+  servidor.banco
+    .prepare("UPDATE comunidades SET afk_canal_id = (SELECT id FROM canais WHERE nome = 'Descanso'), afk_minutos = 5 WHERE id = (SELECT comunidade_id FROM canais WHERE nome = 'Descanso')")
+    .run();
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  await expect(ana.janela.getByRole('button', { name: 'Entrar no canal de voz Descanso' })).toBeVisible();
+
+  for (const p of [dono, ana]) {
+    await p.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+    await expect(p.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  }
+  await expect(dono.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem')).toHaveCount(2);
+
+  // CA-3: "Mover para…" no menu da pessoa; a ana troca de sala sozinha e vê quem moveu.
+  await dono.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem', { name: /^ana/ }).click({ button: 'right' });
+  await dono.janela.getByRole('menuitem', { name: 'Mover para…' }).click();
+  await dono.janela.getByRole('menuitem', { name: 'Jogo' }).click();
+  await expect(ana.janela.getByRole('button', { name: 'Jogo, você está aqui' })).toBeVisible({ timeout: 15_000 });
+  await expect(ana.janela.getByText('dono moveu você para Jogo.')).toBeVisible();
+  await expect(ana.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  await expect(dono.janela.getByRole('list', { name: 'Na voz em Jogo' }).getByRole('listitem')).toHaveCount(1);
+
+  // CA-2: arrastar a ana da lista do Jogo para o Papo (limite: 1 movimento a cada 3 s por pessoa).
+  await dono.janela.waitForTimeout(3200);
+  await dono.janela
+    .getByRole('list', { name: 'Na voz em Jogo' })
+    .getByRole('listitem', { name: /^ana/ })
+    .dragTo(dono.janela.getByRole('button', { name: 'Papo, você está aqui' }));
+  await expect(ana.janela.getByRole('button', { name: 'Papo, você está aqui' })).toBeVisible({ timeout: 15_000 });
+  await expect(dono.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem')).toHaveCount(2);
+  // CA-2: o microfone continua como estava (aberto).
+  await expect(ana.janela.getByRole('button', { name: 'Mutar microfone' })).toHaveAttribute('aria-pressed', 'false');
+  await dono.janela.screenshot({ path: join(PRINTS_AFK, 'arrastar.png') });
+
+  // CA-6: desconectar da chamada.
+  await dono.janela.waitForTimeout(3200);
+  await dono.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem', { name: /^ana/ }).click({ button: 'right' });
+  await dono.janela.getByRole('menuitem', { name: 'Desconectar da chamada' }).click();
+  await expect(ana.janela.getByText('dono desconectou você da chamada.')).toBeVisible({ timeout: 15_000 });
+  await expect(ana.janela.getByRole('region', { name: 'Conexão de voz' })).not.toContainText('Voz conectada');
+  await expect(ana.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' })).toBeVisible();
+  await expect(dono.janela.getByRole('list', { name: 'Na voz em Papo' }).getByRole('listitem')).toHaveCount(1);
+
+  // CA-9: a ana volta, fica 5 min sem mexer e sem falar (simulado) e vai para a AFK sozinha.
+  await ana.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+  await expect(ana.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  await ocioso(ana.app, 400);
+  await ana.janela.evaluate(() => (window as unknown as { __adiantarRelogioAfk: (ms: number) => void }).__adiantarRelogioAfk(10 * 60_000));
+  await expect(ana.janela.getByRole('button', { name: 'Descanso, você está aqui' })).toBeVisible({ timeout: 30_000 });
+  await expect(ana.janela.getByText('Você foi para a sala de AFK por inatividade.')).toBeVisible();
+  await expect(dono.janela.getByRole('list', { name: 'Na voz em Descanso' }).getByRole('listitem')).toHaveCount(1);
+
+  // CA-12: na AFK, mudo e sem desmutar.
+  const mutar = ana.janela.getByRole('button', { name: 'Mutar microfone' });
+  await expect(mutar).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+  await mutar.click();
+  await expect(ana.janela.getByText('Na sala de AFK ninguém fala. Entre em outra sala para falar.')).toBeVisible();
+  await expect(mutar).toHaveAttribute('aria-pressed', 'true');
+  await ana.janela.screenshot({ path: join(PRINTS_AFK, 'na-afk.png') });
+
+  const tipos = (servidor.banco.prepare("SELECT tipo FROM auditoria WHERE tipo IN ('voz_movido', 'voz_desconectado', 'voz_afk') ORDER BY id").all() as { tipo: string }[]).map((r) => r.tipo);
+  expect(tipos).toEqual(['voz_movido', 'voz_movido', 'voz_desconectado', 'voz_afk']);
+
+  await ocioso(ana.app, undefined);
   await dono.app.close();
   await ana.app.close();
 });
@@ -495,8 +577,6 @@ test('CA-32, CA-33, CA-34, CA-35: soundboard no canal de voz', async () => {
   await ana.app.close();
 });
 
-const ocioso = (app: ElectronApplication, segundos: number | undefined) =>
-  app.evaluate((_e, s) => (globalThis as unknown as { __ociosoSegundos: (s: number | undefined) => void }).__ociosoSegundos(s), segundos);
 
 test('CA-56, CA-57: status online, ausente e offline na lista de membros', async () => {
   test.setTimeout(90_000);

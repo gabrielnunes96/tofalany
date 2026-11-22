@@ -57,7 +57,7 @@ import { PainelFixadas } from '../componentes/PainelFixadas';
 import { ContadorEspectadores } from '../componentes/ContadorEspectadores';
 import { criarFiltroRepeticao, deveTocar, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
 import { useModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
-import { deveIrParaAfk, INTERVALO_VIGIA_AFK_MS } from '../estado/afk';
+import { controlesAoTrocar, deveIrParaAfk, INTERVALO_VIGIA_AFK_MS, relogioAfk } from '../estado/afk';
 import { PainelBusca } from '../componentes/PainelBusca';
 import { criarKlipy } from '../servicos/gif';
 import { ProcurarAtualizacao } from '../componentes/ProcurarAtualizacao';
@@ -811,6 +811,8 @@ function TelaDoServidor({
       setAvisoVoz('Na sala de AFK ninguém fala. Entre em outra sala para falar.');
       return;
     }
+    // Fora da AFK, a escolha da pessoa vale mais que o mudo guardado da AFK (RN-15).
+    mudoAntesDaAfkRef.current = null;
     // Desmutar durante o deafen desliga os dois (como o microfone volta, o áudio também).
     definirControles(c.surdo ? { ...c, mudo: false, surdo: false } : { ...c, mudo: !c.mudo });
   };
@@ -832,7 +834,7 @@ function TelaDoServidor({
     definirControles({ ...c, surdo: !c.surdo });
   };
   /** mover-e-afk: a troca pedida pelo servidor (o ouvinte do tempo real é registrado uma vez). */
-  const entrarVozMovido = useEffectEvent((canalId: number) => void entrarVoz(canalId));
+  const entrarVozMovido = useEffectEvent((canalId: number, aviso: string) => void entrarVoz(canalId, undefined, aviso));
   const aoAtalho = useEffectEvent(({ acao, pressionado }: { acao: AcaoAtalho; pressionado: boolean }) => {
     // Voz em outro servidor: quem responde ao atalho é a tela de lá.
     if (vozEmOutroRef.current && minhaVozRef.current === null) return;
@@ -1109,14 +1111,16 @@ function TelaDoServidor({
       // mover-e-afk (RF-3): alguém moveu você — o app troca de sala sozinho (o servidor confere tudo antes).
       aoVozMovido: ({ canalVozId, canalNome, porNome }) => {
         if (minhaVozRef.current === null && entrandoRef.current === null) return;
-        setAvisoVoz(`${porNome} moveu você para ${canalNome}.`);
-        entrarVozMovido(canalVozId);
+        const aviso = `${porNome} moveu você para ${canalNome}.`;
+        setAvisoVoz(aviso);
+        entrarVozMovido(canalVozId, aviso);
       },
       aoVozDesconectado: ({ porNome }) => {
         if (minhaVozRef.current !== null) tocar('sair');
         minhaVozRef.current = null;
         setMinhaVozEstado(null);
         mudoAntesDaAfkRef.current = null;
+        trocaPendenteRef.current = null;
         setAvisoVoz(`${porNome} desconectou você da chamada.`);
         void salaVozRef.current?.sair();
         void ponte()
@@ -1126,6 +1130,8 @@ function TelaDoServidor({
       aoVozTirado: (motivo) => {
         if (minhaVozRef.current !== null) tocar('sair');
         minhaVozRef.current = null;
+        mudoAntesDaAfkRef.current = null;
+        trocaPendenteRef.current = null;
         setMinhaVozEstado(null);
         setAvisoVoz(motivo === 'castigo' ? 'Você foi posto de castigo e saiu da voz.' : 'Você entrou na voz por outro computador; aqui a voz foi desligada.');
         void salaVozRef.current?.sair();
@@ -1524,18 +1530,19 @@ function TelaDoServidor({
     const t = setInterval(() => {
       void (async () => {
         const ocioso = (await ponte().presenca.ociosoSegundos?.().catch(() => 0)) ?? 0;
+        const afk = useLoja.getState().afk;
         const ir = deveIrParaAfk({
-          afk: useLoja.getState().afk,
+          afk,
           minhaVoz: minhaVozRef.current,
           ociosoSegundos: ocioso,
           ultimaFalaMs: ultimaFalaRef.current,
-          agora: Date.now(),
+          agora: Date.now() + relogioAfk.adiantarMs,
           camera: controlesRef.current.camera,
           tela: !!salaVozRef.current?.transmitindoTela(),
         });
-        if (!ir || entrandoRef.current !== null) return;
-        await entrarVoz(afkAtual.canalId, 'afk');
-        if (minhaVozRef.current === afkAtual.canalId) setAvisoVoz('Você foi para a sala de AFK por inatividade.');
+        if (!ir || !afk || entrandoRef.current !== null) return;
+        await entrarVoz(afk.canalId, 'afk');
+        if (minhaVozRef.current === afk.canalId) setAvisoVoz('Você foi para a sala de AFK por inatividade.');
       })();
     }, INTERVALO_VIGIA_AFK_MS);
     return () => clearInterval(t);
@@ -1543,13 +1550,38 @@ function TelaDoServidor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [afkAtual, minhaVoz]);
 
+  // mover-e-afk (A7): a AFK mudou com a pessoa dentro. Na sala que deixou de ser AFK (sem poder falar pela mídia), ela
+  // sai e entra de novo quando quiser; na sala que virou AFK, fica muda e sem câmera.
+  const afkAnteriorRef = useRef<number | null>(afkAtual?.canalId ?? null);
+  useEffect(() => {
+    const antes = afkAnteriorRef.current;
+    const agora = afkAtual?.canalId ?? null;
+    afkAnteriorRef.current = agora;
+    if (antes === agora) return;
+    queueMicrotask(() => {
+      const aqui = minhaVozRef.current;
+      if (aqui === null) return;
+      if (aqui === antes) {
+        void sairVoz().then(() => setAvisoVoz('A sala de AFK mudou. Entre numa sala de voz para voltar à chamada.'));
+      } else if (aqui === agora) {
+        const troca = controlesAoTrocar(controlesRef.current, mudoAntesDaAfkRef.current, true);
+        mudoAntesDaAfkRef.current = troca.mudoAntes;
+        if (controlesRef.current.camera) void alternarCamera();
+        definirControles({ ...troca.controles, camera: controlesRef.current.camera });
+      }
+    });
+    // sairVoz, alternarCamera e definirControles leem o estado atual por refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [afkAtual]);
+
   /** mover-e-afk (R-3): pedido de troca que chegou durante uma entrada; vale o último, depois que ela terminar. */
-  const trocaPendenteRef = useRef<{ canalId: number; motivo?: 'afk' } | null>(null);
+  const trocaPendenteRef = useRef<{ canalId: number; motivo?: 'afk'; aviso?: string } | null>(null);
   /** mover-e-afk (RN-15): o mudo de antes de ir para a AFK, para voltar como estava ao sair dela. */
   const mudoAntesDaAfkRef = useRef<boolean | null>(null);
-  async function entrarVoz(canalId: number, motivo?: 'afk') {
+  /** `aviso`: o que mostrar ao entrar (quem moveu a pessoa); sem ele, a entrada limpa o aviso anterior. */
+  async function entrarVoz(canalId: number, motivo?: 'afk', aviso?: string) {
     if (entrandoRef.current !== null) {
-      trocaPendenteRef.current = { canalId, motivo };
+      trocaPendenteRef.current = { canalId, motivo, aviso };
       return;
     }
     entrandoRef.current = canalId;
@@ -1567,21 +1599,18 @@ function TelaDoServidor({
       setEntrandoVoz(false);
       return;
     }
-    if (!motivo) setAvisoVoz(null);
+    if (!motivo) setAvisoVoz(aviso ?? null);
     setEntrandoVoz(true);
     const tinhaVoz = minhaVozRef.current !== null;
     // mover-e-afk: a câmera volta na sala nova (a sala desliga ao sair); na AFK, mudo e sem câmera.
     const cameraAntes = controlesRef.current.camera;
     const afk = useLoja.getState().afk?.canalId;
     const paraAfk = afk === canalId;
-    if (paraAfk && mudoAntesDaAfkRef.current === null) {
-      mudoAntesDaAfkRef.current = controlesRef.current.mudo;
-      controlesRef.current = { ...controlesRef.current, mudo: true, camera: false };
+    const troca = controlesAoTrocar(controlesRef.current, mudoAntesDaAfkRef.current, paraAfk);
+    mudoAntesDaAfkRef.current = troca.mudoAntes;
+    if (troca.controles !== controlesRef.current) {
+      controlesRef.current = troca.controles;
       setControlesEstado(controlesRef.current);
-    } else if (!paraAfk && mudoAntesDaAfkRef.current !== null) {
-      controlesRef.current = { ...controlesRef.current, mudo: mudoAntesDaAfkRef.current };
-      setControlesEstado(controlesRef.current);
-      mudoAntesDaAfkRef.current = null;
     }
     try {
       if (tinhaVoz) {
@@ -1625,7 +1654,7 @@ function TelaDoServidor({
       setEntrandoVoz(false);
       const pendente = trocaPendenteRef.current;
       trocaPendenteRef.current = null;
-      if (pendente && pendente.canalId !== minhaVozRef.current) void entrarVoz(pendente.canalId, pendente.motivo);
+      if (pendente && pendente.canalId !== minhaVozRef.current) void entrarVoz(pendente.canalId, pendente.motivo, pendente.aviso);
     }
   }
 
@@ -1711,6 +1740,13 @@ function TelaDoServidor({
     pararSoundboard();
     if (minhaVozRef.current !== null) tocar('sair');
     setMinhaVoz(null);
+    trocaPendenteRef.current = null;
+    // Saindo da AFK pela porta (sem entrar noutra sala): o mudo volta como estava.
+    if (mudoAntesDaAfkRef.current !== null) {
+      controlesRef.current = { ...controlesRef.current, mudo: mudoAntesDaAfkRef.current };
+      setControlesEstado(controlesRef.current);
+      mudoAntesDaAfkRef.current = null;
+    }
     await salaVozRef.current?.sair();
     void ponte()
       .captura.pararSom?.()

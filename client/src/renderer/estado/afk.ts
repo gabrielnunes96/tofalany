@@ -18,5 +18,22 @@ export function deveIrParaAfk(e: {
   return e.ociosoSegundos >= limiteS && (e.agora - e.ultimaFalaMs) / 1000 >= limiteS;
 }
 
+/**
+ * mover-e-afk (RN-9, RN-15): controles ao trocar de sala. Indo para a AFK: guarda o mudo de antes e fica mudo e sem câmera;
+ * saindo dela: o mudo volta como estava. `mudoAntes` null = não veio da AFK.
+ */
+export function controlesAoTrocar<T extends { mudo: boolean; camera: boolean }>(
+  controles: T,
+  mudoAntes: boolean | null,
+  paraAfk: boolean,
+): { controles: T; mudoAntes: boolean | null } {
+  if (paraAfk) return { controles: { ...controles, mudo: true, camera: false }, mudoAntes: mudoAntes ?? controles.mudo };
+  if (mudoAntes !== null) return { controles: { ...controles, mudo: mudoAntes }, mudoAntes: null };
+  return { controles, mudoAntes: null };
+}
+
+/** E2E: adianta o relógio da vigia (a última fala fica "antiga" sem esperar minutos). Só o modo de teste mexe. */
+export const relogioAfk = { adiantarMs: 0 };
+
 /** De quanto em quanto tempo o app confere a inatividade (ms). */
 export const INTERVALO_VIGIA_AFK_MS = 15_000;

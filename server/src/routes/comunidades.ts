@@ -117,10 +117,11 @@ export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, co
         const canal = comunidadeDoCanal(banco, canalId) === req.comunidadeId ? buscarCanal(banco, canalId) : undefined;
         if (!canal || canal.tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Escolha uma sala de voz deste servidor.');
       }
+      const anterior = afkDa(banco, req.comunidadeId)?.canalId ?? null;
       banco.prepare('UPDATE comunidades SET afk_canal_id = ?, afk_minutos = ? WHERE id = ?').run(canalId, minutos, req.comunidadeId);
       registrarAuditoria(banco, { tipo: 'servidor_editado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { afk: canalId === null ? 'desligada' : `${minutos} min` } });
       avisar(req.comunidadeId);
-      tempoReal.voz.afkMudou(req.comunidadeId);
+      tempoReal.voz.afkMudou(req.comunidadeId, anterior);
       return { afk: afkDa(banco, req.comunidadeId) };
     },
   );

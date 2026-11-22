@@ -105,6 +105,24 @@ describe('mover e desconectar da chamada', () => {
     expect(app!.banco.prepare("SELECT COUNT(*) AS n FROM auditoria WHERE tipo = 'voz_saiu' AND detalhes LIKE '%movido%'").get()).toEqual({ n: 1 });
   });
 
+  it('A5: quem obedece e depois volta para a sala antiga (nova entrada) dentro do prazo não é tirado', async () => {
+    const { ana, bia, abrir, papo, jogos, darMover } = await preparar('200');
+    await darMover(ana.usuario.id);
+    const a = await abrir(ana.token);
+    const b = await abrir(bia.token);
+    await naVoz(b.s, papo);
+    expect((await pedir(a.s, 'voz:mover', { usuarioId: bia.usuario.id, canalVozId: jogos })).ok).toBe(true);
+    await naVoz(b.s, jogos);
+    await naVoz(b.s, papo);
+    await new Promise((r) => setTimeout(r, 400));
+    const estados = await new Promise<{ usuarioId: number; canalVozId: number }[]>((r) => {
+      b.s.once('voz:estados', r);
+      void naVoz(b.s, papo);
+    });
+    expect(estados.find((e) => e.usuarioId === bia.usuario.id)?.canalVozId).toBe(papo);
+    expect(app!.banco.prepare("SELECT COUNT(*) AS n FROM auditoria WHERE tipo = 'voz_saiu' AND detalhes LIKE '%movido%'").get()).toEqual({ n: 0 });
+  });
+
   it('CA-6: desconectar tira na hora e avisa', async () => {
     const { ana, bia, abrir, papo, darMover } = await preparar();
     await darMover(ana.usuario.id);
