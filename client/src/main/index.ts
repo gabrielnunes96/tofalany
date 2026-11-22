@@ -284,6 +284,8 @@ if (links.principal) {
     );
     app.on('will-quit', () => ociosidade.parar());
     ipcMain.handle('presenca:ausente', () => ociosidade.ausente());
+    // mover-e-afk: segundos sem teclado e mouse (com o mesmo gancho dos testes de ponta a ponta).
+    ipcMain.handle('presenca:ocioso-segundos', () => ociosoForcado ?? powerMonitor.getSystemIdleTime());
     // Atividade (jogo da Steam, música do Spotify): só o que a pessoa ligou nas configurações.
     const atividade = criarAtividade(
       () => configuracoes.ler().atividade ?? ATIVIDADE_PADRAO,

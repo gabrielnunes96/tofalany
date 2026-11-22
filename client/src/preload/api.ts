@@ -49,6 +49,8 @@ export interface ApiTofalando {
   presenca: {
     ausente(): Promise<boolean>;
     aoMudar(fn: (ausente: boolean) => void): () => void;
+    /** mover-e-afk: segundos sem teclado e mouse (app antigo da ponte não tem). */
+    ociosoSegundos?(): Promise<number>;
   };
   /** Atividade (jogo, música) detectada no computador; null = nada ou desligada. */
   atividade?: {

@@ -43,6 +43,7 @@ const api: ApiTofalando = {
   },
   presenca: {
     ausente: () => ipcRenderer.invoke('presenca:ausente'),
+    ociosoSegundos: () => ipcRenderer.invoke('presenca:ocioso-segundos'),
     aoMudar: (fn) => {
       const ouvinte = (_e: IpcRendererEvent, ausente: boolean) => fn(ausente === true);
       ipcRenderer.on('presenca:ociosidade', ouvinte);

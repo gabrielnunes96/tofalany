@@ -57,6 +57,7 @@ import { PainelFixadas } from '../componentes/PainelFixadas';
 import { ContadorEspectadores } from '../componentes/ContadorEspectadores';
 import { criarFiltroRepeticao, deveTocar, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
 import { useModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
+import { deveIrParaAfk, INTERVALO_VIGIA_AFK_MS } from '../estado/afk';
 import { PainelBusca } from '../componentes/PainelBusca';
 import { criarKlipy } from '../servicos/gif';
 import { ProcurarAtualizacao } from '../componentes/ProcurarAtualizacao';
@@ -756,6 +757,8 @@ function TelaDoServidor({
   });
   const controlesRef = useRef(controles);
   const [transmitindo, setTransmitindo] = useState(false);
+  /** mover-e-afk: quando a pessoa falou por último (ou entrou na sala). */
+  const ultimaFalaRef = useRef(Date.now());
   // RF-26/RF-30: transmissão de tela — seletor, telas dos outros chegando.
   const [seletorTela, setSeletorTela] = useState(false);
   const [iniciandoTela, setIniciandoTela] = useState(false);
@@ -886,7 +889,11 @@ function TelaDoServidor({
           if (afk !== undefined && (minhaVozRef.current === afk || entrandoRef.current === afk) && avisoDaAfk(texto)) return;
           setAvisoVoz(texto);
         },
-        aoTransmitindo: setTransmitindo,
+        aoTransmitindo: (aberto: boolean) => {
+          // mover-e-afk: falar conta como atividade (não vai para a AFK).
+          if (aberto) ultimaFalaRef.current = Date.now();
+          setTransmitindo(aberto);
+        },
         aoVideos: (lista) => aoVideos(lista),
         aoTelas: setTelasRemotas,
         aoReconectando: (r) => {
@@ -1509,6 +1516,33 @@ function TelaDoServidor({
   const voltar = () => setVista('canal');
 
   /** RF-13: entra no canal de voz (sai do anterior, se houver). */
+  // mover-e-afk (RF-5): a cada 15 s, quem está numa sala sem falar e sem mexer pelo tempo da AFK vai para ela.
+  const afkAtual = useLoja((s) => s.afk);
+  useEffect(() => {
+    if (!afkAtual || minhaVoz === null || minhaVoz === afkAtual.canalId) return;
+    ultimaFalaRef.current = Date.now();
+    const t = setInterval(() => {
+      void (async () => {
+        const ocioso = (await ponte().presenca.ociosoSegundos?.().catch(() => 0)) ?? 0;
+        const ir = deveIrParaAfk({
+          afk: useLoja.getState().afk,
+          minhaVoz: minhaVozRef.current,
+          ociosoSegundos: ocioso,
+          ultimaFalaMs: ultimaFalaRef.current,
+          agora: Date.now(),
+          camera: controlesRef.current.camera,
+          tela: !!salaVozRef.current?.transmitindoTela(),
+        });
+        if (!ir || entrandoRef.current !== null) return;
+        await entrarVoz(afkAtual.canalId, 'afk');
+        if (minhaVozRef.current === afkAtual.canalId) setAvisoVoz('Você foi para a sala de AFK por inatividade.');
+      })();
+    }, INTERVALO_VIGIA_AFK_MS);
+    return () => clearInterval(t);
+    // entrarVoz lê o estado atual por refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [afkAtual, minhaVoz]);
+
   /** mover-e-afk (R-3): pedido de troca que chegou durante uma entrada; vale o último, depois que ela terminar. */
   const trocaPendenteRef = useRef<{ canalId: number; motivo?: 'afk' } | null>(null);
   /** mover-e-afk (RN-15): o mudo de antes de ir para a AFK, para voltar como estava ao sair dela. */
