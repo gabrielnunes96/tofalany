@@ -25,6 +25,8 @@ export interface Config {
   prazoAuditoriaDias: number;
   /** RN-24: carência antes de registrar "offline". */
   carenciaOfflineMs: number;
+  /** mover-e-afk (A5): prazo para o app movido sair da sala antiga antes de ser tirado à força. */
+  prazoMoverMs: number;
   /**
    * Pasta dos arquivos enviados (avatares, anexos, sons). Sem ARQUIVOS: "arquivos" ao lado do banco;
    * com banco em memória (testes), uma pasta temporária.
@@ -111,6 +113,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
         .join(',') || undefined,
     pastaDownloads: ambiente.DOWNLOADS || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
+    prazoMoverMs: inteiro('PRAZO_MOVER_MS', ambiente.PRAZO_MOVER_MS, 10_000, 0),
     livekit: lerLivekit(ambiente),
     gif: lerGif(ambiente),
     musica: {

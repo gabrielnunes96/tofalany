@@ -16,9 +16,9 @@
         "CA-17"
       ],
       "validacao": "vitest server: rota da AFK (admin; não-admin 403; canal de texto ou de outro servidor 400; 7 min 400), ola com afk, apagar o canal zera a AFK, pontos não contam na AFK; permissoesDe sem mover_membros para cargo básico e de castigo.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "eeba4b6"
     },
     {
       "id": "T2",
@@ -39,7 +39,7 @@
         "CA-16"
       ],
       "validacao": "vitest server (sockets e voz-midia): sem permissão recusa; admin/dono/moderador protegidos; castigo recusa; outro servidor e destino inválido recusam; alvo recebe o evento; ignorando, é revogado em 10 s (relógio falso); limites 429; auditoria com ator, alvo e salas.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

@@ -39,6 +39,22 @@ export function conferirModeracao(banco: Banco, comunidadeId: number, atorId: nu
   }
 }
 
+/**
+ * mover-e-afk (RN-1, RN-2, RN-13): quem move ou desconecta quem. Precisa de "Mover membros" (administrador tem);
+ * ninguém move a si mesmo; quem não é administrador não move um administrador, quem criou o servidor nem quem também
+ * tem "Mover membros". O alvo não membro recebe o mesmo erro de "não está em chamada aqui" (A3).
+ */
+export function conferirMover(banco: Banco, comunidadeId: number, atorId: number, alvoId: number): void {
+  if (!temPermissao(banco, atorId, 'mover_membros', comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Seu cargo não permite mover membros.');
+  if (atorId === alvoId) throw new ErroHttp(400, 'dados_invalidos', 'Para trocar de sala, clique na sala.');
+  const alvo = membroDe(banco, comunidadeId, alvoId);
+  if (!alvo) throw new ErroHttp(404, 'nao_encontrado', 'Essa pessoa não está em chamada neste servidor.');
+  const ator = membroDe(banco, comunidadeId, atorId);
+  if (ator?.cargo === 'admin') return;
+  if (alvo.cargo === 'admin' || donoDa(banco, comunidadeId) === alvoId) throw new ErroHttp(403, 'sem_permissao', 'Só um administrador move um administrador.');
+  if (temPermissao(banco, alvoId, 'mover_membros', comunidadeId)) throw new ErroHttp(403, 'sem_permissao', 'Só um administrador move quem também move membros.');
+}
+
 /** O castigo valendo agora (com motivo), ou null. */
 export function meuCastigo(banco: Banco, comunidadeId: number, usuarioId: number, agora: number = Date.now()): { ate: number; motivo: string | null } | null {
   const m = banco.prepare('SELECT castigo_ate, castigo_motivo FROM membros WHERE comunidade_id = ? AND usuario_id = ?').get(comunidadeId, usuarioId) as

@@ -285,6 +285,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   const silenciarFaixa = salas ? (sala: string, identidade: string, sid: string) => salas.mutePublishedTrack(sala, identidade, sid, true).then(() => undefined) : undefined;
   const voz = criarVoz(io, banco, (e) => app.log.error(e), {
     carenciaMs: config.carenciaOfflineMs,
+    prazoMoverMs: config.prazoMoverMs,
     removerDaMidia,
     aoSair: (u, c) => {
       tela.saiuDaVoz(u, c);

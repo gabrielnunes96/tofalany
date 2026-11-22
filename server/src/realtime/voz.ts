@@ -5,6 +5,8 @@ import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 import { temPermissao } from '../dominio/funcoes.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { comAck } from './acoes.js';
+import { conferirMover } from '../dominio/moderacao.js';
+import { criarLimitador } from '../auth/limitador.js';
 import type { ServidorTempoReal, SocketTofalando } from './tempo-real.js';
 
 /**
@@ -67,9 +69,16 @@ export function criarVoz(
     aoSair?: (usuarioId: number, canalVozId: number) => void;
     /** Pontos e loja: a presença na voz mudou (entrou, saiu, surdo, conexão caiu ou voltou). */
     aoMudar?: () => void;
+    /** mover-e-afk (A5): quanto o app movido tem para sair da sala antiga antes de ser tirado à força. */
+    prazoMoverMs?: number;
   },
 ): Voz {
   const presentes = new Map<number, Presente>();
+  const prazoMover = opcoes.prazoMoverMs ?? 10_000;
+  /** A10: até 5 mover/desconectar a cada 10 s por moderador e 1 a cada 3 s por pessoa movida. */
+  const limiteAtor = criarLimitador(5, 10_000);
+  const limiteAlvo = criarLimitador(1, 3_000);
+  const nomeDe = (id: number) => (banco.prepare('SELECT nome_exibicao AS n FROM usuarios WHERE id = ?').get(id) as { n: string } | undefined)?.n ?? 'Alguém';
 
   const estados = () => [...presentes.values()].map((p) => p.estado).sort((a, b) => a.usuarioId - b.usuarioId);
   /** Cada servidor recebe só quem está nos canais de voz dele. */
@@ -162,6 +171,68 @@ export function criarVoz(
             estado: { usuarioId, canalVozId: canal.id, mudo: pedido.mudo, surdo: pedido.surdo, camera: pedido.camera },
           });
           avisar();
+          return undefined;
+        }),
+      );
+      /**
+       * mover-e-afk (RF-2, A1–A5, A10): mover quem está em chamada neste servidor para outra sala de voz daqui, ou
+       * desconectar. O servidor confere, audita e avisa o app da pessoa; se ela não sair da sala antiga a tempo (app
+       * antigo ou modificado), é tirada da presença e da mídia.
+       */
+      const conferirAlvo = (dados: unknown, comDestino: boolean) => {
+        const d = ehObjeto(dados) ? dados : {};
+        const alvoId = d.usuarioId;
+        if (typeof alvoId !== 'number' || !Number.isInteger(alvoId) || alvoId < 1) throw new ErroHttp(400, 'dados_invalidos', 'Pessoa inválida.');
+        const c = socket.data.comunidadeId;
+        conferirMover(banco, c, usuarioId, alvoId);
+        const p = presentes.get(alvoId);
+        if (!p || p.pendente || comunidadeDoCanal(banco, p.estado.canalVozId) !== c) throw new ErroHttp(404, 'nao_encontrado', 'Essa pessoa não está em chamada neste servidor.');
+        let destino: { id: number; nome: string } | undefined;
+        if (comDestino) {
+          const id = d.canalVozId;
+          if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) throw new ErroHttp(400, 'dados_invalidos', 'Sala inválida.');
+          const canal = comunidadeDoCanal(banco, id) === c ? buscarCanal(banco, id) : undefined;
+          if (!canal) throw new ErroHttp(404, 'nao_encontrado', 'Sala não encontrada.');
+          if (canal.tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Essa sala não é de voz.');
+          if (canal.id === p.estado.canalVozId) throw new ErroHttp(400, 'dados_invalidos', 'A pessoa já está nessa sala.');
+          if (!temPermissao(banco, alvoId, 'entrar_voz', c)) throw new ErroHttp(403, 'sem_permissao', 'Essa pessoa não pode entrar na voz agora.');
+          destino = { id: canal.id, nome: canal.nome };
+        }
+        if (!limiteAtor.permitir(`${c}:${usuarioId}`) || !limiteAlvo.permitir(`${c}:${alvoId}`)) throw new ErroHttp(429, 'muitas_tentativas', 'Calma: muitas trocas seguidas.');
+        return { alvoId, p, destino, origem: buscarCanal(banco, p.estado.canalVozId) };
+      };
+      /** Tira à força quem continua na sala de antes pela mesma conexão (A5). */
+      const tirarSeNaoSaiu = (alvoId: number, socketId: string, canalAntigo: number, motivo: string) => {
+        const atual = presentes.get(alvoId);
+        if (!atual || atual.socketId !== socketId || atual.estado.canalVozId !== canalAntigo) return;
+        tirar(alvoId, motivo);
+        removerDaMidia(alvoId, canalAntigo);
+        avisar();
+      };
+      socket.on(
+        'voz:mover',
+        comAck(registrarErro, (dados: unknown) => {
+          const { alvoId, p, destino, origem } = conferirAlvo(dados, true);
+          registrarAuditoria(banco, {
+            tipo: 'voz_movido',
+            atorId: usuarioId,
+            alvoUsuarioId: alvoId,
+            canal: destino!,
+            detalhes: { de: origem?.nome ?? String(p.estado.canalVozId) },
+          });
+          io.to(p.socketId).emit('voz:movido', { canalVozId: destino!.id, canalNome: destino!.nome, porNome: nomeDe(usuarioId) });
+          const t = setTimeout(() => tirarSeNaoSaiu(alvoId, p.socketId, p.estado.canalVozId, 'movido'), prazoMover);
+          t.unref();
+          return undefined;
+        }),
+      );
+      socket.on(
+        'voz:desconectar',
+        comAck(registrarErro, (dados: unknown) => {
+          const { alvoId, p, origem } = conferirAlvo(dados, false);
+          registrarAuditoria(banco, { tipo: 'voz_desconectado', atorId: usuarioId, alvoUsuarioId: alvoId, canal: origem ?? undefined });
+          io.to(p.socketId).emit('voz:desconectado', { porNome: nomeDe(usuarioId) });
+          tirarSeNaoSaiu(alvoId, p.socketId, p.estado.canalVozId, 'desconectado');
           return undefined;
         }),
       );
