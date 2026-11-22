@@ -58,6 +58,9 @@ interface Presente {
   entrada: number;
 }
 
+/** Janela em que uma nova entrada com token antigo, depois de uma remoção, é tirada sem esperar o prazo. */
+const JANELA_REINCIDENCIA_MS = 5 * 60_000;
+
 const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
 function lerPedido(dados: unknown) {
@@ -91,6 +94,8 @@ export function criarVoz(
   const presentes = new Map<number, Presente>();
   const prazoMover = opcoes.prazoMoverMs ?? 10_000;
   let entradas = 0;
+  /** A6: remoções recentes por pessoa e sala (quem volta com token antigo depois de tirado é tirado na hora). */
+  const remocoesRecentes = new Map<string, number[]>();
   /** A10: até 5 mover/desconectar a cada 10 s por moderador e 1 a cada 3 s por pessoa movida. */
   const limiteAtor = criarLimitador(5, 10_000);
   const limiteAlvo = criarLimitador(1, 3_000);
@@ -222,7 +227,9 @@ export function criarVoz(
         const c = socket.data.comunidadeId;
         conferirMover(banco, c, usuarioId, alvoId);
         const p = presentes.get(alvoId);
-        if (!p || p.pendente || comunidadeDoCanal(banco, p.estado.canalVozId) !== c) throw new ErroHttp(404, 'nao_encontrado', 'Essa pessoa não está em chamada neste servidor.');
+        if (!p || comunidadeDoCanal(banco, p.estado.canalVozId) !== c) throw new ErroHttp(404, 'nao_encontrado', 'Essa pessoa não está em chamada neste servidor.');
+        // Sem conexão (carência de queda): não há app para obedecer ao mover; desconectar tira na hora.
+        if (p.pendente && comDestino) throw new ErroHttp(409, 'dados_invalidos', 'Essa pessoa está sem conexão agora. Use "Desconectar da chamada".');
         let destino: { id: number; nome: string } | undefined;
         if (comDestino) {
           const id = d.canalVozId;
@@ -307,12 +314,29 @@ export function criarVoz(
       avisar();
     },
     midiaEntrou(usuarioId, canalVozId) {
-      const t = setTimeout(() => {
-        const c = comunidadeDoCanal(banco, canalVozId);
-        const pode = c !== undefined && temPermissao(banco, usuarioId, 'entrar_voz', c);
-        if (pode && presentes.get(usuarioId)?.estado.canalVozId === canalVozId) return;
+      const c = comunidadeDoCanal(banco, canalVozId);
+      const pode = () => c !== undefined && temPermissao(banco, usuarioId, 'entrar_voz', c);
+      const tirarDaMidia = () => {
+        const chave = `${usuarioId}:${canalVozId}`;
+        const agora = Date.now();
+        remocoesRecentes.set(chave, [...(remocoesRecentes.get(chave) ?? []).filter((t) => agora - t < JANELA_REINCIDENCIA_MS), agora]);
         removerDaMidia(usuarioId, canalVozId);
-      }, prazoMover);
+      };
+      const conferir = () => {
+        if (pode() && presentes.get(usuarioId)?.estado.canalVozId === canalVozId) {
+          // Token antigo (de antes de a sala virar AFK) não fala na AFK (A7).
+          if (afkDa(banco, c!)?.canalId === canalVozId) opcoes.calarNaMidia?.(usuarioId, canalVozId).catch(registrarErro);
+          return;
+        }
+        tirarDaMidia();
+      };
+      // Sem permissão, ou já tirado dessa sala há pouco (reentrada em ciclo com token antigo): na hora. Senão, espera o
+      // prazo: o app entra na mídia antes de avisar a troca de sala.
+      const recentes = (remocoesRecentes.get(`${usuarioId}:${canalVozId}`) ?? []).filter((t) => Date.now() - t < JANELA_REINCIDENCIA_MS);
+      const naPresenca = presentes.get(usuarioId)?.estado.canalVozId === canalVozId;
+      if (!pode() || (!naPresenca && recentes.length > 0)) return conferir();
+      if (naPresenca) return conferir();
+      const t = setTimeout(conferir, prazoMover);
       t.unref();
     },
     afkMudou(comunidadeId, anterior) {

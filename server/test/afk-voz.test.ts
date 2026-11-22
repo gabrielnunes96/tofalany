@@ -74,6 +74,28 @@ describe('sala de AFK na voz', () => {
     expect(removerDaMidia).toHaveBeenCalledWith(1, afk.id);
   });
 
+  it('A6: sem permissão de voz, ou voltando com token antigo depois de tirado, sai da mídia na hora', async () => {
+    const { voz, papo, afk, pedir, removerDaMidia } = preparar();
+    // Usuário 2 não é membro do servidor: sem entrar_voz.
+    voz.midiaEntrou(2, papo.id);
+    expect(removerDaMidia).toHaveBeenCalledWith(2, papo.id);
+    await pedir(estado(papo.id));
+    voz.midiaEntrou(1, afk.id);
+    expect(removerDaMidia).toHaveBeenCalledTimes(1);
+    await new Promise((r) => setTimeout(r, 120));
+    expect(removerDaMidia).toHaveBeenCalledTimes(2);
+    voz.midiaEntrou(1, afk.id);
+    expect(removerDaMidia).toHaveBeenCalledTimes(3);
+  });
+
+  it('A7: quem entra na mídia da AFK estando nela pela presença é calado na hora (token de antes de a sala virar AFK)', async () => {
+    const { voz, afk, pedir, calarNaMidia, removerDaMidia } = preparar();
+    await pedir(estado(afk.id));
+    voz.midiaEntrou(1, afk.id);
+    expect(calarNaMidia).toHaveBeenCalledWith(1, afk.id);
+    expect(removerDaMidia).not.toHaveBeenCalled();
+  });
+
   it('A7: a AFK passa a ser uma sala ocupada — quem está nela fica mudo e sem poder publicar', async () => {
     const { banco, voz, papo, pedir, calarNaMidia } = preparar();
     await pedir(estado(papo.id));
