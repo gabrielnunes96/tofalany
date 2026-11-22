@@ -27,7 +27,7 @@ import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
 import { buscarPorId, listarMembros, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
-import { conviteDa, donoDa, existeComunidade, idsDosMembros, membroDe, membroNaComunidade, nomeComunidade, iconeComunidade } from '../dominio/comunidades.js';
+import { conviteDa, donoDa, existeComunidade, idsDosMembros, membroDe, membroNaComunidade, nomeComunidade, iconeComunidade, afkDa, ehSalaAfk } from '../dominio/comunidades.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
 import { listarDms } from '../dominio/dms.js';
@@ -294,7 +294,8 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
   });
   const tela = criarTela(io, banco, voz, (e) => app.log.error(e));
   const pontos = criarPontos({
-    participantes: () => voz.participantes(),
+    // mover-e-afk (RN-14): tempo na sala de AFK não conta pontos.
+    participantes: () => voz.participantes().filter((p) => !ehSalaAfk(banco, p.canalVozId)),
     minutoMs: config.pontos.minutoMs,
     porMinuto: config.pontos.porMinuto,
     creditar: (u, n, movimentoId) => creditar(banco, u, n, movimentoId),
@@ -364,6 +365,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
         id: comunidadeId,
         donoId: donoDa(banco, comunidadeId),
         iconeUrl: iconeComunidade(banco, comunidadeId),
+        afk: afkDa(banco, comunidadeId),
       },
       convite: { link: montarLinkConvite(socket.data.baseServidor, conviteDa(banco, comunidadeId) ?? '') },
       eu: paraDto(membros.find((m) => m.id === eu.id) ?? eu),

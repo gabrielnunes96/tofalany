@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { AVATAR_MAX_BYTES, caminhoComunidade, type ComunidadeDto } from '@tofalando/shared';
+import { AVATAR_MAX_BYTES, MINUTOS_AFK, caminhoComunidade, type AfkDto, type ComunidadeDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import type { Config } from '../config.js';
 import { ErroHttp } from '../erros.js';
 import { exigirAdmin, exigirSessao } from '../auth/sessao-http.js';
 import {
   adicionarMembro,
+  afkDa,
   comunidadeDoConvite,
   criarComunidade,
   ehAdminDaInstalacao,
@@ -26,6 +27,7 @@ import { baseServidor } from './convite.js';
 import { arquivosDoCanal } from '../dominio/anexos.js';
 import { processarAvatar } from './perfil.js';
 import { estaBanido } from '../dominio/moderacao.js';
+import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 
 /**
  * Vários servidores na mesma instalação: listar os meus, criar um, entrar com convite, sair e
@@ -41,7 +43,9 @@ export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, co
   });
   /** Avisa quem está no servidor que o nome ou a imagem mudou. */
   const avisar = (id: number) =>
-    tempoReal.io.to(salaComunidade(id)).emit('servidor:atualizado', { nome: nomeComunidade(banco, id, config.nomeServidor) ?? '', iconeUrl: iconeComunidade(banco, id) });
+    tempoReal.io
+      .to(salaComunidade(id))
+      .emit('servidor:atualizado', { nome: nomeComunidade(banco, id, config.nomeServidor) ?? '', iconeUrl: iconeComunidade(banco, id), afk: afkDa(banco, id) });
 
   app.get('/api/comunidades', { preHandler: daConta }, async (req): Promise<ComunidadeDto[]> =>
     listarComunidadesDe(banco, req.usuarioId!, baseServidor(config, req), config.nomeServidor),
@@ -92,6 +96,33 @@ export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, co
     avisar(req.comunidadeId);
     return dto(req.comunidadeId, baseServidor(config, req));
   });
+
+  // mover-e-afk (RF-4): sala de AFK e o tempo, só o administrador do servidor; o canal precisa ser de voz daqui (A13).
+  app.patch(
+    '/api/comunidade/afk',
+    {
+      preHandler: [exigirSessao(banco), exigirAdmin(banco)],
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['canalId', 'minutos'],
+          properties: { canalId: { type: ['integer', 'null'], minimum: 1 }, minutos: { type: 'integer', enum: [...MINUTOS_AFK] } },
+        },
+      },
+    },
+    async (req): Promise<{ afk: AfkDto | null }> => {
+      const { canalId, minutos } = req.body as { canalId: number | null; minutos: number };
+      if (canalId !== null) {
+        const canal = comunidadeDoCanal(banco, canalId) === req.comunidadeId ? buscarCanal(banco, canalId) : undefined;
+        if (!canal || canal.tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Escolha uma sala de voz deste servidor.');
+      }
+      banco.prepare('UPDATE comunidades SET afk_canal_id = ?, afk_minutos = ? WHERE id = ?').run(canalId, minutos, req.comunidadeId);
+      registrarAuditoria(banco, { tipo: 'servidor_editado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { afk: canalId === null ? 'desligada' : `${minutos} min` } });
+      avisar(req.comunidadeId);
+      return { afk: afkDa(banco, req.comunidadeId) };
+    },
+  );
 
   // Imagem do servidor: como o avatar (conferida pelo conteúdo, regravada em 256×256 WebP sem metadados).
   app.put('/api/comunidade/icone', { preHandler: [exigirSessao(banco), exigirAdmin(banco)] }, async (req): Promise<ComunidadeDto> => {

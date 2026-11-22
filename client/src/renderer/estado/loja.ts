@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { create } from 'zustand';
-import { textoSemGif, trechoDeResposta, type FixadaDto } from '@tofalando/shared';
+import { textoSemGif, trechoDeResposta, type AfkDto, type FixadaDto } from '@tofalando/shared';
 import type {
   CanalDto,
   DmDto,
@@ -33,6 +33,8 @@ interface Loja {
   nomeServidor: string | null;
   /** Imagem do servidor (/files/<id>), se tiver. */
   iconeServidor: string | null;
+  /** mover-e-afk: sala de AFK do servidor e o tempo (null = desligada; servidor antigo não manda). */
+  afk: AfkDto | null;
   /** Servidor desta conexão (1 = principal) e quem o criou (só quem criou exclui). */
   servidorId: number | null;
   donoServidor: number | null;
@@ -97,7 +99,7 @@ interface Loja {
   tirarSom(id: number): void;
   definirConexao(estado: EstadoConexao): void;
   aplicarOla(payload: OlaPayload): void;
-  servidorAtualizado(s: { nome: string; iconeUrl: string | null }): void;
+  servidorAtualizado(s: { nome: string; iconeUrl: string | null; afk?: AfkDto | null }): void;
   adicionarUsuario(usuario: UsuarioDto): void;
   /** Mesmo efeito de adicionar (substitui pelo id) e também atualiza "eu" se for a própria pessoa. */
   atualizarUsuario(usuario: UsuarioDto): void;
@@ -169,6 +171,7 @@ const inicial = {
   conexao: 'conectando' as EstadoConexao,
   nomeServidor: null,
   iconeServidor: null,
+  afk: null as AfkDto | null,
   servidorId: null,
   donoServidor: null,
   linkConvite: null,
@@ -246,7 +249,7 @@ export const criarLoja = () =>
         sons: s.sons.some((x) => x.id === som.id) ? s.sons.map((x) => (x.id === som.id ? som : x)) : [...s.sons, som].sort((a, b) => a.id - b.id),
       })),
     tirarSom: (id) => set((s) => ({ sons: s.sons.filter((x) => x.id !== id) })),
-    servidorAtualizado: ({ nome, iconeUrl }) => set({ nomeServidor: nome, iconeServidor: iconeUrl }),
+    servidorAtualizado: ({ nome, iconeUrl, afk }) => set({ nomeServidor: nome, iconeServidor: iconeUrl, ...(afk !== undefined ? { afk } : {}) }),
     definirAtividade: (id, a) =>
       set((s) => {
         const atividades = { ...s.atividades };
@@ -279,6 +282,7 @@ export const criarLoja = () =>
         return {
           nomeServidor: servidor.nome,
           iconeServidor: servidor.iconeUrl ?? null,
+          afk: servidor.afk ?? null,
           servidorId: servidor.id ?? null,
           donoServidor: servidor.donoId ?? null,
           linkConvite: convite.link,

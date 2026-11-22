@@ -2,6 +2,7 @@ import { io, type Socket } from 'socket.io-client';
 import {
   separarComunidade,
   ERRO_HANDSHAKE_NAO_AUTENTICADO,
+  type AfkDto,
   type EventosCliente,
   type EventosServidor,
   type MotivoRevogacao,
@@ -65,7 +66,7 @@ export interface OuvintesTempoReal {
   aoTelaIniciada(t: TransmissaoDto): void;
   aoTelaParada(canalVozId: number, usuarioId?: number): void;
   aoAtividade?(id: number, atividade: AtividadeDto | null): void;
-  aoServidorAtualizado?(s: { nome: string; iconeUrl: string | null }): void;
+  aoServidorAtualizado?(s: { nome: string; iconeUrl: string | null; afk?: AfkDto | null }): void;
   aoTelaEspectadores?(canalVozId: number, usuarioId: number, espectadores: number[]): void;
   /** Backlog v2, item 14: o bot de música mudou num canal (servidor antigo nunca manda). */
   aoMusica?(estado: EstadoMusica): void;

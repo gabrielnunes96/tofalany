@@ -1,6 +1,6 @@
 # Mover membros e sala de AFK — plano de desenvolvimento
 
-> Demanda: `mover-e-afk` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **rascunho**
+> Demanda: `mover-e-afk` · Base: técnica v1 (aprovada em 21/11/2026) · 21/11/2026 · Situação: **aprovado em 22/11/2026**
 > Fonte da verdade das tarefas: `tarefas.json`.
 
 ## Ordem e paralelismo

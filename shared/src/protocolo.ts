@@ -80,7 +80,8 @@ export type Permissao =
   | 'ver_auditoria'
   | 'moderar_membros'
   | 'mencionar_todos'
-  | 'fixar_mensagens';
+  | 'fixar_mensagens'
+  | 'mover_membros';
 
 export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basica?: boolean }[] = [
   { id: 'enviar_mensagens', nome: 'Enviar mensagens', descricao: 'escrever nos canais de texto', basica: true },
@@ -100,6 +101,7 @@ export const PERMISSOES: { id: Permissao; nome: string; descricao: string; basic
   { id: 'moderar_membros', nome: 'Moderar membros', descricao: 'pôr de castigo, expulsar e banir (não vale para administradores)' },
   { id: 'mencionar_todos', nome: 'Mencionar @todos', descricao: 'marcar todo mundo do canal com @todos (notifica todos)' },
   { id: 'fixar_mensagens', nome: 'Fixar mensagens', descricao: 'fixar e desafixar mensagens nos canais' },
+  { id: 'mover_membros', nome: 'Mover membros', descricao: 'mover quem está em chamada para outra sala de voz e desconectar da chamada' },
 ];
 
 /** O que todo membro sem cargo personalizado faz (e o que um cargo novo traz marcado). */
@@ -433,7 +435,7 @@ export const PERMISSOES_SEM_CASTIGO: Permissao[] = [
   'transmitir_tela',
   'tocar_sons',
   'usar_toouvini',
-  'fixar_mensagens',
+  'fixar_mensagens', 'mover_membros',
 ];
 /** Durações do castigo oferecidas no app, em minutos (o servidor aceita de 1 minuto a 28 dias). */
 export const DURACOES_CASTIGO = [
@@ -638,7 +640,17 @@ export interface VozEstadoPedido {
   camera: boolean;
   /** Sessão de mídia no LiveKit (participant.sid), para o servidor reconhecer a saída certa. */
   sid?: string;
+  /** mover-e-afk: a ida para a sala de AFK foi por inatividade (o servidor confere e registra). */
+  motivo?: 'afk';
 }
+
+/** mover-e-afk: sala de AFK do servidor e o tempo de inatividade (minutos). */
+export interface AfkDto {
+  canalId: number;
+  minutos: number;
+}
+/** Tempos de inatividade que o administrador pode escolher (RN-6). */
+export const MINUTOS_AFK = [5, 10, 15, 30, 60] as const;
 
 /** RF-26/RF-28: qualidade da transmissão de tela (membro só 720p30, RN-17), da menor para a maior. */
 export type QualidadeTela = '720p30' | '720p60' | '1080p30' | '1080p60' | '1440p60';
@@ -698,7 +710,7 @@ export type Ack<T = undefined> = (resposta: { ok: true; valor: T } | { ok: false
 /** Retrato inicial enviado ao conectar o Socket.IO (cresce com canais, DMs, voz… nas próximas tarefas). */
 export interface OlaPayload {
   /** Servidor desta conexão: nome, id (1 = principal) e quem criou (só quem criou exclui; servidor antigo não manda). */
-  servidor: { nome: string; id?: number; donoId?: number | null; iconeUrl?: string | null };
+  servidor: { nome: string; id?: number; donoId?: number | null; iconeUrl?: string | null; afk?: AfkDto | null };
   /** Link de convite vigente, que qualquer membro pode copiar (RF-1a). */
   /** Moderação: o meu castigo aqui, com o motivo (só eu recebo o motivo). */
   meuCastigo?: { ate: number; motivo: string | null } | null;
@@ -775,7 +787,10 @@ export interface EventosServidor {
   /** RN-10: transmissão de tela começou ou parou (para todos: a barra mostra quem transmite). */
   'tela:iniciada': (t: TransmissaoDto) => void;
   /** Nome ou imagem do servidor mudou. */
-  'servidor:atualizado': (s: { nome: string; iconeUrl: string | null }) => void;
+  'servidor:atualizado': (s: { nome: string; iconeUrl: string | null; afk?: AfkDto | null }) => void;
+  /** mover-e-afk: alguém moveu você para outra sala (troque de sala) ou desconectou você da chamada. */
+  'voz:movido': (payload: { canalVozId: number; canalNome: string; porNome: string }) => void;
+  'voz:desconectado': (payload: { porNome: string }) => void;
   'tela:parada': (payload: { canalVozId: number; usuarioId: number }) => void;
   /** Quem assiste a transmissão do canal mudou. */
   'tela:espectadores': (payload: { canalVozId: number; usuarioId: number; espectadores: number[] }) => void;
@@ -824,6 +839,9 @@ export interface EventosCliente {
   'dm:abrir': (dados: { usuarioId: number }, ack: Ack<DmDto>) => void;
   /** RF-13: entrou, mudou (mute/deafen/câmera) ou saiu (canalVozId null) da voz. */
   'voz:estado': (dados: VozEstadoPedido, ack: Ack) => void;
+  /** mover-e-afk: mover quem está em chamada (só com "Mover membros") e desconectar da chamada. */
+  'voz:mover': (dados: { usuarioId: number; canalVozId: number }, ack: Ack) => void;
+  'voz:desconectar': (dados: { usuarioId: number }, ack: Ack) => void;
   /** RF-23: toca um som para o canal de voz em que estou (RN-12, RN-13). */
   'som:tocar': (dados: { somId: number }, ack: Ack) => void;
   /** RF-26/RN-10: pede a trava do canal para transmitir (recusa se outro já transmite). */

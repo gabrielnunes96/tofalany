@@ -63,7 +63,7 @@ describe('vários servidores na mesma instalação', () => {
     const renomeado = await app!.inject({ method: 'PATCH', url: '/api/comunidade', headers: auth(dono.token), payload: { nome: 'Turma' } });
     expect(renomeado.statusCode).toBe(200);
     expect((renomeado.json() as ComunidadeDto).nome).toBe('Turma');
-    expect(await chegou).toEqual({ nome: 'Turma', iconeUrl: null });
+    expect(await chegou).toEqual({ nome: 'Turma', iconeUrl: null, afk: null });
     expect((await app!.inject({ method: 'GET', url: '/api/servidor' })).json()).toMatchObject({ nome: 'Turma' });
 
     const negado = multipart(await png());

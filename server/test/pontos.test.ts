@@ -206,6 +206,16 @@ describe('contador de pontos (integração, minuto de 200 ms)', () => {
     expect(saldo(1)).toBe(0);
   });
 
+  it('mover-e-afk CA-17: dois na sala de AFK não ganham', async () => {
+    const { ana, beto, sala } = await preparar();
+    app!.banco.prepare('UPDATE comunidades SET afk_canal_id = ? WHERE id = 1').run(sala);
+    await naVoz(ana, sala);
+    await naVoz(beto, sala);
+    await minutos(3);
+    expect(saldo(2)).toBe(0);
+    expect(saldo(3)).toBe(0);
+  });
+
   it('CA-4/CA-5: surdo não ganha (o outro sim); mudo ganha', async () => {
     const { ana, beto, sala } = await preparar();
     const desde = Date.now();

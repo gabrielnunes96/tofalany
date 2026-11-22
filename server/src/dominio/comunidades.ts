@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { COMUNIDADE_PRINCIPAL, LIMITE_SERVIDORES_POR_PESSOA, caminhoComunidade, type Cargo, type ComunidadeDto } from '@tofalando/shared';
+import { type AfkDto, COMUNIDADE_PRINCIPAL, LIMITE_SERVIDORES_POR_PESSOA, caminhoComunidade, type Cargo, type ComunidadeDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { iguaisSeguro } from '../auth/tokens.js';
@@ -30,6 +30,17 @@ export function nomeComunidade(banco: Banco, id: number, nomePrincipal: string):
 }
 
 /** Imagem do servidor (/files/<id>) ou null. */
+/** mover-e-afk: sala de AFK do servidor (null = desligada). */
+export function afkDa(banco: Banco, comunidadeId: number): AfkDto | null {
+  const c = banco.prepare('SELECT afk_canal_id, afk_minutos FROM comunidades WHERE id = ?').get(comunidadeId) as { afk_canal_id: number | null; afk_minutos: number } | undefined;
+  return c?.afk_canal_id ? { canalId: c.afk_canal_id, minutos: c.afk_minutos } : null;
+}
+
+/** O canal é a sala de AFK de algum servidor (os ids de canal são únicos na instalação). */
+export function ehSalaAfk(banco: Banco, canalId: number): boolean {
+  return !!banco.prepare('SELECT 1 FROM comunidades WHERE afk_canal_id = ?').get(canalId);
+}
+
 export function iconeComunidade(banco: Banco, id: number): string | null {
   const c = banco.prepare('SELECT icone_arquivo FROM comunidades WHERE id = ?').get(id) as { icone_arquivo: string | null } | undefined;
   return c?.icone_arquivo ? `/files/${c.icone_arquivo}` : null;

@@ -340,5 +340,10 @@ export const MIGRACOES: readonly string[] = [
   INSERT INTO busca_mensagens (rowid, texto, anexos)
   SELECT m.id, m.texto, (SELECT group_concat(nome_original, ' ') FROM anexos WHERE mensagem_id = m.id) FROM mensagens m;
   `,
+  // 023 — mover-e-afk: sala de AFK por servidor (apagar o canal desliga a AFK) e o tempo de inatividade (minutos).
+  `
+  ALTER TABLE comunidades ADD COLUMN afk_canal_id INTEGER REFERENCES canais(id) ON DELETE SET NULL;
+  ALTER TABLE comunidades ADD COLUMN afk_minutos INTEGER NOT NULL DEFAULT 15;
+  `,
 ];
 
