@@ -1,6 +1,6 @@
 # Mover membros e sala de AFK — especificação técnica
 
-> Demanda: `mover-e-afk` · Base: funcional v2 · 21/11/2026 · Situação: **rascunho**
+> Demanda: `mover-e-afk` · Base: funcional v2 · 21/11/2026 · Situação: **aprovada em 21/11/2026**
 
 ## 1. Visão da solução
 O servidor decide e age; o app obedece só a eventos do servidor.

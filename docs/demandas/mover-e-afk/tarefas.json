@@ -1,0 +1,111 @@
+{
+  "demanda": "mover-e-afk",
+  "titulo": "Mover membros e sala de AFK",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Base: permissão mover_membros, migração 023, configuração da AFK e pontos sem a AFK",
+      "descricao": "shared: mover_membros (não básica, em PERMISSOES_SEM_CASTIGO), eventos voz:mover/desconectar/movido/desconectado, VozEstadoPedido.motivo, servidor.afk, tipos de auditoria voz_movido/voz_desconectado/voz_afk, MINUTOS_AFK. server: migração 023 (afk_canal_id com ON DELETE SET NULL, afk_minutos padrão 15), PATCH /api/comunidade/afk (admin, schema fechado, canal de voz deste servidor, minutos da lista), afk no ola e em servidor:atualizado, pontos não contam na AFK.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": ["CA-8", "CA-15", "CA-17"],
+      "validacao": "vitest server: rota da AFK (admin; não-admin 403; canal de texto ou de outro servidor 400; 7 min 400), ola com afk, apagar o canal zera a AFK, pontos não contam na AFK; permissoesDe sem mover_membros para cargo básico e de castigo.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Servidor: mover e desconectar da chamada",
+      "descricao": "conferirMover em dominio/moderacao.ts (permissão, admin/dono/quem tem mover_membros só pelo admin, alvo membro e em voz neste servidor, destino de voz daqui e diferente do atual, entrar_voz do alvo, não a si mesmo, erro genérico); eventos com ack voz:mover e voz:desconectar; auditoria na mesma transação; voz:movido/voz:desconectado com nomes do banco ao socket da presença; revogar depois de 10 s se ainda na sala antiga (desconectar revoga na hora); limites 5 por 10 s por moderador e 1 por 3 s por alvo.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": ["T1"],
+      "criterios": ["CA-1", "CA-2", "CA-4", "CA-5", "CA-6", "CA-14", "CA-16"],
+      "validacao": "vitest server (sockets e voz-midia): sem permissão recusa; admin/dono/moderador protegidos; castigo recusa; outro servidor e destino inválido recusam; alvo recebe o evento; ignorando, é revogado em 10 s (relógio falso); limites 429; auditoria com ator, alvo e salas.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "Servidor: AFK (motivo, mudo e token) e participant_joined",
+      "descricao": "voz:estado com motivo 'afk' aceito só para a AFK do servidor do canal atual e no socket da própria presença, até 1 por minuto, auditoria voz_afk; mudo gravado true na AFK; token da AFK com canPublish false; ao mudar a AFK de sala, quem está na nova AFK é removido da mídia; webhook participant_joined: depois de 10 s, quem está numa sala de voz que não é a da presença (ou sem entrar_voz) é removido.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": ["T1"],
+      "criterios": ["CA-9", "CA-12"],
+      "validacao": "vitest server: token da AFK sem publicação; mudo forçado; motivo afk para outra sala recusado; segunda ida em menos de 1 min recusada; participant_joined fora da presença remove (relógio falso); dentro da presença não.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "App: trocar de sala quando movido, desconectar e mudo da AFK",
+      "descricao": "tempo-real: aoVozMovido e aoVozDesconectado; troca de sala com fila de um (o último pedido vale), mantendo mudo e surdo, religando a câmera e parando a tela (e o som do sistema); aviso 'Ana moveu você para Jogos' / 'desconectou você'; na AFK o mudo fica travado (botão e atalho avisam) e, ao sair para outra sala, o mudo volta ao de antes; sem o aviso de 'só para ouvir' na AFK.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": ["T2", "T3"],
+      "criterios": ["CA-2", "CA-3", "CA-6", "CA-7", "CA-12", "CA-13", "CA-18"],
+      "validacao": "vitest client: aoVozMovido troca para o destino com o mudo e a câmera; pedido durante uma entrada vale depois; desconectado sai; mudo travado na AFK e restaurado ao sair; tempo-real com os ouvintes novos.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T5",
+      "titulo": "App: 'Mover para…', 'Desconectar', arrastar, ícone e AFK em Editar servidor",
+      "descricao": "MenuPessoa com 'Mover para…' (lista de salas de voz, sem a atual) e 'Desconectar da chamada' para quem pode (mover_membros e as mesmas regras do servidor); arrastar o nome na lista de voz (HTML5) para outra sala; ícone novo de AFK na lista de canais; Editar servidor com a sala de AFK (ou desligada) e o tempo.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": ["T1", "T4"],
+      "criterios": ["CA-1", "CA-2", "CA-3", "CA-8"],
+      "validacao": "vitest client: itens só com a permissão; Mover para chama voz:mover; arrastar chama voz:mover; ícone na sala de AFK; Editar servidor grava a AFK.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T6",
+      "titulo": "App: ida para a AFK por inatividade",
+      "descricao": "main: IPC presenca:ocioso-segundos (powerMonitor, com o gancho de E2E); renderer: vigia na TelaPrincipal em voz (a cada 15 s) — segundos ociosos e última fala acima do tempo da AFK, sem câmera e sem tela, fora da AFK → entra na AFK com motivo 'afk' e mostra 'Você foi para a sala de AFK por inatividade'.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": ["T4"],
+      "criterios": ["CA-9", "CA-10", "CA-11"],
+      "validacao": "vitest client com relógio falso: ocioso e calado → vai; falando ou mexendo → não vai; câmera ou tela → não vai; sozinho → vai; AFK desligada → não vai.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T7",
+      "titulo": "E2E e validação completa",
+      "descricao": "voz.spec com dois apps e LiveKit real: mover pelo menu e arrastando, desconectar, AFK por ociosidade simulada (mudo travado); validação completa.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": ["T5", "T6"],
+      "criterios": ["CA-2", "CA-3", "CA-6", "CA-9", "CA-12"],
+      "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T8",
+      "titulo": "Validação manual com o grupo",
+      "descricao": "Gabriel confere: mover com câmera e tela entre máquinas (CA-7), AFK de verdade com o computador parado, sem pontos na AFK.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": ["T7"],
+      "criterios": ["CA-7", "CA-9", "CA-17"],
+      "validacao": "checklist manual preenchido pelo Gabriel.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}
