@@ -90,6 +90,17 @@ describe('conectarTempoReal', () => {
     expect(ouvintes.aoRevogada).toHaveBeenCalledWith('banido', 'spam');
   });
 
+  it('mover-e-afk: movido e desconectado chegam com a sala e quem fez', () => {
+    const { s, ouvintes } = montar();
+    const aoVozMovido = vi.fn();
+    const aoVozDesconectado = vi.fn();
+    Object.assign(ouvintes, { aoVozMovido, aoVozDesconectado });
+    s.disparar('voz:movido', { canalVozId: 3, canalNome: 'Jogos', porNome: 'Ana' });
+    expect(aoVozMovido).toHaveBeenCalledWith({ canalVozId: 3, canalNome: 'Jogos', porNome: 'Ana' });
+    s.disparar('voz:desconectado', { porNome: 'Ana' });
+    expect(aoVozDesconectado).toHaveBeenCalledWith({ porNome: 'Ana' });
+  });
+
   it('sessão revogada pelo servidor para de tentar e avisa uma vez', () => {
     const { s, ouvintes } = montar();
     s.disparar('sessao:revogada', { motivo: 'saiu' });

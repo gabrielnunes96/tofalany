@@ -56,6 +56,9 @@ export interface OuvintesTempoReal {
   aoVozEstados(estados: VozEstadoDto[]): void;
   /** Entrei na voz por outro computador: este sai da sala. */
   aoVozTirado(motivo?: 'outro_computador' | 'castigo'): void;
+  /** mover-e-afk: alguém moveu você para outra sala, ou desconectou você da chamada. */
+  aoVozMovido?(p: { canalVozId: number; canalNome: string; porNome: string }): void;
+  aoVozDesconectado?(p: { porNome: string }): void;
   /** Moderação: o meu castigo neste servidor começou (com motivo) ou acabou (null). */
   aoCastigo?(castigo: { ate: number; motivo: string | null } | null): void;
   /** RF-23: som do soundboard tocado no meu canal de voz. */
@@ -196,6 +199,8 @@ export function conectarTempoReal(
   socket.on('sons:atualizados', (sons) => ouvintes.aoSonsAtualizados(sons));
   socket.on('voz:estados', (estados) => ouvintes.aoVozEstados(estados));
   socket.on('voz:tirado', (p) => ouvintes.aoVozTirado(p?.motivo));
+  socket.on('voz:movido', (p) => ouvintes.aoVozMovido?.(p));
+  socket.on('voz:desconectado', (p) => ouvintes.aoVozDesconectado?.(p));
   socket.on('som:tocado', (p) => ouvintes.aoSomTocado(p));
   socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
   socket.on('tela:iniciada', (t) => ouvintes.aoTelaIniciada(t));

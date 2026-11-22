@@ -57,9 +57,9 @@
         "CA-12"
       ],
       "validacao": "vitest server: token da AFK sem publicação; mudo forçado; motivo afk para outra sala recusado; segunda ida em menos de 1 min recusada; participant_joined fora da presença remove (relógio falso); dentro da presença não.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "08ac714"
     },
     {
       "id": "T4",
@@ -81,7 +81,7 @@
         "CA-18"
       ],
       "validacao": "vitest client: aoVozMovido troca para o destino com o mudo e a câmera; pedido durante uma entrada vale depois; desconectado sai; mudo travado na AFK e restaurado ao sair; tempo-real com os ouvintes novos.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },
