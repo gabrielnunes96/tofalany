@@ -143,9 +143,9 @@
         "CA-12"
       ],
       "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "bf9deca"
     },
     {
       "id": "T8",
