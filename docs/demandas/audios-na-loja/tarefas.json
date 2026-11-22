@@ -1,0 +1,163 @@
+{
+ "demanda": "audios-na-loja",
+ "titulo": "Áudios na loja, com raridade",
+ "item_raiz": null,
+ "tarefas": [
+  {
+   "id": "T1",
+   "titulo": "Base: migração 024, contratos da loja de áudios, preços e nome sem bidi",
+   "descricao": "shared: RaridadeAudio, AudioLojaDto, ItemLoja {tipo:'audio', audioId}, chaveItem audio:<id>, lerItemLoja, PrecosLoja.audios, CatalogoLojaDto.audios, LojaEstadoDto.audiosIds, AUDIOS_LOJA_MAX=200, eventos loja:audios e audio:tocado, som:tocar com audioId, auditoria loja_audio_cadastrado/alterado/retirado; validarNomeSom recusa bidi. server: migração 024 (loja_audios, loja_audios_compras), PRECO_AUDIO_* em config.ts, exemplo.env e README.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [],
+   "criterios": [
+    "CA-14"
+   ],
+   "validacao": "vitest: migração cria as tabelas e o CHECK da raridade; config com PRECO_AUDIO_RARO=250 e =0 (erro); validarNomeSom com U+202E; lerItemLoja com audio.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T2",
+   "titulo": "Servidor: cadastro, alteração e retirada dos áudios da loja (admin da instalação)",
+   "descricao": "dominio/audios-loja.ts; lerFormulario comum (3 campos); POST/GET/PATCH/DELETE /api/admin/loja/audios com exigirSessao+exigirAdmin+exigirPrincipal; limite de 200 antes e na transação; retirada mantém para quem comprou e apaga linha+arquivo sem compradores; auditoria; ola.audiosLoja e loja:audios.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [
+    "T1"
+   ],
+   "criterios": [
+    "CA-1",
+    "CA-2",
+    "CA-12",
+    "CA-15"
+   ],
+   "validacao": "vitest: 403 para membro, admin de outro servidor e gerenciar_sons; 415/422/413 nos arquivos ruins; 409 com 200; retirada com e sem comprador; filename com ../; auditoria de/para.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T3",
+   "titulo": "Servidor: compra de áudio e catálogo",
+   "descricao": "comprar com áudio: raridade e preço lidos na transação, posse (usuario_id, audio_id), débito condicional, extrato audio:<id> com nome atual (JOIN), loja:estado + loja:audios, limitador de compras; catálogo com áudios à venda (sem compradores) e precos.audios; admin tem todos.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [
+    "T2"
+   ],
+   "criterios": [
+    "CA-3",
+    "CA-5",
+    "CA-6",
+    "CA-7",
+    "CA-11",
+    "CA-13"
+   ],
+   "validacao": "vitest: 350→50 e extrato 'Áudio: <nome>'; duas compras simultâneas cobram uma; saldo 200 × épico 409; trocar raridade não afeta quem comprou; corpo com preco/raridade ignorado; áudio retirado 404; admin recebe todos.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T4",
+   "titulo": "Servidor: tocar áudio comprado e conferências do soundboard",
+   "descricao": "som:tocar {audioId}: posse ou admin, canal da presença do servidor do socket, tocar_sons, AFK, castigo, intervalo comum; audio:tocado com dados do banco. Conferências de servidor do canal, AFK e castigo valem também para somId.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [
+    "T3"
+   ],
+   "criterios": [
+    "CA-8",
+    "CA-9",
+    "CA-10"
+   ],
+   "validacao": "vitest: toque com posse chega à sala com dados do banco; sem posse 404; AFK, castigo, sem permissão, fora da voz, canal de outro servidor recusam (também som do servidor); som do servidor + áudio em < 3 s → 429.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T5",
+   "titulo": "App: seção Áudios na loja e Meus sons no soundboard",
+   "descricao": "TelaLoja: seção Áudios por raridade (cor, brilho com reduzir movimento, texto), Ouvir só local, Comprar com confirmação, Comprado; extrato com áudio. Loja da store: audiosLoja (ola, loja:audios). PainelSoundboard: Meus sons + atalho para a loja; tocar por audioId; aoAudioTocado toca pela url relativa, cortado em 10 s, aviso.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T4"
+   ],
+   "criterios": [
+    "CA-3",
+    "CA-4",
+    "CA-5",
+    "CA-8",
+    "CA-9",
+    "CA-13"
+   ],
+   "validacao": "vitest client: TelaLoja (cores, preço, comprar, comprado, ouvir sem socket), PainelSoundboard (Meus sons, sem compra), tempo-real (audio:tocado, loja:audios), tocador recusa url externa.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T6",
+   "titulo": "App: tela Áudios da loja no menu Administração",
+   "descricao": "Vista para o admin da instalação (apiPrincipal): lista com raridade, duração, compradores e retirado; cadastrar (arquivo, nome, raridade, lembrete de licença), renomear, trocar raridade, ouvir, tirar da loja.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T5"
+   ],
+   "criterios": [
+    "CA-1",
+    "CA-2",
+    "CA-12",
+    "CA-15"
+   ],
+   "validacao": "vitest client: tela lista, cadastra, troca raridade, retira; item do menu só para admin da instalação.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T7",
+   "titulo": "E2E e validação completa",
+   "descricao": "E2E: admin cadastra áudio raro, membro compra na loja, toca no soundboard e o outro app ouve. Validação completa e revisão.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T5",
+    "T6"
+   ],
+   "criterios": [
+    "CA-3",
+    "CA-5",
+    "CA-8"
+   ],
+   "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T8",
+   "titulo": "Validação manual com o grupo",
+   "descricao": "Duas pessoas: prévia só local, compra, toque em outro servidor.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T7"
+   ],
+   "criterios": [
+    "CA-4",
+    "CA-8"
+   ],
+   "validacao": "Manual com o Gabriel.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  }
+ ]
+}

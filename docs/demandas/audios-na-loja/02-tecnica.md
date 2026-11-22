@@ -1,6 +1,6 @@
 # Áudios na loja, com raridade — especificação técnica
 
-> Demanda: `audios-na-loja` · Base: funcional v1 (aprovada em 22/11/2026) · 22/11/2026 · Situação: **rascunho**
+> Demanda: `audios-na-loja` · Base: funcional v1 (aprovada em 22/11/2026) · 22/11/2026 · Situação: **aprovada em 22/11/2026**
 
 ## 1. Visão da solução
 Os áudios da loja são um item novo da loja da instalação (como os temas), com tabela própria e posse por conta. O soundboard ganha um segundo tipo de toque, conferido pelo servidor (posse, cargo do servidor do canal, AFK, castigo, intervalo), e um evento próprio que leva o áudio inteiro para quem ouve.
