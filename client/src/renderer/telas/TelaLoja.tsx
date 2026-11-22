@@ -37,7 +37,7 @@ const DETALHE_VALE: Record<QualidadeVale, string> = {
   '1080p60': 'nítida e fluida; também libera 720p60 e 1080p30',
 };
 const nomeTema = (id: TemaLoja) => ITENS_TEMA.find((t) => t.id === id)?.nome ?? id;
-const nomeItem = (item: ItemLoja) => (item.tipo === 'tema' ? `o tema ${nomeTema(item.tema)}` : `o vale ${NOME_VALE[item.qualidade]}`);
+const nomeItem = (item: ItemLoja) => (item.tipo === 'tema' ? `o tema ${nomeTema(item.tema)}` : item.tipo === 'vale' ? `o vale ${NOME_VALE[item.qualidade]}` : 'o áudio');
 /** Junta páginas do extrato sem repetir (por id), do mais novo para o mais antigo. */
 const juntar = (a: MovimentoDto[], b: MovimentoDto[]) => [...new Map([...a, ...b].map((m) => [m.id, m])).values()].sort((x, y) => y.id - x.id);
 const formatoData = new Intl.DateTimeFormat('pt-BR', {
@@ -119,7 +119,8 @@ export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVolt
     };
   }, [previa, temaAtual]);
 
-  const precoDe = (item: ItemLoja): number | undefined => (catalogo ? (item.tipo === 'tema' ? catalogo.precos.tema : catalogo.precos.vales[item.qualidade]) : undefined);
+  const precoDe = (item: ItemLoja): number | undefined =>
+    catalogo ? (item.tipo === 'tema' ? catalogo.precos.tema : item.tipo === 'vale' ? catalogo.precos.vales[item.qualidade] : undefined) : undefined;
 
   async function confirmar() {
     if (!confirmando) return;
@@ -129,7 +130,7 @@ export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVolt
     try {
       const novo = await api.comprarNaLoja(item);
       aoComprar(novo);
-      setAviso(item.tipo === 'tema' ? `${nomeTema(item.tema)} é seu.` : `${NOME_VALE[item.qualidade]} liberado.`);
+      setAviso(item.tipo === 'tema' ? `${nomeTema(item.tema)} é seu.` : item.tipo === 'vale' ? `${NOME_VALE[item.qualidade]} liberado.` : 'Áudio comprado.');
       fecharConfirmacao();
       setPrevia(null);
     } catch (e) {

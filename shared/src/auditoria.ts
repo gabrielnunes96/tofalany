@@ -42,6 +42,9 @@ export const TIPOS_AUDITORIA = [
   'banido',
   'desbanido',
   'loja_compra',
+  'loja_audio_cadastrado',
+  'loja_audio_alterado',
+  'loja_audio_retirado',
   'dois_fatores_ligado',
   'dois_fatores_desligado',
 ] as const;
@@ -92,6 +95,9 @@ export const ROTULOS_AUDITORIA: Record<TipoAuditoria, string> = {
   banido: 'baniu',
   desbanido: 'desbaniu',
   loja_compra: 'comprou na loja',
+  loja_audio_cadastrado: 'cadastrou um áudio na loja',
+  loja_audio_alterado: 'alterou um áudio da loja',
+  loja_audio_retirado: 'tirou um áudio da loja',
   dois_fatores_ligado: 'ligou a autenticação em dois fatores',
   dois_fatores_desligado: 'desligou a autenticação em dois fatores de',
 };

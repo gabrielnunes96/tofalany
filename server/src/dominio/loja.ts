@@ -71,7 +71,7 @@ export function creditar(banco: Banco, usuarioId: number, pontos: number, movime
 }
 
 /** Preço do item na configuração do servidor (RN-6). */
-export const precoDe = (precos: PrecosLoja, item: ItemLoja): number => (item.tipo === 'tema' ? precos.tema : precos.vales[item.qualidade]);
+export const precoDe = (precos: PrecosLoja, item: Exclude<ItemLoja, { tipo: 'audio' }>): number => (item.tipo === 'tema' ? precos.tema : precos.vales[item.qualidade]);
 
 /**
  * Compra (RN-5, RN-7, RN-8, RN-13): desconta o saldo e entrega o item na mesma transação. Sem saldo, nada muda.
@@ -79,6 +79,7 @@ export const precoDe = (precos: PrecosLoja, item: ItemLoja): number => (item.tip
  */
 export function comprar(banco: Banco, usuarioId: number, item: ItemLoja, precos: PrecosLoja, agora: number = Date.now()): { estado: LojaEstadoDto; valor: number } {
   if (ehAdminDaInstalacao(banco, usuarioId)) throw new ErroHttp(409, 'tudo_liberado', 'O administrador já tem tudo liberado.');
+  if (item.tipo === 'audio') throw new ErroHttp(400, 'item_invalido', 'Esse item não existe na loja.');
   const valor = precoDe(precos, item);
   banco.transaction(() => {
     if (item.tipo === 'tema' && banco.prepare('SELECT 1 FROM loja_temas WHERE usuario_id = ? AND tema = ?').get(usuarioId, item.tema)) {

@@ -109,6 +109,11 @@ describe('validarNomeSom', () => {
     expect(validarNomeSom('a'.repeat(33)).ok).toBe(false);
     expect(validarNomeSom('a\u0007b').ok).toBe(false);
   });
+  it('audios-na-loja (A16): recusa marcas de direção do texto', () => {
+    expect(validarNomeSom('a\u202eb').ok).toBe(false);
+    expect(validarNomeSom('a\u2067b').ok).toBe(false);
+    expect(validarNomeSom('Épico <b>').ok).toBe(true);
+  });
 });
 
 describe('validarNomeCanal', () => {

@@ -1,5 +1,5 @@
 import { ATALHOS_PADRAO, type Atalhos } from './atalhos.js';
-import type { LojaEstadoDto } from './loja.js';
+import type { AudioLojaDto, LojaEstadoDto } from './loja.js';
 /** Tempo máximo do teste de conexão com o servidor (RF-1). */
 export const TEMPO_TESTE_SERVIDOR_MS = 5000;
 
@@ -740,6 +740,8 @@ export interface OlaPayload {
   conhecidos?: UsuarioDto[];
   /** Pontos e loja: saldo e itens da conta (servidor antigo não manda; sem ele, o app esconde a loja). */
   loja?: LojaEstadoDto;
+  /** audios-na-loja: áudios da conta para o "Meus sons" (administrador da instalação: todos). */
+  audiosLoja?: AudioLojaDto[];
   /** O que este servidor oferece além do básico (servidor antigo não manda; sem ele, o app esconde o recurso). */
   recursos?: { fixar?: boolean; busca?: boolean };
 }
@@ -749,6 +751,8 @@ export interface EventosServidor {
   ola: (payload: OlaPayload) => void;
   /** Pontos e loja: saldo ou itens da conta mudaram (crédito de voz ou compra), em todas as conexões dela. */
   'loja:estado': (estado: LojaEstadoDto) => void;
+  /** audios-na-loja: a lista do "Meus sons" mudou (compra, cadastro, renomear, raridade). */
+  'loja:audios': (audios: AudioLojaDto[]) => void;
   'sessao:revogada': (payload: { motivo: MotivoRevogacao; detalhe?: string | null }) => void;
   /** Moderação: o meu castigo neste servidor começou (com motivo) ou acabou (null). */
   'moderacao:castigo': (payload: { ate: number; motivo: string | null } | null) => void;
@@ -784,6 +788,8 @@ export interface EventosServidor {
   'voz:tirado': (payload: { motivo: 'outro_computador' | 'castigo' }) => void;
   /** RF-23: alguém tocou um som do soundboard; chega só para quem está naquele canal de voz. */
   'som:tocado': (payload: { somId: number; porUsuarioId: number; canalVozId: number }) => void;
+  /** audios-na-loja: alguém tocou um áudio comprado; o áudio vem inteiro (quem ouve pode não ter). */
+  'audio:tocado': (payload: { audio: AudioLojaDto; porUsuarioId: number; canalVozId: number }) => void;
   /** RN-10: transmissão de tela começou ou parou (para todos: a barra mostra quem transmite). */
   'tela:iniciada': (t: TransmissaoDto) => void;
   /** Nome ou imagem do servidor mudou. */
@@ -843,7 +849,8 @@ export interface EventosCliente {
   'voz:mover': (dados: { usuarioId: number; canalVozId: number }, ack: Ack) => void;
   'voz:desconectar': (dados: { usuarioId: number }, ack: Ack) => void;
   /** RF-23: toca um som para o canal de voz em que estou (RN-12, RN-13). */
-  'som:tocar': (dados: { somId: number }, ack: Ack) => void;
+  /** Um som do servidor (`somId`) ou um áudio comprado na loja (`audioId`). */
+  'som:tocar': (dados: { somId: number } | { audioId: number }, ack: Ack) => void;
   /** RF-26/RN-10: pede a trava do canal para transmitir (recusa se outro já transmite). */
   'tela:pedir': (dados: { canalVozId: number; qualidade: QualidadeTela }, ack: Ack<TransmissaoDto>) => void;
   'tela:parar': (dados: { canalVozId: number }, ack: Ack) => void;

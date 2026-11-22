@@ -59,7 +59,7 @@ export interface Config {
    * Pontos e loja (RN-6): ganho por minuto em voz e preços, mudados na configuração sem nova versão do app.
    * `minutoMs` e `tiqueMs` existem para os testes (minuto curto); em produção, 60 s e 15 s.
    */
-  pontos: { porMinuto: number; precos: PrecosLoja; minutoMs: number; tiqueMs: number };
+  pontos: { porMinuto: number; precos: PrecosLoja & { audios: NonNullable<PrecosLoja['audios']> }; minutoMs: number; tiqueMs: number };
   /**
    * Busca de GIF (Klipy). Sem KLIPY_API_KEY, desligada. KLIPY_URL só existe para os testes (Klipy falsa):
    * com ela, o host dela também vale para a mídia e http é aceito.
@@ -132,6 +132,13 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
           '720p60': inteiro('PRECO_VALE_720P60', ambiente.PRECO_VALE_720P60, 200, 1, 100_000),
           '1080p30': inteiro('PRECO_VALE_1080P30', ambiente.PRECO_VALE_1080P30, 300, 1, 100_000),
           '1080p60': inteiro('PRECO_VALE_1080P60', ambiente.PRECO_VALE_1080P60, 600, 1, 100_000),
+        },
+        // audios-na-loja (RN-3): preço por raridade.
+        audios: {
+          comum: inteiro('PRECO_AUDIO_COMUM', ambiente.PRECO_AUDIO_COMUM, 100, 1, 100_000),
+          raro: inteiro('PRECO_AUDIO_RARO', ambiente.PRECO_AUDIO_RARO, 300, 1, 100_000),
+          epico: inteiro('PRECO_AUDIO_EPICO', ambiente.PRECO_AUDIO_EPICO, 800, 1, 100_000),
+          lendario: inteiro('PRECO_AUDIO_LENDARIO', ambiente.PRECO_AUDIO_LENDARIO, 2000, 1, 100_000),
         },
       },
       minutoMs: inteiro('PONTOS_MINUTO_MS', ambiente.PONTOS_MINUTO_MS, 60_000, 50),

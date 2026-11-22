@@ -345,5 +345,25 @@ export const MIGRACOES: readonly string[] = [
   ALTER TABLE comunidades ADD COLUMN afk_canal_id INTEGER REFERENCES canais(id) ON DELETE SET NULL;
   ALTER TABLE comunidades ADD COLUMN afk_minutos INTEGER NOT NULL DEFAULT 15;
   `,
+  // 024 — audios-na-loja: áudios da loja da instalação (com raridade; retirado continua para quem comprou) e a posse.
+  `
+  CREATE TABLE loja_audios (
+    id INTEGER PRIMARY KEY,
+    nome TEXT NOT NULL,
+    arquivo TEXT NOT NULL,
+    duracao_ms INTEGER NOT NULL,
+    raridade TEXT NOT NULL CHECK (raridade IN ('comum', 'raro', 'epico', 'lendario')),
+    criado_por INTEGER NOT NULL REFERENCES usuarios(id),
+    criado_em INTEGER NOT NULL,
+    retirado_em INTEGER
+  );
+  CREATE TABLE loja_audios_compras (
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    audio_id INTEGER NOT NULL REFERENCES loja_audios(id),
+    comprado_em INTEGER NOT NULL,
+    PRIMARY KEY (usuario_id, audio_id)
+  );
+  CREATE INDEX loja_audios_compras_audio ON loja_audios_compras(audio_id);
+  `,
 ];
 

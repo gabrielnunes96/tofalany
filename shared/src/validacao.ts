@@ -84,8 +84,9 @@ export function validarNomeSom(texto: string): Resultado<string> {
   const nome = texto.trim().replace(/\s+/g, ' ');
   if (!nome) return { ok: false, erro: 'Informe o nome do som.' };
   if ([...nome].length > NOME_SOM_MAX) return { ok: false, erro: `O nome do som deve ter no máximo ${NOME_SOM_MAX} caracteres.` };
+  // Controle e marcas de direção do texto (um nome não pode virar a frase "fulano tocou …" ao contrário).
   // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u001f\u007f]/.test(nome)) return { ok: false, erro: 'O nome do som tem caracteres inválidos.' };
+  if (/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/.test(nome)) return { ok: false, erro: 'O nome do som tem caracteres inválidos.' };
   return { ok: true, valor: nome };
 }
 

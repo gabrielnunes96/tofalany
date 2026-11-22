@@ -39,7 +39,7 @@ export function registrarRotasLoja(app: FastifyInstance, banco: Banco, config: C
       registrarAuditoria(banco, {
         tipo: 'loja_compra',
         atorId: req.usuarioId!,
-        detalhes: { item: item.tipo === 'tema' ? `tema ${item.tema}` : `vale ${item.qualidade}`, pontos: valor },
+        detalhes: { item: item.tipo === 'tema' ? `tema ${item.tema}` : item.tipo === 'vale' ? `vale ${item.qualidade}` : `áudio ${item.audioId}`, pontos: valor },
       });
       req.log.info({ usuarioId: req.usuarioId!, item, valor, saldo: estado.saldo }, 'compra na loja');
       tempoReal.avisarLoja(req.usuarioId!);

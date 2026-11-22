@@ -19,11 +19,33 @@ export const ITENS_TEMA: { id: TemaLoja; nome: string; descricao: string }[] = [
   { id: 'gibi', nome: 'Gibi', descricao: 'HQ de super-herói à noite: tinta, amarelo e vermelho' },
 ];
 
-/** O que se compra: um tema (para sempre) ou um vale de qualidade (7 dias). */
-export type ItemLoja = { tipo: 'tema'; tema: TemaLoja } | { tipo: 'vale'; qualidade: QualidadeVale };
+/** audios-na-loja (RN-2): raridade de um áudio da loja; define o preço (RN-3). */
+export type RaridadeAudio = 'comum' | 'raro' | 'epico' | 'lendario';
+/** Da mais comum para a mais rara. */
+export const RARIDADES_AUDIO: RaridadeAudio[] = ['comum', 'raro', 'epico', 'lendario'];
+export const NOMES_RARIDADE: Record<RaridadeAudio, string> = { comum: 'Comum', raro: 'Raro', epico: 'Épico', lendario: 'Lendário' };
 
-/** Item como texto no extrato e na auditoria: "tema:cinzas", "vale:1080p60". */
-export const chaveItem = (item: ItemLoja): string => (item.tipo === 'tema' ? `tema:${item.tema}` : `vale:${item.qualidade}`);
+/** Um áudio da loja: o que a loja mostra e o que a sala recebe ao tocar. `url` é sempre `/files/<arquivo>`. */
+export interface AudioLojaDto {
+  id: number;
+  nome: string;
+  url: string;
+  duracaoMs: number;
+  raridade: RaridadeAudio;
+}
+
+/** Visão do administrador da instalação (tela "Áudios da loja"). */
+export interface AudioLojaAdminDto extends AudioLojaDto {
+  compradores: number;
+  retirado: boolean;
+}
+
+/** O que se compra: um tema (para sempre), um vale de qualidade (7 dias) ou um áudio (para sempre). */
+export type ItemLoja = { tipo: 'tema'; tema: TemaLoja } | { tipo: 'vale'; qualidade: QualidadeVale } | { tipo: 'audio'; audioId: number };
+
+/** Item como texto no extrato e na auditoria: "tema:cinzas", "vale:1080p60", "audio:12". */
+export const chaveItem = (item: ItemLoja): string =>
+  item.tipo === 'tema' ? `tema:${item.tema}` : item.tipo === 'vale' ? `vale:${item.qualidade}` : `audio:${item.audioId}`;
 
 /** Lê um item vindo de fora (corpo da compra); fora do catálogo → null. */
 export function lerItemLoja(bruto: unknown): ItemLoja | null {
@@ -31,6 +53,7 @@ export function lerItemLoja(bruto: unknown): ItemLoja | null {
   const o = bruto as Record<string, unknown>;
   if (o.tipo === 'tema' && TEMAS_LOJA.includes(o.tema as TemaLoja)) return { tipo: 'tema', tema: o.tema as TemaLoja };
   if (o.tipo === 'vale' && QUALIDADES_VALE.includes(o.qualidade as QualidadeVale)) return { tipo: 'vale', qualidade: o.qualidade as QualidadeVale };
+  if (o.tipo === 'audio' && typeof o.audioId === 'number' && Number.isInteger(o.audioId) && o.audioId >= 1) return { tipo: 'audio', audioId: o.audioId };
   return null;
 }
 
@@ -46,11 +69,15 @@ export interface LojaEstadoDto {
   temas: TemaLoja[];
   vales: ValeDto[];
   tudoLiberado: boolean;
+  /** audios-na-loja: ids dos áudios da conta (só os ids: este estado vai a cada minuto em voz). Servidor antigo não manda. */
+  audiosIds?: number[];
 }
 
 export interface PrecosLoja {
   tema: number;
   vales: Record<QualidadeVale, number>;
+  /** audios-na-loja (RN-3): preço por raridade. Servidor antigo não manda. */
+  audios?: Record<RaridadeAudio, number>;
 }
 
 /** GET /api/loja. */
@@ -58,6 +85,8 @@ export interface CatalogoLojaDto {
   precos: PrecosLoja;
   pontosPorMinuto: number;
   estado: LojaEstadoDto;
+  /** audios-na-loja: áudios à venda (sem dados de quem comprou). */
+  audios?: AudioLojaDto[];
 }
 
 /** Uma linha do extrato: ganho (por sessão de voz) ou compra (valor negativo). */

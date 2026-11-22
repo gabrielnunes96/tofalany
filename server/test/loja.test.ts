@@ -45,7 +45,7 @@ describe('rotas da loja (pontos-e-loja)', () => {
     const r = await app!.inject({ method: 'GET', url: '/api/loja', headers: auth(ana) });
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({
-      precos: { tema: 600, vales: { '720p60': 200, '1080p30': 300, '1080p60': 600 } },
+      precos: { tema: 600, vales: { '720p60': 200, '1080p30': 300, '1080p60': 600 }, audios: { comum: 100, raro: 300, epico: 800, lendario: 2000 } },
       pontosPorMinuto: 1,
       estado: { saldo: 50, temas: [], vales: [], tudoLiberado: false },
     });
