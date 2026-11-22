@@ -75,9 +75,9 @@
         "CA-10"
       ],
       "validacao": "vitest: toque com posse chega à sala com dados do banco; sem posse 404; AFK, castigo, sem permissão, fora da voz, canal de outro servidor recusam (também som do servidor); som do servidor + áudio em < 3 s → 429.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "af8031e"
     },
     {
       "id": "T5",
