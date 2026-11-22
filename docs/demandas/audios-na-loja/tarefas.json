@@ -34,9 +34,9 @@
         "CA-15"
       ],
       "validacao": "vitest: 403 para membro, admin de outro servidor e gerenciar_sons; 415/422/413 nos arquivos ruins; 409 com 200; retirada com e sem comprador; filename com ../; auditoria de/para.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "4edf757"
     },
     {
       "id": "T3",
