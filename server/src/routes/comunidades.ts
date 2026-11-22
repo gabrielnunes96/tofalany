@@ -120,6 +120,7 @@ export function registrarRotasComunidades(app: FastifyInstance, banco: Banco, co
       banco.prepare('UPDATE comunidades SET afk_canal_id = ?, afk_minutos = ? WHERE id = ?').run(canalId, minutos, req.comunidadeId);
       registrarAuditoria(banco, { tipo: 'servidor_editado', atorId: req.usuarioId!, comunidadeId: req.comunidadeId, detalhes: { afk: canalId === null ? 'desligada' : `${minutos} min` } });
       avisar(req.comunidadeId);
+      tempoReal.voz.afkMudou(req.comunidadeId);
       return { afk: afkDa(banco, req.comunidadeId) };
     },
   );

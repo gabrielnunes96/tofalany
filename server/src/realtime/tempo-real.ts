@@ -280,6 +280,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
         }
       }
     : undefined;
+  // mover-e-afk (A7): na sala de AFK, quem já estava lá deixa de poder publicar (sem derrubar a conexão).
+  const calarNaMidia = salas
+    ? async (usuarioId: number, canalVozId: number) => {
+        await salas.updateParticipant(salaLivekit(canalVozId), String(usuarioId), undefined, { canPublish: false, canSubscribe: true, canPublishData: false });
+      }
+    : undefined;
   // A tela é criada depois da voz, mas a voz avisa quem saiu (libera a trava de transmissão).
   // (o callback só roda depois, quando alguém sai; a essa altura `tela` já existe)
   const silenciarFaixa = salas ? (sala: string, identidade: string, sid: string) => salas.mutePublishedTrack(sala, identidade, sid, true).then(() => undefined) : undefined;
@@ -287,6 +293,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     carenciaMs: config.carenciaOfflineMs,
     prazoMoverMs: config.prazoMoverMs,
     removerDaMidia,
+    calarNaMidia,
     aoSair: (u, c) => {
       tela.saiuDaVoz(u, c);
       musica.saiuDaVoz(c);

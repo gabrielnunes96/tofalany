@@ -39,9 +39,9 @@
         "CA-16"
       ],
       "validacao": "vitest server (sockets e voz-midia): sem permissão recusa; admin/dono/moderador protegidos; castigo recusa; outro servidor e destino inválido recusam; alvo recebe o evento; ignorando, é revogado em 10 s (relógio falso); limites 429; auditoria com ator, alvo e salas.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "6256396"
     },
     {
       "id": "T3",
@@ -57,7 +57,7 @@
         "CA-12"
       ],
       "validacao": "vitest server: token da AFK sem publicação; mudo forçado; motivo afk para outra sala recusado; segunda ida em menos de 1 min recusada; participant_joined fora da presença remove (relógio falso); dentro da presença não.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

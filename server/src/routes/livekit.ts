@@ -7,6 +7,7 @@ import { ErroHttp } from '../erros.js';
 import { exigirSessao } from '../auth/sessao-http.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
 import { buscarNa } from '../dominio/usuarios.js';
+import { ehSalaAfk } from '../dominio/comunidades.js';
 import type { Voz } from '../realtime/voz.js';
 import { temPermissao } from '../dominio/funcoes.js';
 
@@ -21,7 +22,7 @@ export async function registrarRotasLivekit(
   app: FastifyInstance,
   banco: Banco,
   config: Config,
-  voz: Pick<Voz, 'midiaSaiu'>,
+  voz: Pick<Voz, 'midiaSaiu' | 'midiaEntrou'>,
   conferirFaixaTela: (usuarioId: number, canalVozId: number, faixa: { sid: string; largura: number; altura: number; soAudio?: boolean }) => Promise<boolean> = async () => false,
 ) {
   const livekit = config.livekit;
@@ -48,18 +49,22 @@ export async function registrarRotasLivekit(
         metadata: JSON.stringify({ cargo: usuario.cargo }),
         ttl: VALIDADE_TOKEN,
       });
+      // mover-e-afk (RN-9, A7): na sala de AFK ninguém publica nada (nem um app modificado).
+      const naAfk = ehSalaAfk(banco, canal.id);
       token.addGrant({
         room: salaLivekit(canal.id),
         roomJoin: true,
         canSubscribe: true,
-        canPublish: true,
+        canPublish: !naAfk,
         canPublishData: false,
         // O LiveKit só deixa publicar o que o cargo libera (câmera e tela).
-        canPublishSources: [
-          TrackSource.MICROPHONE,
-          ...(pode('usar_camera') ? [TrackSource.CAMERA] : []),
-          ...(pode('transmitir_tela') ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : []),
-        ],
+        canPublishSources: naAfk
+          ? []
+          : [
+              TrackSource.MICROPHONE,
+              ...(pode('usar_camera') ? [TrackSource.CAMERA] : []),
+              ...(pode('transmitir_tela') ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : []),
+            ],
       });
       // infra-e-atualizacao (T-5): quem chegou por um nome aceito (o antigo, sslip) recebe a voz no mesmo nome; o app só
       // fala com o host salvo. Fora da lista, o endereço configurado (o cabeçalho Host não escolhe para onde a voz vai).
@@ -96,6 +101,8 @@ export async function registrarRotasLivekit(
       const sala = /^voz-(\d+)$/.exec(evento.room?.name ?? '');
       const usuarioId = Number(evento.participant?.identity);
       if (evento.event === 'participant_left' && sala && Number.isInteger(usuarioId)) voz.midiaSaiu(usuarioId, Number(sala[1]), evento.participant?.sid || undefined);
+      // mover-e-afk (A6): quem entra numa sala sem estar nela pela presença (token antigo) é tirado depois do prazo.
+      if (evento.event === 'participant_joined' && sala && Number.isInteger(usuarioId)) voz.midiaEntrou(usuarioId, Number(sala[1]));
       // R-2/RN-17: tela publicada fora da regra (segunda tela, membro acima de 720p30) é silenciada.
       const faixa = evento.track;
       const fonteTela = faixa?.source === TrackSource.SCREEN_SHARE || faixa?.source === TrackSource.SCREEN_SHARE_AUDIO;

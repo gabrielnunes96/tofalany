@@ -2,6 +2,7 @@ import type { VozEstadoDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
+import { afkDa } from '../dominio/comunidades.js';
 import { temPermissao } from '../dominio/funcoes.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
 import { comAck } from './acoes.js';
@@ -28,6 +29,13 @@ export interface Voz {
   canalRemovido(canal: { id: number; nome: string }): void;
   /** Webhook: a sessão de mídia `sid` saiu da sala do LiveKit (fechou, caiu, foi derrubada). */
   midiaSaiu(usuarioId: number, canalVozId: number, sid: string | undefined): void;
+  /**
+   * mover-e-afk (A6): webhook — alguém entrou numa sala do LiveKit. Depois do prazo, quem não está nela pela presença
+   * (token antigo reaproveitado depois de mover, desconectar ou castigo) é tirado.
+   */
+  midiaEntrou(usuarioId: number, canalVozId: number): void;
+  /** mover-e-afk (A7): a sala de AFK do servidor mudou — quem já está nela passa a ficar mudo. */
+  afkMudou(comunidadeId: number): void;
   /** Sessão derrubada (conta removida, saiu, revogada): se era este socket que estava na voz, sai da presença e da mídia. */
   revogar(usuarioId: number, socketId: string): void;
   fechar(): void;
@@ -35,6 +43,8 @@ export interface Voz {
 
 /** Tira a pessoa da sala do LiveKit (best effort; sem LiveKit configurado, não faz nada). */
 export type RemoverDaMidia = (usuarioId: number, canalVozId: number) => Promise<void>;
+/** Tira a permissão de publicar de quem está na sala do LiveKit (AFK). */
+export type CalarNaMidia = (usuarioId: number, canalVozId: number) => Promise<void>;
 
 interface Presente {
   estado: VozEstadoDto;
@@ -49,14 +59,15 @@ const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 
 function lerPedido(dados: unknown) {
   if (!ehObjeto(dados)) throw new ErroHttp(400, 'dados_invalidos', 'Dados inválidos.');
-  const { canalVozId, mudo, surdo, camera, sid } = dados;
+  const { canalVozId, mudo, surdo, camera, sid, motivo } = dados;
+  if (motivo !== undefined && motivo !== 'afk') throw new ErroHttp(400, 'dados_invalidos', 'Dados inválidos.');
   if (canalVozId !== null && (typeof canalVozId !== 'number' || !Number.isInteger(canalVozId) || canalVozId < 1)) {
     throw new ErroHttp(400, 'dados_invalidos', 'Canal inválido.');
   }
   if (typeof mudo !== 'boolean' || typeof surdo !== 'boolean' || typeof camera !== 'boolean') throw new ErroHttp(400, 'dados_invalidos', 'Dados inválidos.');
   if (sid !== undefined && (typeof sid !== 'string' || sid.length > 64)) throw new ErroHttp(400, 'dados_invalidos', 'Dados inválidos.');
   // Deafen também muta o microfone (RF-16).
-  return { canalVozId, mudo: mudo || surdo, surdo, camera, sid: sid as string | undefined };
+  return { canalVozId, mudo: mudo || surdo, surdo, camera, sid: sid as string | undefined, afk: motivo === 'afk' };
 }
 
 export function criarVoz(
@@ -66,6 +77,7 @@ export function criarVoz(
   opcoes: {
     carenciaMs: number;
     removerDaMidia?: RemoverDaMidia;
+    calarNaMidia?: CalarNaMidia;
     aoSair?: (usuarioId: number, canalVozId: number) => void;
     /** Pontos e loja: a presença na voz mudou (entrou, saiu, surdo, conexão caiu ou voltou). */
     aoMudar?: () => void;
@@ -78,6 +90,8 @@ export function criarVoz(
   /** A10: até 5 mover/desconectar a cada 10 s por moderador e 1 a cada 3 s por pessoa movida. */
   const limiteAtor = criarLimitador(5, 10_000);
   const limiteAlvo = criarLimitador(1, 3_000);
+  /** A9: até 1 ida à AFK por minuto por pessoa. */
+  const limiteAfk = criarLimitador(1, 60_000);
   const nomeDe = (id: number) => (banco.prepare('SELECT nome_exibicao AS n FROM usuarios WHERE id = ?').get(id) as { n: string } | undefined)?.n ?? 'Alguém';
 
   const estados = () => [...presentes.values()].map((p) => p.estado).sort((a, b) => a.usuarioId - b.usuarioId);
@@ -152,6 +166,21 @@ export function criarVoz(
           const canal = comunidadeDoCanal(banco, pedido.canalVozId) === socket.data.comunidadeId ? buscarCanal(banco, pedido.canalVozId) : undefined;
           if (!canal) throw new ErroHttp(404, 'nao_encontrado', 'Canal não encontrado.');
           if (canal.tipo !== 'voz') throw new ErroHttp(400, 'dados_invalidos', 'Esse canal não é de voz.');
+          // mover-e-afk: na sala de AFK ninguém fala nem mostra a câmera (RN-9); a ida por inatividade só vale para a
+          // AFK deste servidor, uma vez por minuto (A8, A9), e fica na auditoria.
+          const afk = afkDa(banco, socket.data.comunidadeId);
+          const naAfk = afk?.canalId === canal.id;
+          if (naAfk) {
+            pedido.mudo = true;
+            pedido.camera = false;
+          }
+          if (pedido.afk) {
+            if (!naAfk) throw new ErroHttp(400, 'dados_invalidos', 'Essa sala não é a de AFK.');
+            if (atual?.estado.canalVozId === canal.id) return undefined;
+            if (!limiteAfk.permitir(String(usuarioId))) throw new ErroHttp(429, 'muitas_tentativas', 'Calma: idas seguidas para a AFK.');
+            const de = atual ? buscarCanal(banco, atual.estado.canalVozId) : undefined;
+            registrarAuditoria(banco, { tipo: 'voz_afk', atorId: usuarioId, canal: { id: canal.id, nome: canal.nome }, detalhes: de ? { de: de.nome } : undefined });
+          }
           if (atual) {
             clearTimeout(atual.pendente);
             atual.pendente = undefined;
@@ -268,6 +297,25 @@ export function criarVoz(
       if (p.sid && sid && p.sid !== sid) return;
       tirar(usuarioId, 'midia_saiu');
       avisar();
+    },
+    midiaEntrou(usuarioId, canalVozId) {
+      const t = setTimeout(() => {
+        if (presentes.get(usuarioId)?.estado.canalVozId === canalVozId) return;
+        removerDaMidia(usuarioId, canalVozId);
+      }, prazoMover);
+      t.unref();
+    },
+    afkMudou(comunidadeId) {
+      const afk = afkDa(banco, comunidadeId);
+      if (!afk) return;
+      let mudou = false;
+      for (const p of presentes.values()) {
+        if (p.estado.canalVozId !== afk.canalId) continue;
+        p.estado = { ...p.estado, mudo: true, camera: false };
+        opcoes.calarNaMidia?.(p.estado.usuarioId, afk.canalId).catch(registrarErro);
+        mudou = true;
+      }
+      if (mudou) avisar();
     },
     revogar(usuarioId, socketId) {
       if (presentes.get(usuarioId)?.socketId !== socketId) return;
