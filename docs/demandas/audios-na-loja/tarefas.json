@@ -137,9 +137,9 @@
         "CA-8"
       ],
       "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "3954616"
     },
     {
       "id": "T8",
