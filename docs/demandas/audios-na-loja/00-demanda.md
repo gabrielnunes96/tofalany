@@ -1,0 +1,5 @@
+# Demanda: audios-na-loja
+
+Item 28 do backlog (docs/demandas/to-falando-v2/00-backlog.md), texto original:
+
+| 28 | **Áudios na loja, com raridade** | Pedido de 17/11. O administrador envia áudios para a loja (upload, como os sons do soundboard) e classifica cada um numa raridade, que define o preço em pontos: **comum** (cinza, sem brilho), **raro** (azul, brilho médio), **épico** (roxo, brilho forte) e **lendário** (dourado, brilho alto e forte). Quem compra passa a ter o áudio para tocar no soundboard. Na loja, cada áudio aparece com a cor e o brilho da raridade, um botão de ouvir antes de comprar e o preço. Decidir: preço padrão por raridade (ajustável na configuração, como os preços de hoje), contando com o ganho de 3 pontos por minuto em voz (PONTOS_POR_MINUTO=3, pedido de 17/11, só no .env da VM); se o áudio comprado vale em todos os servidores ou só no da compra; limite de duração e tamanho (o soundboard já tem); o que acontece se o administrador tirar um áudio que alguém já comprou. Os áudios vão ser tirados de um site de sons: conferir se podem ser usados. Médio: vira demanda própria. |
