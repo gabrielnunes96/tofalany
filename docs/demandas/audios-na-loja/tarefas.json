@@ -97,9 +97,9 @@
         "CA-13"
       ],
       "validacao": "vitest client: TelaLoja (cores, preço, comprar, comprado, ouvir sem socket), PainelSoundboard (Meus sons, sem compra), tempo-real (audio:tocado, loja:audios), tocador recusa url externa.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "15d2dc2"
     },
     {
       "id": "T6",
