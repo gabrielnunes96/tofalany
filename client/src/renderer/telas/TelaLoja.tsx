@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ITENS_TEMA,
+  NOMES_RARIDADE,
   QUALIDADES_VALE,
   VALE_DIAS,
   chaveItem,
+  type AudioLojaDto,
   type CatalogoLojaDto,
   type ItemLoja,
   type LojaEstadoDto,
@@ -18,6 +20,8 @@ interface Props {
   /** Saldo e itens da conta (chega no ola e a cada crédito ou compra). */
   estado: LojaEstadoDto;
   api: Pick<ClienteApi, 'loja' | 'comprarNaLoja' | 'extratoLoja'>;
+  /** Base dos arquivos (prévia dos áudios). */
+  servidorUrl?: string;
   /** Tema em uso (a prévia volta para ele). */
   temaAtual: Tema;
   aoUsarTema: (tema: Tema) => void;
@@ -37,7 +41,7 @@ const DETALHE_VALE: Record<QualidadeVale, string> = {
   '1080p60': 'nítida e fluida; também libera 720p60 e 1080p30',
 };
 const nomeTema = (id: TemaLoja) => ITENS_TEMA.find((t) => t.id === id)?.nome ?? id;
-const nomeItem = (item: ItemLoja) => (item.tipo === 'tema' ? `o tema ${nomeTema(item.tema)}` : item.tipo === 'vale' ? `o vale ${NOME_VALE[item.qualidade]}` : 'o áudio');
+const segundos = (ms: number) => `${(ms / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} s`;
 /** Junta páginas do extrato sem repetir (por id), do mais novo para o mais antigo. */
 const juntar = (a: MovimentoDto[], b: MovimentoDto[]) => [...new Map([...a, ...b].map((m) => [m.id, m])).values()].sort((x, y) => y.id - x.id);
 const formatoData = new Intl.DateTimeFormat('pt-BR', {
@@ -52,6 +56,7 @@ function descreverMovimento(m: MovimentoDto): string {
   const [tipo, id] = (m.item ?? '').split(':');
   if (tipo === 'tema') return `Tema ${nomeTema(id as TemaLoja)}`;
   if (tipo === 'vale') return `Vale de ${VALE_DIAS} dias: ${NOME_VALE[id as QualidadeVale] ?? id}`;
+  if (tipo === 'audio') return m.nomeItem ? `Áudio: ${m.nomeItem}` : 'Áudio';
   return 'Compra';
 }
 
@@ -59,7 +64,7 @@ function descreverMovimento(m: MovimentoDto): string {
  * Pontos e loja: temas (para sempre) e vales de transmissão (7 dias, somam), com prévia do tema, confirmação e
  * extrato. Os preços vêm do servidor; o saldo também (o app nunca calcula pontos).
  */
-export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVoltar }: Props) {
+export function TelaLoja({ estado, api, servidorUrl = '', temaAtual, aoUsarTema, aoComprar, aoVoltar }: Props) {
   const [catalogo, setCatalogo] = useState<CatalogoLojaDto | null>(null);
   const [tentativa, setTentativa] = useState(0);
   const [erroCatalogo, setErroCatalogo] = useState<string | null>(null);
@@ -74,6 +79,21 @@ export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVolt
   const [erroExtrato, setErroExtrato] = useState(false);
   const [tentativaExtrato, setTentativaExtrato] = useState(0);
   const titulo = useRef<HTMLHeadingElement>(null);
+  /** Prévia de um áudio: toca só aqui (RN-12), sem passar pelo servidor nem pela chamada. */
+  const previaAudio = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => () => previaAudio.current?.pause(), []);
+  function ouvir(a: AudioLojaDto) {
+    previaAudio.current?.pause();
+    const el = new Audio(`${servidorUrl}${a.url}`);
+    previaAudio.current = el;
+    void el.play().catch(() => setErro('Não foi possível tocar a prévia.'));
+  }
+  const audioDe = (id: number) => catalogo?.audios?.find((a) => a.id === id);
+  const nomeItem = (item: ItemLoja) =>
+    item.tipo === 'tema' ? `o tema ${nomeTema(item.tema)}` : item.tipo === 'vale' ? `o vale ${NOME_VALE[item.qualidade]}` : (() => {
+          const a = audioDe(item.audioId);
+          return a ? `o áudio ${a.nome} (${NOMES_RARIDADE[a.raridade]})` : 'o áudio';
+        })();
   /** Botão que abriu a confirmação: o foco volta para ele ao fechar. */
   const origem = useRef<HTMLButtonElement | null>(null);
 
@@ -120,7 +140,16 @@ export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVolt
   }, [previa, temaAtual]);
 
   const precoDe = (item: ItemLoja): number | undefined =>
-    catalogo ? (item.tipo === 'tema' ? catalogo.precos.tema : item.tipo === 'vale' ? catalogo.precos.vales[item.qualidade] : undefined) : undefined;
+    catalogo
+      ? item.tipo === 'tema'
+        ? catalogo.precos.tema
+        : item.tipo === 'vale'
+          ? catalogo.precos.vales[item.qualidade]
+          : (() => {
+              const a = audioDe(item.audioId);
+              return a ? catalogo.precos.audios?.[a.raridade] : undefined;
+            })()
+      : undefined;
 
   async function confirmar() {
     if (!confirmando) return;
@@ -130,7 +159,7 @@ export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVolt
     try {
       const novo = await api.comprarNaLoja(item);
       aoComprar(novo);
-      setAviso(item.tipo === 'tema' ? `${nomeTema(item.tema)} é seu.` : item.tipo === 'vale' ? `${NOME_VALE[item.qualidade]} liberado.` : 'Áudio comprado.');
+      setAviso(item.tipo === 'tema' ? `${nomeTema(item.tema)} é seu.` : item.tipo === 'vale' ? `${NOME_VALE[item.qualidade]} liberado.` : `${audioDe(item.audioId)?.nome ?? 'O áudio'} é seu. Toque em Meus sons, no soundboard.`);
       fecharConfirmacao();
       setPrevia(null);
     } catch (e) {
@@ -308,6 +337,38 @@ export function TelaLoja({ estado, api, temaAtual, aoUsarTema, aoComprar, aoVolt
               );
             })}
           </ul>
+
+          {catalogo.audios && (
+            <>
+              <h2>Áudios</h2>
+              <p className="suave">São seus para sempre e tocam no soundboard de qualquer servidor, em Meus sons. O preço vem da raridade.</p>
+              {catalogo.audios.length === 0 ? (
+                <p className="suave">Nenhum áudio à venda por enquanto.</p>
+              ) : (
+                <ul className="loja-grade loja-audios">
+                  {catalogo.audios.map((a) => {
+                    const meu = estado.tudoLiberado || !!estado.audiosIds?.includes(a.id);
+                    return (
+                      <li key={a.id} className={`loja-item loja-audio raridade-${a.raridade}`}>
+                        <div className="loja-item-texto">
+                          <h3>{a.nome}</h3>
+                          <p className="suave">
+                            <span className="raridade-nome">{NOMES_RARIDADE[a.raridade]}</span> · {segundos(a.duracaoMs)}
+                          </p>
+                        </div>
+                        <div className="linha-botoes">
+                          <button type="button" className="secundario" aria-label={`Ouvir ${a.nome}`} onClick={() => ouvir(a)}>
+                            Ouvir
+                          </button>
+                          {meu ? <span className="selo">{estado.tudoLiberado ? 'Liberado (administrador)' : 'Comprado'}</span> : botaoComprar({ tipo: 'audio', audioId: a.id })}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
         </>
       )}
 

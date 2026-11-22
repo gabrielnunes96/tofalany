@@ -22,6 +22,7 @@ import {
   type AmizadeDto,
   type AtividadeDto,
   type LojaEstadoDto,
+  type AudioLojaDto,
   type ReacaoDto,
 } from '@tofalando/shared';
 import { chaveDe, type Chave } from '../estado/chaves';
@@ -77,6 +78,10 @@ export interface OuvintesTempoReal {
   aoAmizades?(amizades: AmizadeDto[], conhecidos: UsuarioDto[]): void;
   /** Pontos e loja: saldo ou itens da conta mudaram. */
   aoLoja?(estado: LojaEstadoDto): void;
+  /** audios-na-loja: a lista do "Meus sons" mudou. */
+  aoAudiosLoja?(audios: AudioLojaDto[]): void;
+  /** audios-na-loja: alguém tocou um áudio comprado no meu canal (o áudio vem inteiro). */
+  aoAudioTocado?(p: { audio: AudioLojaDto; porUsuarioId: number; canalVozId: number }): void;
   /** A sessão não vale mais: não tenta reconectar. */
   aoRevogada(motivo: MotivoRevogacao, detalhe?: string | null): void;
 }
@@ -211,6 +216,8 @@ export function conectarTempoReal(
   socket.on('musica:estado', (estado) => ouvintes.aoMusica?.(estado));
   socket.on('amizades:atualizadas', ({ amizades, conhecidos }) => ouvintes.aoAmizades?.(amizades, conhecidos));
   socket.on('loja:estado', (estado) => ouvintes.aoLoja?.(estado));
+  socket.on('loja:audios', (audios) => ouvintes.aoAudiosLoja?.(audios));
+  socket.on('audio:tocado', (p) => ouvintes.aoAudioTocado?.(p));
   socket.on('sessao:revogada', ({ motivo, detalhe }) => revogar(motivo, detalhe));
   socket.on('moderacao:castigo', (castigo) => ouvintes.aoCastigo?.(castigo));
   socket.on('connect_error', (erro) => {

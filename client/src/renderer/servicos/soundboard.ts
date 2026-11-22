@@ -1,4 +1,4 @@
-import type { SomDto } from '@tofalando/shared';
+import { SOM_DURACAO_MAX_MS, type SomDto } from '@tofalando/shared';
 
 /**
  * RF-23/RF-24: toca os sons do soundboard localmente (cada app com o próprio volume), a partir de um
@@ -41,6 +41,8 @@ export function criarTocadorSoundboard(
   };
   function buffer(som: SomDto) {
     let p = cache.get(som.url);
+    // Só arquivos da própria instalação (audios-na-loja, A4): nada de endereço de fora.
+    if (!/^\/files\/[\w-]+\.(mp3|ogg|wav)$/.test(som.url)) return Promise.reject(new Error('Endereço de som inválido.'));
     if (!p) {
       p = buscar(`${servidorUrl}${som.url}`).then((dados) => contexto().decodeAudioData(dados));
       // Falhou (rede): sai do cache para tentar de novo depois.
@@ -68,6 +70,8 @@ export function criarTocadorSoundboard(
         tocando.add(fonte);
         fonte.onended = () => tocando.delete(fonte);
         fonte.start();
+        // Nenhum som passa de 10 s, mesmo que o arquivo minta a duração (A9).
+        fonte.stop(c.currentTime + SOM_DURACAO_MAX_MS / 1000);
         return true;
       } catch {
         return false;

@@ -1412,3 +1412,20 @@ body.janela-propria { margin: 0; min-height: 100vh; background: var(--cor-video)
 .canal.voz.afk { opacity: 0.85; }
 .editar-servidor-afk { display: grid; gap: 6px; max-width: 360px; margin-top: 16px; }
 .editar-servidor-afk select { background: var(--cor-campo); color: var(--cor-texto); border: 1px solid var(--cor-borda); border-radius: var(--raio-p); padding: 6px 8px; font: inherit; }
+
+/* audios-na-loja (RN-2): raridade dos áudios — comum (cinza, sem brilho), raro (azul, brilho médio), épico (roxo,
+   brilho forte), lendário (dourado, brilho alto que pulsa). O nome da raridade também aparece por escrito. */
+.raridade-comum { --raridade: #9aa0aa; --raridade-brilho: none; }
+.raridade-raro { --raridade: #3b82f6; --raridade-brilho: 0 0 10px -2px rgba(59, 130, 246, 0.55); }
+.raridade-epico { --raridade: #a855f7; --raridade-brilho: 0 0 16px -1px rgba(168, 85, 247, 0.75); }
+.raridade-lendario { --raridade: #f5b301; --raridade-brilho: 0 0 22px 2px rgba(245, 179, 1, 0.85); }
+.loja-audio { border: 2px solid var(--raridade); box-shadow: var(--raridade-brilho); }
+.loja-audio .raridade-nome { color: color-mix(in srgb, var(--raridade) 75%, var(--cor-texto)); font-weight: 700; }
+.meus-sons h3 { margin: 10px 0 4px; font-size: 0.9rem; }
+.meus-sons .sons-grade button { border: 1px solid var(--raridade); box-shadow: var(--raridade-brilho); }
+.loja-audio.raridade-lendario, .meus-sons .raridade-lendario { animation: brilho-lendario 2.4s ease-in-out infinite; }
+@keyframes brilho-lendario {
+  0%, 100% { box-shadow: 0 0 14px 0 rgba(245, 179, 1, 0.6); }
+  50% { box-shadow: 0 0 26px 4px rgba(245, 179, 1, 0.95); }
+}
+@media (prefers-reduced-motion: reduce) { .loja-audio.raridade-lendario, .meus-sons .raridade-lendario { animation: none; } }

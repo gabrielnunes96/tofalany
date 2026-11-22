@@ -41,6 +41,15 @@ describe('conectarTempoReal', () => {
     Object.assign(ouvintes, { aoLoja });
     s.disparar('loja:estado', { saldo: 42, temas: [], vales: [], tudoLiberado: false });
     expect(aoLoja).toHaveBeenCalledWith({ saldo: 42, temas: [], vales: [], tudoLiberado: false });
+    // audios-na-loja: Meus sons e áudio tocado.
+    const aoAudiosLoja = vi.fn();
+    const aoAudioTocado = vi.fn();
+    Object.assign(ouvintes, { aoAudiosLoja, aoAudioTocado });
+    const audio = { id: 3, nome: 'Trovão', url: '/files/t.wav', duracaoMs: 1000, raridade: 'raro' };
+    s.disparar('loja:audios', [audio]);
+    s.disparar('audio:tocado', { audio, porUsuarioId: 2, canalVozId: 5 });
+    expect(aoAudiosLoja).toHaveBeenCalledWith([audio]);
+    expect(aoAudioTocado).toHaveBeenCalledWith({ audio, porUsuarioId: 2, canalVozId: 5 });
   });
 
   it('servidor criado na mesma instalação: conecta na raiz e diz o servidor no handshake', () => {

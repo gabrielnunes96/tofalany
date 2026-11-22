@@ -285,6 +285,7 @@ function TelaDoServidor({
       definirMusica: s.definirMusica,
       definirAmizades: s.definirAmizades,
       definirPontos: s.definirPontos,
+      definirAudiosLoja: s.definirAudiosLoja,
       definirPresenca: s.definirPresenca,
       definirFalando: s.definirFalando,
       salvarSom: s.salvarSom,
@@ -363,6 +364,7 @@ function TelaDoServidor({
   const { servidorId, donoServidor } = useLoja(useShallow((s) => ({ servidorId: s.servidorId, donoServidor: s.donoServidor })));
   /** Pontos e loja: saldo e itens da conta (null = servidor sem loja, a loja some). */
   const pontos = useLoja((s) => s.pontos);
+  const audiosLoja = useLoja((s) => s.audiosLoja);
   /** mover-e-afk: sala de AFK do servidor (null = desligada). */
   const afkServidor = useLoja((s) => s.afk);
   /** video-teatro-cameras-e-sons (RN-2): câmeras flutuantes têm o botão de voltar ao lugar no painel de voz. */
@@ -1088,6 +1090,17 @@ function TelaDoServidor({
       aoMusica: acoes.definirMusica,
       aoAmizades: acoes.definirAmizades,
       aoLoja: acoes.definirPontos,
+      aoAudiosLoja: acoes.definirAudiosLoja,
+      // audios-na-loja (RF-5): áudio comprado tocado no meu canal; o áudio vem do servidor (posso não ter).
+      aoAudioTocado: ({ audio, porUsuarioId, canalVozId }) => {
+        if (minhaVozRef.current !== canalVozId) return;
+        const quem = useLoja.getState().usuarios.find((u) => u.id === porUsuarioId)?.nomeExibicao ?? 'Alguém';
+        setAvisoSom((a) => ({ texto: `${quem} tocou ${audio.nome}`, n: (a?.n ?? 0) + 1 }));
+        if (controlesRef.current.surdo) return;
+        void tocadorRef.current?.tocar(audio, sonsRef.current.soundboard).then((tocou) => {
+          if (tocou) document.documentElement.dataset.somSoundboard = `audio-${audio.id}:${Date.now()}`;
+        });
+      },
       aoPresenca: (id, status) => {
         // RF-41: alguém entrou ou saiu do servidor.
         avisarEntradaSaida(id, useLoja.getState().presencas[id], status);
@@ -1663,6 +1676,11 @@ function TelaDoServidor({
       (c) => c.pedir('som:tocar', { somId }),
       () => setLiberadoEm(Date.now() + SOM_INTERVALO_MS),
     );
+  const tocarAudio = (audioId: number) =>
+    pedir(
+      (c) => c.pedir('som:tocar', { audioId }),
+      () => setLiberadoEm(Date.now() + SOM_INTERVALO_MS),
+    );
 
   /** RF-27: antes de abrir o seletor, avisa se o canal já chegou no limite de transmissões ao mesmo tempo. */
   function abrirSeletorTela() {
@@ -2088,6 +2106,9 @@ function TelaDoServidor({
                   volume={prefSons.soundboard}
                   aoVolume={(v) => mudarSons({ ...sonsRef.current, soundboard: v })}
                   aoTocar={tocarSom}
+                  meusSons={audiosLoja}
+                  aoTocarAudio={pontos ? tocarAudio : undefined}
+                  aoAbrirLoja={() => setVista('loja')}
                   aoFechar={() => setSoundboardAberto(false)}
                 />
               )}
@@ -2352,7 +2373,7 @@ function TelaDoServidor({
                   // O ToOuvini é da instalação: fala sempre com o servidor principal (o mesmo login vale lá).
                   <TelaToOuvini api={apiPrincipal} aoVoltar={voltar} />
                 ) : vistaAtual === 'loja' && pontos ? (
-                  <TelaLoja estado={pontos} api={api} temaAtual={tema} aoUsarTema={mudarTema} aoComprar={acoes.definirPontos} aoVoltar={voltar} />
+                  <TelaLoja estado={pontos} api={api} servidorUrl={servidorUrl} temaAtual={tema} aoUsarTema={mudarTema} aoComprar={acoes.definirPontos} aoVoltar={voltar} />
                 ) : vistaAtual === 'sons' ? (
                   <TelaSons sons={sons} servidorUrl={servidorUrl} api={api} aoSalvar={acoes.salvarSom} aoRemover={acoes.tirarSom} aoVoltar={voltar} />
                 ) : vistaAtual === 'convite' ? (

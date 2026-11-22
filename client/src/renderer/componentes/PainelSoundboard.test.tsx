@@ -43,4 +43,23 @@ describe('PainelSoundboard (RF-23, RF-24)', () => {
     fireEvent.change(screen.getByLabelText(/Volume do soundboard/), { target: { value: '0' } });
     expect(aoVolume).toHaveBeenCalledWith(0);
   });
+
+  it('audios-na-loja CA-8/CA-9: "Meus sons" com os comprados (raridade no nome acessível); sem compra, atalho para a loja', async () => {
+    const aoTocarAudio = vi.fn(async () => null as string | null);
+    const aoAbrirLoja = vi.fn();
+    const props = { sons, naVoz: true, liberadoEm: 0, volume: 0.8, aoVolume: vi.fn(), aoTocar: vi.fn(), aoTocarAudio, aoAbrirLoja, aoFechar: vi.fn() };
+    const { rerender } = render(<PainelSoundboard {...props} meusSons={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir a loja' }));
+    expect(aoAbrirLoja).toHaveBeenCalled();
+    rerender(<PainelSoundboard {...props} meusSons={[{ id: 3, nome: 'Trovão', url: '/files/t.wav', duracaoMs: 1000, raridade: 'raro' }]} />);
+    const botao = screen.getByRole('button', { name: 'Trovão (Raro)' });
+    expect(botao.className).toContain('raridade-raro');
+    await act(async () => fireEvent.click(botao));
+    expect(aoTocarAudio).toHaveBeenCalledWith(3);
+  });
+
+  it('servidor antigo (sem loja): sem a seção "Meus sons"', () => {
+    render(<PainelSoundboard sons={sons} naVoz liberadoEm={0} volume={0.8} aoVolume={vi.fn()} aoTocar={vi.fn()} aoFechar={vi.fn()} />);
+    expect(screen.queryByText('Meus sons')).toBeNull();
+  });
 });

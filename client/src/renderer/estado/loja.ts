@@ -18,6 +18,7 @@ import type {
   AmizadeDto,
   AtividadeDto,
   LojaEstadoDto,
+  AudioLojaDto,
   ReacaoDto,
   RespostaDto,
 } from '@tofalando/shared';
@@ -91,6 +92,9 @@ interface Loja {
   /** Pontos e loja: saldo e itens da conta (null = servidor sem loja). */
   pontos: LojaEstadoDto | null;
   definirPontos(estado: LojaEstadoDto): void;
+  /** audios-na-loja: áudios da conta para o "Meus sons" (o administrador da instalação tem todos). */
+  audiosLoja: AudioLojaDto[];
+  definirAudiosLoja(audios: AudioLojaDto[]): void;
   definirVoz(estados: VozEstadoDto[]): void;
   definirFalando(ids: number[]): void;
   definirSons(sons: SomDto[]): void;
@@ -197,6 +201,7 @@ const inicial = {
   musica: [] as EstadoMusica[],
   amizades: [] as AmizadeDto[],
   pontos: null as LojaEstadoDto | null,
+  audiosLoja: [] as AudioLojaDto[],
   conhecidos: [] as UsuarioDto[],
   falando: [] as number[],
 };
@@ -232,6 +237,7 @@ export const criarLoja = () =>
       set((s) => ({ transmissoes: s.transmissoes.map((x) => (x.canalVozId === canalVozId && x.usuarioId === usuarioId ? { ...x, espectadores } : x)) })),
     definirAmizades: (amizades, conhecidos) => set((s) => ({ amizades, conhecidos: conhecidos ?? s.conhecidos })),
     definirPontos: (pontos) => set({ pontos }),
+    definirAudiosLoja: (audiosLoja) => set({ audiosLoja }),
     definirMusica: (estado) =>
       set((s) => ({
         musica: [...s.musica.filter((x) => x.canalVozId !== estado.canalVozId), ...(estado.tocando || estado.fila.length || estado.conectado ? [estado] : [])],
@@ -275,6 +281,7 @@ export const criarLoja = () =>
       conhecidos,
       atividades,
       loja,
+      audiosLoja,
       recursos,
     }) =>
       set((s) => {
@@ -299,6 +306,7 @@ export const criarLoja = () =>
           amizades: amizades ?? [],
           conhecidos: conhecidos ?? [],
           pontos: loja ?? null,
+          audiosLoja: audiosLoja ?? [],
           recursos: recursos ?? {},
           fixadas: {},
           presencas: Object.fromEntries(Object.entries(presencas ?? {}).map(([id, st]) => [Number(id), st])),

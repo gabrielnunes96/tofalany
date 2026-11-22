@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SomDto } from '@tofalando/shared';
+import { NOMES_RARIDADE, type AudioLojaDto, type SomDto } from '@tofalando/shared';
 
 interface Props {
   sons: SomDto[];
@@ -12,11 +12,15 @@ interface Props {
   aoVolume: (v: number) => void;
   /** Pede ao servidor; devolve a mensagem de erro ou null. */
   aoTocar: (somId: number) => Promise<string | null>;
+  /** audios-na-loja (RF-4): áudios comprados na loja (servidor antigo: lista vazia e sem a seção). */
+  meusSons?: AudioLojaDto[];
+  aoTocarAudio?: (audioId: number) => Promise<string | null>;
+  aoAbrirLoja?: () => void;
   aoFechar: () => void;
 }
 
 /** RF-23: sons cadastrados para tocar no canal de voz, com o volume local do soundboard. */
-export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, aoTocar, aoFechar }: Props) {
+export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, aoTocar, meusSons, aoTocarAudio, aoAbrirLoja, aoFechar }: Props) {
   const [agora, setAgora] = useState(() => Date.now());
   const [erro, setErro] = useState<string | null>(null);
   const falta = Math.max(0, liberadoEm - agora);
@@ -36,9 +40,9 @@ export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, ao
     };
   }, [liberadoEm]);
 
-  async function tocar(som: SomDto) {
+  async function tocar(pedido: Promise<string | null>) {
     setErro(null);
-    const falha = await aoTocar(som.id);
+    const falha = await pedido;
     if (falha) setErro(falha);
   }
 
@@ -66,12 +70,44 @@ export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, ao
               className="secundario"
               disabled={!!motivo}
               aria-describedby={motivo ? 'soundboard-motivo' : undefined}
-              onClick={() => void tocar(s)}
+              onClick={() => void tocar(aoTocar(s.id))}
             >
               {s.nome}
             </button>
           ))}
         </div>
+      )}
+      {aoTocarAudio && (
+        <section className="meus-sons" aria-labelledby="titulo-meus-sons">
+          <h3 id="titulo-meus-sons">Meus sons</h3>
+          {!meusSons?.length ? (
+            <p className="suave">
+              Compre áudios na loja para tocar aqui.{' '}
+              {aoAbrirLoja && (
+                <button type="button" className="link" onClick={aoAbrirLoja}>
+                  Abrir a loja
+                </button>
+              )}
+            </p>
+          ) : (
+            <div className="sons-grade">
+              {meusSons.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className={`secundario raridade-${a.raridade}`}
+                  title={NOMES_RARIDADE[a.raridade]}
+                  aria-label={`${a.nome} (${NOMES_RARIDADE[a.raridade]})`}
+                  disabled={!!motivo}
+                  aria-describedby={motivo ? 'soundboard-motivo' : undefined}
+                  onClick={() => void tocar(aoTocarAudio(a.id))}
+                >
+                  {a.nome}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
       )}
       <label htmlFor="volume-soundboard">
         Volume do soundboard{' '}
