@@ -27,6 +27,7 @@ import { hashToken } from '../auth/tokens.js';
 import { sessaoValida, usuarioDaSessao } from '../dominio/sessoes.js';
 import { buscarPorId, listarMembros, paraDto } from '../dominio/usuarios.js';
 import { registrarAuditoria } from '../dominio/auditoria.js';
+import { audiosDaConta } from '../dominio/audios-loja.js';
 import { conviteDa, donoDa, existeComunidade, idsDosMembros, membroDe, membroNaComunidade, nomeComunidade, iconeComunidade, afkDa, ehSalaAfk } from '../dominio/comunidades.js';
 import { baseDoServidor, montarLinkConvite } from '../dominio/convite.js';
 import { listarCanais } from '../dominio/canais.js';
@@ -96,6 +97,8 @@ export interface TempoReal {
   fecharComunidade(comunidadeId: number): void;
   /** Pontos e loja: manda o saldo e os itens atuais para todas as conexões da conta. */
   avisarLoja(usuarioId: number): void;
+  /** audios-na-loja: a lista do "Meus sons" mudou; cada conexão recebe a da sua conta. */
+  avisarAudiosLoja(): void;
 }
 
 export const salaUsuario = (id: number) => `usuario:${id}`;
@@ -391,6 +394,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       amizades,
       conhecidos: conhecidosDe(banco, eu.id, comunidadeId),
       loja: estadoLoja(banco, eu.id),
+      audiosLoja: audiosDaConta(banco, eu.id),
       recursos: { fixar: true, busca: true },
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
@@ -490,6 +494,12 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     },
     fecharComunidade(comunidadeId) {
       for (const s of io.of('/').sockets.values()) if (s.data.comunidadeId === comunidadeId) derrubar(s, 'fora_do_servidor');
+    },
+    avisarAudiosLoja() {
+      for (const s of io.sockets.sockets.values()) {
+        const u = (s.data as { usuarioId?: number }).usuarioId;
+        if (u !== undefined) s.emit('loja:audios', audiosDaConta(banco, u));
+      }
     },
     avisarLoja(usuarioId) {
       io.to(salaUsuario(usuarioId)).emit('loja:estado', estadoLoja(banco, usuarioId));

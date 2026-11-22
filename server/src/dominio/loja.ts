@@ -20,6 +20,7 @@ import {
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { ehAdminDaInstalacao } from './comunidades.js';
+import { idsDaConta } from './audios-loja.js';
 
 const saldoDe = (banco: Banco, usuarioId: number): number =>
   (banco.prepare('SELECT saldo FROM pontos_saldos WHERE usuario_id = ?').get(usuarioId) as { saldo: number } | undefined)?.saldo ?? 0;
@@ -37,6 +38,7 @@ export function estadoLoja(banco: Banco, usuarioId: number, agora: number = Date
     temas,
     vales: valesDe(banco, usuarioId).filter((v) => v.expiraEm > agora),
     tudoLiberado: ehAdminDaInstalacao(banco, usuarioId),
+    audiosIds: idsDaConta(banco, usuarioId),
   };
 }
 

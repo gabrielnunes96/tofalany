@@ -11,19 +11,22 @@ import { salaComunidade } from '../realtime/salas.js';
 
 const paramId = { type: 'object', required: ['id'], properties: { id: { type: 'integer', minimum: 1 } } } as const;
 
-/** Lê o multipart: campo "nome" (texto) e/ou campo "arquivo" (áudio até 2 MB). */
-async function lerFormulario(req: FastifyRequest): Promise<{ nome?: string; dados?: Buffer }> {
+/**
+ * Lê o multipart: os campos de texto pedidos (padrão: "nome") e/ou o campo "arquivo" (áudio até 2 MB). Também usado
+ * pelos áudios da loja (nome e raridade).
+ */
+export async function lerFormulario(req: FastifyRequest, camposTexto: readonly string[] = ['nome']): Promise<{ campos: Partial<Record<string, string>>; dados?: Buffer }> {
   if (!req.isMultipart()) throw new ErroHttp(400, 'dados_invalidos', 'Envie como multipart/form-data.');
-  const resultado: { nome?: string; dados?: Buffer } = {};
-  for await (const parte of req.parts({ limits: { fileSize: SOM_MAX_BYTES, files: 1, fields: 2 } })) {
+  const resultado: { campos: Partial<Record<string, string>>; dados?: Buffer } = { campos: {} };
+  for await (const parte of req.parts({ limits: { fileSize: SOM_MAX_BYTES, files: 1, fields: camposTexto.length + 1 } })) {
     if (parte.type === 'file') {
       if (parte.fieldname !== 'arquivo') throw new ErroHttp(400, 'dados_invalidos', 'Envie o áudio no campo "arquivo".');
       resultado.dados = await parte.toBuffer().catch((erro: { code?: string }) => {
         if (erro.code === 'FST_REQ_FILE_TOO_LARGE') throw new ErroHttp(413, 'arquivo_grande', 'O áudio deve ter no máximo 2 MB.');
         throw erro;
       });
-    } else if (parte.fieldname === 'nome' && typeof parte.value === 'string') {
-      resultado.nome = parte.value;
+    } else if (camposTexto.includes(parte.fieldname) && typeof parte.value === 'string') {
+      resultado.campos[parte.fieldname] = parte.value;
     }
   }
   return resultado;
@@ -40,7 +43,10 @@ export function registrarRotasSons(app: FastifyInstance, banco: Banco, armazem: 
   app.post('/api/admin/sons', { preHandler: soAdmin }, async (req, reply): Promise<SomDto> => {
     // Já cheio: recusa antes de ler o upload (a checagem definitiva fica na transação).
     if (listarSons(banco, req.comunidadeId).length >= SONS_MAX) throw new ErroHttp(409, 'limite_sons', `O soundboard já tem ${SONS_MAX} sons. Remova um para cadastrar outro.`);
-    const { nome, dados } = await lerFormulario(req);
+    const {
+      campos: { nome },
+      dados,
+    } = await lerFormulario(req);
     const n = validarNomeSom(nome ?? '');
     if (!n.ok) throw new ErroHttp(400, 'dados_invalidos', n.erro);
     if (!dados) throw new ErroHttp(400, 'dados_invalidos', 'Envie o arquivo de áudio.');
@@ -64,7 +70,10 @@ export function registrarRotasSons(app: FastifyInstance, banco: Banco, armazem: 
 
   app.put('/api/admin/sons/:id', { preHandler: soAdmin, schema: { params: paramId } }, async (req): Promise<SomDto> => {
     const { id } = req.params as { id: number };
-    const { nome, dados } = await lerFormulario(req);
+    const {
+      campos: { nome },
+      dados,
+    } = await lerFormulario(req);
     if (nome === undefined && !dados) throw new ErroHttp(400, 'dados_invalidos', 'Envie o novo nome e/ou o novo áudio.');
     const novoNome = nome === undefined ? undefined : validarNomeSom(nome);
     if (novoNome && !novoNome.ok) throw new ErroHttp(400, 'dados_invalidos', novoNome.erro);

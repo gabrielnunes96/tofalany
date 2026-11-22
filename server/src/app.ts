@@ -16,6 +16,7 @@ import { registrarRotasConvite } from './routes/convite.js';
 import { registrarRotasMensagens } from './routes/mensagens.js';
 import { registrarRotasAnexos } from './routes/anexos.js';
 import { registrarRotasSons } from './routes/sons.js';
+import { registrarRotasAudiosLoja } from './routes/audios-loja.js';
 import { registrarRotasLivekit } from './routes/livekit.js';
 import { limparOrfaos } from './dominio/anexos.js';
 import type { ErroApi } from '@tofalando/shared';
@@ -162,6 +163,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasBusca(app, banco);
   registrarRotasAnexos(app, banco, armazem);
   registrarRotasSons(app, banco, armazem, tempoReal);
+  registrarRotasAudiosLoja(app, banco, armazem, tempoReal);
   await registrarRotasLivekit(app, banco, config, tempoReal.voz, (u, c, f) => tempoReal.conferirFaixaTela(u, c, f));
   registrarRotasConvite(
     app,
