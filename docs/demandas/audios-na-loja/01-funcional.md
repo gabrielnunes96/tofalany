@@ -1,6 +1,6 @@
 # Áudios na loja, com raridade — especificação funcional
 
-> Demanda: `audios-na-loja` · Item 28 do backlog · Versão 1 · 22/11/2026 · Situação: **rascunho**
+> Demanda: `audios-na-loja` · Item 28 do backlog · Versão 1 · 22/11/2026 · Situação: **aprovada em 22/11/2026**
 
 ## 1. Objetivo
 Dar mais uma coisa para comprar com os pontos de voz: áudios curtos, com raridade (comum, raro, épico, lendário), que a pessoa compra na loja e passa a tocar no soundboard de qualquer servidor.
@@ -50,6 +50,7 @@ Dar mais uma coisa para comprar com os pontos de voz: áudios curtos, com rarida
 | RN-10 | Tocar um áudio comprado segue as regras de tocar um som do servidor: estar na sala de voz, ter "Soundboard" no cargo daquele servidor e o intervalo de 3 s entre toques (contando sons do servidor e comprados juntos). Quem está de castigo não toca. | Assistente |
 | RN-11 | Na sala de AFK ninguém toca som (nem do servidor, nem comprado). | Assistente (segue RN-9 de `mover-e-afk`) |
 | RN-12 | Ouvir a prévia na loja é livre e toca só para a própria pessoa, sem precisar estar em voz. | Pedido de 17/11 |
+| RN-14 | A loja tem no máximo 200 áudios cadastrados (contando os tirados da loja que alguém ainda tem). | Usuário, 22/11 (D-2) |
 | RN-13 | O administrador só envia áudios que pode usar (licença que permita uso e redistribuição no grupo). O app mostra esse lembrete no cadastro; a conferência é dele. | Pedido de 17/11 |
 
 ## 6. Requisitos funcionais
@@ -93,4 +94,4 @@ Dar mais uma coisa para comprar com os pontos de voz: áudios curtos, com rarida
 | # | Dúvida | Para quem |
 | --- | --- | --- |
 | D-1 | De qual site virão os áudios e qual a licença (ex.: domínio público ou CC0 permitem; "uso pessoal" não). O app só lembra no cadastro (RN-13). | Usuário (administrador) |
-| D-2 | Limite de áudios cadastrados na loja: proposta de 200 no total (só para evitar abuso de espaço; 200 × 2 MB = 400 MB no pior caso). | Usuário |
+| D-2 | **Resolvida (aprovação de 22/11): até 200 áudios no total** (só para evitar abuso de espaço; 200 × 2 MB = 400 MB no pior caso). | Usuário |
