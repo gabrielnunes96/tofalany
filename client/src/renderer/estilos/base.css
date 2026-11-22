@@ -1404,3 +1404,11 @@ body.janela-propria { margin: 0; min-height: 100vh; background: var(--cor-video)
 .contador-previa { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1.5px solid; border-radius: 999px; font-weight: 600; }
 .cores-contador { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px 12px; }
 .cores-contador label { display: flex; align-items: center; gap: 6px; }
+
+/* mover-e-afk: soltar alguém numa sala de voz; submenu "Mover para…"; sala de AFK. */
+.item-voz.alvo-arrasto { outline: 2px dashed var(--cor-acento); outline-offset: 2px; border-radius: var(--raio-p); }
+.presentes-voz li[draggable="true"] { cursor: grab; }
+.menu-pessoa button.submenu { padding-left: 24px; }
+.canal.voz.afk { opacity: 0.85; }
+.editar-servidor-afk { display: grid; gap: 6px; max-width: 360px; margin-top: 16px; }
+.editar-servidor-afk select { background: var(--cor-campo); color: var(--cor-texto); border: 1px solid var(--cor-borda); border-radius: var(--raio-p); padding: 6px 8px; font: inherit; }

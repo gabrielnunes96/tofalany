@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { VOLUME_PESSOA_MAX, type AmizadeDto, type ComunidadeDto, type UsuarioDto } from '@tofalando/shared';
 import { ConvidarParaServidor } from './ConvidarParaServidor';
 import { Avatar } from './Avatar';
@@ -24,6 +24,7 @@ export function MenuPessoa({
   aoRemoverAmizade,
   aoFechar,
   moderacao,
+  mover,
   atividade = [],
   convite,
 }: {
@@ -48,7 +49,10 @@ export function MenuPessoa({
   convite?: { carregar: () => Promise<ComunidadeDto[]>; aoConvidar: (comunidadeId: number) => Promise<string | null> };
   /** Quem pode moderar esta pessoa (administrador ou "Moderar membros"; ela não é administradora). */
   moderacao?: { castigoAte: number | null; aoAbrir: (tipo: 'castigo' | 'expulsar' | 'banir') => void; aoTirarCastigo: () => void };
+  /** mover-e-afk (RF-2): a pessoa está em chamada e eu posso movê-la (as salas de voz, sem a atual). */
+  mover?: { salas: { id: number; nome: string }[]; aoMover: (canalVozId: number) => void; aoDesconectar: () => void };
 }) {
+  const [escolhendoSala, setEscolhendoSala] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const fora = (e: MouseEvent) => {
@@ -68,7 +72,7 @@ export function MenuPessoa({
   // Não sai da janela (perto da borda, abre para o outro lado).
   const largura = 250;
   const esquerda = Math.min(x, window.innerWidth - largura - 8);
-  const topo = Math.min(y, window.innerHeight - (moderacao ? 400 : 280));
+  const topo = Math.min(y, window.innerHeight - (280 + (moderacao ? 120 : 0) + (mover ? 80 + (escolhendoSala ? mover.salas.length * 34 : 0) : 0)));
   const fazer = (acao: () => void) => () => {
     acao();
     aoFechar();
@@ -135,6 +139,27 @@ export function MenuPessoa({
             <button type="button" role="menuitem" className="perigo-texto" onClick={fazer(aoRemoverAmizade)}>
               Desfazer amizade
             </button>
+          )}
+          {mover && (
+            <>
+              <hr />
+              <button type="button" role="menuitem" aria-expanded={escolhendoSala} onClick={() => setEscolhendoSala(!escolhendoSala)}>
+                Mover para…
+              </button>
+              {escolhendoSala &&
+                (mover.salas.length === 0 ? (
+                  <p className="suave">Não há outra sala de voz.</p>
+                ) : (
+                  mover.salas.map((s) => (
+                    <button key={s.id} type="button" role="menuitem" className="submenu" onClick={fazer(() => mover.aoMover(s.id))}>
+                      {s.nome}
+                    </button>
+                  ))
+                ))}
+              <button type="button" role="menuitem" className="perigo-texto" onClick={fazer(mover.aoDesconectar)}>
+                Desconectar da chamada
+              </button>
+            </>
           )}
           {moderacao && (
             <>

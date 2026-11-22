@@ -362,6 +362,8 @@ function TelaDoServidor({
   const { servidorId, donoServidor } = useLoja(useShallow((s) => ({ servidorId: s.servidorId, donoServidor: s.donoServidor })));
   /** Pontos e loja: saldo e itens da conta (null = servidor sem loja, a loja some). */
   const pontos = useLoja((s) => s.pontos);
+  /** mover-e-afk: sala de AFK do servidor (null = desligada). */
+  const afkServidor = useLoja((s) => s.afk);
   /** video-teatro-cameras-e-sons (RN-2): câmeras flutuantes têm o botão de voltar ao lugar no painel de voz. */
   const modoCameras = useModoCameras();
   /** chat-fixar-e-buscar: o que o servidor oferece e o painel da coluna direita (membros, fixadas ou busca). */
@@ -1348,6 +1350,14 @@ function TelaDoServidor({
   );
 
   /** Ação em tempo real; devolve a mensagem de erro (ou null) e aplica o resultado na hora. */
+  /** mover-e-afk: pede ao servidor para mover alguém (o erro aparece no aviso da voz). */
+  const moverPessoa = async (usuarioId: number, canalVozId: number) => {
+    const falha = await pedir(
+      (c) => c.pedir('voz:mover', { usuarioId, canalVozId }),
+      () => undefined,
+    );
+    if (falha) setAvisoVoz(falha);
+  };
   /** chat-fixar-e-buscar: lista de fixadas da conversa (guardada por conversa na loja). */
   const carregarFixadas = async (chave: Chave) => {
     const [tipo, id] = [chave[0], Number(chave.slice(2))];
@@ -1773,6 +1783,22 @@ function TelaDoServidor({
           aoFechar={fecharMenuPessoa}
           atividade={textosAtividade(atividades[menuPessoa.usuarioId])}
           convite={conviteDe(menuPessoa.usuarioId)}
+          mover={(() => {
+            // mover-e-afk (RF-2): a pessoa está em chamada aqui e eu posso movê-la (o servidor confere de novo).
+            const alvo = usuarios.find((u) => u.id === menuPessoa.usuarioId);
+            const naVoz = voz.find((e) => e.usuarioId === menuPessoa.usuarioId);
+            if (!alvo || !naVoz || alvo.id === usuario.id || !permissoes.has('mover_membros')) return undefined;
+            if (!ehAdmin && (alvo.cargo === 'admin' || alvo.id === donoServidor || permissoesDe({ ...alvo, castigoAte: null }, funcoes).has('mover_membros'))) return undefined;
+            return {
+              salas: canais.filter((c) => c.tipo === 'voz' && c.id !== naVoz.canalVozId).map((c) => ({ id: c.id, nome: c.nome })),
+              aoMover: (canalVozId: number) => void moverPessoa(alvo.id, canalVozId),
+              aoDesconectar: () =>
+                void pedir(
+                  (c) => c.pedir('voz:desconectar', { usuarioId: alvo.id }),
+                  () => undefined,
+                ).then((falha) => falha && setAvisoVoz(falha)),
+            };
+          })()}
           moderacao={(() => {
             const alvoMod = usuarios.find((u) => u.id === menuPessoa.usuarioId);
             if (!alvoMod || alvoMod.id === usuario.id || alvoMod.cargo === 'admin' || alvoMod.id === donoServidor || !permissoes.has('moderar_membros'))
@@ -1805,6 +1831,8 @@ function TelaDoServidor({
                 aoAceitarAmizade={aceitarAmizade}
                 aoRemoverAmizade={removerAmizade}
                 aoMenuPessoa={abrirMenuPessoa}
+                afkCanalId={afkServidor?.canalId ?? null}
+                aoMover={permissoes.has('mover_membros') ? (alvo, canal) => void moverPessoa(alvo, canal) : undefined}
                 nomeServidor={nomeServidor ?? servidorUrl}
                 canais={canais}
                 canalAtivo={vistaAtual === 'canal' && dmAtiva === null ? canalAtivo : null}
@@ -2247,6 +2275,8 @@ function TelaDoServidor({
                     iconeUrl={iconeServidor}
                     servidorUrl={separarComunidade(servidorUrl).base}
                     aoVoltar={voltar}
+                    canaisVoz={canais.filter((c) => c.tipo === 'voz')}
+                    afk={servidorId !== null ? afkServidor : undefined}
                   />
                 ) : vistaAtual === 'toouvini' ? (
                   // O ToOuvini é da instalação: fala sempre com o servidor principal (o mesmo login vale lá).

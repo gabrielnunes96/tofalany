@@ -81,9 +81,9 @@
         "CA-18"
       ],
       "validacao": "vitest client: aoVozMovido troca para o destino com o mudo e a câmera; pedido durante uma entrada vale depois; desconectado sai; mudo travado na AFK e restaurado ao sair; tempo-real com os ouvintes novos.",
-      "estado": "andamento",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "341d9d6"
     },
     {
       "id": "T5",
@@ -102,7 +102,7 @@
         "CA-8"
       ],
       "validacao": "vitest client: itens só com a permissão; Mover para chama voz:mover; arrastar chama voz:mover; ícone na sala de AFK; Editar servidor grava a AFK.",
-      "estado": "a_fazer",
+      "estado": "andamento",
       "wi": null,
       "commit": null
     },

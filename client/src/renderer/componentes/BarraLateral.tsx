@@ -22,6 +22,10 @@ interface Props {
   aoRemoverAmizade?: (usuarioId: number) => void;
   /** Clique direito numa pessoa (na sala de voz): abre o menu dela (volume, mensagem, amizade). */
   aoMenuPessoa?: (usuarioId: number, x: number, y: number) => void;
+  /** mover-e-afk: sala de AFK do servidor (ícone próprio). */
+  afkCanalId?: number | null;
+  /** mover-e-afk (RF-2): quem pode mover arrasta o nome de alguém para outra sala (o servidor confere tudo). */
+  aoMover?: (usuarioId: number, canalVozId: number) => void;
   nomeServidor: string;
   canais: CanalDto[];
   canalAtivo: number | null;
@@ -90,8 +94,9 @@ const TITULOS: Record<TipoCanal, string> = {
 /** Canal de voz na barra: renomear (qualquer membro) e remover (só administrador, com confirmação). */
 interface PropsItemVoz extends Pick<
   Props,
-  'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa' | 'aoMenuPessoa'
+  'ehAdmin' | 'aoRenomear' | 'aoRemover' | 'aoEntrarVoz' | 'servidorUrl' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa' | 'aoMenuPessoa' | 'aoMover'
 > {
+  afk?: boolean;
   canal: CanalDto;
   presentes: {
     usuario: UsuarioDto;
@@ -154,7 +159,8 @@ function PresentesVoz({
   aoVolumePessoa,
   aoSilenciarPessoa,
   aoMenuPessoa,
-}: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl' | 'aqui' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa' | 'aoMenuPessoa'>) {
+  aoMover,
+}: Pick<PropsItemVoz, 'canal' | 'presentes' | 'servidorUrl' | 'aqui' | 'euId' | 'pessoasVoz' | 'aoVolumePessoa' | 'aoSilenciarPessoa' | 'aoMenuPessoa' | 'aoMover'>) {
   const [abertos, setAbertos] = useState<number | null>(null);
   if (presentes.length === 0) return null;
   return (
@@ -167,6 +173,15 @@ function PresentesVoz({
           <li
             key={usuario.id}
             className={falando ? 'falando' : undefined}
+            draggable={!!aoMover && usuario.id !== euId}
+            onDragStart={
+              aoMover && usuario.id !== euId
+                ? (e) => {
+                    e.dataTransfer.setData(TIPO_ARRASTO_PESSOA, String(usuario.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }
+                : undefined
+            }
             aria-label={`${usuario.nomeExibicao}${falando ? ', falando' : ''}`}
             onContextMenu={
               aoMenuPessoa
@@ -234,7 +249,11 @@ function PresentesVoz({
   );
 }
 
-function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes, aqui, servidorUrl, ...pessoas }: PropsItemVoz) {
+/** Arrastar uma pessoa da lista de voz para outra sala (mover-e-afk). */
+export const TIPO_ARRASTO_PESSOA = 'application/x-tofalany-pessoa';
+
+function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes, aqui, servidorUrl, afk = false, ...pessoas }: PropsItemVoz) {
+  const [alvoArrasto, setAlvoArrasto] = useState(false);
   const [modo, setModo] = useState<'ver' | 'renomear' | 'remover'>('ver');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -255,11 +274,28 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes
     );
   }
 
+  const aceitaPessoa = (e: React.DragEvent) => !!pessoas.aoMover && e.dataTransfer.types.includes(TIPO_ARRASTO_PESSOA);
   return (
-    <div className="item-voz">
+    <div
+      className={`item-voz${alvoArrasto ? ' alvo-arrasto' : ''}`}
+      onDragOver={(e) => {
+        if (!aceitaPessoa(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setAlvoArrasto(true);
+      }}
+      onDragLeave={() => setAlvoArrasto(false)}
+      onDrop={(e) => {
+        setAlvoArrasto(false);
+        if (!aceitaPessoa(e)) return;
+        e.preventDefault();
+        const id = Number(e.dataTransfer.getData(TIPO_ARRASTO_PESSOA));
+        if (Number.isInteger(id) && id > 0 && !presentes.some((p) => p.usuario.id === id)) pessoas.aoMover?.(id, canal.id);
+      }}
+    >
       <button
         type="button"
-        className={`canal voz${aqui ? ' ativo' : ''}`}
+        className={`canal voz${aqui ? ' ativo' : ''}${afk ? ' afk' : ''}`}
         aria-current={aqui ? 'true' : undefined}
         aria-label={aqui ? `${canal.nome}, você está aqui` : `Entrar no canal de voz ${canal.nome}`}
         title={aqui ? 'Você está neste canal' : 'Entrar'}
@@ -267,7 +303,8 @@ function ItemVoz({ canal, ehAdmin, aoRenomear, aoRemover, aoEntrarVoz, presentes
           if (!aqui) aoEntrarVoz?.(canal.id);
         }}
       >
-        <Icone nome="altoFalante" tamanho={16} /> {canal.nome}
+        {afk ? <Icone nome="lua" tamanho={16} /> : <Icone nome="altoFalante" tamanho={16} />} {canal.nome}
+        {afk && <span className="visualmente-oculto"> (sala de AFK)</span>}
       </button>
       {modo === 'ver' ? (
         <span className="item-acoes">
@@ -348,6 +385,8 @@ export function BarraLateral({
   aoAceitarAmizade,
   aoRemoverAmizade,
   aoMenuPessoa,
+  afkCanalId = null,
+  aoMover,
 }: Props) {
   const [abaLocal, setAbaLocal] = useState<AbaBarra>('canais');
   const aba = abaControlada ?? abaLocal;
@@ -448,6 +487,8 @@ export function BarraLateral({
                         aoVolumePessoa={aoVolumePessoa}
                         aoSilenciarPessoa={aoSilenciarPessoa}
                         aoMenuPessoa={aoMenuPessoa}
+                        aoMover={aoMover}
+                        afk={afkCanalId === c.id}
                         aqui={minhaVoz === c.id}
                         servidorUrl={servidorUrl}
                       />

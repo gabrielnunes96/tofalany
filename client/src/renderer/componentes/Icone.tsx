@@ -72,6 +72,8 @@ const TRACOS = {
   estrela: ['M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z'],
   cadeado: ['M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z', 'M7 11V7a5 5 0 0 1 10 0v4'],
   lapis: ['M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'],
+  // mover-e-afk: sala de AFK.
+  lua: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'],
 } as const;
 
 export type NomeIcone = keyof typeof TRACOS;

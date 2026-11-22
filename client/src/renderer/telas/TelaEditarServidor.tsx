@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ComunidadeDto } from '@tofalando/shared';
+import { MINUTOS_AFK, type AfkDto, type CanalDto, type ComunidadeDto } from '@tofalando/shared';
 import type { ClienteApi } from '../servicos/api';
 
 /** Administrador do servidor: troca o nome e a imagem (o app de todos atualiza na hora). */
@@ -9,14 +9,21 @@ export function TelaEditarServidor({
   iconeUrl,
   servidorUrl,
   aoVoltar,
+  canaisVoz = [],
+  afk,
 }: {
-  api: Pick<ClienteApi, 'renomearComunidade' | 'enviarIconeComunidade' | 'removerIconeComunidade'>;
+  api: Pick<ClienteApi, 'renomearComunidade' | 'enviarIconeComunidade' | 'removerIconeComunidade'> & Partial<Pick<ClienteApi, 'definirAfk'>>;
   nome: string;
+  /** mover-e-afk (RF-4): salas de voz do servidor e a AFK atual (sem `afk`, servidor antigo: a seção não aparece). */
+  canaisVoz?: CanalDto[];
+  afk?: AfkDto | null;
   iconeUrl: string | null;
   servidorUrl: string;
   aoVoltar: () => void;
 }) {
   const [texto, setTexto] = useState(nome);
+  const [salaAfk, setSalaAfk] = useState<number | ''>(afk?.canalId ?? '');
+  const [minutosAfk, setMinutosAfk] = useState<number>(afk?.minutos ?? 15);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -85,6 +92,42 @@ export function TelaEditarServidor({
         )}
         <p className="suave">PNG, JPEG, GIF ou WebP, até 8 MB. Ela é recortada em quadrado.</p>
       </div>
+      {api.definirAfk && afk !== undefined && (
+        <form
+          className="editar-servidor-afk"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const definir = api.definirAfk!;
+            void fazer(
+              () => definir(salaAfk === '' ? null : salaAfk, minutosAfk).then(() => ({ id: 0, nome, url: servidorUrl, iconeUrl })),
+              salaAfk === '' ? 'Sala de AFK desligada.' : 'Sala de AFK salva.',
+            );
+          }}
+        >
+          <h3>Sala de AFK</h3>
+          <p className="suave">Quem fica esse tempo sem falar e sem mexer no computador vai sozinho para a sala de AFK, onde ninguém fala.</p>
+          <label htmlFor="sala-afk">Sala</label>
+          <select id="sala-afk" value={salaAfk} onChange={(e) => setSalaAfk(e.target.value ? Number(e.target.value) : '')}>
+            <option value="">Desligada</option>
+            {canaisVoz.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="minutos-afk">Depois de</label>
+          <select id="minutos-afk" value={minutosAfk} disabled={salaAfk === ''} onChange={(e) => setMinutosAfk(Number(e.target.value))}>
+            {MINUTOS_AFK.map((m) => (
+              <option key={m} value={m}>
+                {m} minutos
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={ocupado}>
+            Salvar sala de AFK
+          </button>
+        </form>
+      )}
       {aviso && (
         <p className="aviso-ok" role="status">
           {aviso}

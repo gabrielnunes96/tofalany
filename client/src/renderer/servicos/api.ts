@@ -1,4 +1,5 @@
 import type {
+  AfkDto,
   FixadaDto,
   PedidoBusca,
   RespostaBusca,
@@ -69,6 +70,8 @@ export interface ClienteApi {
   excluirComunidade(): Promise<void>;
   /** Administrador: nome e imagem do servidor do endereço. */
   renomearComunidade(nome: string): Promise<ComunidadeDto>;
+  /** mover-e-afk (RF-4): sala de AFK (null = desligada) e o tempo, só o administrador. */
+  definirAfk(canalId: number | null, minutos: number): Promise<{ afk: AfkDto | null }>;
   /** Moderação (administrador ou cargo com "Moderar membros"). */
   castigar(id: number, minutos: number, motivo: string | null): Promise<UsuarioDto>;
   tirarCastigo(id: number): Promise<UsuarioDto>;
@@ -207,6 +210,7 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     sairComunidade: () => chamar('POST', '/api/comunidade/sair'),
     excluirComunidade: () => chamar('DELETE', '/api/comunidade'),
     renomearComunidade: (nome) => chamar('PATCH', '/api/comunidade', { nome }),
+    definirAfk: (canalId, minutos) => chamar('PATCH', '/api/comunidade/afk', { canalId, minutos }),
     castigar: (id, minutos, motivo) => chamar('POST', `/api/moderacao/${id}/castigo`, { minutos, motivo }),
     tirarCastigo: (id) => chamar('DELETE', `/api/moderacao/${id}/castigo`),
     expulsar: (id, motivo) => chamar('POST', `/api/moderacao/${id}/expulsar`, { motivo }),
