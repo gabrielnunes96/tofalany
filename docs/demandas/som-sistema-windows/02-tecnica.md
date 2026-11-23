@@ -1,6 +1,6 @@
 # Som do sistema sem eco da chamada — especificação técnica
 
-> Demanda: `som-sistema-windows` · Base: funcional v2 · 22/11/2026 · Situação: **rascunho**
+> Demanda: `som-sistema-windows` · Base: funcional v2 · 22/11/2026 · Situação: **aprovada em 22/11/2026**
 
 ## 1. Visão da solução
 No Windows 11, o som do sistema deixa de vir do "loopback" do Chromium (que leva tudo) e passa a vir de um módulo nativo que usa a captura por processo do Windows (`PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE`) excluindo a árvore do processo principal do app (janelas, serviço de áudio, iframes). O PCM vai do processo principal para a janela por uma `MessagePort`, entra num `AudioWorklet` e é publicado como o áudio da tela, do mesmo jeito que o microfone virtual do Linux já é publicado hoje.

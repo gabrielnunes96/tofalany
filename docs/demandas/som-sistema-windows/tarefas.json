@@ -1,0 +1,118 @@
+{
+ "demanda": "som-sistema-windows",
+ "titulo": "Som do sistema sem eco da chamada",
+ "item_raiz": null,
+ "tarefas": [
+  {
+   "id": "T1",
+   "titulo": "Main: módulo de captura do Windows, disponibilidade e porta para a janela",
+   "descricao": "loopback-capture 5.0.0 (exato, optionalDependencies, asarUnpack) depois de revisar o pacote; main/som-windows.ts (carga preguiçosa, build ≥ 22000, startSystemAudio com process.pid, stop); captura.ts com plataforma injetável: som-disponivel com motivo, escolher devolve o tipo de som, Windows sem audio:'loopback', porta MessagePort para a janela que pediu, paradas (som-parar, nova escolha, destroyed, render-process-gone, will-quit).",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [],
+   "criterios": [
+    "CA-3",
+    "CA-5",
+    "CA-7"
+   ],
+   "validacao": "vitest main: build 19045 → windows-antigo; módulo que lança → sem-modulo; escolher no Windows 11 liga com process.pid e entrega porta; paradas chamam stop; handler sem loopback no Windows.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T2",
+   "titulo": "App: som pela porta (worklet) publicado como áudio da tela; seletor e avisos",
+   "descricao": "preload repassa a porta (window.postMessage) e expõe audioDisponivel com motivo; worklet som-externo (Int16→Float32, buffer circular); voz.transmitir com fonteSom; publishTrack ScreenShareAudio; SeletorTela sem o contorno do eco, com o aviso do Windows 10; aviso da RN-4.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T1"
+   ],
+   "criterios": [
+    "CA-1",
+    "CA-2",
+    "CA-3",
+    "CA-4"
+   ],
+   "validacao": "vitest renderer: worklet (conversão e buffer), voz.transmitir('porta') publica e falha → só vídeo + aviso; seletor com o aviso do Windows 10; preload.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T3",
+   "titulo": "Notificações sem som durante a captura",
+   "descricao": "notificacoes.ts: silent enquanto o som do sistema estiver capturado (Windows e Linux).",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [
+    "T1"
+   ],
+   "criterios": [
+    "CA-8"
+   ],
+   "validacao": "vitest main: com captura ativa, Notification silent.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T4",
+   "titulo": "Linux: conferência do eco (E2E no desktop) e README",
+   "descricao": "E2E desktop: links do PipeWire ao nó da venmic sem nenhum nó do binário do app; README com Windows 10/11 e Linux.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T2"
+   ],
+   "criterios": [
+    "CA-6"
+   ],
+   "validacao": "npm run test:e2e:desktop (transmissão) no Linux.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T5",
+   "titulo": "Validação completa e revisão",
+   "descricao": "Validação completa, revisão de código e de segurança.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T2",
+    "T3",
+    "T4"
+   ],
+   "criterios": [
+    "CA-4",
+    "CA-7"
+   ],
+   "validacao": "npm run build && npm test && npm run lint && npm run test:e2e.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T6",
+   "titulo": "Validação manual no Windows 11 com o amigo",
+   "descricao": "Sem eco (voz, soundboard, bot), sincronia, CPU < 5%, parar transmissão.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T5"
+   ],
+   "criterios": [
+    "CA-1",
+    "CA-2",
+    "CA-3",
+    "CA-5"
+   ],
+   "validacao": "Manual.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  }
+ ]
+}
