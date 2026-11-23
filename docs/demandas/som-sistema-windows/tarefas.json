@@ -36,9 +36,9 @@
         "CA-4"
       ],
       "validacao": "vitest renderer: worklet (conversão e buffer), voz.transmitir('porta') publica e falha → só vídeo + aviso; seletor com o aviso do Windows 10; preload.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "957fb88"
     },
     {
       "id": "T3",
