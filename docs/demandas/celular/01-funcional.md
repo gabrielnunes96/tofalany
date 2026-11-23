@@ -1,6 +1,6 @@
 # ToFalany no celular (Android) — especificação funcional
 
-> Demanda: `celular` · Item 40 do backlog · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
+> Demanda: `celular` · Item 40 do backlog · Versão 2 · 23/11/2026 · Situação: **v2 em revisão** (v1 aprovada em 23/11/2026)
 
 ## 1. Objetivo
 Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidores do computador: conversar, ficar na voz com a tela apagada, assistir às transmissões e receber notificações com o app fechado, sem que o conteúdo das conversas passe por serviços de fora.
@@ -29,6 +29,8 @@ Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidore
 - Mini perfil, perfil completo, status (online, ausente, não incomodar, invisível), amigos.
 - Loja (saldo, temas, vales, áudios), soundboard com "Meus sons", temas do app.
 - Notificações: mensagem nova (canal com menção, conversa direta) e chamado para a voz, inclusive com o app fechado.
+- **Chamar para a voz** (novo, vale também no computador): quem está na voz chama alguém pelo menu da pessoa ou pela conversa direta.
+- **Aparelhos conectados** (novo, vale também no computador): a pessoa vê onde a conta está aberta e desconecta um aparelho (celular perdido).
 - Atualização: o app avisa a versão nova e baixa o APK.
 
 **Fora (explícito):**
@@ -41,7 +43,7 @@ Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidore
 ## 5. Regras de negócio
 | ID | Regra | Origem |
 | --- | --- | --- |
-| RN-1 | A conta, os servidores, o saldo, as compras e as preferências da conta são os mesmos do computador; nada novo é exigido no servidor para entrar. | Item 40 |
+| RN-1 | A conta, os servidores, o saldo e as compras são os mesmos do computador. As preferências (volume, sons, tema, silêncio) ficam em cada aparelho, como hoje; só as de aviso (o que notifica e as conversas silenciadas) passam a ficar no servidor, porque o push depende delas. | Item 40; usuário, 23/11 (v2) |
 | RN-2 | O app só fala com o servidor do ToFalany, com os hosts já liberados (busca de GIF) e com o serviço de push do Google. | Regra do projeto; usuário, 23/11 |
 | RN-3 | O aviso de push não leva conteúdo: nem texto, nem nome de pessoa, canal ou servidor. O app acorda, busca no servidor e monta a notificação no próprio celular. | Usuário, 23/11 |
 | RN-4 | A pessoa pode desligar as notificações no app (por tipo: mensagens, chamados) e o sistema também pode; com as do app desligadas, o servidor para de mandar push para aquele celular. | Assistente |
@@ -50,6 +52,9 @@ Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidore
 | RN-7 | Uma voz por conta, como hoje: entrar na voz no celular tira a voz do computador (e o contrário), com o aviso que já existe. | Regra atual |
 | RN-8 | A atualização baixa o APK só das releases oficiais do projeto e confere a assinatura antes de instalar; o Android pede a confirmação da pessoa. | Assistente (segurança) |
 | RN-9 | O que exige computador (transmitir, atividade) não aparece no celular; quem está no computador vê a pessoa do celular normalmente (sem marca especial). | Assistente |
+| RN-11 | Chamar para a voz: quem está numa sala de voz chama outra pessoa do mesmo servidor (que tenha "Entrar na voz"); a pessoa recebe "<nome> está te chamando na sala <sala>" com o botão de entrar. Limite de 1 chamado por minuto para a mesma pessoa; quem está em "não incomodar" não recebe. | Usuário, 23/11 (v2) |
+| RN-12 | Aparelhos conectados: a pessoa vê as sessões da conta (aparelho, último uso) e desconecta qualquer uma; desconectar derruba a sessão na hora e apaga o registro de push dela. | Assistente (segurança, v2) |
+| RN-13 | O APK é publicado por desenvolvedor verificado no Google (exigência do Android no Brasil desde 30/09/2026), para instalar sem o modo avançado. | Usuário, 23/11 (v2) |
 | RN-10 | Dados do app (sessão, mensagens em cache) ficam só no armazenamento privado do app; a sessão é guardada cifrada pelo sistema. | Assistente (segurança) |
 
 ## 6. Requisitos funcionais
@@ -62,6 +67,8 @@ Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidore
 | RF-5 | Loja, soundboard, perfil, status, amigos, temas. | RN-1 |
 | RF-6 | Push sem conteúdo com o app fechado; notificação montada no celular; preferências por tipo. | RN-2, RN-3, RN-4, RN-5 |
 | RF-7 | Atualização pelo próprio app a partir das releases. | RN-8 |
+| RF-9 | Chamar para a voz (menu da pessoa e conversa direta, no celular e no computador) e a notificação do chamado. | RN-11 |
+| RF-10 | Tela "Aparelhos conectados" (celular e computador). | RN-12 |
 | RF-8 | APK assinado nas releases do GitHub, gerado no CI como os instaladores de hoje. | RN-8 |
 
 ## 7. Requisitos não funcionais
@@ -84,6 +91,9 @@ Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidore
 - **CA-10** (RN-2): Dado o app em uso por 10 minutos (chat, voz, GIF, loja), quando se olha o tráfego do celular, então só aparecem o servidor do ToFalany, o host da busca de GIF e o serviço de push do Google.
 - **CA-11** (RF-7, RN-8): Dado uma versão nova publicada, quando a pessoa abre o app, então vê o aviso, baixa e o Android pede para instalar; um APK de outra assinatura é recusado.
 - **CA-12** (RF-5): Dado saldo suficiente, quando a pessoa compra um áudio na loja pelo celular e toca no soundboard numa chamada, então quem está no computador ouve.
+- **CA-14** (RN-11): Dado Ana na voz e Bia com o app fechado, quando Ana chama Bia, então Bia recebe "Ana está te chamando na sala Papo" em até 15 s e, tocando, entra na sala; um segundo chamado em menos de 1 minuto é recusado; Bia em "não incomodar" não recebe.
+- **CA-15** (RN-12): Dado a conta aberta no celular e no computador, quando a pessoa desconecta o celular pelo computador, então o celular volta à tela de entrar na próxima ação e não recebe mais push.
+- **CA-16** (RN-1): Dado uma conversa silenciada no computador, quando chega mensagem nela, então o celular não recebe push.
 - **CA-13** (RNF): Dado o celular de teste, quando se mede, então o app abre logado em até 3 s e a voz de 1 hora com tela apagada não cai.
 
 ## 9. Impacto em consumidores
@@ -95,6 +105,7 @@ Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidore
 | # | Dúvida | Para quem |
 | --- | --- | --- |
 | D-1 | Versão mínima do Android: proposta Android 10 (cobre quase todos os celulares em uso). Algum celular do grupo é mais antigo? | Usuário |
+| D-5 | Verificação de desenvolvedor no Google: você cria a conta e faz a verificação; a técnica traz o passo a passo. | Usuário |
 | D-2 | Conta do serviço de push do Google (Firebase, gratuita): quem cria e guarda (a técnica diz o passo a passo; a credencial nunca passa por mim). | Usuário |
 | D-3 | Quem valida no celular (precisa de pelo menos dois aparelhos: o seu e o de alguém do grupo). | Usuário |
 | D-4 | Como montar o app (aproveitar a interface atual num invólucro de celular ou telas novas): decisão técnica. | Técnica |
