@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, powerMonitor, safeStorage, screen, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, powerMonitor, safeStorage, screen, shell } from 'electron';
 import { acaoAoFechar } from '@tofalando/shared';
 import { criarArmazemConfiguracoes } from './configuracoes';
 import { criarArmazemSessao } from './sessao';
@@ -19,6 +19,7 @@ import { iniciarAtualizacao } from './atualizacao';
 import { avisarAtualizacaoPronta } from './espera-atualizacao';
 import { caminhoIcone, criarBandeja } from './bandeja';
 import { criarJanelasProprias, decidirAbertura, limitesSeguros, opcoesDaJanela } from './janelas-proprias';
+import { preferenciasDoEmpacotado, prepararMenu } from './endurecimento';
 import { ATIVIDADE_PADRAO, normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
@@ -100,6 +101,8 @@ function criarJanela(): BrowserWindow {
       nodeIntegration: false,
       // O corretor do Chromium baixa dicionários de servidores de terceiros (RNF de privacidade).
       spellcheck: false,
+      // App instalado: sem ferramentas de desenvolvedor (expunham a página a quem estivesse no PC).
+      ...preferenciasDoEmpacotado(app.isPackaged),
     },
   });
 
@@ -164,11 +167,12 @@ function criarJanela(): BrowserWindow {
       screen.getAllDisplays().map((d) => d.workArea),
       area,
     );
+    const opcoes = opcoesDaJanela(frameName, limites, process.platform === 'linux' ? caminhoIcone() : undefined);
     return {
       action: 'allow',
       // A filha fecha junto com a principal (A6).
       outlivesOpener: false,
-      overrideBrowserWindowOptions: opcoesDaJanela(frameName, limites, process.platform === 'linux' ? caminhoIcone() : undefined),
+      overrideBrowserWindowOptions: { ...opcoes, webPreferences: { ...opcoes.webPreferences, ...preferenciasDoEmpacotado(app.isPackaged) } },
     };
   });
   janela.webContents.on('did-create-window', (filha, { frameName }) => {
@@ -223,6 +227,8 @@ if (links.principal) {
   void app.whenReady().then(() => {
     // Backlog 18: se esta abertura veio de uma atualização, a janela de espera pode fechar.
     avisarAtualizacaoPronta();
+    // App instalado: sem o menu padrão do Electron (Ctrl+R recarregava a página; Ctrl+Shift+I abria as ferramentas).
+    prepararMenu(app.isPackaged, (menu) => Menu.setApplicationMenu(menu));
     const dados = app.getPath('userData');
     const configuracoes = criarArmazemConfiguracoes(join(dados, 'configuracoes.json'));
     armazem = configuracoes;
