@@ -69,9 +69,9 @@
         "CA-16"
       ],
       "validacao": "vitest client das telas e do fluxo; E2E de chamar e desconectar aparelho.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "29a9614"
     },
     {
       "id": "T5",
