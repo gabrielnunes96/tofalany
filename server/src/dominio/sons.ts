@@ -1,5 +1,5 @@
 import { parseBuffer } from 'music-metadata';
-import { COMUNIDADE_PRINCIPAL, SOM_DURACAO_MAX_MS, SONS_MAX, type SomDto } from '@tofalando/shared';
+import { COMUNIDADE_PRINCIPAL, SOM_DURACAO_FOLGA_MS, SOM_DURACAO_MAX_MS, SONS_MAX, type SomDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 
@@ -49,7 +49,10 @@ export async function conferirAudio(dados: Buffer): Promise<{ ext: 'mp3' | 'ogg'
     throw new ErroHttp(415, 'formato_invalido', 'Não foi possível ler esse áudio. Use MP3, OGG ou WAV.');
   }
   const duracaoMs = Math.round(duracao * 1000);
-  if (duracaoMs > SOM_DURACAO_MAX_MS) throw new ErroHttp(422, 'som_longo', 'O som deve ter no máximo 10 segundos.');
+  if (duracaoMs > SOM_DURACAO_MAX_MS + SOM_DURACAO_FOLGA_MS) {
+    const s = (duracaoMs / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+    throw new ErroHttp(422, 'som_longo', `O som tem ${s} s; o máximo é 10 s.`);
+  }
   return { ext: formato.ext, duracaoMs };
 }
 

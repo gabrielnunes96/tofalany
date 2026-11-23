@@ -66,9 +66,12 @@ describe('soundboard: cadastro pelo administrador (RF-22, RN-11)', () => {
 
     const longo = await enviar('POST', '/api/admin/sons', dono, { nome: 'Longo', arquivo: wav(15) });
     expect(longo.statusCode).toBe(422);
-    expect(longo.json()).toEqual({ erro: 'som_longo', mensagem: 'O som deve ter no máximo 10 segundos.' });
+    expect(longo.json()).toEqual({ erro: 'som_longo', mensagem: 'O som tem 15 s; o máximo é 10 s.' });
+    // Um corte em 10 s que passa por poucos milissegundos (quadros do MP3) entra; 10,5 s não.
+    expect((await enviar('POST', '/api/admin/sons', dono, { nome: 'Quase', arquivo: wav(10.2) })).statusCode).toBe(201);
+    expect((await enviar('POST', '/api/admin/sons', dono, { nome: 'Passou', arquivo: wav(10.5) })).json()).toEqual({ erro: 'som_longo', mensagem: 'O som tem 10,5 s; o máximo é 10 s.' });
 
-    for (const nome of ['B', 'C', 'D', 'E']) expect((await enviar('POST', '/api/admin/sons', dono, { nome, arquivo: wav(1) })).statusCode).toBe(201);
+    for (const nome of ['B', 'C', 'D']) expect((await enviar('POST', '/api/admin/sons', dono, { nome, arquivo: wav(1) })).statusCode).toBe(201);
     const sexto = await enviar('POST', '/api/admin/sons', dono, { nome: 'F', arquivo: wav(1) });
     expect(sexto.statusCode).toBe(409);
     expect(sexto.json()).toMatchObject({ erro: 'limite_sons' });

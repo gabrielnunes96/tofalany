@@ -94,7 +94,7 @@ test('CA-31: administrador cadastra, ouve, renomeia e remove sons; 15 s é recus
   await j.getByLabel('Nome do som').fill('Longo');
   await j.getByLabel('Arquivo de áudio').setInputFiles({ name: 'longo.wav', mimeType: 'audio/wav', buffer: wav(15) });
   await j.getByRole('button', { name: 'Cadastrar som' }).click();
-  await expect(j.getByRole('alert')).toContainText('no máximo 10 segundos');
+  await expect(j.getByRole('alert')).toContainText('o máximo é 10 s');
 
   await item.getByRole('button', { name: 'Renomear' }).click();
   await item.getByLabel('Novo nome de Grilo').fill('Grilo 2');

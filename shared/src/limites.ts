@@ -69,6 +69,11 @@ export const EXTENSOES_ANEXO = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'zip
 /** RN-11: soundboard com até 5 sons de até 10 s (arquivo até 2 MB). */
 export const SONS_MAX = 5;
 export const SOM_DURACAO_MAX_MS = 10_000;
+/**
+ * Folga na conferência do envio: um MP3 cortado em 10 s fica um pouco acima (quadros de 24 ms). O app corta qualquer
+ * som em SOM_DURACAO_MAX_MS ao tocar, então a folga nunca vira som mais longo.
+ */
+export const SOM_DURACAO_FOLGA_MS = 250;
 export const SOM_MAX_BYTES = 2 * 1024 * 1024;
 export const NOME_SOM_MAX = 32;
 /** audios-na-loja (RN-14): áudios cadastrados na loja, contando os retirados que alguém ainda tem. */
