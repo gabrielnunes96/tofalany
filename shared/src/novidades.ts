@@ -9,6 +9,24 @@ export interface NotasVersao {
 }
 
 export const NOVIDADES: Record<string, NotasVersao> = {
+  '0.18.0': {
+    chamada: 'A maior atualização até agora',
+    itens: [
+      { titulo: 'Fixar e buscar', texto: 'fixe as mensagens importantes pelo menu da mensagem e veja todas em Fixadas, no topo da conversa. O campo Buscar acha mensagens na conversa ou em todos os canais, com filtros de quem mandou, anexo e GIF.' },
+      { titulo: 'Mover e sala de AFK', texto: 'quem tem a permissão "Mover membros" muda alguém de sala pelo menu da pessoa ou arrastando o nome. O administrador escolhe uma sala de AFK em Editar servidor: quem fica parado e calado vai para lá sozinho.' },
+      { titulo: 'Chamar para a voz', texto: 'estando na voz, chame alguém pelo menu da pessoa ou pela conversa direta. A pessoa recebe o aviso com o botão de entrar.' },
+      { titulo: 'Áudios na loja', texto: 'áudios com raridade (comum, raro, épico e lendário) para comprar com pontos e tocar no soundboard de qualquer servidor, em Meus sons.' },
+      { titulo: 'Transmissões', texto: 'modo teatro e uma barra de controles para quem assiste; câmeras e transmissão em janela própria, que vai para outro monitor; sons quando alguém abre ou assiste uma transmissão e o contador de quem está assistindo.' },
+      { titulo: 'Som do sistema sem eco', texto: 'no Windows 11, quem assiste não ouve mais a própria voz de volta. No Windows 10 a opção fica desligada, porque o sistema não permite tirar o som da chamada.' },
+      { titulo: 'Voz mais alta', texto: 'o nivelamento deixa quem fala baixo no mesmo volume de quem fala alto. Em Configurações, Voz: ganho do microfone e volume geral da chamada.' },
+      { titulo: 'Atualizar o app', texto: 'no menu do usuário, "Atualizar o app" procura, baixa e instala a versão nova.' },
+      { titulo: 'Convidar pelo cartão', texto: '"Convidar para servidor" no cartão e no menu da pessoa.' },
+      { titulo: 'Aparelhos conectados', texto: 'em Minha conta, veja onde a sua conta está aberta e desconecte o que você não usa mais.' },
+      { titulo: 'Atividade', texto: 'o jogo e a música aparecem também na aba Amigos, com o nome certo do jogo da Steam e o Spotify ouvido pelo navegador.' },
+      { titulo: 'Janela pequena', texto: 'com a janela estreita, os canais e os membros viram gavetas.' },
+      { titulo: 'Ajustes', texto: 'o ToOuvini e o código de senha funcionam de qualquer servidor; "Apagar" aparece para quem tem a permissão; o status só chega a quem pode ver.' },
+    ],
+  },
   '0.17.1': {
     itens: [
       { titulo: 'Servidor de casa nova', texto: 'o servidor mudou de endereço. Se o endereço antigo continuar na coluna da esquerda, o app pergunta se pode tirá-lo da lista.' },
