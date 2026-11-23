@@ -49,6 +49,7 @@
   "desktopName": "tofalany.desktop",
   "homepage": "https://tofalany.invalid",
   "optionalDependencies": {
-    "@vencord/venmic": "^7.2.5"
+    "@vencord/venmic": "^7.2.5",
+    "loopback-capture": "5.0.0"
   }
 }

@@ -60,8 +60,9 @@ const api: ApiTofalando = {
   },
   captura: {
     fontes: () => ipcRenderer.invoke('captura:fontes'),
-    escolher: (fonteId, audio) => ipcRenderer.invoke('captura:escolher', { fonteId, audio }),
-    audioDisponivel: ipcRenderer.sendSync('captura:som-disponivel') === true,
+    // som-sistema-windows (T1): até a janela usar a porta do Windows (T2), só o microfone virtual do Linux conta.
+    escolher: async (fonteId, audio) => (await ipcRenderer.invoke('captura:escolher', { fonteId, audio })) === 'microfone-virtual',
+    audioDisponivel: (ipcRenderer.sendSync('captura:som-disponivel') as { disponivel?: boolean } | null)?.disponivel === true,
     // Item 31 (contorno): no Windows o som do sistema leva também a voz da chamada.
     somLevaChamada: process.platform === 'win32',
     pararSom: () => ipcRenderer.invoke('captura:som-parar'),

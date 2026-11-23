@@ -1,5 +1,11 @@
-import { BrowserWindow, desktopCapturer, ipcMain, screen, session, webContents, type DesktopCapturerSource } from 'electron';
+import { app, BrowserWindow, desktopCapturer, ipcMain, MessageChannelMain, screen, session, webContents, type DesktopCapturerSource, type MessagePortMain } from 'electron';
 import { criarSomSistema } from './som-sistema';
+import { criarSomWindows, type MotivoSemSom } from './som-windows';
+
+/** Como o som do sistema chega à janela: nada, microfone virtual (Linux), porta com PCM (Windows) ou falhou ao começar. */
+export type FonteSomEscolhida = 'nenhum' | 'microfone-virtual' | 'porta' | 'falhou';
+/** De quanto em quanto tempo o principal confere se a captura do Windows caiu (troca da saída de áudio, por exemplo). */
+const CONFERIR_CAPTURA_MS = 2000;
 
 /** A escolha do seletor vale só para a captura logo em seguida. */
 const VALIDADE_ESCOLHA_MS = 15_000;
@@ -28,8 +34,10 @@ function monitores(): { id: string; largura: number; altura: number }[] {
 /**
  * RF-26: o renderer lista as fontes com miniaturas, a pessoa escolhe, e o pedido de captura
  * (getDisplayMedia, feito pelo LiveKit) recebe exatamente a fonte escolhida.
- * RF-29: áudio do sistema no Windows pelo loopback do Chromium; no Linux (backlog v2, item 13) por um microfone
- * virtual do PipeWire sem o som do próprio app (som-sistema.ts), que a janela captura e publica junto da tela.
+ * RF-29: áudio do sistema sem o som do próprio app. No Linux (backlog v2, item 13), por um microfone virtual do
+ * PipeWire (som-sistema.ts) que a janela captura; no Windows 11 (som-sistema-windows), por uma captura que exclui o
+ * processo do app (som-windows.ts), com o PCM entregue à janela por uma MessagePort. O loopback do Chromium não é
+ * mais usado: ele levava junto as vozes da chamada.
  */
 export function registrarCaptura(
   listar: typeof desktopCapturer.getSources = (o) => desktopCapturer.getSources(o),
@@ -38,11 +46,13 @@ export function registrarCaptura(
   excluidas: () => string[] = () => [],
   /** A3: só a página do app lista, escolhe e mexe no som da captura. */
   confiavel: (e: { sender: Electron.WebContents; senderFrame: Electron.WebFrameMain | null }) => boolean = () => true,
+  somWindows: Pick<ReturnType<typeof criarSomWindows>, 'motivo' | 'ligar' | 'desligar' | 'erro' | 'ativo'> = criarSomWindows(),
+  plataforma: NodeJS.Platform = process.platform,
 ) {
   const exigir = (e: { sender: Electron.WebContents; senderFrame: Electron.WebFrameMain | null }) => {
     if (!confiavel(e)) throw new Error('Pedido recusado.');
   };
-  let escolhida: { fonteId: string; audio: boolean; janelaId: number; em: number } | undefined;
+  let escolhida: { fonteId: string; janelaId: number; em: number } | undefined;
   /** A última fonte escolhida (para saber se a prévia apareceria na própria tela transmitida). */
   let ultimaEscolhida: string | undefined;
   let ultimas: DesktopCapturerSource[] = [];
@@ -77,26 +87,76 @@ export function registrarCaptura(
     }
   });
 
-  // Lido uma vez pela ponte, ao abrir a janela: a opção "Incluir o áudio do sistema" aparece ou não.
+  // som-sistema-windows: a porta da captura do Windows em andamento e a conferência de falha.
+  let porta: MessagePortMain | undefined;
+  let linuxAtivo = false;
+  let conferindo: ReturnType<typeof setInterval> | undefined;
+  /** Para tudo (RN-7): microfone virtual, captura do Windows e a porta. */
+  const pararSom = () => {
+    linuxAtivo = false;
+    som.desligar();
+    somWindows.desligar();
+    clearInterval(conferindo);
+    conferindo = undefined;
+    porta?.close();
+    porta = undefined;
+  };
+  app.on('will-quit', pararSom);
+
+  // Lido uma vez pela ponte, ao abrir a janela: a opção "Incluir o áudio do sistema" aparece ligada ou desligada (com o motivo).
   ipcMain.on('captura:som-disponivel', (e) => {
-    e.returnValue = process.platform === 'win32' || som.disponivel();
+    const motivo: MotivoSemSom | undefined = plataforma === 'win32' ? somWindows.motivo() : som.disponivel() ? undefined : 'sem-pipewire';
+    e.returnValue = { disponivel: !motivo, ...(motivo ? { motivo } : {}) };
   });
   ipcMain.handle('captura:som-parar', (e) => {
     exigir(e);
-    som.desligar();
+    pararSom();
   });
+
+  /** Windows: liga a captura e entrega a porta à janela que pediu (só a ela). */
+  function ligarWindows(janela: Electron.WebContents): FonteSomEscolhida {
+    const { port1, port2 } = new MessageChannelMain();
+    const ligou = somWindows.ligar((pedaco) => port1.postMessage(pedaco));
+    if (!ligou) {
+      port1.close();
+      port2.close();
+      return 'falhou';
+    }
+    porta = port1;
+    port1.start();
+    janela.postMessage('captura:porta-som', null, [port2]);
+    // A janela fechou ou caiu: a captura não pode continuar sozinha (RN-7).
+    const aoSumir = () => pararSom();
+    janela.once('destroyed', aoSumir);
+    janela.once('render-process-gone', aoSumir);
+    conferindo = setInterval(() => {
+      const erro = somWindows.erro();
+      if (!erro) return;
+      console.warn('A captura do som do sistema caiu:', erro);
+      porta?.postMessage({ erro: 'captura-caiu' });
+      pararSom();
+    }, CONFERIR_CAPTURA_MS);
+    conferindo.unref?.();
+    return 'porta';
+  }
 
   ipcMain.handle('captura:escolher', (e, pedido: unknown) => {
     exigir(e);
     const p = pedido as { fonteId?: unknown; audio?: unknown } | null;
     // Só uma fonte que o seletor acabou de mostrar.
     if (!p || typeof p.fonteId !== 'string' || !ultimas.some((f) => f.id === p.fonteId)) throw new Error('Fonte inválida.');
-    escolhida = { fonteId: p.fonteId, audio: p.audio === true && process.platform === 'win32', janelaId: e.sender.id, em: Date.now() };
+    escolhida = { fonteId: p.fonteId, janelaId: e.sender.id, em: Date.now() };
     ultimaEscolhida = p.fonteId;
-    // Linux: o som vai pelo microfone virtual; a janela o captura se a resposta for true.
-    if (p.audio === true && process.platform === 'linux') return som.ligar();
-    som.desligar();
-    return false;
+    // Uma escolha nova desfaz a captura anterior.
+    pararSom();
+    if (p.audio !== true) return 'nenhum' satisfies FonteSomEscolhida;
+    // Linux: o som vai pelo microfone virtual, que a janela captura.
+    if (plataforma === 'linux') {
+      linuxAtivo = som.ligar();
+      return (linuxAtivo ? 'microfone-virtual' : 'falhou') satisfies FonteSomEscolhida;
+    }
+    if (plataforma === 'win32') return ligarWindows(e.sender);
+    return 'falhou' satisfies FonteSomEscolhida;
   });
 
   session.defaultSession.setDisplayMediaRequestHandler(
@@ -109,8 +169,12 @@ export function registrarCaptura(
       const valida = e && quem === e.janelaId && Date.now() - e.em < VALIDADE_ESCOLHA_MS;
       const fonte = valida ? ultimas.find((f) => f.id === e.fonteId) : undefined;
       if (!e || !fonte) return responder({});
-      responder({ video: fonte, ...(e.audio ? { audio: 'loopback' as const } : {}) });
+      // Só o vídeo: o som do sistema vem pela captura sem o app (som-sistema-windows), nunca pelo loopback.
+      responder({ video: fonte });
     },
     { useSystemPicker: false },
   );
+
+  /** som-sistema-windows (RN-8): há som do sistema sendo capturado agora. */
+  return { somAtivo: () => linuxAtivo || somWindows.ativo() || porta !== undefined };
 }
