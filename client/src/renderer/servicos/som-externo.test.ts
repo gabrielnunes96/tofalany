@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BufferSom, paraPcm } from './som-externo.worklet.js';
-import { MENSAGEM_PORTA_SOM, escutarPortaSom, faixaDaPorta, tomarPortaSom } from './som-externo';
+import { MENSAGEM_PORTA_SOM, descartarPortaSom, escutarPortaSom, faixaDaPorta, tomarPortaSom } from './som-externo';
 
 /** som-sistema-windows, T2: som do sistema que chega pela porta (CA-1, CA-4). */
 describe('buffer do som externo (worklet)', () => {
@@ -44,19 +44,43 @@ describe('buffer do som externo (worklet)', () => {
 describe('porta do som do sistema', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('só aceita a porta repassada pela própria janela; quem espera recebe; sem porta no prazo, undefined', async () => {
+  const entregar = (porta: MessagePort, source: Window | null = window) =>
+    window.dispatchEvent(new MessageEvent('message', { data: MENSAGEM_PORTA_SOM, source, ports: [porta] }));
+
+  it('só aceita a porta da própria janela, durante uma escolha; quem espera recebe; sem porta no prazo, undefined', async () => {
     const parar = escutarPortaSom(window);
+    // Duas telas montadas: um ouvinte só (a porta não é fechada pela segunda).
+    const parar2 = escutarPortaSom(window);
+    descartarPortaSom();
     const { port1 } = new MessageChannel();
-    const esperando = tomarPortaSom(1000);
-    window.dispatchEvent(new MessageEvent('message', { data: MENSAGEM_PORTA_SOM, source: window, ports: [port1] }));
-    expect(await esperando).toBe(port1);
-    // De outra origem (outro frame): ignorada.
+    const fechar = vi.spyOn(port1, 'close');
+    entregar(port1);
+    expect(await tomarPortaSom(1000)).toBe(port1);
+    expect(fechar).not.toHaveBeenCalled();
+    // De outro frame: ignorada.
+    descartarPortaSom();
     const { port1: estranha } = new MessageChannel();
-    window.dispatchEvent(new MessageEvent('message', { data: MENSAGEM_PORTA_SOM, source: null, ports: [estranha] }));
+    entregar(estranha, null);
     vi.useFakeTimers();
     const nada = tomarPortaSom(500);
     vi.advanceTimersByTime(600);
     expect(await nada).toBeUndefined();
+    parar();
+    parar2();
+  });
+
+  it('RN-7: porta que chega fora de uma escolha (depois do prazo) é fechada; a que sobrou é descartada na escolha seguinte', async () => {
+    const parar = escutarPortaSom(window);
+    const { port1: tarde } = new MessageChannel();
+    const fecharTarde = vi.spyOn(tarde, 'close');
+    entregar(tarde);
+    expect(fecharTarde).toHaveBeenCalled();
+    descartarPortaSom();
+    const { port1: sobra } = new MessageChannel();
+    const fecharSobra = vi.spyOn(sobra, 'close');
+    entregar(sobra);
+    descartarPortaSom();
+    expect(fecharSobra).toHaveBeenCalled();
     parar();
   });
 
@@ -79,6 +103,8 @@ describe('porta do som do sistema', () => {
     no.port.onmessage!({ data: { erro: 'captura-caiu' } });
     expect(aoCair).toHaveBeenCalled();
     som.parar();
+    // O worklet fecha a porta: o principal para a captura.
+    expect(no.port.postMessage).toHaveBeenLastCalledWith({ fechar: true });
     expect(faixa.stop).toHaveBeenCalled();
     expect(ctx.close).toHaveBeenCalled();
     vi.unstubAllGlobals();

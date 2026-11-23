@@ -370,7 +370,7 @@ describe('sala de voz (RF-13)', () => {
     const minhaTela = { attach: vi.fn(), detach: vi.fn(), stop: vi.fn() };
     const setScreenShareEnabled = vi.fn(async (ligar: boolean) => (ligar ? { track: minhaTela } : undefined));
     (sala.localParticipant as unknown as { setScreenShareEnabled: unknown }).setScreenShareEnabled = setScreenShareEnabled;
-    const o = { ...ouvintesVoz(), aoTelas: vi.fn(), aoMinhaTelaParou: vi.fn() };
+    const o = { ...ouvintesVoz(), aoTelas: vi.fn(), aoMinhaTelaParou: vi.fn(), aoSomTelaParou: vi.fn() };
     const voz = criarSalaVoz(o, () => sala, vi.fn(async () => microfone()));
     await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
     expect(await voz.transmitir('720p30', 'nenhum')).toBe(true);
@@ -383,6 +383,8 @@ describe('sala de voz (RF-13)', () => {
     // Fim por fora (janela fechou).
     emitir(RoomEvent.LocalTrackUnpublished, { source: 'screen_share' });
     expect(o.aoMinhaTelaParou).toHaveBeenCalledTimes(1);
+    // som-sistema-windows (RN-7): a tela acabou por fora, a captura do som também para.
+    expect(o.aoSomTelaParou).toHaveBeenCalled();
     expect(voz.transmitindoTela()).toBe(false);
 
     // Parar no meio do início: a captura que termina depois é desfeita.
@@ -435,8 +437,10 @@ describe('sala de voz (RF-13)', () => {
     // RN-4: a porta não chegou → só a tela, com o aviso.
     o.aoAviso.mockClear();
     somExterno.tomarPortaSom.mockResolvedValueOnce(undefined);
+    o.aoSomTelaParou.mockClear();
     expect(await voz.transmitir('720p30', 'porta')).toBe(true);
     expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível capturar o som do sistema; a transmissão continua sem ele.');
+    expect(o.aoSomTelaParou).toHaveBeenCalled();
   });
 
   it('RF-31: avisa enquanto a mídia reconecta', async () => {

@@ -4,10 +4,10 @@ import { abrirMicrofone, type Microfone } from './pipeline-audio';
 import { AVISO_SEM_SOM_SISTEMA, faixaDaPorta, tomarPortaSom } from './som-externo';
 import { criarMedidorFala, fonteDeFaixa } from './medidor-fala';
 
-/** O que a tela precisa saber da sala de voz. */
 /** som-sistema-windows: de onde vem o som do sistema na transmissão. */
 export type FonteSomTela = 'nenhum' | 'microfone-virtual' | 'porta';
 
+/** O que a tela precisa saber da sala de voz. */
 export interface OuvintesVoz {
   /** Quem está falando agora (ids de usuário), medido no próprio app (backlog v2, item 1). */
   aoFalando(ids: number[]): void;
@@ -23,6 +23,8 @@ export interface OuvintesVoz {
   aoTelas?(telas: VideoSala[]): void;
   /** A minha transmissão acabou por fora (ex.: a janela transmitida fechou). */
   aoMinhaTelaParou?(): void;
+  /** som-sistema-windows (RN-7): o som do sistema da transmissão parou ou não veio; a tela desliga a captura no principal. */
+  aoSomTelaParou?(): void;
   /** RF-31: a mídia caiu e o LiveKit está tentando voltar (true) ou voltou (false). */
   aoReconectando?(reconectando: boolean): void;
 }
@@ -179,9 +181,12 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
   const pararSomTela = (atual: SalaLivekit | undefined) => {
     const s = somTela;
     somTela = undefined;
-    if (!s) return;
-    void atual?.localParticipant.unpublishTrack?.(s.faixa, true)?.catch(() => undefined);
-    s.parar();
+    if (s) {
+      void atual?.localParticipant.unpublishTrack?.(s.faixa, true)?.catch(() => undefined);
+      s.parar();
+    }
+    // Sempre: a captura do principal não pode sobrar sem transmissão (RN-7).
+    ouvintes.aoSomTelaParou?.();
   };
   /** Cada pedido de transmitir/parar ganha um número: um "parar" no meio do início cancela a captura que terminar depois. */
   let pedidoTela = 0;
@@ -425,6 +430,8 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         if (sala !== atual || pub.source !== Track.Source.ScreenShare || !transmitindoTela) return;
         transmitindoTela = false;
         minhaFaixaTela = undefined;
+        // A tela acabou por fora (o sistema parou a captura, a janela transmitida fechou): o som vai junto (RN-7).
+        pararSomTela(atual);
         ouvintes.aoMinhaTelaParou?.();
       }) as never);
       // RF-31: o livekit-client tenta voltar sozinho (retoma ou reconecta inteiro); a tela só avisa.
@@ -524,8 +531,13 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
             pararSomTela(atual);
             ouvintes.aoAviso(AVISO_SEM_SOM_SISTEMA);
           });
-          if (!som) ouvintes.aoAviso(fonteSom === 'porta' ? AVISO_SEM_SOM_SISTEMA : 'A tela está indo, mas sem o som do computador (o microfone virtual não apareceu).');
-          else if (sala !== atual || meu !== pedidoTela) som.parar();
+          if (!som) {
+            ouvintes.aoAviso(fonteSom === 'porta' ? AVISO_SEM_SOM_SISTEMA : 'A tela está indo, mas sem o som do computador (o microfone virtual não apareceu).');
+            ouvintes.aoSomTelaParou?.();
+          } else if (sala !== atual || meu !== pedidoTela) {
+            som.parar();
+            ouvintes.aoSomTelaParou?.();
+          }
           else {
             somTela = som;
             await atual.localParticipant

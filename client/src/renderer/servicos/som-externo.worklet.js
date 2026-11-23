@@ -76,8 +76,14 @@ if (typeof registerProcessor === 'function') {
         this.buffer = new BufferSom();
         // A janela entrega a porta do processo principal; o PCM chega direto aqui, sem passar pela página.
         this.port.onmessage = (e) => {
+          if (e.data && e.data.fechar) {
+            if (this.porta) this.porta.close();
+            this.porta = undefined;
+            return;
+          }
           const porta = e.data && e.data.porta;
           if (!porta) return;
+          this.porta = porta;
           porta.onmessage = (m) => {
             if (m.data && m.data.erro) {
               this.port.postMessage({ erro: m.data.erro });

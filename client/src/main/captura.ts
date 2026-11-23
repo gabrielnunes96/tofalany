@@ -91,6 +91,8 @@ export function registrarCaptura(
   let porta: MessagePortMain | undefined;
   let linuxAtivo = false;
   let conferindo: ReturnType<typeof setInterval> | undefined;
+  /** Tira os ouvintes da janela da captura em andamento (não acumulam a cada transmissão). */
+  let soltarJanela: (() => void) | undefined;
   /** Para tudo (RN-7): microfone virtual, captura do Windows e a porta. */
   const pararSom = () => {
     linuxAtivo = false;
@@ -98,8 +100,11 @@ export function registrarCaptura(
     somWindows.desligar();
     clearInterval(conferindo);
     conferindo = undefined;
-    porta?.close();
+    soltarJanela?.();
+    soltarJanela = undefined;
+    const p = porta;
     porta = undefined;
+    p?.close();
   };
   app.on('will-quit', pararSom);
 
@@ -123,17 +128,35 @@ export function registrarCaptura(
       return 'falhou';
     }
     porta = port1;
+    // A página fechou a ponta dela (a transmissão acabou por qualquer caminho, ou a porta não foi usada): para (RN-7).
+    port1.on('close', () => {
+      if (porta === port1) pararSom();
+    });
     port1.start();
     janela.postMessage('captura:porta-som', null, [port2]);
-    // A janela fechou ou caiu: a captura não pode continuar sozinha (RN-7).
+    // A janela fechou, caiu ou recarregou: a captura não pode continuar sozinha (RN-7).
     const aoSumir = () => pararSom();
+    const aoNavegar = (d: { isMainFrame: boolean; isSameDocument: boolean }) => {
+      if (d.isMainFrame && !d.isSameDocument) pararSom();
+    };
     janela.once('destroyed', aoSumir);
     janela.once('render-process-gone', aoSumir);
+    janela.on('did-start-navigation', aoNavegar);
+    soltarJanela = () => {
+      janela.removeListener('destroyed', aoSumir);
+      janela.removeListener('render-process-gone', aoSumir);
+      janela.removeListener('did-start-navigation', aoNavegar);
+    };
     conferindo = setInterval(() => {
       const erro = somWindows.erro();
       if (!erro) return;
       console.warn('A captura do som do sistema caiu:', erro);
       porta?.postMessage({ erro: 'captura-caiu' });
+      // Um instante para o aviso chegar antes de a porta fechar (RN-4).
+      const p = porta;
+      porta = undefined;
+      const fecharDepois = setTimeout(() => p?.close(), 200);
+      fecharDepois.unref?.();
       pararSom();
     }, CONFERIR_CAPTURA_MS);
     conferindo.unref?.();

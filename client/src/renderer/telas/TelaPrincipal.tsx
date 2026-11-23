@@ -71,7 +71,7 @@ import type { ResultadoPedido } from '../servicos/atualizar-servidor';
 import { fundoDaLinha } from '../componentes/fundoPerfil';
 // A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
 import type { SalaVoz, VideoSala } from '../servicos/voz';
-import { AVISO_SEM_SOM_SISTEMA, escutarPortaSom } from '../servicos/som-externo';
+import { AVISO_SEM_SOM_SISTEMA, descartarPortaSom, escutarPortaSom } from '../servicos/som-externo';
 import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
@@ -914,6 +914,11 @@ function TelaDoServidor({
           const canal = minhaVozRef.current;
           if (canal !== null) void conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
         },
+        // som-sistema-windows (RN-7): o som da transmissão parou (por qualquer caminho): desliga a captura no principal.
+        aoSomTelaParou: () =>
+          void ponte()
+            .captura.pararSom()
+            .catch(() => undefined),
       });
       sala.definirPessoas(pessoasRef.current);
       sala.controlar({ mudo: controlesRef.current.mudo, surdo: controlesRef.current.surdo });
@@ -1713,6 +1718,8 @@ function TelaDoServidor({
       }
       try {
         // Som do sistema sempre sem o som do app: microfone virtual (Linux) ou porta (Windows 11), publicado à parte.
+        // Uma porta que sobrou de outra escolha nunca é usada (e fechá-la para a captura antiga).
+        descartarPortaSom();
         const escolha = await ponte().captura.escolher(fonte.id, audioSistema);
         // RN-4 (som-sistema-windows): a captura não começou; a tela vai sem o som.
         if (escolha === 'falhou') setAvisoVoz(AVISO_SEM_SOM_SISTEMA);

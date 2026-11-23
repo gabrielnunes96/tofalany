@@ -4,11 +4,12 @@ const handlers = new Map<string, (...a: unknown[]) => unknown>();
 let handlerTela: ((pedido: unknown, responder: (r: unknown) => void) => void) | undefined;
 const aoSairDoApp: (() => void)[] = [];
 /** Portas criadas pelo principal (som-sistema-windows): a 1 fica no principal, a 2 vai para a janela. */
-const portas: { port1: { postMessage: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }; port2: { close: ReturnType<typeof vi.fn> } }[] = [];
+const portas: { fechou?: () => void; port1: { postMessage: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }; port2: { close: ReturnType<typeof vi.fn> } }[] = [];
 vi.mock('electron', () => ({
   app: { on: (evento: string, fn: () => void) => evento === 'will-quit' && aoSairDoApp.push(fn) },
   MessageChannelMain: class {
-    port1 = { postMessage: vi.fn(), start: vi.fn(), close: vi.fn() };
+    fechou?: () => void;
+    port1 = { postMessage: vi.fn(), start: vi.fn(), close: vi.fn(), on: (ev: string, fn: () => void) => ev === 'close' && (this.fechou = fn) };
     port2 = { close: vi.fn() };
     constructor() {
       portas.push(this);
@@ -94,8 +95,15 @@ describe('captura de tela (RF-26)', () => {
 
   describe('Windows (som-sistema-windows)', () => {
     const janela = () => {
-      const eventos = new Map<string, () => void>();
-      return { id: 7, postMessage: vi.fn(), once: (ev: string, fn: () => void) => eventos.set(ev, fn), eventos };
+      const eventos = new Map<string, (d?: unknown) => void>();
+      return {
+        id: 7,
+        postMessage: vi.fn(),
+        once: (ev: string, fn: () => void) => eventos.set(ev, fn),
+        on: (ev: string, fn: (d?: unknown) => void) => eventos.set(ev, fn),
+        removeListener: (ev: string) => eventos.delete(ev),
+        eventos,
+      };
     };
     let api: { somAtivo: () => boolean };
     beforeEach(() => {
@@ -155,6 +163,23 @@ describe('captura de tela (RF-26)', () => {
       await handlers.get('captura:escolher')!({ sender: j }, { fonteId: 'screen:1', audio: true });
       somWindows.desligar.mockClear();
       await handlers.get('captura:escolher')!({ sender: j }, { fonteId: 'screen:1', audio: false });
+      expect(somWindows.desligar).toHaveBeenCalled();
+    });
+
+    it('RN-7: a página fechou a porta ou recarregou → para; ao parar, os ouvintes da janela saem', async () => {
+      await handlers.get('captura:fontes')!();
+      const j = janela();
+      await handlers.get('captura:escolher')!({ sender: j }, { fonteId: 'screen:1', audio: true });
+      somWindows.desligar.mockClear();
+      portas.at(-1)!.fechou!();
+      expect(somWindows.desligar).toHaveBeenCalled();
+      expect(j.eventos.size).toBe(0);
+      await handlers.get('captura:escolher')!({ sender: j }, { fonteId: 'screen:1', audio: true });
+      somWindows.desligar.mockClear();
+      // Navegação dentro do documento (âncora) não para; recarregar a página, sim.
+      j.eventos.get('did-start-navigation')!({ isMainFrame: true, isSameDocument: true });
+      expect(somWindows.desligar).not.toHaveBeenCalled();
+      j.eventos.get('did-start-navigation')!({ isMainFrame: true, isSameDocument: false });
       expect(somWindows.desligar).toHaveBeenCalled();
     });
 

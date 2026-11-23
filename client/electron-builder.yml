@@ -10,6 +10,9 @@ directories:
 files:
   - out/**/*
   - package.json
+  # som-sistema-windows: do pacote de captura só vai o binário do Windows (o Linux usa a venmic; o fonte não é usado).
+  - '!**/node_modules/loopback-capture/{src,scripts,prebuilds/linux-x64}/**'
+  - '!**/node_modules/loopback-capture/{build.rs,Cargo.toml,Cargo.lock}'
 # Backlog v2, 1e: ícone da bandeja do sistema.
 extraResources:
   - from: build/icon.png
@@ -20,7 +23,7 @@ asarUnpack:
   # Backlog v2, item 13: som do sistema no Linux (PipeWire), binário pronto da venmic.
   - '**/node_modules/@vencord/venmic/**'
   # som-sistema-windows: captura do som do sistema sem o próprio app (Windows 11), binário N-API pronto.
-  - '**/node_modules/loopback-capture/**'
+  - '**/node_modules/loopback-capture/prebuilds/win32-x64/**'
 npmRebuild: false
 # Backlog v2, 1d: a atualização automática lê as releases deste repositório (latest*.yml publicados pelo CI).
 publish:

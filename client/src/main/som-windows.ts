@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { release } from 'node:os';
 
 /**
@@ -32,12 +33,22 @@ export function buildDoWindows(versao: string = release()): number {
 }
 
 // O binário é carregado direto do pacote (fora do asar, pelo asarUnpack), sem passar pelo localizador dele.
-const carregarPadrao = (): ModuloCaptura => createRequire(import.meta.url)('loopback-capture/prebuilds/win32-x64/loopback_capture_addon.node') as ModuloCaptura;
+const BINARIO = 'loopback-capture/prebuilds/win32-x64/loopback_capture_addon.node';
+const carregarPadrao = (): ModuloCaptura => createRequire(import.meta.url)(BINARIO) as ModuloCaptura;
+/** O binário está no pacote (sem carregar: código nativo de terceiro só roda quando a pessoa transmite com som). */
+const existePadrao = (): boolean => {
+  try {
+    return existsSync(createRequire(import.meta.url).resolve(BINARIO));
+  } catch {
+    return false;
+  }
+};
 
-export function criarSomWindows(opcoes: { plataforma?: NodeJS.Platform; build?: number; carregar?: () => ModuloCaptura; pid?: number } = {}) {
+export function criarSomWindows(opcoes: { plataforma?: NodeJS.Platform; build?: number; carregar?: () => ModuloCaptura; existe?: () => boolean; pid?: number } = {}) {
   const plataforma = opcoes.plataforma ?? process.platform;
   const build = opcoes.build ?? (plataforma === 'win32' ? buildDoWindows() : 0);
   const carregar = opcoes.carregar ?? carregarPadrao;
+  const existe = opcoes.existe ?? existePadrao;
   const pid = opcoes.pid ?? process.pid;
   let modulo: ModuloCaptura | null | undefined;
   let captura: Captura | undefined;
@@ -58,7 +69,9 @@ export function criarSomWindows(opcoes: { plataforma?: NodeJS.Platform; build?: 
     motivo(): MotivoSemSom | undefined {
       if (plataforma !== 'win32') return 'sem-modulo';
       if (build < BUILD_MINIMO_WINDOWS) return 'windows-antigo';
-      return obter() ? undefined : 'sem-modulo';
+      // Já tentou carregar e falhou; senão, só confere se o binário está lá.
+      if (modulo === null) return 'sem-modulo';
+      return modulo || existe() ? undefined : 'sem-modulo';
     },
     /** Começa a capturar (tudo menos este app); cada pedaço de PCM vai para `aoPedaco`. Devolve se começou. */
     ligar(aoPedaco: (pedaco: Buffer) => void): boolean {
