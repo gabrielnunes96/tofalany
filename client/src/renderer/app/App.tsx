@@ -41,6 +41,8 @@ export function App() {
   const [servidores, setServidores] = useState<ServidorConhecido[]>([]);
   /** Notas da versão, uma vez depois de atualizar. */
   const [notas, setNotas] = useState<NotasVersao | null>(null);
+  /** De qual versão são as notas mostradas (quem pula de versão vê as últimas que não viu). */
+  const [versaoNotas, setVersaoNotas] = useState<string | null>(null);
   const lembrarServidor = useCallback((url: string, nome?: string, icone?: string | null) => {
     setServidores((atual) => {
       const existente = atual.find((s) => s.url === url);
@@ -277,7 +279,10 @@ export function App() {
       const c = await ponte().config.ler();
       // Novidades da versão: uma vez, depois de atualizar (instalação nova só guarda a versão).
       const novidades = decidirNovidades(ponte().versao, c.novidadesVistas, !!c.servidorUrl || !!c.servidores?.length);
-      if (novidades.mostrar) setNotas(novidades.mostrar);
+      if (novidades.mostrar) {
+        setVersaoNotas(novidades.versaoNotas);
+        setNotas(novidades.mostrar);
+      }
       if (novidades.gravar)
         void ponte()
           .config.gravar({ novidadesVistas: novidades.gravar })
@@ -591,7 +596,7 @@ export function App() {
   const janelaNovidades = notas && (
     <JanelaNovidades
       notas={notas}
-      versao={ponte().versao}
+      versao={versaoNotas ?? ponte().versao}
       aoFechar={() => {
         setNotas(null);
         void ponte()

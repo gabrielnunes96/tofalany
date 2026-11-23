@@ -117,12 +117,34 @@ export const NOVIDADES: Record<string, NotasVersao> = {
   },
 };
 
+/** Compara versões "x.y.z" (negativo: a vem antes de b). */
+export function compararVersoes(a: string, b: string): number {
+  const pa = a.split('.').map((n) => Number.parseInt(n, 10) || 0);
+  const pb = b.split('.').map((n) => Number.parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
 /**
- * Mostrar as notas desta versão? Só para quem já usava o app (tem servidor salvo ou viu notas antes) e ainda não
- * viu as desta versão. `gravar`: a versão a guardar como vista sem mostrar (instalação nova).
+ * Mostrar notas? Só para quem já usava o app (tem servidor salvo ou viu notas antes): as notas mais recentes que a
+ * pessoa ainda não viu, até a versão instalada. Assim, quem pula de versão (ex.: da 0.17.1 direto para a 0.18.1, que
+ * não tem notas) vê as da 0.18.0. `versaoNotas`: de qual versão são as notas mostradas. `gravar`: a versão a guardar
+ * como vista sem mostrar (instalação nova, ou nada novo para mostrar).
  */
-export function decidirNovidades(versao: string, vistas: string | undefined, jaUsava: boolean): { mostrar: NotasVersao | null; gravar: string | null } {
-  if (!versao || vistas === versao) return { mostrar: null, gravar: null };
-  if (!jaUsava && vistas === undefined) return { mostrar: null, gravar: versao };
-  return { mostrar: NOVIDADES[versao] ?? null, gravar: NOVIDADES[versao] ? null : versao };
+export function decidirNovidades(
+  versao: string,
+  vistas: string | undefined,
+  jaUsava: boolean,
+): { mostrar: NotasVersao | null; versaoNotas: string | null; gravar: string | null } {
+  if (!versao || vistas === versao) return { mostrar: null, versaoNotas: null, gravar: null };
+  if (!jaUsava && vistas === undefined) return { mostrar: null, versaoNotas: null, gravar: versao };
+  const candidatas = Object.keys(NOVIDADES)
+    .filter((v) => compararVersoes(v, versao) <= 0 && (vistas === undefined || compararVersoes(v, vistas) > 0))
+    .sort(compararVersoes);
+  const escolhida = candidatas.at(-1);
+  if (!escolhida) return { mostrar: null, versaoNotas: null, gravar: versao };
+  return { mostrar: NOVIDADES[escolhida]!, versaoNotas: escolhida, gravar: null };
 }

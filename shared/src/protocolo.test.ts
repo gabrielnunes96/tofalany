@@ -18,9 +18,14 @@ describe('novidades da versão', () => {
     const { decidirNovidades, NOVIDADES } = await import('./novidades.js');
     expect(decidirNovidades('0.14.0', '0.13.0', true).mostrar).toBe(NOVIDADES['0.14.0']);
     expect(decidirNovidades('0.14.0', undefined, true).mostrar).toBe(NOVIDADES['0.14.0']);
-    expect(decidirNovidades('0.14.0', '0.14.0', true)).toEqual({ mostrar: null, gravar: null });
-    expect(decidirNovidades('0.14.0', undefined, false)).toEqual({ mostrar: null, gravar: '0.14.0' });
-    expect(decidirNovidades('9.9.9', '0.14.0', true)).toEqual({ mostrar: null, gravar: '9.9.9' });
+    expect(decidirNovidades('0.14.0', '0.14.0', true)).toEqual({ mostrar: null, versaoNotas: null, gravar: null });
+    expect(decidirNovidades('0.14.0', undefined, false)).toEqual({ mostrar: null, versaoNotas: null, gravar: '0.14.0' });
+    // Pulou de versão: da 0.17.1 direto para uma sem notas (0.18.1) vê as da 0.18.0; quem já viu a 0.18.0, nada.
+    expect(decidirNovidades('0.18.1', '0.17.1', true)).toEqual({ mostrar: NOVIDADES['0.18.0'], versaoNotas: '0.18.0', gravar: null });
+    expect(decidirNovidades('0.18.2', '0.18.0', true)).toEqual({ mostrar: null, versaoNotas: null, gravar: '0.18.2' });
+    // Nunca mostra notas de versão mais nova que a instalada; 0.10 vem depois de 0.9.
+    expect(decidirNovidades('0.17.1', '0.16.0', true).versaoNotas).toBe('0.17.1');
+    expect(decidirNovidades('9.9.9', '9.9.8', true)).toEqual({ mostrar: null, versaoNotas: null, gravar: '9.9.9' });
     // Sem emoji nas notas.
     for (const notas of Object.values(NOVIDADES)) for (const i of notas.itens) expect(`${i.titulo} ${i.texto}`).not.toMatch(/\p{Extended_Pictographic}/u);
   });
