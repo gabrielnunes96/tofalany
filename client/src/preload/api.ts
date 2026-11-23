@@ -12,6 +12,8 @@ export interface ApiTofalando {
   versao: string;
   /** E2E: modo de teste (só fora do app empacotado); liga ganchos de medição na janela. */
   modoTeste: boolean;
+  /** celular: onde o app roda (sem valor: computador). */
+  plataforma?: 'desktop' | 'android';
   config: {
     ler(): Promise<ConfiguracoesLocais>;
     gravar(parcial: Partial<ConfiguracoesLocais>): Promise<ConfiguracoesLocais>;
@@ -40,7 +42,8 @@ export interface ApiTofalando {
     aoClicar(fn: (chave: string) => void): () => void;
   };
   /** RF-15: aperto/soltura dos atalhos globais. Devolve a função que para de ouvir. */
-  atalhos: {
+  /** Só no computador (o celular não tem atalhos globais). */
+  atalhos?: {
     aoEvento(fn: (e: { acao: AcaoAtalho; pressionado: boolean }) => void): () => void;
     /** Enquanto a tela captura um atalho novo, os globais não disparam. */
     pausar(sim: boolean): Promise<void>;
@@ -58,7 +61,8 @@ export interface ApiTofalando {
     aoMudar(fn: (a: AtividadeDto | null) => void): () => void;
   };
   /** RF-26: fontes para transmitir (telas e janelas, com miniatura) e a escolhida. */
-  captura: {
+  /** Só no computador (o celular não transmite a tela). */
+  captura?: {
     fontes(): Promise<{ id: string; nome: string; tipo: 'tela' | 'janela'; miniatura: string; largura?: number; altura?: number }[]>;
     /**
      * De onde vem o som do sistema escolhido: microfone virtual (Linux), porta (Windows 11; chega por window.postMessage)

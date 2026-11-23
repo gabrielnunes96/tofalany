@@ -99,3 +99,28 @@ test('CA-12 e CA-13: membro cria e renomeia (o outro vê em menos de 2 s); só a
   await ana.app.close();
   await dono.app.close();
 });
+
+test('celular T5: na janela estreita, canais e membros viram gavetas; escolher um canal fecha a gaveta', async () => {
+  const dono = await entrar('dono', true);
+  const j = dono.janela;
+  await j.setViewportSize({ width: 400, height: 800 });
+  const canais = j.getByRole('list', { name: 'Canais de texto' });
+  const membros = j.getByRole('list', { name: 'Membros' });
+  await expect(canais).toBeHidden();
+  await expect(membros).toBeHidden();
+  await j.getByRole('button', { name: 'Mostrar canais' }).first().click();
+  await expect(canais).toBeVisible();
+  await j.screenshot({ path: join(__dirname, '../../docs/demandas/celular/prints/gaveta-canais.png') });
+  await canais.getByRole('button', { name: /geral/ }).click();
+  await expect(canais).toBeHidden();
+  await j.getByRole('button', { name: 'Mostrar membros' }).click();
+  await expect(membros).toBeVisible();
+  // Tocar fora fecha.
+  await j.locator('.fundo-gaveta').click({ position: { x: 10, y: 400 } });
+  await expect(membros).toBeHidden();
+  // Janela larga de novo: as colunas voltam.
+  await j.setViewportSize({ width: 1280, height: 800 });
+  await expect(canais).toBeVisible();
+  await dono.app.close();
+});
+

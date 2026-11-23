@@ -97,6 +97,7 @@ import { TelaLoja } from './TelaLoja';
 import { TelaToOuvini } from './TelaToOuvini';
 import { TelaAudiosLoja } from './TelaAudiosLoja';
 import { AparelhosConectados } from '../componentes/AparelhosConectados';
+import { useTelaEstreita } from '../servicos/tela-estreita';
 import { TelaConfiguracoes, type SecaoConfig } from './TelaConfiguracoes';
 import { SegurancaConta } from '../componentes/SegurancaConta';
 import { NotasDasVersoes } from '../componentes/JanelaNovidades';
@@ -351,6 +352,25 @@ function TelaDoServidor({
       return novo;
     });
   }, []);
+
+  // celular (T5): na tela estreita, canais e membros viram gavetas por cima da conversa (não mexem no que fica guardado).
+  const estreito = useTelaEstreita();
+  const [gaveta, setGaveta] = useState<'canais' | 'membros' | null>(null);
+  const alternarVisao = useCallback(
+    (parte: keyof PartesOcultas) => {
+      if (estreito && (parte === 'canais' || parte === 'membros')) setGaveta((g) => (g === parte ? null : parte));
+      else alternarParte(parte);
+    },
+    [estreito, alternarParte],
+  );
+  useEffect(() => {
+    // A coluna de servidores (fora desta tela) aparece junto da gaveta de canais.
+    if (estreito && gaveta) document.documentElement.dataset.gaveta = gaveta;
+    else delete document.documentElement.dataset.gaveta;
+    return () => {
+      delete document.documentElement.dataset.gaveta;
+    };
+  }, [estreito, gaveta]);
   useEffect(() => {
     const tecla = (e: globalThis.KeyboardEvent) => {
       if (ocultaRef.current || !e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -868,10 +888,10 @@ function TelaDoServidor({
     else if (pressionado && acao === 'mudo') alternarMudo();
     else if (pressionado && acao === 'surdo') alternarSurdo();
   });
-  useEffect(() => ponte().atalhos.aoEvento((e) => aoAtalho(e)), []);
+  useEffect(() => ponte().atalhos?.aoEvento((e) => aoAtalho(e)), []);
   const pausarAtalhos = (sim: boolean) =>
     void ponte()
-      .atalhos.pausar(sim)
+      .atalhos?.pausar(sim)
       .catch(() => undefined);
   function mudarAtalhos(novos: Atalhos) {
     setAtalhos(novos);
@@ -937,7 +957,7 @@ function TelaDoServidor({
         // som-sistema-windows (RN-7): o som da transmissão parou (por qualquer caminho): desliga a captura no principal.
         aoSomTelaParou: () =>
           void ponte()
-            .captura.pararSom()
+            .captura?.pararSom()
             .catch(() => undefined),
       });
       sala.definirPessoas(pessoasRef.current);
@@ -1175,7 +1195,7 @@ function TelaDoServidor({
         setAvisoVoz(`${porNome} desconectou você da chamada.`);
         void salaVozRef.current?.sair();
         void ponte()
-          .captura.pararSom?.()
+          .captura?.pararSom?.()
           .catch(() => undefined);
       },
       aoVozTirado: (motivo) => {
@@ -1214,6 +1234,12 @@ function TelaDoServidor({
   const pessoas = useMemo(() => [...usuarios, ...conhecidos.filter((c) => !usuarios.some((u) => u.id === c.id))], [usuarios, conhecidos]);
   /** Conversa escolhida (canal ou DM), para os botões do topo dela. */
   const chaveConversa: Chave | null = dmAtiva !== null ? chaveDm(dmAtiva) : canalAtivo !== null ? chaveCanal(canalAtivo) : null;
+  // celular (T5): escolher uma conversa fecha a gaveta (a conversa fica à vista).
+  const [conversaDaGaveta, setConversaDaGaveta] = useState(chaveConversa);
+  if (conversaDaGaveta !== chaveConversa) {
+    setConversaDaGaveta(chaveConversa);
+    if (gaveta) setGaveta(null);
+  }
   const barraVisao = (
     <span className="barra-visao" role="group" aria-label="Mostrar ou ocultar">
       {recursos.busca && chaveConversa && (
@@ -1266,20 +1292,20 @@ function TelaDoServidor({
         aria-pressed={!ocultos.membros}
         aria-label="Mostrar membros"
         title="Membros (Ctrl+M)"
-        onClick={() => alternarParte('membros')}
+        onClick={() => alternarVisao('membros')}
       >
         <Icone nome="pessoas" />
       </button>
     </span>
   );
   // Com a barra de canais escondida, o botão de trazê-la fica à esquerda, no topo da conversa.
-  const mostrarCanais = ocultos.canais ? (
+  const mostrarCanais = ocultos.canais || estreito ? (
     <button
       type="button"
       className="icone mostrar-canais"
       aria-label="Mostrar canais"
       title="Mostrar a barra de canais (Ctrl+B)"
-      onClick={() => alternarParte('canais')}
+      onClick={() => alternarVisao('canais')}
     >
       <Icone nome="painelEsquerdoAbrir" />
     </button>
@@ -1669,7 +1695,7 @@ function TelaDoServidor({
         await sala.sair();
         // A transmissão não continua na sala nova (o som do sistema também para).
         void ponte()
-          .captura.pararSom?.()
+          .captura?.pararSom?.()
           .catch(() => undefined);
       }
       const { url, token: tokenVoz } = await api.tokenVoz(canalId);
@@ -1760,14 +1786,14 @@ function TelaDoServidor({
         // Som do sistema sempre sem o som do app: microfone virtual (Linux) ou porta (Windows 11), publicado à parte.
         // Uma porta que sobrou de outra escolha nunca é usada (e fechá-la para a captura antiga).
         descartarPortaSom();
-        const escolha = await ponte().captura.escolher(fonte.id, audioSistema);
+        const escolha = await ponte().captura!.escolher(fonte.id, audioSistema);
         // RN-4 (som-sistema-windows): a captura não começou; a tela vai sem o som.
         if (escolha === 'falhou') setAvisoVoz(AVISO_SEM_SOM_SISTEMA);
         const fonteSom = escolha === 'microfone-virtual' || escolha === 'porta' ? escolha : 'nenhum';
         ok = await sala.transmitir(qualidade, fonteSom, telaRef.current.codec);
         if (!ok && fonteSom !== 'nenhum')
           void ponte()
-            .captura.pararSom()
+            .captura?.pararSom()
             .catch(() => undefined);
         if (ok) {
           qualidadeAtualRef.current = qualidade;
@@ -1778,9 +1804,9 @@ function TelaDoServidor({
           // Transmitindo a tela em que o app está: a prévia viraria espelho infinito, então não é desenhada.
           setPreviaMesmaTela(
             fonte.tipo === 'tela'
-              ? await ponte()
-                  .captura.mesmaTela()
-                  .catch(() => true)
+              ? ((await ponte()
+                  .captura?.mesmaTela()
+                  .catch(() => true)) ?? true)
               : false,
           );
         }
@@ -1798,7 +1824,7 @@ function TelaDoServidor({
     const canal = minhaVozRef.current;
     await salaVozRef.current?.pararTela();
     void ponte()
-      .captura.pararSom?.()
+      .captura?.pararSom?.()
       .catch(() => undefined);
     if (canal !== null) await conexaoRef.current?.pedir('tela:parar', { canalVozId: canal });
   }
@@ -1821,7 +1847,7 @@ function TelaDoServidor({
     }
     await salaVozRef.current?.sair();
     void ponte()
-      .captura.pararSom?.()
+      .captura?.pararSom?.()
       .catch(() => undefined);
     await conexaoRef.current?.pedir('voz:estado', estadoVoz(null));
   }
@@ -1962,10 +1988,23 @@ function TelaDoServidor({
       )}
       <ContextoConvite.Provider value={contextoConvite}>
         <ContextoPerfil.Provider value={abrirPerfil}>
-          <div className={`layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros && painelDireito === 'membros' ? ' sem-membros' : ''}`}>
-            <aside className="coluna-esquerda">
+          {estreito && gaveta && <div className="fundo-gaveta" aria-hidden="true" onClick={() => setGaveta(null)} />}
+          <div
+            className={
+              estreito
+                ? `layout-colunas estreito${gaveta ? ` gaveta-${gaveta}` : ''}${painelDireito !== 'membros' ? ' painel-aberto' : ''}`
+                : `layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros && painelDireito === 'membros' ? ' sem-membros' : ''}`
+            }
+          >
+            <aside
+              className="coluna-esquerda"
+              // celular (T5): tocar num canal (mesmo o que já está aberto) fecha a gaveta.
+              onClickCapture={(e) => {
+                if (estreito && gaveta === 'canais' && (e.target as HTMLElement).closest('button.canal')) setGaveta(null);
+              }}
+            >
               <BarraLateral
-                aoEsconder={() => alternarParte('canais')}
+                aoEsconder={() => alternarVisao('canais')}
                 aba={abaBarra}
                 aoMudarAba={setAbaBarra}
                 aoConversarCom={conversarCom}
@@ -2090,6 +2129,7 @@ function TelaDoServidor({
                       >
                         <Icone nome="camera" />
                       </button>
+                      {ponte().captura && (
                       <button
                         type="button"
                         className={`icone controle${minhaTela ? ' ligado' : ''}`}
@@ -2110,6 +2150,7 @@ function TelaDoServidor({
                       >
                         <Icone nome="tela" />
                       </button>
+                      )}
                       <button
                         type="button"
                         className={`icone controle${soundboardAberto ? ' ligado' : ''}`}
@@ -2574,15 +2615,15 @@ function TelaDoServidor({
 
             {seletorTela && (
               <SeletorTela
-                listar={ponte().captura.fontes}
-                audioDisponivel={ponte().captura.audioDisponivel}
+                listar={ponte().captura?.fontes ?? (async () => [])}
+                audioDisponivel={ponte().captura?.audioDisponivel ?? { disponivel: false }}
                 audioPadrao={telaPrefs.audio ?? true}
                 qualidades={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
                 comLoja={pontos !== null}
                 qualidadePadrao={telaPrefs.qualidade}
                 aoEscolher={(f, a, q) => {
                   // Lembra a escolha do som para a próxima vez.
-                  const lembrar = somParaLembrar(ponte().captura, a, telaRef.current.audio);
+                  const lembrar = somParaLembrar(ponte().captura ?? { audioDisponivel: { disponivel: false } }, a, telaRef.current.audio);
                   if (lembrar !== undefined) mudarTela({ ...telaRef.current, audio: lembrar });
                   void transmitirTela(f, a, q);
                 }}
