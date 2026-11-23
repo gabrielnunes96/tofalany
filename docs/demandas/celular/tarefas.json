@@ -50,9 +50,9 @@
         "CA-14"
       ],
       "validacao": "vitest server: chamado chega, limite, não incomodar, outro servidor recusado, push do chamado.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "c772d17"
     },
     {
       "id": "T4",
