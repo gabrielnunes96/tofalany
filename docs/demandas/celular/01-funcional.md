@@ -1,6 +1,6 @@
 # ToFalany no celular (Android) — especificação funcional
 
-> Demanda: `celular` · Item 40 do backlog · Versão 2 · 23/11/2026 · Situação: **v2 em revisão** (v1 aprovada em 23/11/2026)
+> Demanda: `celular` · Item 40 do backlog · Versão 2 · 23/11/2026 · Situação: **aprovada em 23/11/2026** (v2)
 
 ## 1. Objetivo
 Levar o ToFalany para o celular Android, com a mesma conta e os mesmos servidores do computador: conversar, ficar na voz com a tela apagada, assistir às transmissões e receber notificações com o app fechado, sem que o conteúdo das conversas passe por serviços de fora.

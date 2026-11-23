@@ -1,0 +1,209 @@
+{
+ "demanda": "celular",
+ "titulo": "ToFalany no celular (Android)",
+ "item_raiz": null,
+ "tarefas": [
+  {
+   "id": "T1",
+   "titulo": "Servidor: aparelhos conectados (listar e desconectar sessões) e nome do aparelho no login",
+   "descricao": "migração 025 (sessoes.aparelho + id opaco), GET/DELETE /api/sessoes (só as próprias; desconectar revoga e derruba o socket), auditoria.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [],
+   "criterios": [
+    "CA-15"
+   ],
+   "validacao": "vitest server: lista só as próprias; desconectar derruba e dá 401; outra pessoa 404; auditoria.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T2",
+   "titulo": "Servidor: push sem conteúdo e preferências de aviso",
+   "descricao": "push_aparelhos (CASCADE da sessão), push_pendentes (uso único, 10 min), preferencias_aviso; POST/DELETE /api/push/aparelho, GET /api/push/pendentes, GET/PUT /api/conta/preferencias-aviso; decisão (menção, DM, silenciadas, preferências, aparelho com app aberto), fila agrupada 30 s, cliente FCM v1 (conta de serviço via arquivo; sem credencial: desligado), ganchos em mensagens e DM de convite; A3–A7, A19, A21.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [
+    "T1"
+   ],
+   "criterios": [
+    "CA-8",
+    "CA-9",
+    "CA-16"
+   ],
+   "validacao": "vitest server com FCM falso: corpo {v,k} de tamanho fixo, agrupamento, UNREGISTERED apaga, sair/redefinir/remover apagam o registro, resumo amarrado à sessão e de uso único, silenciadas sem push.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T3",
+   "titulo": "Servidor: chamar para a voz",
+   "descricao": "voz:chamar/voz:chamado (shared), conferências (quem chama está na voz, alvo do servidor com entrar_voz, limite 1/min por alvo, não incomodar), aviso ao app aberto + push do tipo chamado, auditoria.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [
+    "T2"
+   ],
+   "criterios": [
+    "CA-14"
+   ],
+   "validacao": "vitest server: chamado chega, limite, não incomodar, outro servidor recusado, push do chamado.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T4",
+   "titulo": "App: aparelhos conectados, chamar para a voz e preferências de aviso no servidor",
+   "descricao": "Tela Aparelhos conectados (Configurações → Conta); 'Chamar para a voz' no menu da pessoa e na DM; aviso do chamado com botão de entrar; preferências de notificação e silenciadas gravadas no servidor.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T3"
+   ],
+   "criterios": [
+    "CA-14",
+    "CA-15",
+    "CA-16"
+   ],
+   "validacao": "vitest client das telas e do fluxo; E2E de chamar e desconectar aparelho.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T5",
+   "titulo": "Interface: ponte com plataforma e grupos opcionais; layout de celular",
+   "descricao": "api.ts com plataforma e captura/atalhos/atividade opcionais (renderer sem quebrar); layout abaixo de 720 px com gavetas, toque longo para menus, sem depender de hover.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T4"
+   ],
+   "criterios": [
+    "CA-3",
+    "CA-7"
+   ],
+   "validacao": "vitest client: renderer com ponte sem os grupos de computador; layout estreito (gavetas abrem e fecham).",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T6",
+   "titulo": "Android: projeto Capacitor e a ponte do celular",
+   "descricao": "mobile/ com Capacitor 8 (minSdk 29), build do renderer, ponte-celular.ts (sessão pelo cofre, config local, convite/App Link, notificações locais, arquivos, rede/CSP gerada), manifesto endurecido (A1, A10, A12, A16, A17).",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T5"
+   ],
+   "criterios": [
+    "CA-1",
+    "CA-2",
+    "CA-10"
+   ],
+   "validacao": "vitest da ponte e do gerador de CSP; build do APK de depuração.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T7",
+   "titulo": "Android nativo: voz em segundo plano e saída de áudio",
+   "descricao": "ChamadaService (primeiro plano microphone|mediaPlayback|camera, notificação fixa com mudo/sair) e RotaAudio (setCommunicationDevice), ligados pela ponte.",
+   "repo": ".",
+   "stack": "kotlin",
+   "depende_de": [
+    "T6"
+   ],
+   "criterios": [
+    "CA-4",
+    "CA-6"
+   ],
+   "validacao": "testes JUnit/Robolectric; validação manual.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T8",
+   "titulo": "Android nativo: push, cofre e atualizador",
+   "descricao": "AvisoService (FirebaseMessagingService data-only {v,k} → busca → notificação local privada), Cofre (Keystore AES-GCM), Atualizador (releases → pacote, certificado e versão → PackageInstaller).",
+   "repo": ".",
+   "stack": "kotlin",
+   "depende_de": [
+    "T7"
+   ],
+   "criterios": [
+    "CA-8",
+    "CA-11"
+   ],
+   "validacao": "testes JUnit com APKs de teste; validação manual.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T9",
+   "titulo": "Servidor e CI: App Link, APK no convite e job Android",
+   "descricao": "/.well-known/assetlinks.json, link do APK com SHA-256 na página do convite; job android no release.yml com Environment, apksigner e lista de permissões.",
+   "repo": ".",
+   "stack": "node",
+   "depende_de": [
+    "T8"
+   ],
+   "criterios": [
+    "CA-2",
+    "CA-11"
+   ],
+   "validacao": "vitest server; revisão do workflow.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T10",
+   "titulo": "Validação completa e revisão",
+   "descricao": "Validação completa, revisão de código e de segurança.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T9"
+   ],
+   "criterios": [
+    "CA-10"
+   ],
+   "validacao": "npm run build && npm test && npm run lint && npm run test:e2e; build do APK.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  },
+  {
+   "id": "T11",
+   "titulo": "Validação manual com dois celulares",
+   "descricao": "Você e alguém do grupo: instalar, voz 1 h de tela apagada, Bluetooth, push com app fechado, atualização.",
+   "repo": ".",
+   "stack": "front",
+   "depende_de": [
+    "T10"
+   ],
+   "criterios": [
+    "CA-1",
+    "CA-4",
+    "CA-5",
+    "CA-6",
+    "CA-7",
+    "CA-8",
+    "CA-11",
+    "CA-13"
+   ],
+   "validacao": "Manual.",
+   "estado": "a_fazer",
+   "wi": null,
+   "commit": null
+  }
+ ]
+}

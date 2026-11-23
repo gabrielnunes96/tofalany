@@ -1,6 +1,6 @@
 # ToFalany no celular (Android) — especificação técnica
 
-> Demanda: `celular` · Base: funcional v2 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `celular` · Base: funcional v2 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Visão da solução
 Um novo projeto `mobile/` no monorepo empacota **a mesma interface React** do app de computador (`client/src/renderer`) num app Android com **Capacitor 8**. O renderer já fala com o "mundo de fora" só por uma ponte (`window.tofalando`, contrato em `client/src/preload/api.ts`): no celular, essa ponte é implementada por um adaptador em TypeScript que usa plugins do Capacitor e um plugin nativo próprio (Kotlin), sem tocar na lógica de chat, voz e loja. As telas ganham um layout de celular (gavetas no lugar das três colunas, toques longos no lugar do clique direito). O servidor ganha três coisas que valem para todos: registro de aparelho para push sem conteúdo, "chamar para a voz" e "aparelhos conectados".
