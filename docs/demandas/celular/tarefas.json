@@ -87,9 +87,9 @@
         "CA-7"
       ],
       "validacao": "vitest client: renderer com ponte sem os grupos de computador; layout estreito (gavetas abrem e fecham).",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "3242808"
     },
     {
       "id": "T6",
