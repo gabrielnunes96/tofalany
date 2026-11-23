@@ -867,6 +867,21 @@ test('CA-36: câmera ligada aparece para o outro e some ao desligar', async () =
   await ana.app.close();
 });
 
+/**
+ * som-sistema-windows CA-6: pelo grafo do PipeWire, as ligações que saem de um nó do próprio app (binário "electron" nos
+ * testes, "tofalany" empacotado) e entram em algum nó da venmic. Deve ficar vazio.
+ */
+function ligacoesDoAppNoMicrofoneVirtual(): string[] {
+  type Objeto = { id: number; type: string; info?: { props?: Record<string, unknown>; 'output-node-id'?: number; 'input-node-id'?: number } };
+  const grafo = JSON.parse(execFileSync('pw-dump').toString()) as Objeto[];
+  const nos = new Map(grafo.filter((o) => o.type === 'PipeWire:Interface:Node').map((o) => [o.id, o.info?.props ?? {}]));
+  const doApp = (id?: number) => ['electron', 'tofalany'].includes(String(nos.get(id ?? -1)?.['application.process.binary'] ?? ''));
+  const daVenmic = (id?: number) => /venmic|vencord/i.test(String(nos.get(id ?? -1)?.['node.name'] ?? ''));
+  return grafo
+    .filter((o) => o.type === 'PipeWire:Interface:Link' && doApp(o.info?.['output-node-id']) && daVenmic(o.info?.['input-node-id']))
+    .map((o) => `${o.info?.['output-node-id']} → ${o.info?.['input-node-id']}`);
+}
+
 test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, várias no canal, quem assiste e visualização grande', async () => {
   test.skip(!!globalThis.process['env'].TOFALANDO_E2E_ISOLADO, 'captura de tela: rode com npm run test:e2e:desktop');
   test.setTimeout(120_000);
@@ -908,6 +923,8 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, várias no c
     // O microfone virtual existe enquanto a tela vai. (Com a mídia falsa dos testes a janela não o enxerga e avisa
     // "sem o som do computador"; a captura com os dispositivos reais foi conferida à parte em 07/11.)
     expect(fontesDeSom()).toContain('vencord-screen-share');
+    // som-sistema-windows CA-6: nenhum som do próprio app (vozes, sons) chega ao microfone virtual — sem eco no Linux.
+    expect(ligacoesDoAppNoMicrofoneVirtual()).toEqual([]);
   }
 
   // CA-41: a ana vê o aviso, assiste grande, com imagem de verdade.

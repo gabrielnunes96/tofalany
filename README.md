@@ -343,12 +343,11 @@ Referências: a internet residencial costuma ter upload bem menor que o download
 
 - **Atalhos globais no Wayland (Linux)**: os atalhos (push-to-talk, mudo, deafen) usam um gancho de teclado do X11. Numa sessão Wayland (padrão no GNOME e no KDE recentes), o gancho só recebe as teclas enviadas a janelas X11 (XWayland): com uma janela nativa do Wayland em foco, os atalhos não disparam. Jogos pelo Steam/Proton costumam rodar no XWayland. Se os atalhos não funcionarem, entre numa sessão "X11/Xorg" na tela de login ou use o modo de voz por sensibilidade.
 - **Status ausente no Wayland**: o "ausente" automático (10 minutos sem usar o computador) depende de o sistema informar o tempo ocioso. Em algumas sessões Wayland, esse tempo fica sempre zerado e a pessoa aparece como online.
-- **Áudio do sistema na transmissão**: no Windows e no Linux com PipeWire (o som do próprio ToFalany fica de fora, sem eco; no Windows, a partir do 11). Linux só com PulseAudio vai sem o som do computador.
+- **Áudio do sistema na transmissão**: no Windows 11 (x64) e no Linux com PipeWire, sempre sem o som do próprio ToFalany (vozes da chamada, soundboard, bot de música): quem assiste não ouve a própria voz de volta. Enquanto o som do sistema vai junto, as notificações do app saem sem som. No **Windows 10** a opção fica desligada: o Windows 10 não permite tirar o som de um programa da captura, e a chamada voltaria para quem assiste. Linux só com PulseAudio vai sem o som do computador.
 - **ToOuvini e o YouTube**: numa VPS o YouTube exige os cookies de uma conta (veja "Bot de música"). Se os cookies vencerem (a conta saiu ou trocou a senha), envie de novo.
 - **Instalador do Windows sem assinatura**: o SmartScreen avisa na primeira instalação (veja acima).
 - **Mesmo host para servidor e LiveKit**: por privacidade, o app bloqueia qualquer endereço que não seja o do servidor. `LIVEKIT_URL` precisa usar o mesmo IP ou domínio de `URL_PUBLICA`.
 - **Até 4 transmissões de tela por canal de voz** ao mesmo tempo (cada pessoa a sua). Quem assiste escolhe qual abrir e ajusta o volume do som de cada uma. Confira a banda (tabela acima): cada transmissão soma.
-- **Som da transmissão sem o som do app no Windows 10**: o Windows 11 tira o som do ToFalany da captura; no Windows 10 pode não tirar, e quem assiste ouve a chamada de volta.
 
 ## Desenvolvimento
 
