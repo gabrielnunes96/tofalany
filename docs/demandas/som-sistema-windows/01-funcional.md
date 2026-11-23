@@ -1,6 +1,6 @@
 # Som do sistema sem eco da chamada — especificação funcional
 
-> Demanda: `som-sistema-windows` · Item 31 do backlog · Versão 1 · 22/11/2026 · Situação: **rascunho**
+> Demanda: `som-sistema-windows` · Item 31 do backlog · Versão 1 · 22/11/2026 · Situação: **aprovada em 22/11/2026**
 
 ## 1. Objetivo
 Quem transmite a tela com "som do sistema" manda o som do computador (jogo, vídeo, música) sem mandar junto o som da própria chamada. Hoje, no Windows, quem está na chamada ouve a própria voz de volta.
