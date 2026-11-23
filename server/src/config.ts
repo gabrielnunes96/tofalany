@@ -65,6 +65,8 @@ export interface Config {
    * com ela, o host dela também vale para a mídia e http é aceito.
    */
   gif: { chave: string; base: string; hostsMidia: RegExp; aceitarHttp: boolean } | undefined;
+  /** celular: push sem conteúdo pelo FCM. Sem PUSH_FCM_CREDENCIAL (caminho do JSON da conta de serviço), desligado. */
+  push: { credencial: string | undefined };
 }
 
 type Ambiente = Record<string, string | undefined>;
@@ -116,6 +118,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     prazoMoverMs: inteiro('PRAZO_MOVER_MS', ambiente.PRAZO_MOVER_MS, 10_000, 0),
     livekit: lerLivekit(ambiente),
     gif: lerGif(ambiente),
+    push: { credencial: ambiente.PUSH_FCM_CREDENCIAL || undefined },
     musica: {
       ligada: ambiente.MUSICA !== 'false',
       ytdlp: ambiente.MUSICA_YTDLP || 'yt-dlp',

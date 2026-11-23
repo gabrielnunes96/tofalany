@@ -16,7 +16,8 @@ import {
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { buscarCanal, comunidadeDoCanal } from '../dominio/canais.js';
-import { membroDe } from '../dominio/comunidades.js';
+import { idsDosMembros, membroDe } from '../dominio/comunidades.js';
+import type { Push } from '../dominio/push.js';
 import { saoAmigos } from '../dominio/amizades.js';
 import { salaComunidade } from './salas.js';
 import { apagarMensagem, buscarMensagem, editarMensagem, inserirMensagem, localDaMensagem, type Mencoes } from '../dominio/mensagens.js';
@@ -102,9 +103,37 @@ export function avisarDmParticipantes(io: ServidorTempoReal, banco: Banco, parti
 }
 
 /** Mensagem de DM criada fora de um socket (ex.: convite pela rota): chega como `mensagem:nova` e a DM se atualiza. */
-export function entregarMensagemDm(io: ServidorTempoReal, banco: Banco, participantes: [number, number], mensagem: MensagemDto): void {
+export function entregarMensagemDm(io: ServidorTempoReal, banco: Banco, participantes: [number, number], mensagem: MensagemDto, push?: Push): void {
   for (const s of conexoesDaConversaDm(io, banco, participantes)) s.emit('mensagem:nova', mensagem);
   if (mensagem.dmId !== null) avisarDmParticipantes(io, banco, participantes, mensagem.dmId);
+  avisarPorPush(banco, push, mensagem, participantes);
+}
+
+/**
+ * celular (RF-6): quem recebe aviso de uma mensagem nova — numa DM, o outro participante; num canal, quem foi
+ * mencionado (ou todos, com @todos), avisado na resposta. Linha de sistema não avisa. O resumo leva o começo do texto.
+ */
+export function avisarPorPush(banco: Banco, push: Push | undefined, m: MensagemDto, participantes: [number, number] | null, comunidadeId?: number): void {
+  if (!push || m.fixou) return;
+  let alvos: number[];
+  let onde: string;
+  if (participantes) {
+    alvos = participantes.filter((id) => id !== m.autorId);
+    onde = 'Conversa direta';
+  } else {
+    if (m.canalId === null || comunidadeId === undefined) return;
+    const todos = m.mencionaTodos ? idsDosMembros(banco, comunidadeId) : [];
+    alvos = [...new Set([...(m.mencoes ?? []), ...todos])].filter((id) => id !== m.autorId);
+    onde = `#${buscarCanal(banco, m.canalId)?.nome ?? 'canal'}`;
+  }
+  if (alvos.length === 0) return;
+  const texto = (textoSemGif(m.texto, m.gif) || (m.gif ? 'GIF' : m.anexos?.length ? 'Arquivo' : '')).slice(0, 100);
+  const conversa = m.dmId !== null ? `d:${m.dmId}` : `c:${m.canalId}`;
+  push.avisar(alvos, {
+    tipo: 'mensagem',
+    conversa,
+    resumo: { tipo: 'mensagem', porNome: buscarPorId(banco, m.autorId)?.nome_exibicao ?? 'Alguém', texto, onde, conversa, mensagemId: m.id, ...(comunidadeId !== undefined ? { comunidadeId } : {}) },
+  });
 }
 
 /** Um limitador de fixar por servidor de tempo real (vale para todas as conexões de cada pessoa). */
@@ -126,6 +155,7 @@ export function registrarEventosMensagens(
   armazem: Armazem,
   registrarErro: (e: unknown) => void,
   gifConfig?: Config['gif'],
+  push?: Push,
 ) {
   const usuarioId = socket.data.usuarioId;
   const comunidadeId = socket.data.comunidadeId;
@@ -231,6 +261,7 @@ export function registrarEventosMensagens(
       ultimoDigitando = 0;
       emitir(participantes, 'mensagem:nova', mensagem);
       if (participantes && mensagem.dmId !== null) avisarDm(participantes, mensagem.dmId);
+      avisarPorPush(banco, push, mensagem, participantes, comunidadeId);
       return mensagem;
     }),
   );

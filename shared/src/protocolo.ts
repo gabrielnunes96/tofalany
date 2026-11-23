@@ -196,6 +196,32 @@ export interface LoginRequest {
   aparelho?: string;
 }
 
+/** celular (RN-4, RN-1 v2): o que avisa por push (fica no servidor; o resto das preferências é de cada aparelho). */
+export interface PreferenciasAvisoDto {
+  mensagens: boolean;
+  chamados: boolean;
+  /** Conversas silenciadas: "c:<id>" (canal) ou "d:<id>" (DM). */
+  silenciadas: string[];
+}
+
+/** celular (RN-3): resumo que o app busca depois do aviso sem conteúdo e mostra como notificação. */
+export interface ResumoPushDto {
+  id: string;
+  em: number;
+  tipo: 'mensagem' | 'chamado';
+  /** Quem mandou ou chamou. */
+  porNome: string;
+  /** Mensagem: começo do texto (até 100 caracteres). Chamado: nome da sala. */
+  texto: string;
+  /** Onde: nome do canal (#papo) ou "Conversa direta"; no chamado, a sala. */
+  onde: string;
+  /** Servidor (para abrir no lugar certo). */
+  comunidadeId?: number;
+  conversa?: string;
+  mensagemId?: number;
+  canalVozId?: number;
+}
+
 /** celular (RN-12): uma sessão da conta, vista em "Aparelhos conectados". */
 export interface SessaoAparelhoDto {
   /** Identificador opaco (não é o token). */
@@ -758,7 +784,7 @@ export interface OlaPayload {
   /** audios-na-loja: áudios da conta para o "Meus sons" (administrador da instalação: todos). */
   audiosLoja?: AudioLojaDto[];
   /** O que este servidor oferece além do básico (servidor antigo não manda; sem ele, o app esconde o recurso). */
-  recursos?: { fixar?: boolean; busca?: boolean };
+  recursos?: { fixar?: boolean; busca?: boolean; push?: boolean; chamar?: boolean };
 }
 
 /** Eventos servidor → cliente. */

@@ -41,6 +41,8 @@ import type { Armazem } from '../arquivos/armazem.js';
 import { RoomServiceClient } from 'livekit-server-sdk';
 import { salaLivekit } from '@tofalando/shared';
 import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
+import { criarPush, type Push } from '../dominio/push.js';
+import { criarTransporteFcm, lerContaServico } from '../dominio/fcm.js';
 import { criarSoundboard } from './soundboard.js';
 import { salaComunidade } from './salas.js';
 import { conhecidosDe, registrarEventosAmizades } from './amizades.js';
@@ -87,6 +89,8 @@ export interface TempoReal {
   tirarDaComunidade(usuarioId: number, comunidadeId: number, motivo?: MotivoRevogacao, detalhe?: string | null): void;
   /** Mensagem de DM criada fora de um socket (ex.: convite pela rota): chega aos participantes como no envio normal. */
   entregarMensagemDm(mensagem: MensagemDto): void;
+  /** celular: push sem conteúdo (avisos de mensagem e de chamado para quem está com o app fechado). */
+  push: Push;
   /** Entrou num servidor (convite): quem já estava passa a ver o status e a atividade dela, e ela os deles. */
   entrouNaComunidade(usuarioId: number, comunidadeId: number): void;
   /** Moderação: tira a pessoa da voz deste servidor (castigo). */
@@ -314,6 +318,14 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     registrarErro: (e) => app.log.error(e),
   });
   const soundboard = criarSoundboard(io, banco, voz, (e) => app.log.error(e));
+  // celular: a sessão com o app aberto recebe pelo socket; as outras (com aparelho registrado) recebem o aviso.
+  const contaServico = lerContaServico(config.push.credencial);
+  const push = criarPush({
+    banco,
+    transporte: contaServico ? criarTransporteFcm(contaServico) : undefined,
+    conectada: (h) => [...io.of('/').sockets.values()].some((s) => s.data.tokenHash === h),
+    registrarErro: (e) => app.log.error(e),
+  });
   const musica = criarMusica(io, config, voz, (e) => app.log.error(e), banco);
 
   io.use((socket, next) => {
@@ -395,14 +407,14 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       conhecidos: conhecidosDe(banco, eu.id, comunidadeId),
       loja: estadoLoja(banco, eu.id),
       audiosLoja: audiosDaConta(banco, eu.id),
-      recursos: { fixar: true, busca: true },
+      recursos: { fixar: true, busca: true, push: push.ligado(), chamar: true },
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
     soundboard.registrar(socket);
     musica.registrar(socket);
     tela.registrar(socket);
-    registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e), config.gif);
+    registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e), config.gif, push);
     registrarEventosAmizades(io, socket, banco, (e) => app.log.error(e), reenviarVisibilidade);
     presenca.entrou(eu.id);
     // RN-25: quem reconecta já ausente avisa no handshake (sem piscar "online" para os outros).
@@ -476,9 +488,10 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       // Quem ficou deixa de ver a pessoa (e ela a eles), se não restar outro servidor em comum nem amizade (RF-7).
       for (const m of idsDosMembros(banco, comunidadeId)) if (m !== usuarioId) reenviarVisibilidade(usuarioId, m);
     },
+    push,
     entregarMensagemDm(mensagem) {
       const dm = mensagem.dmId !== null ? buscarDm(banco, mensagem.dmId) : undefined;
-      if (dm) entregarMensagemDm(io, banco, dm.participantes, mensagem);
+      if (dm) entregarMensagemDm(io, banco, dm.participantes, mensagem, push);
     },
     entrouNaComunidade(usuarioId, comunidadeId) {
       for (const m of idsDosMembros(banco, comunidadeId)) if (m !== usuarioId) reenviarVisibilidade(usuarioId, m);
@@ -534,6 +547,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     clearInterval(relogio);
     clearInterval(tiquePontos);
     voz.fechar();
+    push.fechar();
     presenca.iniciarFechamento();
     io.local.disconnectSockets(true);
     io.engine.close();

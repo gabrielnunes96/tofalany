@@ -372,5 +372,29 @@ export const MIGRACOES: readonly string[] = [
   UPDATE sessoes SET id = lower(hex(randomblob(16))) WHERE id IS NULL;
   CREATE UNIQUE INDEX sessoes_id ON sessoes(id);
   `,
+  // 026 — celular: push sem conteúdo (registro por sessão, apagado com ela) e as preferências de aviso da conta.
+  `
+  CREATE TABLE push_aparelhos (
+    sessao_hash TEXT PRIMARY KEY REFERENCES sessoes(token_hash) ON DELETE CASCADE,
+    fcm_token TEXT NOT NULL UNIQUE,
+    k TEXT NOT NULL,
+    criado_em INTEGER NOT NULL,
+    visto_em INTEGER NOT NULL
+  );
+  CREATE TABLE push_pendentes (
+    id TEXT PRIMARY KEY,
+    sessao_hash TEXT NOT NULL REFERENCES sessoes(token_hash) ON DELETE CASCADE,
+    tipo TEXT NOT NULL CHECK (tipo IN ('mensagem', 'chamado')),
+    resumo_json TEXT NOT NULL,
+    criado_em INTEGER NOT NULL
+  );
+  CREATE INDEX push_pendentes_sessao ON push_pendentes(sessao_hash, criado_em);
+  CREATE TABLE preferencias_aviso (
+    usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+    mensagens INTEGER NOT NULL DEFAULT 1,
+    chamados INTEGER NOT NULL DEFAULT 1,
+    silenciadas TEXT NOT NULL DEFAULT '[]'
+  );
+  `,
 ];
 
