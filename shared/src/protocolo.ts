@@ -183,6 +183,8 @@ export interface CadastroRequest {
   convite: string;
   usuario: string;
   senha: string;
+  /** celular: nome do aparelho (ver LoginRequest). */
+  aparelho?: string;
 }
 
 export interface LoginRequest {
@@ -190,6 +192,19 @@ export interface LoginRequest {
   senha: string;
   /** Autenticação em dois fatores: código do app (6 dígitos) ou de recuperação (XXXX-XXXX), quando a conta tem. */
   codigo?: string;
+  /** celular: nome do aparelho, para "Aparelhos conectados" (ex.: "Windows", "Android"). */
+  aparelho?: string;
+}
+
+/** celular (RN-12): uma sessão da conta, vista em "Aparelhos conectados". */
+export interface SessaoAparelhoDto {
+  /** Identificador opaco (não é o token). */
+  id: string;
+  aparelho: string | null;
+  criadoEm: number;
+  vistoEm: number;
+  /** É a sessão deste aparelho. */
+  atual: boolean;
 }
 
 /** Autenticação em dois fatores da minha conta. */

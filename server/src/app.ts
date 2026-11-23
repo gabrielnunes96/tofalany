@@ -29,6 +29,7 @@ import { registrarRotasAuth } from './routes/auth.js';
 import { criarTempoReal, type TempoReal } from './realtime/tempo-real.js';
 import { registrarRotasAuditoria } from './routes/auditoria.js';
 import { registrarRotasPrevia } from './routes/previa.js';
+import { registrarRotasSessoes } from './routes/sessoes.js';
 import { registrarRotasGif } from './routes/gif.js';
 import { registrarRotasFundo } from './routes/fundo.js';
 import { registrarRotasUsuariosPerfil } from './routes/usuarios-perfil.js';
@@ -148,6 +149,7 @@ export async function construirApp(config: Config): Promise<FastifyInstance> {
   registrarRotasAtualizarServidor(app, banco, config);
   registrarRotasPrevia(app, banco);
   registrarRotasGif(app, banco, config);
+  registrarRotasSessoes(app, banco, tempoReal);
   registrarRotasAuth(app, banco, config, tempoReal);
   registrarRotasAuditoria(app, banco);
   registrarRotasArquivos(app, armazem);

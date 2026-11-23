@@ -365,5 +365,12 @@ export const MIGRACOES: readonly string[] = [
   );
   CREATE INDEX loja_audios_compras_audio ON loja_audios_compras(audio_id);
   `,
+  // 025 — celular: "Aparelhos conectados" (id opaco da sessão e o nome do aparelho), push sem conteúdo e preferências de aviso.
+  `
+  ALTER TABLE sessoes ADD COLUMN id TEXT;
+  ALTER TABLE sessoes ADD COLUMN aparelho TEXT;
+  UPDATE sessoes SET id = lower(hex(randomblob(16))) WHERE id IS NULL;
+  CREATE UNIQUE INDEX sessoes_id ON sessoes(id);
+  `,
 ];
 

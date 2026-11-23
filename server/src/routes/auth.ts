@@ -20,12 +20,12 @@ const texto = { type: 'string', maxLength: 512 } as const;
 const corpoCadastro = {
   type: 'object',
   required: ['convite', 'usuario', 'senha'],
-  properties: { convite: texto, usuario: texto, senha: texto },
+  properties: { convite: texto, usuario: texto, senha: texto, aparelho: { type: 'string', maxLength: 80 } },
 } as const;
 const corpoLogin = {
   type: 'object',
   required: ['usuario', 'senha'],
-  properties: { usuario: texto, senha: texto, codigo: { type: 'string', maxLength: 32 } },
+  properties: { usuario: texto, senha: texto, codigo: { type: 'string', maxLength: 32 }, aparelho: { type: 'string', maxLength: 80 } },
 } as const;
 
 const corpoRedefinir = {
@@ -57,7 +57,7 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
     const senhaHash = await gerarHashSenha(senha.valor);
     const criada = cadastrarUsuario(banco, { convite: corpo.convite, comunidadeId: req.comunidadeId, usuario: usuario.valor, senhaHash, limiteContas: config.limiteContas });
     const linha = buscarNa(banco, criada.id, req.comunidadeId) ?? criada;
-    const token = criarSessao(banco, linha.id);
+    const token = criarSessao(banco, linha.id, Date.now(), corpo.aparelho);
     // Só depois de a conta (e o registro conta_criada, na mesma transação) estar gravada; só o servidor do convite vê.
     tempoReal.io.to(salaComunidade(req.comunidadeId)).emit('usuario:criado', paraDto(linha));
     reply.code(201);
@@ -77,7 +77,7 @@ export function registrarRotasAuth(app: FastifyInstance, banco: Banco, config: C
       if (!conferirSegundoFator(banco, linha.id, corpo.codigo)) throw new ErroHttp(401, 'codigo_2fa_invalido', 'Código incorreto. Use o código atual do app ou um código de recuperação.');
     }
     const token = banco.transaction(() => {
-      const novo = criarSessao(banco, linha.id);
+      const novo = criarSessao(banco, linha.id, Date.now(), corpo.aparelho);
       registrarAuditoria(banco, { tipo: 'login', atorId: linha.id });
       return novo;
     })();
