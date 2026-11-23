@@ -53,9 +53,9 @@
         "CA-8"
       ],
       "validacao": "vitest main: com captura ativa, Notification silent.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "6177c0f"
     },
     {
       "id": "T4",
