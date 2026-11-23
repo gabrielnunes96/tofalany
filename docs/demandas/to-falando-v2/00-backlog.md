@@ -43,10 +43,11 @@ Decisão de 20/11: **tudo o que está no backlog vai ser feito**, cada bloco com
 | 4 | `infra-e-atualizacao` **(T1–T9 feitas em 21/11; falta a T10 na VM)** | 46 (imagem arm64 no CI), 47 (domínio fixo), 29 parte do servidor (atualizar a VM na hora + trava do `vm.sh atualizar`), 33 (cookies do ToOuvini e gerador de token) | Melhoria | Médio |
 | 5 | `chat-fixar-e-buscar` **(T1–T9 feitas em 21/11; falta a T10 manual)** | 26 (fixar mensagem), 25 (busca no chat), 51 ("Apagar" para quem tem a permissão, mesmo menu da mensagem) | Feature | Médio |
 | 6 | `video-teatro-cameras-e-sons` **(T1–T8 feitas em 21/11; falta a T9 manual)** | 50 (câmera flutuante que some + janela própria em outro monitor), 49 (modo teatro e barra de controles), 38 (sons e contador flutuante) | Bug + feature | Médio a grande |
-| 7 | `mover-e-afk` | 43 (mover membros entre salas), 42 (sala de AFK, usa o 43) | Feature | Médio |
-| 8 | `audios-na-loja` | 28 (áudios com raridade) | Feature | Médio |
-| 9 | `som-sistema-windows` | 31 definitivo (captura que exclui o próprio app) | Bug | Grande; precisa de Windows real para validar |
-| 10 | `celular` | 40 (Android e iOS) | Feature | Grande; combinado para depois de todo o resto |
+| 7 | `mover-e-afk` **(T1–T7 feitas em 22/11, na 0.18.0; falta a T8 manual)** | 43 (mover membros entre salas), 42 (sala de AFK, usa o 43) | Feature | Médio |
+| 8 | `audios-na-loja` **(T1–T7 feitas em 22/11, na 0.18.0; falta a T8 manual; folga de duração na 0.18.1)** | 28 (áudios com raridade) | Feature | Médio |
+| 9 | `som-sistema-windows` **(T1–T5 feitas em 23/11, na 0.18.0; falta a T6 no Windows 11)** | 31 definitivo (captura que exclui o próprio app) | Bug | Grande; precisa de Windows real para validar |
+| 11 | `celular` **(prioridade bem baixa, decisão de 23/11: talvez não seja feito)** | 40 (Android e iOS). T1–T5 feitas na 0.18.0 (aparelhos conectados, push sem conteúdo no servidor, chamar para a voz, layout estreito); parado na T6 (app Android) | Feature | Grande |
+| 10 | `teste-de-microfone` | 53 (teste de microfone não deixa a pessoa se ouvir) | Bug | Pequeno a médio |
 
 ## Prioridades
 
