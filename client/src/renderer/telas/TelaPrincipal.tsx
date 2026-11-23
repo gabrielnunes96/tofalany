@@ -71,6 +71,7 @@ import type { ResultadoPedido } from '../servicos/atualizar-servidor';
 import { fundoDaLinha } from '../componentes/fundoPerfil';
 // A sala de voz (livekit-client, WebRTC) só carrega na primeira entrada na voz (R-7: memória ociosa).
 import type { SalaVoz, VideoSala } from '../servicos/voz';
+import { AVISO_SEM_SOM_SISTEMA, escutarPortaSom } from '../servicos/som-externo';
 import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
@@ -764,6 +765,8 @@ function TelaDoServidor({
   const ultimaFalaRef = useRef(Date.now());
   // RF-26/RF-30: transmissão de tela — seletor, telas dos outros chegando.
   const [seletorTela, setSeletorTela] = useState(false);
+  // som-sistema-windows: a porta com o som do sistema chega pela própria janela, logo depois da escolha.
+  useEffect(() => escutarPortaSom(), []);
   const [iniciandoTela, setIniciandoTela] = useState(false);
   const iniciandoTelaRef = useRef(false);
   const botaoTelaRef = useRef<HTMLButtonElement>(null);
@@ -1709,10 +1712,13 @@ function TelaDoServidor({
         return;
       }
       try {
-        // Linux (backlog v2, item 13): true quando o som vai pelo microfone virtual, publicado à parte.
-        const somVirtual = (await ponte().captura.escolher(fonte.id, audioSistema)) === true;
-        ok = await sala.transmitir(qualidade, audioSistema && !somVirtual, telaRef.current.codec, somVirtual);
-        if (!ok && somVirtual)
+        // Som do sistema sempre sem o som do app: microfone virtual (Linux) ou porta (Windows 11), publicado à parte.
+        const escolha = await ponte().captura.escolher(fonte.id, audioSistema);
+        // RN-4 (som-sistema-windows): a captura não começou; a tela vai sem o som.
+        if (escolha === 'falhou') setAvisoVoz(AVISO_SEM_SOM_SISTEMA);
+        const fonteSom = escolha === 'microfone-virtual' || escolha === 'porta' ? escolha : 'nenhum';
+        ok = await sala.transmitir(qualidade, fonteSom, telaRef.current.codec);
+        if (!ok && fonteSom !== 'nenhum')
           void ponte()
             .captura.pararSom()
             .catch(() => undefined);
@@ -2497,14 +2503,12 @@ function TelaDoServidor({
               <SeletorTela
                 listar={ponte().captura.fontes}
                 audioDisponivel={ponte().captura.audioDisponivel}
-                // No Windows (item 31) a última escolha não vale: toda transmissão abre desmarcada.
-                audioPadrao={ponte().captura.somLevaChamada ? false : (telaPrefs.audio ?? true)}
-                avisoSomChamada={ponte().captura.somLevaChamada}
+                audioPadrao={telaPrefs.audio ?? true}
                 qualidades={qualidadesPermitidas(usuario.cargo, permissoes, valesDe(pontos))}
                 comLoja={pontos !== null}
                 qualidadePadrao={telaPrefs.qualidade}
                 aoEscolher={(f, a, q) => {
-                  // Lembra a escolha do som para a próxima vez (no Windows, não: item 31).
+                  // Lembra a escolha do som para a próxima vez.
                   const lembrar = somParaLembrar(ponte().captura, a, telaRef.current.audio);
                   if (lembrar !== undefined) mudarTela({ ...telaRef.current, audio: lembrar });
                   void transmitirTela(f, a, q);

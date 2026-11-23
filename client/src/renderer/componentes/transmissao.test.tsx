@@ -15,7 +15,7 @@ describe('SeletorTela (RF-26, RF-29)', () => {
   it('mostra telas e janelas, escolhe com o áudio; sem PipeWire o áudio fica desabilitado com o motivo; Esc cancela', async () => {
     const aoEscolher = vi.fn();
     const aoCancelar = vi.fn();
-    render(<SeletorTela listar={async () => fontes} audioDisponivel={false} aoEscolher={aoEscolher} aoCancelar={aoCancelar} />);
+    render(<SeletorTela listar={async () => fontes} audioDisponivel={{ disponivel: false, motivo: 'sem-pipewire' }} aoEscolher={aoEscolher} aoCancelar={aoCancelar} />);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancelar' }));
     const janela = await screen.findByRole('button', { name: 'Jogo' });
     expect(screen.getByRole('region', { name: 'Telas' })).toBeTruthy();
@@ -36,7 +36,7 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     render(
       <SeletorTela
         listar={async () => [fonte]}
-        audioDisponivel={false}
+        audioDisponivel={{ disponivel: false, motivo: 'sem-pipewire' }}
         qualidades={['720p30', '1080p60', '1440p60']}
         qualidadePadrao="1440p60"
         aoEscolher={aoEscolher}
@@ -58,7 +58,7 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     render(
       <SeletorTela
         listar={async () => [fonte]}
-        audioDisponivel={false}
+        audioDisponivel={{ disponivel: false, motivo: 'sem-pipewire' }}
         qualidades={['720p30', '720p60', '1080p30', '1080p60', '1440p60']}
         qualidadePadrao="1440p60"
         aoEscolher={aoEscolher}
@@ -74,7 +74,7 @@ describe('SeletorTela (RF-26, RF-29)', () => {
   });
 
   it('CA-15: com loja e sem vale, só 720p30; as outras dizem que dá para liberar na loja (2K só pelo cargo)', async () => {
-    render(<SeletorTela listar={async () => fontes} audioDisponivel={false} comLoja qualidades={['720p30']} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    render(<SeletorTela listar={async () => fontes} audioDisponivel={{ disponivel: false, motivo: 'sem-pipewire' }} comLoja qualidades={['720p30']} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
     await screen.findByText('Tela 1');
     for (const q of ['720p60', '1080p30', '1080p60']) {
       const opcao = screen.getByLabelText(new RegExp(q)) as HTMLInputElement;
@@ -89,7 +89,7 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     render(
       <SeletorTela
         listar={async () => fontes}
-        audioDisponivel={false}
+        audioDisponivel={{ disponivel: false, motivo: 'sem-pipewire' }}
         comLoja
         qualidades={['720p30', '720p60', '1080p30', '1080p60']}
         aoEscolher={vi.fn()}
@@ -106,7 +106,7 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     const { unmount } = render(
       <SeletorTela
         listar={async () => fontes}
-        audioDisponivel
+        audioDisponivel={{ disponivel: true }}
         qualidades={['720p30', '1080p60', '1440p60']}
         qualidadePadrao="1080p60"
         aoEscolher={aoEscolher}
@@ -121,37 +121,35 @@ describe('SeletorTela (RF-26, RF-29)', () => {
     expect(aoEscolher).toHaveBeenCalledWith(fontes[0], true, '1440p60');
     unmount();
     // Quem desmarcou da última vez abre desmarcado.
-    const outro = render(<SeletorTela listar={async () => fontes} audioDisponivel audioPadrao={false} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    const outro = render(<SeletorTela listar={async () => fontes} audioDisponivel={{ disponivel: true }} audioPadrao={false} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
     expect((screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement).checked).toBe(false);
     outro.unmount();
-    render(<SeletorTela listar={async () => Promise.reject(new Error('x'))} audioDisponivel={false} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    render(<SeletorTela listar={async () => Promise.reject(new Error('x'))} audioDisponivel={{ disponivel: false, motivo: 'sem-pipewire' }} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
     expect((await screen.findByRole('alert')).textContent).toContain('Não foi possível listar');
   });
 
-  it('CA-13/CA-13b: no Windows o som abre desmarcado (mesmo com a última escolha marcada), com o aviso, e dá para marcar', async () => {
-    const aoEscolher = vi.fn();
-    render(<SeletorTela listar={async () => fontes} audioDisponivel audioPadrao avisoSomChamada aoEscolher={aoEscolher} aoCancelar={vi.fn()} />);
+  it('som-sistema-windows CA-3: no Windows 10 a opção fica desligada com o motivo; sem módulo, outro motivo', () => {
+    const { unmount } = render(<SeletorTela listar={async () => fontes} audioDisponivel={{ disponivel: false, motivo: 'windows-antigo' }} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
     const caixa = screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement;
+    expect(caixa.disabled).toBe(true);
     expect(caixa.checked).toBe(false);
-    expect(caixa.disabled).toBe(false);
-    expect(screen.getByText(/quem está na chamada vai se ouvir/)).toBeTruthy();
-    fireEvent.click(caixa);
-    fireEvent.click(await screen.findByRole('button', { name: 'Tela 1' }));
-    expect(aoEscolher).toHaveBeenCalledWith(fontes[0], true, '720p30');
+    expect(screen.getByText('O som do sistema precisa do Windows 11 (no Windows 10, os outros ouviriam a própria voz de volta).')).toBeTruthy();
+    unmount();
+    render(<SeletorTela listar={async () => fontes} audioDisponivel={{ disponivel: false, motivo: 'sem-modulo' }} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+    expect(screen.getByText('O som do sistema não está disponível neste computador.')).toBeTruthy();
   });
 
-  it('CA-14: sem o aviso (Linux com PipeWire), igual a antes: marcado e sem o texto da chamada', () => {
-    render(<SeletorTela listar={async () => fontes} audioDisponivel aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
+  it('som-sistema-windows: com o som disponível (Windows 11 ou Linux), abre marcado e sem aviso de eco', () => {
+    render(<SeletorTela listar={async () => fontes} audioDisponivel={{ disponivel: true }} aoEscolher={vi.fn()} aoCancelar={vi.fn()} />);
     expect((screen.getByLabelText('Incluir o áudio do sistema') as HTMLInputElement).checked).toBe(true);
-    expect(screen.queryByText(/quem está na chamada vai se ouvir/)).toBeNull();
+    expect(screen.queryByText(/ouvir/)).toBeNull();
   });
 
-  it('CA-13b: no Windows a escolha do som não é guardada; no Linux, só quando muda', () => {
-    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: true }, true, undefined)).toBeUndefined();
-    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: true }, false, true)).toBeUndefined();
-    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: false }, false, undefined)).toBe(false);
-    expect(somParaLembrar({ audioDisponivel: true, somLevaChamada: false }, true, undefined)).toBeUndefined();
-    expect(somParaLembrar({ audioDisponivel: false, somLevaChamada: false }, false, true)).toBeUndefined();
+  it('a escolha do som é guardada só quando muda; sem som disponível, nada', () => {
+    expect(somParaLembrar({ audioDisponivel: { disponivel: true } }, false, undefined)).toBe(false);
+    expect(somParaLembrar({ audioDisponivel: { disponivel: true } }, true, undefined)).toBeUndefined();
+    expect(somParaLembrar({ audioDisponivel: { disponivel: true } }, true, false)).toBe(true);
+    expect(somParaLembrar({ audioDisponivel: { disponivel: false, motivo: 'windows-antigo' } }, false, true)).toBeUndefined();
   });
 });
 

@@ -60,15 +60,13 @@ export interface ApiTofalando {
   /** RF-26: fontes para transmitir (telas e janelas, com miniatura) e a escolhida. */
   captura: {
     fontes(): Promise<{ id: string; nome: string; tipo: 'tela' | 'janela'; miniatura: string; largura?: number; altura?: number }[]>;
-    /** true: o som do sistema vai pelo microfone virtual do Linux (a janela o captura e publica). */
-    escolher(fonteId: string, audio: boolean): Promise<boolean>;
-    /** RF-29: áudio do sistema no Windows; no Linux, com PipeWire (backlog v2, item 13). */
-    audioDisponivel: boolean;
     /**
-     * Item 31 (contorno, correcoes-atividade RF-10): no Windows, o som do sistema captura tudo, inclusive a chamada. O
-     * seletor abre com a opção desmarcada, com aviso, e a escolha não é guardada. Sai quando a captura sem a chamada vier.
+     * De onde vem o som do sistema escolhido: microfone virtual (Linux), porta (Windows 11; chega por window.postMessage)
+     * ou nada. "falhou": a captura não começou (som-sistema-windows, RN-4).
      */
-    somLevaChamada: boolean;
+    escolher(fonteId: string, audio: boolean): Promise<'nenhum' | 'microfone-virtual' | 'porta' | 'falhou'>;
+    /** RF-29: som do sistema sem o som do app; desligado com o motivo (Windows 10, módulo ausente, Linux sem PipeWire). */
+    audioDisponivel: { disponivel: boolean; motivo?: 'windows-antigo' | 'sem-modulo' | 'sem-pipewire' };
     /** Desfaz o microfone virtual do Linux (fim da transmissão). */
     pararSom(): Promise<void>;
     /** A tela transmitida é a mesma em que o app está (a prévia viraria espelho). */

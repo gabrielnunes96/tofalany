@@ -2,6 +2,19 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { AcaoAtalho, ConviteLink } from '@tofalando/shared';
 import type { ApiTofalando } from './api';
 
+/** som-sistema-windows: a opção "som do sistema" ligada ou desligada, com o motivo (Windows 10, sem módulo, sem PipeWire). */
+function lerSomDisponivel(): { disponivel: boolean; motivo?: 'windows-antigo' | 'sem-modulo' | 'sem-pipewire' } {
+  const r = ipcRenderer.sendSync('captura:som-disponivel') as { disponivel?: unknown; motivo?: unknown } | null;
+  const motivo = r?.motivo === 'windows-antigo' || r?.motivo === 'sem-modulo' || r?.motivo === 'sem-pipewire' ? r.motivo : undefined;
+  return { disponivel: r?.disponivel === true, ...(motivo ? { motivo } : {}) };
+}
+
+// som-sistema-windows: a porta com o som do sistema (Windows 11) vai para a página pela própria janela: uma
+// MessagePort não atravessa a ponte, mas pode ser transferida por window.postMessage (a página confere a origem).
+ipcRenderer.on('captura:porta-som', (e) => {
+  if (e.ports[0]) window.postMessage('tofalany:porta-som', '*', [e.ports[0]]);
+});
+
 const api: ApiTofalando = {
   versao: String(ipcRenderer.sendSync('app:versao') ?? ''),
   modoTeste: ipcRenderer.sendSync('app:modo-teste') === true,
@@ -60,11 +73,8 @@ const api: ApiTofalando = {
   },
   captura: {
     fontes: () => ipcRenderer.invoke('captura:fontes'),
-    // som-sistema-windows (T1): até a janela usar a porta do Windows (T2), só o microfone virtual do Linux conta.
-    escolher: async (fonteId, audio) => (await ipcRenderer.invoke('captura:escolher', { fonteId, audio })) === 'microfone-virtual',
-    audioDisponivel: (ipcRenderer.sendSync('captura:som-disponivel') as { disponivel?: boolean } | null)?.disponivel === true,
-    // Item 31 (contorno): no Windows o som do sistema leva também a voz da chamada.
-    somLevaChamada: process.platform === 'win32',
+    escolher: (fonteId, audio) => ipcRenderer.invoke('captura:escolher', { fonteId, audio }),
+    audioDisponivel: lerSomDisponivel(),
     pararSom: () => ipcRenderer.invoke('captura:som-parar'),
     mesmaTela: () => ipcRenderer.invoke('captura:mesma-tela'),
   },

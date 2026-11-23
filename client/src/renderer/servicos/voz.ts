@@ -1,9 +1,13 @@
 import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type RemoteTrack } from 'livekit-client';
 import { DIMENSOES_TELA, IDENTIDADE_BOT_MUSICA, VOLUME_BOT_PADRAO, VOLUME_PESSOA_MAX, type PreferenciasAudio, type QualidadeTela } from '@tofalando/shared';
 import { abrirMicrofone, type Microfone } from './pipeline-audio';
+import { AVISO_SEM_SOM_SISTEMA, faixaDaPorta, tomarPortaSom } from './som-externo';
 import { criarMedidorFala, fonteDeFaixa } from './medidor-fala';
 
 /** O que a tela precisa saber da sala de voz. */
+/** som-sistema-windows: de onde vem o som do sistema na transmissão. */
+export type FonteSomTela = 'nenhum' | 'microfone-virtual' | 'porta';
+
 export interface OuvintesVoz {
   /** Quem está falando agora (ids de usuário), medido no próprio app (backlog v2, item 1). */
   aoFalando(ids: number[]): void;
@@ -71,8 +75,11 @@ export interface SalaVoz {
   /** RF-25: liga ou desliga a minha câmera (simulcast); devolve se ficou ligada. */
   camera(ligar: boolean): Promise<boolean>;
   /** RF-26: começa a transmitir a fonte já escolhida (sem simulcast, "motion"); devolve se começou. */
-  /** somVirtual: no Linux, o som do sistema vem do microfone virtual (backlog v2, item 13) e é publicado à parte. */
-  transmitir(qualidade: QualidadeTela, audio: boolean, codec?: 'h264' | 'vp9', somVirtual?: boolean): Promise<boolean>;
+  /**
+   * fonteSom: de onde vem o som do sistema (sempre sem o som do próprio app), publicado à parte como áudio da tela:
+   * microfone virtual do Linux (backlog v2, item 13) ou a porta da captura do Windows 11 (som-sistema-windows).
+   */
+  transmitir(qualidade: QualidadeTela, fonteSom: FonteSomTela, codec?: 'h264' | 'vp9'): Promise<boolean>;
   pararTela(): Promise<void>;
   /** Estou transmitindo a tela agora (para conferir trava "minha" vinda do servidor). */
   transmitindoTela(): boolean;
@@ -167,14 +174,14 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
   const telas = new Map<string, FaixaVideo>();
   let transmitindoTela = false;
   let minhaFaixaTela: MediaStreamTrack | undefined;
-  /** Backlog v2, item 13: som do sistema no Linux, publicado como áudio da tela. */
-  let somTela: MediaStreamTrack | undefined;
+  /** Som do sistema (microfone virtual do Linux ou porta do Windows), publicado como áudio da tela. */
+  let somTela: { faixa: MediaStreamTrack; parar(): void } | undefined;
   const pararSomTela = (atual: SalaLivekit | undefined) => {
-    const f = somTela;
+    const s = somTela;
     somTela = undefined;
-    if (!f) return;
-    void atual?.localParticipant.unpublishTrack?.(f, true)?.catch(() => undefined);
-    f.stop();
+    if (!s) return;
+    void atual?.localParticipant.unpublishTrack?.(s.faixa, true)?.catch(() => undefined);
+    s.parar();
   };
   /** Cada pedido de transmitir/parar ganha um número: um "parar" no meio do início cancela a captura que terminar depois. */
   let pedidoTela = 0;
@@ -469,7 +476,7 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
       const rtt = conectada ? sala?.engine?.client?.rtt : undefined;
       return typeof rtt === 'number' && rtt > 0 ? Math.round(rtt) : undefined;
     },
-    async transmitir(qualidade, audio, codec = 'h264', somVirtual = false) {
+    async transmitir(qualidade, fonteSom, codec = 'h264') {
       const atual = sala;
       if (!atual || !conectada) return false;
       const meu = ++pedidoTela;
@@ -477,9 +484,8 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         const pub = await (atual.localParticipant as unknown as CameraLocal).setScreenShareEnabled(
           true,
           {
-            // Som do sistema sem o som do próprio app (Windows/macOS, Electron 43.4+ usa a captura sem o processo do app):
-            // sem isso, quem assiste ouve a própria voz de volta pela transmissão. E sem tratamento de voz (é música/jogo).
-            audio: audio ? { restrictOwnAudio: true, echoCancellation: false, noiseSuppression: false, autoGainControl: false } : false,
+            // Nunca o som do Chromium: ele leva as vozes da chamada (quem assiste se ouviria). O som do sistema vem à parte.
+            audio: false,
             resolution: RESOLUCOES_TELA[qualidade],
             contentHint: 'motion',
             selfBrowserSurface: 'exclude',
@@ -511,21 +517,22 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
         }
         transmitindoTela = !!pub?.track;
         minhaFaixaTela = (pub?.track as { mediaStreamTrack?: MediaStreamTrack } | undefined)?.mediaStreamTrack;
-        // Windows: o som vem junto da captura; se o sistema não entregou, quem transmite fica sabendo.
-        if (transmitindoTela && audio && !somVirtual && !atual.localParticipant.getTrackPublication?.(Track.Source.ScreenShareAudio)) {
-          ouvintes.aoAviso('A tela está indo, mas sem o som do computador (o sistema não entregou o áudio).');
-        }
-        if (transmitindoTela && somVirtual) {
-          const faixa = await abrirMicrofoneVirtual();
-          if (!faixa) ouvintes.aoAviso('A tela está indo, mas sem o som do computador (o microfone virtual não apareceu).');
-          else if (sala !== atual || meu !== pedidoTela) faixa.stop();
+        if (transmitindoTela && fonteSom !== 'nenhum') {
+          const som = await abrirSom(fonteSom, () => {
+            // A captura do Windows caiu no meio (saída de áudio trocada, por exemplo): a tela segue sem o som (RN-4).
+            if (somTela?.faixa !== som?.faixa) return;
+            pararSomTela(atual);
+            ouvintes.aoAviso(AVISO_SEM_SOM_SISTEMA);
+          });
+          if (!som) ouvintes.aoAviso(fonteSom === 'porta' ? AVISO_SEM_SOM_SISTEMA : 'A tela está indo, mas sem o som do computador (o microfone virtual não apareceu).');
+          else if (sala !== atual || meu !== pedidoTela) som.parar();
           else {
-            somTela = faixa;
+            somTela = som;
             await atual.localParticipant
-              .publishTrack(faixa, { source: Track.Source.ScreenShareAudio, name: 'tela-audio', audioPreset: { maxBitrate: 128_000 }, dtx: false, red: false })
+              .publishTrack(som.faixa, { source: Track.Source.ScreenShareAudio, name: 'tela-audio', audioPreset: { maxBitrate: 128_000 }, dtx: false, red: false })
               .catch(() => {
                 pararSomTela(atual);
-                ouvintes.aoAviso('A tela está indo, mas sem o som do computador.');
+                ouvintes.aoAviso(fonteSom === 'porta' ? AVISO_SEM_SOM_SISTEMA : 'A tela está indo, mas sem o som do computador.');
               });
           }
         }
@@ -608,6 +615,17 @@ export function criarSalaVoz(ouvintes: OuvintesVoz, fabrica: () => SalaLivekit =
     },
   };
   return api;
+}
+
+/** O som do sistema como faixa: microfone virtual do Linux ou a porta do Windows (undefined = não veio). */
+async function abrirSom(fonte: Exclude<FonteSomTela, 'nenhum'>, aoCair: () => void): Promise<{ faixa: MediaStreamTrack; parar(): void } | undefined> {
+  if (fonte === 'microfone-virtual') {
+    const faixa = await abrirMicrofoneVirtual();
+    return faixa && { faixa, parar: () => faixa.stop() };
+  }
+  const porta = await tomarPortaSom();
+  if (!porta) return undefined;
+  return faixaDaPorta(porta, aoCair).catch(() => undefined);
 }
 
 /** Nome do microfone virtual criado no processo principal (main/som-sistema.ts). */

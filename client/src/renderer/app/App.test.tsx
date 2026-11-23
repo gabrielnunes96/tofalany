@@ -127,9 +127,8 @@ function ponteFalsa(estado: {
     presenca: { ausente: async () => false, aoMudar: () => () => undefined },
     captura: {
       fontes: async () => [],
-      escolher: async () => false,
-      audioDisponivel: false,
-      somLevaChamada: false,
+      escolher: async () => 'nenhum' as const,
+      audioDisponivel: { disponivel: false },
       pararSom: async () => undefined,
       mesmaTela: async () => false,
     },

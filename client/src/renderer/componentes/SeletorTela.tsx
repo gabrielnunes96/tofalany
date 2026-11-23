@@ -11,17 +11,27 @@ export interface FonteTela {
   altura?: number;
 }
 
+export interface DisponibilidadeSom {
+  disponivel: boolean;
+  motivo?: 'windows-antigo' | 'sem-modulo' | 'sem-pipewire';
+}
+
+/** Por que o som do sistema não pode ir junto (som-sistema-windows, RN-3). */
+export const MOTIVOS_SEM_SOM: Record<NonNullable<DisponibilidadeSom['motivo']>, string> = {
+  'windows-antigo': 'O som do sistema precisa do Windows 11 (no Windows 10, os outros ouviriam a própria voz de volta).',
+  'sem-modulo': 'O som do sistema não está disponível neste computador.',
+  'sem-pipewire': 'Neste computador o som não pode ir junto: no Linux, precisa do PipeWire.',
+};
+
 /** A qualidade cabe no monitor (sem resolução conhecida, cabe). */
 const cabe = (q: QualidadeTela, f: { altura?: number } | undefined) => !f?.altura || DIMENSOES_TELA[q].altura <= f.altura;
 
 interface Props {
   listar: () => Promise<FonteTela[]>;
-  /** RF-29: áudio do sistema só no Windows; no Linux a opção aparece desabilitada com o motivo. */
-  audioDisponivel: boolean;
+  /** RF-29: som do sistema sem o som do app; desligado, a opção aparece com o motivo (som-sistema-windows). */
+  audioDisponivel: DisponibilidadeSom;
   /** Última escolha de "Incluir o áudio do sistema" (sem valor: marcada). */
   audioPadrao?: boolean;
-  /** Windows (item 31, contorno): o som leva a voz da chamada; abre desmarcado e com o aviso. */
-  avisoSomChamada?: boolean;
   /** Pontos e loja: há loja neste servidor (as bloqueadas dizem que dá para liberar lá). */
   comLoja?: boolean;
   /** RF-28: qualidades que o cargo permite (membro: só 720p30) e a já selecionada. */
@@ -36,7 +46,6 @@ export function SeletorTela({
   listar,
   audioDisponivel,
   audioPadrao = true,
-  avisoSomChamada = false,
   comLoja = false,
   qualidades = ['720p30'],
   qualidadePadrao = '720p30',
@@ -45,7 +54,7 @@ export function SeletorTela({
 }: Props) {
   const [fontes, setFontes] = useState<FonteTela[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [audio, setAudio] = useState(audioDisponivel && audioPadrao && !avisoSomChamada);
+  const [audio, setAudio] = useState(audioDisponivel.disponivel && audioPadrao);
   const [qualidade, setQualidade] = useState<QualidadeTela>(qualidades.includes(qualidadePadrao) ? qualidadePadrao : '720p30');
 
   useEffect(() => {
@@ -160,14 +169,9 @@ export function SeletorTela({
           )}
         </fieldset>
         <label className="opcao-audio">
-          <input type="checkbox" checked={audio} disabled={!audioDisponivel} onChange={(e) => setAudio(e.target.checked)} /> Incluir o áudio do sistema
+          <input type="checkbox" checked={audio} disabled={!audioDisponivel.disponivel} onChange={(e) => setAudio(e.target.checked)} /> Incluir o áudio do sistema
         </label>
-        {!audioDisponivel && <p className="suave">Neste computador o som não pode ir junto: no Linux, precisa do PipeWire.</p>}
-        {audioDisponivel && avisoSomChamada && (
-          <p className="aviso-som-chamada">
-            No Windows, o som do sistema leva também a voz da chamada: quem está na chamada vai se ouvir. Marque só se não estiver em chamada.
-          </p>
-        )}
+        {!audioDisponivel.disponivel && <p className="suave">{MOTIVOS_SEM_SOM[audioDisponivel.motivo ?? 'sem-modulo']}</p>}
         {erro && (
           <p className="erro" role="alert">
             {erro}
@@ -182,15 +186,8 @@ export function SeletorTela({
   );
 }
 
-/**
- * O que guardar da escolha do som para a próxima transmissão (undefined = nada). No Windows (item 31, contorno) nada é
- * guardado: toda transmissão abre desmarcada.
- */
-export function somParaLembrar(
-  o: { audioDisponivel: boolean; somLevaChamada: boolean },
-  escolhido: boolean,
-  guardado: boolean | undefined,
-): boolean | undefined {
-  if (!o.audioDisponivel || o.somLevaChamada) return undefined;
+/** O que guardar da escolha do som para a próxima transmissão (undefined = nada). */
+export function somParaLembrar(o: { audioDisponivel: DisponibilidadeSom }, escolhido: boolean, guardado: boolean | undefined): boolean | undefined {
+  if (!o.audioDisponivel.disponivel) return undefined;
   return escolhido !== (guardado ?? true) ? escolhido : undefined;
 }

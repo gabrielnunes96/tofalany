@@ -6,6 +6,8 @@ import { criarSalaVoz, EntradaCancelada, type SalaLivekit } from './voz';
 import type { Microfone } from './pipeline-audio';
 
 vi.mock('./pipeline-audio', () => ({ abrirMicrofone: vi.fn() }));
+const somExterno = vi.hoisted(() => ({ tomarPortaSom: vi.fn(), faixaDaPorta: vi.fn() }));
+vi.mock('./som-externo', () => ({ ...somExterno, AVISO_SEM_SOM_SISTEMA: 'Não foi possível capturar o som do sistema; a transmissão continua sem ele.' }));
 
 function salaFalsa(opcoes: { conectar?: 'ok' | 'falha' } = {}) {
   const ouvintes = new Map<string, (...a: unknown[]) => void>();
@@ -371,7 +373,7 @@ describe('sala de voz (RF-13)', () => {
     const o = { ...ouvintesVoz(), aoTelas: vi.fn(), aoMinhaTelaParou: vi.fn() };
     const voz = criarSalaVoz(o, () => sala, vi.fn(async () => microfone()));
     await voz.entrar('ws://lk', 'tok', AUDIO_PADRAO);
-    expect(await voz.transmitir('720p30', false)).toBe(true);
+    expect(await voz.transmitir('720p30', 'nenhum')).toBe(true);
     expect(setScreenShareEnabled).toHaveBeenLastCalledWith(
       true,
       expect.objectContaining({ contentHint: 'motion', resolution: { width: 1280, height: 720, frameRate: 30 } }),
@@ -385,7 +387,7 @@ describe('sala de voz (RF-13)', () => {
 
     // Parar no meio do início: a captura que termina depois é desfeita.
     setScreenShareEnabled.mockImplementationOnce(() => new Promise((r) => (liberar = r as (v: unknown) => void)));
-    const iniciando = voz.transmitir('720p30', false);
+    const iniciando = voz.transmitir('720p30', 'nenhum');
     await voz.pararTela();
     liberar({ track: minhaTela });
     expect(await iniciando).toBe(false);
@@ -403,22 +405,38 @@ describe('sala de voz (RF-13)', () => {
     expect(o.aoTelas).toHaveBeenLastCalledWith([]);
 
     setScreenShareEnabled.mockRejectedValueOnce(new Error('negado'));
-    expect(await voz.transmitir('720p30', false)).toBe(false);
+    expect(await voz.transmitir('720p30', 'nenhum')).toBe(false);
     expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível transmitir a tela.');
 
-    // Windows: pediu o som e o sistema não entregou — quem transmite fica sabendo; com o som, nada.
-    const publicacoes = new Map<string, unknown>();
-    (sala.localParticipant as unknown as { getTrackPublication: unknown }).getTrackPublication = (f: string) => publicacoes.get(f);
+    // som-sistema-windows: o som do Chromium nunca é pedido (levaria as vozes da chamada).
     o.aoAviso.mockClear();
-    expect(await voz.transmitir('720p30', true)).toBe(true);
-    // O som do sistema vai sem o som do próprio app (senão quem assiste ouve a própria voz).
-    expect(setScreenShareEnabled).toHaveBeenLastCalledWith(true, expect.objectContaining({ audio: expect.objectContaining({ restrictOwnAudio: true }) }), expect.anything());
-    expect(o.aoAviso).toHaveBeenLastCalledWith('A tela está indo, mas sem o som do computador (o sistema não entregou o áudio).');
+    expect(await voz.transmitir('720p30', 'nenhum')).toBe(true);
+    expect(setScreenShareEnabled).toHaveBeenLastCalledWith(true, expect.objectContaining({ audio: false }), expect.anything());
     await voz.pararTela();
-    o.aoAviso.mockClear();
-    publicacoes.set('screen_share_audio', {});
-    expect(await voz.transmitir('720p30', true)).toBe(true);
+
+    // Windows 11: o som vem pela porta e é publicado como áudio da tela.
+    const faixaSom = { stop: vi.fn() };
+    const parar = vi.fn();
+    let aoCair!: () => void;
+    somExterno.tomarPortaSom.mockResolvedValueOnce({});
+    somExterno.faixaDaPorta.mockImplementationOnce(async (_p: unknown, cair: () => void) => {
+      aoCair = cair;
+      return { faixa: faixaSom, parar };
+    });
+    expect(await voz.transmitir('720p30', 'porta')).toBe(true);
+    expect(sala.localParticipant.publishTrack).toHaveBeenLastCalledWith(faixaSom, expect.objectContaining({ source: 'screen_share_audio', name: 'tela-audio' }));
     expect(o.aoAviso).not.toHaveBeenCalled();
+    // RN-4: a captura caiu no meio → para o som, a tela segue, aviso.
+    aoCair();
+    expect(parar).toHaveBeenCalled();
+    expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível capturar o som do sistema; a transmissão continua sem ele.');
+    await voz.pararTela();
+
+    // RN-4: a porta não chegou → só a tela, com o aviso.
+    o.aoAviso.mockClear();
+    somExterno.tomarPortaSom.mockResolvedValueOnce(undefined);
+    expect(await voz.transmitir('720p30', 'porta')).toBe(true);
+    expect(o.aoAviso).toHaveBeenLastCalledWith('Não foi possível capturar o som do sistema; a transmissão continua sem ele.');
   });
 
   it('RF-31: avisa enquanto a mídia reconecta', async () => {
