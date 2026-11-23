@@ -33,9 +33,9 @@
         "CA-16"
       ],
       "validacao": "vitest server com FCM falso: corpo {v,k} de tamanho fixo, agrupamento, UNREGISTERED apaga, sair/redefinir/remover apagam o registro, resumo amarrado à sessão e de uso único, silenciadas sem push.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "a794653"
     },
     {
       "id": "T3",
