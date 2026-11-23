@@ -43,6 +43,7 @@ import { salaLivekit } from '@tofalando/shared';
 import { criarVoz, type RemoverDaMidia, type Voz } from './voz.js';
 import { criarPush, type Push } from '../dominio/push.js';
 import { criarTransporteFcm, lerContaServico } from '../dominio/fcm.js';
+import { criarChamar } from './chamar.js';
 import { criarSoundboard } from './soundboard.js';
 import { salaComunidade } from './salas.js';
 import { conhecidosDe, registrarEventosAmizades } from './amizades.js';
@@ -326,6 +327,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     conectada: (h) => [...io.of('/').sockets.values()].some((s) => s.data.tokenHash === h),
     registrarErro: (e) => app.log.error(e),
   });
+  const chamar = criarChamar(io, banco, voz, (id) => escolhas.get(id), push, (e) => app.log.error(e));
   const musica = criarMusica(io, config, voz, (e) => app.log.error(e), banco);
 
   io.use((socket, next) => {
@@ -412,6 +414,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
     soundboard.registrar(socket);
+    chamar.registrar(socket);
     musica.registrar(socket);
     tela.registrar(socket);
     registrarEventosMensagens(io, socket, banco, armazem, (e) => app.log.error(e), config.gif, push);

@@ -837,6 +837,8 @@ export interface EventosServidor {
   'servidor:atualizado': (s: { nome: string; iconeUrl: string | null; afk?: AfkDto | null }) => void;
   /** mover-e-afk: alguém moveu você para outra sala (troque de sala) ou desconectou você da chamada. */
   'voz:movido': (payload: { canalVozId: number; canalNome: string; porNome: string }) => void;
+  /** celular (RN-11): alguém na voz está me chamando para a sala dele. */
+  'voz:chamado': (payload: { porId: number; porNome: string; canalVozId: number; canalNome: string }) => void;
   'voz:desconectado': (payload: { porNome: string }) => void;
   'tela:parada': (payload: { canalVozId: number; usuarioId: number }) => void;
   /** Quem assiste a transmissão do canal mudou. */
@@ -888,6 +890,8 @@ export interface EventosCliente {
   'voz:estado': (dados: VozEstadoPedido, ack: Ack) => void;
   /** mover-e-afk: mover quem está em chamada (só com "Mover membros") e desconectar da chamada. */
   'voz:mover': (dados: { usuarioId: number; canalVozId: number }, ack: Ack) => void;
+  /** celular (RN-11): chama alguém do servidor para a sala de voz em que estou. */
+  'voz:chamar': (dados: { usuarioId: number }, ack: Ack) => void;
   'voz:desconectar': (dados: { usuarioId: number }, ack: Ack) => void;
   /** RF-23: toca um som para o canal de voz em que estou (RN-12, RN-13). */
   /** Um som do servidor (`somId`) ou um áudio comprado na loja (`audioId`). */
