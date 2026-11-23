@@ -18,7 +18,11 @@ export function deveNotificar(conversaAberta: boolean, janelaFocada: boolean): b
 
 const testesDiscretos = process.env.TOFALANDO_E2E === '1' && !app.isPackaged;
 
-export function criarNotificacoes(obterJanela: () => BrowserWindow | undefined) {
+/**
+ * `somDoSistemaAtivo`: som do sistema sendo capturado para uma transmissão (som-sistema-windows, RN-8). O som da
+ * notificação é tocado pelo sistema, fora do app, e entraria na transmissão: enquanto isso, ela sai sem som.
+ */
+export function criarNotificacoes(obterJanela: () => BrowserWindow | undefined, somDoSistemaAtivo: () => boolean = () => false) {
   /** Referência viva até o clique ou o fechamento: sem ela o objeto é recolhido e o clique não chega (Windows). */
   const vivas = new Set<Notification>();
   return {
@@ -27,7 +31,7 @@ export function criarNotificacoes(obterJanela: () => BrowserWindow | undefined) 
       if (!deveNotificar(p.conversaAberta, !!janela?.isFocused())) return false;
       if (!Notification.isSupported()) return false;
       // Testes E2E: sem o som do sistema (quem toca é o desktop, fora da saída de áudio falsa dos testes).
-      const silencioso = p.silencioso === true || testesDiscretos;
+      const silencioso = p.silencioso === true || testesDiscretos || somDoSistemaAtivo();
       const n = new Notification({ title: p.titulo.slice(0, 120), body: p.corpo.slice(0, 200), silent: silencioso });
       vivas.add(n);
       n.on('close', () => vivas.delete(n));

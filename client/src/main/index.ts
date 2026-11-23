@@ -317,7 +317,7 @@ if (links.principal) {
       e.returnValue = process.env.TOFALANDO_MIDIA_FALSA === '1' && !app.isPackaged;
     });
     // As janelas próprias ficam fora da lista de janelas para transmitir (A7); só a página do app captura (A3).
-    registrarCaptura(undefined, undefined, () => janelasProprias?.idsDeCaptura() ?? [], daPaginaDoApp);
+    const captura = registrarCaptura(undefined, undefined, () => janelasProprias?.idsDeCaptura() ?? [], daPaginaDoApp);
     // A5: um monitor saiu — janela própria que ficou fora volta para o monitor da principal.
     screen.on('display-removed', () => {
       if (!janelaPrincipal || janelaPrincipal.isDestroyed()) return;
@@ -338,7 +338,7 @@ if (links.principal) {
         () => janelaPrincipal,
         () => configuracoes.ler().servidorUrl,
       ),
-      criarNotificacoes(() => janelaPrincipal),
+      criarNotificacoes(() => janelaPrincipal, () => captura.somAtivo()),
       (c) => {
         atalhos.definir(c.atalhos);
         // Ligou ou desligou a atividade: confere na hora (desligar apaga o que aparecia). Só quando ela mudou: o volume
