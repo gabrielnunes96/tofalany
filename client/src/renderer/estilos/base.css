@@ -1430,3 +1430,8 @@ body.janela-propria { margin: 0; min-height: 100vh; background: var(--cor-video)
   50% { box-shadow: 0 0 26px 4px rgba(245, 179, 1, 0.95); }
 }
 @media (prefers-reduced-motion: reduce) { .loja-audio.raridade-lendario, .meus-sons .raridade-lendario { animation: none; } }
+
+/* celular (RN-11): chamado para a voz recebido. */
+.aviso-chamado { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; padding: 8px 10px; border: 1px solid var(--cor-acento); border-radius: var(--raio-g); background: var(--cor-acento-suave); }
+.aviso-chamado span { flex: 1 1 100%; }
+.aviso-chamado button { margin: 0; }

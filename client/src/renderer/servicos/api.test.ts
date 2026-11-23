@@ -86,3 +86,12 @@ describe('criarApi', () => {
     await expect(criarApi('http://s', 't', () => resposta(undefined, 204)).configGif()).resolves.toBeUndefined();
   });
 });
+
+describe('nome do aparelho (celular RN-12)', () => {
+  it('só o tipo de aparelho, sem nada da pessoa', async () => {
+    const { nomeDoAparelho } = await import('./api');
+    expect(nomeDoAparelho('Mozilla/5.0 (Linux; Android 14)')).toBe('Celular Android');
+    expect(nomeDoAparelho('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe('Computador (Windows)');
+    expect(nomeDoAparelho('Mozilla/5.0 (X11; Linux x86_64)')).toBe('Computador (Linux)');
+  });
+});

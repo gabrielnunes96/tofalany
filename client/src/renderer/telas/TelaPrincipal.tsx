@@ -96,6 +96,7 @@ import { TelaSons } from './TelaSons';
 import { TelaLoja } from './TelaLoja';
 import { TelaToOuvini } from './TelaToOuvini';
 import { TelaAudiosLoja } from './TelaAudiosLoja';
+import { AparelhosConectados } from '../componentes/AparelhosConectados';
 import { TelaConfiguracoes, type SecaoConfig } from './TelaConfiguracoes';
 import { SegurancaConta } from '../componentes/SegurancaConta';
 import { NotasDasVersoes } from '../componentes/JanelaNovidades';
@@ -652,7 +653,24 @@ function TelaDoServidor({
     void ponte()
       .config.gravar({ notificacoes: { ...novo, silenciadas: { [servidorUrl]: novo.silenciadas[servidorUrl] ?? [] } } })
       .catch(() => undefined);
+    enviarPreferenciasAviso(novo);
   }
+  /**
+   * celular (RN-1 v2): o que avisa por push fica no servidor (o celular com o app fechado depende disso): mensagens,
+   * chamados e as conversas silenciadas dos servidores desta instalação.
+   */
+  function enviarPreferenciasAviso(n: PreferenciasNotificacoes) {
+    const base = separarComunidade(servidorUrl).base;
+    const silenciadas = Object.entries(n.silenciadas)
+      .filter(([url]) => separarComunidade(url).base === base)
+      .flatMap(([, lista]) => lista);
+    void api.gravarPreferenciasAviso?.({ mensagens: n.mensagens, chamados: n.chamados !== false, silenciadas }).catch(() => undefined);
+  }
+  // Ao abrir: o servidor fica com as preferências deste aparelho (as de antes desta versão também valem para o push).
+  const enviarPreferenciasAoAbrir = useEffectEvent(() => enviarPreferenciasAviso(notifRef.current));
+  useEffect(() => {
+    if (recursos.push) enviarPreferenciasAoAbrir();
+  }, [recursos.push]);
   const silenciadasAqui = notif.silenciadas[servidorUrl] ?? [];
   const silenciarConversa = (chave: string, sim: boolean) => {
     const atuais = (notifRef.current.silenciadas[servidorUrl] ?? []).filter((c) => c !== chave);
@@ -765,6 +783,8 @@ function TelaDoServidor({
   const ultimaFalaRef = useRef(Date.now());
   // RF-26/RF-30: transmissão de tela — seletor, telas dos outros chegando.
   const [seletorTela, setSeletorTela] = useState(false);
+  /** celular (RN-11): chamado para a voz recebido (com o botão de entrar). */
+  const [chamado, setChamado] = useState<{ porId: number; porNome: string; canalVozId: number; canalNome: string } | null>(null);
   // som-sistema-windows: a porta com o som do sistema chega pela própria janela, logo depois da escolha.
   useEffect(() => escutarPortaSom(), []);
   const [iniciandoTela, setIniciandoTela] = useState(false);
@@ -1131,6 +1151,15 @@ function TelaDoServidor({
         });
       },
       // mover-e-afk (RF-3): alguém moveu você — o app troca de sala sozinho (o servidor confere tudo antes).
+      // celular (RN-11): alguém na voz me chamou: aviso com "Entrar" e, se a janela não estiver à vista, notificação.
+      aoVozChamado: (p) => {
+        if (minhaVozRef.current === p.canalVozId) return;
+        setChamado(p);
+        if (notifRef.current.chamados === false) return;
+        void ponte()
+          .notificacoes.mostrar({ titulo: `${p.porNome} está te chamando`, corpo: `Sala ${p.canalNome}`, chave: `u:${p.porId}`, conversaAberta: false })
+          .catch(() => undefined);
+      },
       aoVozMovido: ({ canalVozId, canalNome, porNome }) => {
         if (minhaVozRef.current === null && entrandoRef.current === null) return;
         const aviso = `${porNome} moveu você para ${canalNome}.`;
@@ -1680,6 +1709,17 @@ function TelaDoServidor({
     }
   }
 
+  /** celular (RN-11): posso chamar esta pessoa (estou na voz deste servidor e ela não está na minha sala). */
+  const podeChamar = (alvoId: number) =>
+    !!recursos.chamar && minhaVoz !== null && alvoId !== usuario.id && usuarios.some((u) => u.id === alvoId) && voz.find((e) => e.usuarioId === alvoId)?.canalVozId !== minhaVoz;
+  const chamarParaVoz = (alvoId: number) => {
+    const nome = usuarios.find((u) => u.id === alvoId)?.nomeExibicao ?? 'a pessoa';
+    void pedir(
+      (c) => c.pedir('voz:chamar', { usuarioId: alvoId }),
+      () => setAvisoVoz(`Chamado enviado para ${nome}.`),
+    ).then((falha) => falha && setAvisoVoz(falha));
+  };
+
   const tocarSom = (somId: number) =>
     pedir(
       (c) => c.pedir('som:tocar', { somId }),
@@ -1885,6 +1925,7 @@ function TelaDoServidor({
           aoFechar={fecharMenuPessoa}
           atividade={textosAtividade(atividades[menuPessoa.usuarioId])}
           convite={conviteDe(menuPessoa.usuarioId)}
+          aoChamar={podeChamar(menuPessoa.usuarioId) ? () => chamarParaVoz(menuPessoa.usuarioId) : undefined}
           mover={(() => {
             // mover-e-afk (RF-2): a pessoa está em chamada aqui e eu posso movê-la (o servidor confere de novo).
             const alvo = usuarios.find((u) => u.id === menuPessoa.usuarioId);
@@ -2107,6 +2148,26 @@ function TelaDoServidor({
                 <p className="aviso-ok" role="alert">
                   {avisoVoz}
                 </p>
+              )}
+              {chamado && (
+                <div className="aviso-chamado" role="alert">
+                  <span>
+                    <strong>{chamado.porNome}</strong> está te chamando na sala <strong>{chamado.canalNome}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const c = chamado;
+                      setChamado(null);
+                      void entrarVoz(c.canalVozId);
+                    }}
+                  >
+                    Entrar
+                  </button>
+                  <button type="button" className="secundario" onClick={() => setChamado(null)}>
+                    Agora não
+                  </button>
+                </div>
               )}
               {/* Região viva sempre montada: o leitor de tela anuncia quando o texto muda. */}
               <p className={`aviso-som${avisoSom ? '' : ' vazio'}`} aria-live="polite" aria-atomic="true">
@@ -2421,6 +2482,10 @@ function TelaDoServidor({
                     aoDigitar={(dmId) => conexaoRef.current?.avisarDigitando({ dmId })}
                     silenciada={silenciadasAqui.includes(`d:${dmAtiva}`)}
                     aoSilenciar={(sim) => silenciarConversa(`d:${dmAtiva}`, sim)}
+                    aoChamar={(() => {
+                      const outro = dms.find((d) => d.id === dmAtiva)?.outroId;
+                      return outro !== undefined && podeChamar(outro) ? () => chamarParaVoz(outro) : undefined;
+                    })()}
                   />
                 ) : (
                   <CanalAberto
@@ -2494,6 +2559,7 @@ function TelaDoServidor({
                   <>
                     <TelaPerfil usuario={usuario} servidorUrl={servidorUrl} api={api} aoAtualizar={acoes.atualizarUsuario} />
                     <SegurancaConta api={api} copiar={(t) => ponte().areaTransferencia.copiar(t)} />
+                    {api.sessoes && api.desconectarSessao && <AparelhosConectados api={{ sessoes: api.sessoes, desconectarSessao: api.desconectarSessao }} />}
                   </>
                 }
                 novidades={

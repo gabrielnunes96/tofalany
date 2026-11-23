@@ -1,5 +1,7 @@
 import type {
   AfkDto,
+  PreferenciasAvisoDto,
+  SessaoAparelhoDto,
   AudioLojaAdminDto,
   AudioLojaDto,
   RaridadeAudio,
@@ -139,6 +141,11 @@ export interface ClienteApi {
   loja(): Promise<CatalogoLojaDto>;
   comprarNaLoja(item: ItemLoja): Promise<LojaEstadoDto>;
   extratoLoja(antes?: number): Promise<{ movimentos: MovimentoDto[] }>;
+  /** celular (RN-12): aparelhos conectados da conta. */
+  sessoes?(): Promise<SessaoAparelhoDto[]>;
+  desconectarSessao?(id: string): Promise<void>;
+  /** celular (RN-1 v2): o que avisa por push (fica no servidor). */
+  gravarPreferenciasAviso?(p: PreferenciasAvisoDto): Promise<PreferenciasAvisoDto>;
   /** audios-na-loja (administrador da instalação, pelo principal): áudios da loja. */
   audiosLojaAdmin?(): Promise<AudioLojaAdminDto[]>;
   cadastrarAudioLoja?(nome: string, raridade: RaridadeAudio, arquivo: Blob, nomeArquivo: string): Promise<AudioLojaDto>;
@@ -163,6 +170,14 @@ function consulta(filtro: object): string {
   for (const [chave, valor] of Object.entries(filtro)) if (valor !== undefined && valor !== '') p.set(chave, String(valor));
   const texto = p.toString();
   return texto ? `?${texto}` : '';
+}
+
+/** celular (RN-12): nome do aparelho em "Aparelhos conectados" (sem nada que identifique a pessoa). */
+export function nomeDoAparelho(agente: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): string {
+  if (/Android/i.test(agente)) return 'Celular Android';
+  if (/Windows/i.test(agente)) return 'Computador (Windows)';
+  if (/Linux/i.test(agente)) return 'Computador (Linux)';
+  return 'Computador';
 }
 
 export function criarApi(servidorUrl: string, token: string | null = null, buscar: Buscar = fetch): ClienteApi {
@@ -207,8 +222,8 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
   }
 
   return {
-    cadastrar: (dados) => chamar('POST', '/api/auth/cadastro', dados),
-    entrar: (dados) => chamar('POST', '/api/auth/login', dados),
+    cadastrar: (dados) => chamar('POST', '/api/auth/cadastro', { ...dados, aparelho: dados.aparelho ?? nomeDoAparelho() }),
+    entrar: (dados) => chamar('POST', '/api/auth/login', { ...dados, aparelho: dados.aparelho ?? nomeDoAparelho() }),
     sair: () => chamar('POST', '/api/auth/sair'),
     eu: () => chamar('GET', '/api/eu'),
     naoLidas: () => chamar('GET', '/api/nao-lidas'),
@@ -276,6 +291,9 @@ export function criarApi(servidorUrl: string, token: string | null = null, busca
     loja: () => chamar('GET', '/api/loja'),
     comprarNaLoja: (item) => chamar('POST', '/api/loja/comprar', item),
     extratoLoja: (antes) => chamar('GET', `/api/loja/extrato${consulta({ antes })}`),
+    sessoes: () => chamar('GET', '/api/sessoes'),
+    desconectarSessao: (id) => chamar('DELETE', `/api/sessoes/${encodeURIComponent(id)}`),
+    gravarPreferenciasAviso: (p) => chamar('PUT', '/api/conta/preferencias-aviso', p),
     audiosLojaAdmin: () => chamar('GET', '/api/admin/loja/audios'),
     cadastrarAudioLoja: (nome, raridade, arquivo, nomeArquivo) => {
       const form = new FormData();

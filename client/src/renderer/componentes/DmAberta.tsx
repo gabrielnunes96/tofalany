@@ -32,6 +32,8 @@ interface Props {
   /** RF-40: notificações desta conversa silenciadas. */
   silenciada?: boolean;
   aoSilenciar?: (sim: boolean) => void;
+  /** celular (RN-11): estou na voz — chamar a outra pessoa para a minha sala. */
+  aoChamar?: () => void;
 }
 
 /** RF-12a: conversa direta. Só as duas pessoas veem; nem administrador apaga mensagem alheia aqui (RN-18). */
@@ -51,6 +53,7 @@ export function DmAberta({
   aoFixarMensagem,
   silenciada = false,
   aoSilenciar,
+  aoChamar,
   extras,
   antes,
 }: Props) {
@@ -79,6 +82,11 @@ export function DmAberta({
           )}
         </h2>
         <span className="suave">Conversa direta · só vocês dois veem</span>
+        {aoChamar && (
+          <button type="button" className="secundario" onClick={aoChamar}>
+            Chamar para a voz
+          </button>
+        )}
         {aoSilenciar && <BotaoSilenciarConversa silenciada={silenciada} nome={nome} aoSilenciar={aoSilenciar} />}
         {extras}
       </header>

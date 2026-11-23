@@ -41,6 +41,11 @@ describe('conectarTempoReal', () => {
     Object.assign(ouvintes, { aoLoja });
     s.disparar('loja:estado', { saldo: 42, temas: [], vales: [], tudoLiberado: false });
     expect(aoLoja).toHaveBeenCalledWith({ saldo: 42, temas: [], vales: [], tudoLiberado: false });
+    // celular: chamado para a voz.
+    const aoVozChamado = vi.fn();
+    Object.assign(ouvintes, { aoVozChamado });
+    s.disparar('voz:chamado', { porId: 2, porNome: 'ana', canalVozId: 5, canalNome: 'Papo' });
+    expect(aoVozChamado).toHaveBeenCalledWith({ porId: 2, porNome: 'ana', canalVozId: 5, canalNome: 'Papo' });
     // audios-na-loja: Meus sons e áudio tocado.
     const aoAudiosLoja = vi.fn();
     const aoAudioTocado = vi.fn();

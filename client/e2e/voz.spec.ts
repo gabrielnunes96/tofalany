@@ -287,6 +287,26 @@ test('mover-e-afk CA-2, CA-3, CA-6, CA-9, CA-12: mover pelo menu e arrastando, d
   await ana.app.close();
 });
 
+test('celular CA-14: quem está na voz chama alguém pelo menu da pessoa; ela entra pelo aviso', async () => {
+  test.setTimeout(90_000);
+  const dono = await entrar('dono', true);
+  await servidor.inject({ method: 'POST', url: '/api/auth/cadastro', payload: { convite: CONVITE, usuario: 'ana', senha: 'Senha-forte-1' } });
+  const ana = await entrar('ana', false);
+  await dono.janela.getByRole('button', { name: 'Criar canal de voz' }).click();
+  await dono.janela.getByLabel('Nome do novo canal de voz').fill('Papo');
+  await dono.janela.getByRole('button', { name: 'Criar', exact: true }).click();
+  await dono.janela.getByRole('button', { name: 'Entrar no canal de voz Papo' }).click();
+  await expect(dono.janela.getByRole('region', { name: 'Conexão de voz' })).toContainText('Voz conectada', { timeout: 15_000 });
+  await dono.janela.getByRole('list', { name: 'Membros' }).getByRole('listitem', { name: /^ana/ }).click({ button: 'right' });
+  await dono.janela.getByRole('menuitem', { name: 'Chamar para a voz' }).click();
+  const aviso = ana.janela.locator('.aviso-chamado');
+  await expect(aviso).toContainText('dono está te chamando na sala Papo', { timeout: 10_000 });
+  await aviso.getByRole('button', { name: 'Entrar' }).click();
+  await expect(ana.janela.getByRole('button', { name: 'Papo, você está aqui' })).toBeVisible({ timeout: 15_000 });
+  await dono.app.close();
+  await ana.app.close();
+});
+
 test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na chamada e escolhas guardadas', async () => {
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);

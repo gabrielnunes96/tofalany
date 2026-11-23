@@ -407,6 +407,8 @@ export interface PreferenciasNotificacoes {
   entradaSaidaAviso: boolean;
   /** RF-40: conversas silenciadas ("c:<id>"/"d:<id>") por servidor. */
   silenciadas: Record<string, string[]>;
+  /** celular (RN-11): avisar quando alguém me chama para a voz (sem valor: sim). */
+  chamados?: boolean;
 }
 
 export const NOTIFICACOES_PADRAO: PreferenciasNotificacoes = { mensagens: true, entradaSaidaSom: true, entradaSaidaAviso: true, silenciadas: {} };

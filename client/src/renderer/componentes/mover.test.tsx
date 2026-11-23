@@ -93,6 +93,14 @@ describe('menu da pessoa', () => {
     expect(screen.queryByRole('menuitem', { name: 'Mover para…' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Desconectar da chamada' })).toBeNull();
   });
+  it('celular CA-14: "Chamar para a voz" aparece só quando dá para chamar e chama', () => {
+    const aoChamar = vi.fn();
+    const { rerender } = render(<MenuPessoa {...comum} />);
+    expect(screen.queryByRole('menuitem', { name: 'Chamar para a voz' })).toBeNull();
+    rerender(<MenuPessoa {...comum} aoChamar={aoChamar} />);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Chamar para a voz' }));
+    expect(aoChamar).toHaveBeenCalled();
+  });
   it('CA-3/CA-6: "Mover para…" lista as salas e move; "Desconectar da chamada" desconecta', () => {
     const aoMover = vi.fn();
     const aoDesconectar = vi.fn();

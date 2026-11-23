@@ -25,6 +25,7 @@ export function MenuPessoa({
   aoFechar,
   moderacao,
   mover,
+  aoChamar,
   atividade = [],
   convite,
 }: {
@@ -51,6 +52,8 @@ export function MenuPessoa({
   moderacao?: { castigoAte: number | null; aoAbrir: (tipo: 'castigo' | 'expulsar' | 'banir') => void; aoTirarCastigo: () => void };
   /** mover-e-afk (RF-2): a pessoa está em chamada e eu posso movê-la (as salas de voz, sem a atual). */
   mover?: { salas: { id: number; nome: string }[]; aoMover: (canalVozId: number) => void; aoDesconectar: () => void };
+  /** celular (RN-11): estou na voz e a pessoa não está na minha sala — chamar para ela. */
+  aoChamar?: () => void;
 }) {
   const [escolhendoSala, setEscolhendoSala] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
@@ -138,6 +141,11 @@ export function MenuPessoa({
           {amizade === 'amigo' && (
             <button type="button" role="menuitem" className="perigo-texto" onClick={fazer(aoRemoverAmizade)}>
               Desfazer amizade
+            </button>
+          )}
+          {aoChamar && (
+            <button type="button" role="menuitem" onClick={fazer(aoChamar)}>
+              Chamar para a voz
             </button>
           )}
           {mover && (

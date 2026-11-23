@@ -567,6 +567,10 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
                 <input type="checkbox" checked={notificacoes.entradaSaidaAviso} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, entradaSaidaAviso: e.target.checked })} />{' '}
                 Notificação quando alguém entra ou sai do servidor
               </label>
+              <label>
+                <input type="checkbox" checked={notificacoes.chamados !== false} onChange={(e) => aoMudarNotificacoes({ ...notificacoes, chamados: e.target.checked })} /> Avisar
+                quando alguém me chamar para a voz
+              </label>
               <p className="suave">Desligar não zera os contadores de não lidas. Para silenciar um canal ou conversa, use o sino <Icone nome="sino" tamanho={14} /> no topo dela.</p>
             </fieldset>
           )}

@@ -57,7 +57,7 @@ interface Loja {
   /** chat-fixar-e-buscar: ir até esta mensagem quando a conversa dela estiver aberta. */
   irAte: { chave: Chave; id: number } | null;
   /** chat-fixar-e-buscar: o que o servidor oferece (servidor antigo: nada). */
-  recursos: { fixar?: boolean; busca?: boolean };
+  recursos: NonNullable<OlaPayload['recursos']>;
   /** Fixadas de cada conversa já aberta (da mais nova para a mais antiga). */
   fixadas: Partial<Record<Chave, FixadaDto[]>>;
   /** Mensagens não lidas por conversa (RF-12). */
@@ -188,7 +188,7 @@ const inicial = {
   dmAtiva: null as number | null,
   historicos: {} as Partial<Record<Chave, Historico>>,
   irAte: null as { chave: Chave; id: number } | null,
-  recursos: {} as { fixar?: boolean; busca?: boolean },
+  recursos: {} as NonNullable<OlaPayload['recursos']>,
   fixadas: {} as Partial<Record<Chave, FixadaDto[]>>,
   naoLidas: {} as Partial<Record<Chave, number>>,
   naoLidasIds: {} as Partial<Record<Chave, number[]>>,
