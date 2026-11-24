@@ -28,17 +28,37 @@ export interface DependenciasConfiguracoes {
   tocarRetorno?(faixa: MediaStreamTrack, saidaId: string | null): () => void;
 }
 
-/** Retorno do teste: um elemento de áudio com a faixa do microfone, na saída escolhida. */
+/**
+ * Retorno do teste: a faixa do microfone (já tratada) tocada na saída escolhida.
+ * teste-de-microfone (item 53): por um AudioContext próprio, não por um <audio> com a faixa (esse caminho é o mesmo do
+ * áudio da chamada, e dentro de uma sala a pessoa não se ouvia).
+ */
 function tocarRetorno(faixa: MediaStreamTrack, saidaId: string | null) {
-  const el = new Audio();
-  el.srcObject = new MediaStream([faixa]);
-  const tocar = () => void el.play().catch(() => undefined);
-  const comSaida = el as HTMLAudioElement & { setSinkId?(id: string): Promise<void> };
-  if (saidaId && comSaida.setSinkId) void comSaida.setSinkId(saidaId).catch(() => undefined).then(tocar);
-  else tocar();
+  const ctx = new AudioContext({ latencyHint: 'interactive' });
+  const fonte = ctx.createMediaStreamSource(new MediaStream([faixa]));
+  const analisador = ctx.createAnalyser();
+  fonte.connect(ctx.destination);
+  fonte.connect(analisador);
+  const comSaida = ctx as AudioContext & { setSinkId?(id: string): Promise<void> };
+  if (saidaId && comSaida.setSinkId) void comSaida.setSinkId(saidaId).catch(() => undefined);
+  void ctx.resume().catch(() => undefined);
+  // Para o E2E conferir que o retorno toca com som (CA-3, CA-4).
+  const dados = new Float32Array(analisador.fftSize);
+  const sonda = {
+    tocando: () => ctx.state === 'running',
+    picoDb: () => {
+      analisador.getFloatTimeDomainData(dados);
+      let pico = 0;
+      for (const v of dados) pico = Math.max(pico, Math.abs(v));
+      return pico > 0 ? 20 * Math.log10(pico) : -200;
+    },
+  };
+  (globalThis as { __retornoTeste?: typeof sonda }).__retornoTeste = sonda;
   return () => {
-    el.pause();
-    el.srcObject = null;
+    fonte.disconnect();
+    void ctx.close().catch(() => undefined);
+    const g = globalThis as { __retornoTeste?: typeof sonda };
+    if (g.__retornoTeste === sonda) delete g.__retornoTeste;
   };
 }
 

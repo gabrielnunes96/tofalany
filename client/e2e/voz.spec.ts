@@ -307,6 +307,20 @@ test('celular CA-14: quem está na voz chama alguém pelo menu da pessoa; ela en
   await ana.app.close();
 });
 
+/** Nível (dBFS, pico em ~1 s) do que o retorno do teste de microfone está tocando; -200 se não toca. */
+async function nivelDoRetorno(j: Page): Promise<number> {
+  return j.evaluate(async () => {
+    const sonda = (globalThis as { __retornoTeste?: { tocando(): boolean; picoDb(): number } }).__retornoTeste;
+    if (!sonda?.tocando()) return -200;
+    let pico = -200;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      pico = Math.max(pico, sonda.picoDb());
+    }
+    return pico;
+  });
+}
+
 test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na chamada e escolhas guardadas', async () => {
   test.setTimeout(120_000);
   const dono = await entrar('dono', true);
@@ -322,6 +336,8 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   await expect(j.getByRole('status').filter({ hasText: 'Supressão de ruído' })).toContainText('forte (RNNoise)', { timeout: 10_000 });
   const medidor = j.getByRole('meter', { name: 'Nível do microfone' });
   await expect.poll(async () => Number(await medidor.getAttribute('aria-valuenow')), { timeout: 10_000 }).toBeGreaterThan(-90);
+  // teste-de-microfone (CA-3): fora da sala, o retorno toca com som.
+  await expect.poll(() => nivelDoRetorno(j), { timeout: 10_000 }).toBeGreaterThan(-90);
   await print(j, 'T15-configuracoes-teste-microfone');
   await j.getByRole('button', { name: 'Parar teste' }).click();
   await fecharConfig(j);
@@ -342,6 +358,9 @@ test('CA-25, CA-28, CA-30: teste de microfone com RNNoise, troca de microfone na
   await expect(status).toBeVisible({ timeout: 10_000 });
   await expect(j.getByRole('button', { name: 'Mutar microfone' })).toHaveAttribute('aria-pressed', 'true');
   await expect(j.getByRole('button', { name: 'Desligar áudio' })).toHaveAttribute('aria-pressed', 'true');
+  // teste-de-microfone (item 53, CA-4): dentro da sala, o microfone do teste tem sinal e o retorno toca com som.
+  await expect.poll(async () => Number(await medidor.getAttribute('aria-valuenow')), { timeout: 10_000 }).toBeGreaterThan(-90);
+  await expect.poll(() => nivelDoRetorno(j), { timeout: 10_000 }).toBeGreaterThan(-90);
   const emUso = await status.getAttribute('data-dispositivo');
   const entradas = await j.getByLabel('Microfone', { exact: true }).locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
   const escolhida = entradas.find((id) => id !== emUso);
