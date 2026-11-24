@@ -20,7 +20,7 @@ import { avisarAtualizacaoPronta } from './espera-atualizacao';
 import { caminhoIcone, criarBandeja } from './bandeja';
 import { criarJanelasProprias, decidirAbertura, limitesSeguros, opcoesDaJanela } from './janelas-proprias';
 import { preferenciasDoEmpacotado, prepararMenu } from './endurecimento';
-import { ATIVIDADE_PADRAO, normalizarUrlServidor } from '@tofalando/shared';
+import { ATALHOS_SONS_PADRAO, ATIVIDADE_PADRAO, combosSons, normalizarUrlServidor } from '@tofalando/shared';
 
 // Testes E2E isolam as configurações numa pasta própria (só fora do app empacotado).
 // Vem antes da trava de instância única, que é por pasta de dados.
@@ -273,8 +273,12 @@ if (links.principal) {
       },
       undefined,
       (erro) => console.error('Atalhos globais indisponíveis:', erro),
+      (chave) => {
+        if (janelaPrincipal && !janelaPrincipal.isDestroyed()) janelaPrincipal.webContents.send('atalhos:som', chave);
+      },
     );
     atalhos.definir(configuracoes.ler().atalhos);
+    atalhos.definirSons(combosSons(configuracoes.ler().atalhosSons ?? ATALHOS_SONS_PADRAO));
     // Backlog v2, 1d: confere as releases do GitHub e avisa a janela (só no app empacotado).
     // Log do app (tofalany.log na pasta de logs): falhas da atividade e da atualização, sem nomes de processo nem músicas.
     const registrar = criarRegistro(app.getPath('logs'));
@@ -347,6 +351,7 @@ if (links.principal) {
       criarNotificacoes(() => janelaPrincipal, () => captura.somAtivo()),
       (c) => {
         atalhos.definir(c.atalhos);
+        atalhos.definirSons(combosSons(c.atalhosSons ?? ATALHOS_SONS_PADRAO));
         // Ligou ou desligou a atividade: confere na hora (desligar apaga o que aparecia). Só quando ela mudou: o volume
         // ou o tema gravados em rajada não disparam leituras.
         const prefsAtividade = JSON.stringify(c.atividade ?? ATIVIDADE_PADRAO);

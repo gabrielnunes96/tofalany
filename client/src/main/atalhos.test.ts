@@ -90,4 +90,22 @@ describe('atalhos globais (RF-15)', () => {
     await semX.pronto();
     expect(aoFalhar).toHaveBeenCalledTimes(2);
   });
+
+  it('atalhos-de-sons (CA-2): combinação de som manda a chave no aperto, sem repetir ao segurar; o sem modificador certo não', async () => {
+    const { carregar } = ganchoFalso();
+    const enviar = vi.fn();
+    const enviarSom = vi.fn();
+    const atalhos = criarAtalhos(enviar, carregar, undefined, enviarSom);
+    atalhos.definirSons([{ codigo: 'F1', ctrl: false, alt: false, shift: false, meta: false }, { codigo: 'F2', ctrl: true, alt: false, shift: false, meta: false }]);
+    await atalhos.pronto();
+    expect(carregar).toHaveBeenCalled();
+    atalhos.tratarCodigo('down', 'F1');
+    atalhos.tratarCodigo('down', 'F1');
+    atalhos.tratarCodigo('up', 'F1');
+    atalhos.tratarCodigo('down', 'F1');
+    atalhos.tratarCodigo('down', 'F2');
+    atalhos.tratarCodigo('down', 'F2', { ctrl: true });
+    expect(enviarSom.mock.calls).toEqual([['F1'], ['F1'], ['Ctrl+F2']]);
+    expect(enviar).not.toHaveBeenCalled();
+  });
 });

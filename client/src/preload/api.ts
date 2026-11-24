@@ -47,6 +47,8 @@ export interface ApiTofalando {
     aoEvento(fn: (e: { acao: AcaoAtalho; pressionado: boolean }) => void): () => void;
     /** Enquanto a tela captura um atalho novo, os globais não disparam. */
     pausar(sim: boolean): Promise<void>;
+    /** atalhos-de-sons: combinação de som apertada (ex.: "F1"); quem resolve o som é a tela na voz. */
+    aoSom?(fn: (chave: string) => void): () => void;
   };
   /** RN-25: o computador ficou ocioso (ou voltou). */
   presenca: {

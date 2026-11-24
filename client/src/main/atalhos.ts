@@ -1,4 +1,4 @@
-import { ACOES_ATALHO, mesmoAtalho, TECLAS_ATALHO, type AcaoAtalho, type Atalhos } from '@tofalando/shared';
+import { ACOES_ATALHO, chaveAtalho, mesmoAtalho, TECLAS_ATALHO, type AcaoAtalho, type Atalho, type Atalhos } from '@tofalando/shared';
 
 /** Aperto ou soltura de um atalho global (RF-15). */
 export interface EventoAtalho {
@@ -48,7 +48,11 @@ export function criarAtalhos(
   enviar: (e: EventoAtalho) => void,
   carregar: () => Promise<ModuloGancho> = carregarUiohook,
   aoFalhar: (e: unknown) => void = () => undefined,
+  /** atalhos-de-sons: uma combinação de som foi apertada (manda a chave, ex.: "Ctrl+F1"; a janela resolve o som). */
+  enviarSom: (chave: string) => void = () => undefined,
 ) {
+  let combosSons: Atalho[] = [];
+  const sonsApertados = new Set<string>();
   let atalhos: Atalhos | undefined;
   let modulo: ModuloGancho | undefined;
   let carregando: Promise<void> | undefined;
@@ -61,6 +65,7 @@ export function criarAtalhos(
   function soltarTudo() {
     for (const acao of pressionados) enviar({ acao, pressionado: false });
     pressionados.clear();
+    sonsApertados.clear();
   }
 
   /** Trata uma tecla pelo KeyboardEvent.code (o gancho nativo traduz; os testes chamam direto). */
@@ -78,6 +83,19 @@ export function criarAtalhos(
       } else if (pressionados.delete(acao)) {
         enviar({ acao, pressionado: false });
       }
+    }
+    // atalhos-de-sons (RF-2): toca no aperto; segurar a tecla não repete.
+    for (const a of combosSons) {
+      if (a.codigo !== codigo) continue;
+      const chave = chaveAtalho(a);
+      if (tipo === 'up') {
+        sonsApertados.delete(chave);
+        continue;
+      }
+      const mods = a.ctrl === !!m.ctrl && a.alt === !!m.alt && a.shift === !!m.shift && a.meta === !!m.meta;
+      if (!mods || sonsApertados.has(chave)) continue;
+      sonsApertados.add(chave);
+      enviarSom(chave);
     }
   }
 
@@ -111,6 +129,12 @@ export function criarAtalhos(
       soltarTudo();
       atalhos = novos;
       if (ACOES_ATALHO.some((a) => novos[a])) ligar();
+    },
+    /** atalhos-de-sons: as combinações dos sons (de todos os servidores). */
+    definirSons(novos: Atalho[]) {
+      combosSons = novos;
+      sonsApertados.clear();
+      if (novos.length > 0) ligar();
     },
     /** Enquanto a tela captura um atalho novo, os globais não disparam. */
     pausar(sim: boolean) {

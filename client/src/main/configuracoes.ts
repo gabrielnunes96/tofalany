@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela,
+import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAtalhosSons, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela,
   mesclarAtividade, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
@@ -26,6 +26,7 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   }
   if ('audio' in obj) resultado.audio = mesclarAudio(base.audio, obj.audio);
   if ('atalhos' in obj) resultado.atalhos = mesclarAtalhos(base.atalhos, obj.atalhos);
+  if ('atalhosSons' in obj) resultado.atalhosSons = mesclarAtalhosSons(obj.atalhosSons);
   if ('pessoas' in obj) resultado.pessoas = mesclarPessoas(base.pessoas, obj.pessoas);
   if ('sons' in obj) resultado.sons = mesclarSons(base.sons, obj.sons);
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);

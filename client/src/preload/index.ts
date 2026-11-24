@@ -53,6 +53,11 @@ const api: ApiTofalando = {
       return () => ipcRenderer.removeListener('atalhos:evento', ouvinte);
     },
     pausar: (sim) => ipcRenderer.invoke('atalhos:pausar', sim),
+    aoSom: (fn) => {
+      const ouvinte = (_e: IpcRendererEvent, chave: string) => fn(chave);
+      ipcRenderer.on('atalhos:som', ouvinte);
+      return () => ipcRenderer.removeListener('atalhos:som', ouvinte);
+    },
   },
   presenca: {
     ausente: () => ipcRenderer.invoke('presenca:ausente'),
