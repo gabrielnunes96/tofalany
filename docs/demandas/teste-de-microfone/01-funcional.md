@@ -1,6 +1,6 @@
 # Correções da voz e da transmissão (AFK, teste de microfone, atualização, espectadores) — especificação funcional
 
-> Demanda: `teste-de-microfone` · Itens 59, 53, 54, 58 e 64 · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
+> Demanda: `teste-de-microfone` · Itens 59, 65, 53, 54, 58 e 64 · Versão 2 · 23/11/2026 · Situação: **aprovada em 23/11/2026** (v2: item 65 incluído a pedido do usuário em 23/11)
 
 ## 1. Objetivo
 Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a pessoa, o teste de microfone que não funciona dentro da sala, a chamada que continua escondida enquanto o app atualiza, e o contador de espectadores que confunde.
@@ -27,6 +27,7 @@ Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a p
 | --- | --- | --- |
 | RN-1 | Ir para a AFK por inatividade nunca tira a pessoa da voz: ela termina na sala de AFK. | Item 59 |
 | RN-2 | A ida para a AFK continua sendo recusada para quem não estava em chamada por aquela conexão. | Segurança (A8 de mover-e-afk) |
+| RN-10 | Entrar numa sala nunca é recusado por a pessoa ter sido tirada dela antes; quem não tem permissão de entrar na voz continua sendo tirado da mídia. | Item 65, usuário 23/11 |
 | RN-3 | Durante o teste de microfone, a pessoa se ouve como os outros vão ouvi-la (com ganho, nivelamento e supressão), pela saída escolhida, esteja ou não numa sala. | Item 53 |
 | RN-4 | Dentro de uma sala, começar o teste muta a pessoa e tira o som da chamada para ela; parar o teste devolve exatamente o estado de antes (se já estava muda, continua muda). | Item 53 |
 | RN-5 | Antes de reiniciar para instalar uma atualização, o app sai da voz (como "Sair da voz"): avisa o servidor e para microfone, câmera e transmissão. Ao abrir a versão nova, não volta sozinho para a sala. | Item 54 |
@@ -39,6 +40,7 @@ Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a p
 | ID | Requisito | Regras |
 | --- | --- | --- |
 | RF-1 | Ida para a AFK que sobrevive à saída da sala antiga. | RN-1, RN-2 |
+| RF-6 | Entrar de novo numa sala da qual se foi tirado há pouco. | RN-10 |
 | RF-2 | Teste de microfone que funciona dentro da sala, com mudo automático e volta ao estado anterior. | RN-3, RN-4 |
 | RF-3 | Sair da voz antes de instalar a atualização. | RN-5 |
 | RF-4 | Remover o contador flutuante; contagem única e lista que cabe na tela. | RN-6, RN-7, RN-8 |
@@ -59,6 +61,8 @@ Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a p
 - **CA-9** (RN-8): Dado a transmissão em tela grande, modo teatro ou tela cheia, quando a pessoa abre a lista do olho perto da borda de baixo, então a lista abre para cima, inteira.
 
 - **CA-10** (RN-9): Dado a prévia de um áudio tocando na loja, quando a pessoa clica em "Pausar", então o som para e o botão volta a "Ouvir"; clicando em "Ouvir" de outro áudio, o anterior para.
+
+- **CA-11** (RN-10): Dado a pessoa tirada da mídia da Sala 1 há 1 minuto, quando ela entra de novo na Sala 1 (conectando à mídia antes de avisar o servidor, como o app faz), então entra e fica; e quem não tem permissão de voz continua sendo tirado.
 
 ## 9. Impacto em consumidores
 Só o app e o servidor. A preferência `contador` some das configurações locais (ignorada se existir).
