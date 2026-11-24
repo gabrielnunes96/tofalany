@@ -9,7 +9,7 @@ import { listarAuditoria } from '../src/dominio/auditoria.js';
 import { lerConfig } from '../src/config.js';
 import { appTeste, cadastrar } from './apoio.js';
 
-const LIVEKIT = { CARENCIA_OFFLINE_MS: '100', LIVEKIT_URL: 'ws://127.0.0.1:7880', LIVEKIT_API_KEY: 'chave-teste', LIVEKIT_API_SECRET: 'segredo-de-teste-com-tamanho-suficiente' };
+const LIVEKIT = { CARENCIA_OFFLINE_MS: '100', PRAZO_MOVER_MS: '100', LIVEKIT_URL: 'ws://127.0.0.1:7880', LIVEKIT_API_KEY: 'chave-teste', LIVEKIT_API_SECRET: 'segredo-de-teste-com-tamanho-suficiente' };
 
 let app: FastifyInstance | undefined;
 const sockets: Socket<EventosServidor, EventosCliente>[] = [];
@@ -240,6 +240,17 @@ describe('webhook do LiveKit', () => {
     await webhook(evento);
     expect(listarVoz()).toEqual([papo.id]);
     expect(listarAuditoria(app!.banco).registros.find((r) => r.tipo === 'voz_saiu')?.detalhes?.motivo).toBe('midia_saiu');
+    // Item 59: participant_left da sala antiga seguido da troca pela mesma conexão (ida para a AFK, mover): a presença
+    // segue, sem sair e entrar de novo.
+    const outra = await criar('voz', 'Outra');
+    const antes = listarAuditoria(app!.banco).registros.filter((r) => r.tipo === 'voz_saiu').length;
+    await webhook({ id: 'EV_2', event: 'participant_left', room: { name: `voz-${papo.id}` }, participant: { identity: '2', sid: 'PA_outro' } });
+    await pedir(b.s, 'voz:estado', voz(outra.id));
+    await new Promise((r) => setTimeout(r, 250));
+    expect(listarVoz()).toEqual([outra.id]);
+    const saidas = listarAuditoria(app!.banco).registros.filter((r) => r.tipo === 'voz_saiu');
+    expect(saidas.length - antes).toBe(1);
+    expect(saidas[0]?.detalhes?.motivo).toBe('trocou_de_canal');
     // R-2: tela publicada fora da regra chega pelo webhook e é conferida (o LiveKit de teste nem existe: só não pode derrubar).
     const tela = { id: 'EV_tela', event: 'track_published', room: { name: `voz-${papo.id}` }, participant: { identity: '2' }, track: { sid: 'TR_1', source: 3, width: 1920, height: 1080 } };
     expect((await webhook(tela)).statusCode).toBe(200);

@@ -56,10 +56,12 @@ interface Presente {
   pendente?: NodeJS.Timeout;
   /** mover-e-afk (A5): muda a cada entrada numa sala; o prazo do mover só tira quem segue na mesma entrada. */
   entrada: number;
+  /**
+   * teste-de-microfone (item 59): a mídia avisou a saída da sala. O app troca de sala saindo da mídia antes de avisar a
+   * troca (ida para a AFK, mover); a presença só sai se nada chegar no prazo.
+   */
+  saidaMidia?: NodeJS.Timeout;
 }
-
-/** Janela em que uma nova entrada com token antigo, depois de uma remoção, é tirada sem esperar o prazo. */
-const JANELA_REINCIDENCIA_MS = 5 * 60_000;
 
 const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -94,8 +96,6 @@ export function criarVoz(
   const presentes = new Map<number, Presente>();
   const prazoMover = opcoes.prazoMoverMs ?? 10_000;
   let entradas = 0;
-  /** A6: remoções recentes por pessoa e sala (quem volta com token antigo depois de tirado é tirado na hora). */
-  const remocoesRecentes = new Map<string, number[]>();
   /** A10: até 5 mover/desconectar a cada 10 s por moderador e 1 a cada 3 s por pessoa movida. */
   const limiteAtor = criarLimitador(5, 10_000);
   const limiteAlvo = criarLimitador(1, 3_000);
@@ -137,6 +137,7 @@ export function criarVoz(
     const p = presentes.get(usuarioId);
     if (!p) return undefined;
     clearTimeout(p.pendente);
+    clearTimeout(p.saidaMidia);
     presentes.delete(usuarioId);
     auditar('voz_saiu', usuarioId, p.estado.canalVozId, motivo, nomeCanal);
     // Quem sai da voz deixa de transmitir (RN-10).
@@ -195,6 +196,8 @@ export function criarVoz(
           if (atual) {
             clearTimeout(atual.pendente);
             atual.pendente = undefined;
+            clearTimeout(atual.saidaMidia);
+            atual.saidaMidia = undefined;
             // Outro computador assumiu: o anterior (ainda conectado) sai da voz e da mídia.
             if (atual.socketId !== socket.id) {
               io.to(atual.socketId).emit('voz:tirado', { motivo: 'outro_computador' });
@@ -310,32 +313,36 @@ export function criarVoz(
       if (p?.estado.canalVozId !== canalVozId) return;
       // Saída de uma sessão de mídia antiga (reentrou, ou derrubada por identidade repetida): ignora.
       if (p.sid && sid && p.sid !== sid) return;
-      tirar(usuarioId, 'midia_saiu');
-      avisar();
+      // Item 59: espera o prazo; se a mesma conexão avisar a troca (ou voltar à sala), a presença segue sem sair.
+      if (p.saidaMidia) return;
+      p.saidaMidia = setTimeout(() => {
+        if (presentes.get(usuarioId) !== p) return;
+        tirar(usuarioId, 'midia_saiu');
+        avisar();
+      }, prazoMover);
+      p.saidaMidia.unref();
     },
     midiaEntrou(usuarioId, canalVozId) {
       const c = comunidadeDoCanal(banco, canalVozId);
       const pode = () => c !== undefined && temPermissao(banco, usuarioId, 'entrar_voz', c);
-      const tirarDaMidia = () => {
-        const chave = `${usuarioId}:${canalVozId}`;
-        const agora = Date.now();
-        remocoesRecentes.set(chave, [...(remocoesRecentes.get(chave) ?? []).filter((t) => agora - t < JANELA_REINCIDENCIA_MS), agora]);
-        removerDaMidia(usuarioId, canalVozId);
-      };
       const conferir = () => {
         if (pode() && presentes.get(usuarioId)?.estado.canalVozId === canalVozId) {
           // Token antigo (de antes de a sala virar AFK) não fala na AFK (A7).
           if (afkDa(banco, c!)?.canalId === canalVozId) opcoes.calarNaMidia?.(usuarioId, canalVozId).catch(registrarErro);
           return;
         }
-        tirarDaMidia();
+        removerDaMidia(usuarioId, canalVozId);
       };
-      // Sem permissão, ou já tirado dessa sala há pouco (reentrada em ciclo com token antigo): na hora. Senão, espera o
-      // prazo: o app entra na mídia antes de avisar a troca de sala.
-      const recentes = (remocoesRecentes.get(`${usuarioId}:${canalVozId}`) ?? []).filter((t) => Date.now() - t < JANELA_REINCIDENCIA_MS);
-      const naPresenca = presentes.get(usuarioId)?.estado.canalVozId === canalVozId;
-      if (!pode() || (!naPresenca && recentes.length > 0)) return conferir();
-      if (naPresenca) return conferir();
+      // Sem permissão: na hora. Senão espera o prazo: o app entra na mídia antes de avisar a troca de sala. Quem foi
+      // tirado antes entra de novo normalmente (item 65: a reentrada nunca é recusada por si só).
+      const p = presentes.get(usuarioId);
+      const naPresenca = p?.estado.canalVozId === canalVozId;
+      if (naPresenca && p) {
+        // Voltou à mesma sala dentro do prazo da saída (queda curta da mídia): segue na presença.
+        clearTimeout(p.saidaMidia);
+        p.saidaMidia = undefined;
+      }
+      if (!pode() || naPresenca) return conferir();
       const t = setTimeout(conferir, prazoMover);
       t.unref();
     },
@@ -367,7 +374,10 @@ export function criarVoz(
       avisar();
     },
     fechar() {
-      for (const p of presentes.values()) clearTimeout(p.pendente);
+      for (const p of presentes.values()) {
+        clearTimeout(p.pendente);
+        clearTimeout(p.saidaMidia);
+      }
     },
   };
 }

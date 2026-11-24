@@ -74,18 +74,52 @@ describe('sala de AFK na voz', () => {
     expect(removerDaMidia).toHaveBeenCalledWith(1, afk.id);
   });
 
-  it('A6: sem permissão de voz, ou voltando com token antigo depois de tirado, sai da mídia na hora', async () => {
-    const { voz, papo, afk, pedir, removerDaMidia } = preparar();
+  it('A6: sem permissão de voz sai da mídia na hora', async () => {
+    const { voz, papo, removerDaMidia } = preparar();
     // Usuário 2 não é membro do servidor: sem entrar_voz.
     voz.midiaEntrou(2, papo.id);
     expect(removerDaMidia).toHaveBeenCalledWith(2, papo.id);
+  });
+
+  it('CA-11 (item 65): tirado da mídia de uma sala, entra de novo nela (mídia antes do aviso) e fica', async () => {
+    const { voz, papo, afk, pedir, removerDaMidia } = preparar();
     await pedir(estado(papo.id));
     voz.midiaEntrou(1, afk.id);
-    expect(removerDaMidia).toHaveBeenCalledTimes(1);
     await new Promise((r) => setTimeout(r, 120));
-    expect(removerDaMidia).toHaveBeenCalledTimes(2);
+    expect(removerDaMidia).toHaveBeenCalledTimes(1);
+    // Volta para a mesma sala, como o app faz: mídia primeiro, depois o aviso.
     voz.midiaEntrou(1, afk.id);
-    expect(removerDaMidia).toHaveBeenCalledTimes(3);
+    expect(removerDaMidia).toHaveBeenCalledTimes(1);
+    await pedir(estado(afk.id));
+    await new Promise((r) => setTimeout(r, 120));
+    expect(removerDaMidia).toHaveBeenCalledTimes(1);
+    expect(voz.estados()).toMatchObject([{ canalVozId: afk.id }]);
+  });
+
+  it('CA-1 (item 59): a mídia avisa a saída da sala antiga antes da ida para a AFK; a pessoa termina na AFK', async () => {
+    const { banco, voz, papo, afk, pedir } = preparar();
+    await pedir(estado(papo.id));
+    voz.midiaSaiu(1, papo.id, undefined);
+    expect(voz.estados()).toHaveLength(1);
+    expect((await pedir(estado(afk.id, { motivo: 'afk' }))).ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 120));
+    expect(voz.estados()).toMatchObject([{ canalVozId: afk.id, mudo: true, camera: false }]);
+    const afkReg = banco.prepare("SELECT detalhes FROM auditoria WHERE tipo = 'voz_afk'").get() as { detalhes: string };
+    expect(JSON.parse(afkReg.detalhes)).toMatchObject({ de: 'Papo' });
+    const saidas = banco.prepare("SELECT detalhes FROM auditoria WHERE tipo = 'voz_saiu'").all() as { detalhes: string }[];
+    expect(saidas.map((r) => JSON.parse(r.detalhes).motivo)).toEqual(['trocou_de_canal']);
+  });
+
+  it('CA-2 (item 59): passado o prazo da saída, a presença sai e a ida para a AFK é recusada; outra conexão também', async () => {
+    const { voz, papo, afk, pedir } = preparar();
+    await pedir(estado(papo.id));
+    const outra = socketFalso('s2', 1);
+    voz.registrar(outra.socket);
+    voz.midiaSaiu(1, papo.id, undefined);
+    expect((await outra.pedir(estado(afk.id, { motivo: 'afk' }))).erro).toMatch(/está em chamada/);
+    await new Promise((r) => setTimeout(r, 120));
+    expect(voz.estados()).toEqual([]);
+    expect((await pedir(estado(afk.id, { motivo: 'afk' }))).erro).toMatch(/está em chamada/);
   });
 
   it('A7: quem entra na mídia da AFK estando nela pela presença é calado na hora (token de antes de a sala virar AFK)', async () => {
