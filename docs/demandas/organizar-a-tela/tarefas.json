@@ -36,9 +36,9 @@
         "CA-3"
       ],
       "validacao": "vitest Divisoria.test; E2E colunas.spec (arrastar, reiniciar, largura mantida).",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "17c8cf3"
     },
     {
       "id": "T3",
