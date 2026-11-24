@@ -34,9 +34,9 @@
         "CA-2"
       ],
       "validacao": "vitest main: atalhos.test (combo de som emite atalhos:som; voz continua).",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "c226ffb"
     },
     {
       "id": "T3",
