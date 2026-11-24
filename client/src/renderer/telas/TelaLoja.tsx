@@ -82,15 +82,37 @@ export function TelaLoja({ estado, api, servidorUrl = '', temaAtual, aoUsarTema,
   const titulo = useRef<HTMLHeadingElement>(null);
   /** Prévia de um áudio: toca só aqui (RN-12), sem passar pelo servidor nem pela chamada. */
   const previaAudio = useRef<HTMLAudioElement | null>(null);
+  /** teste-de-microfone (item 64, RN-9): qual áudio está tocando ("Ouvir" vira "Pausar"). */
+  const [tocandoId, setTocandoId] = useState<number | null>(null);
   useEffect(() => () => previaAudio.current?.pause(), []);
-  function ouvir(a: AudioLojaDto) {
+  function pausarPrevia() {
     previaAudio.current?.pause();
+    previaAudio.current = null;
+    setTocandoId(null);
+  }
+  function ouvir(a: AudioLojaDto) {
+    // Ouvir outro para o anterior.
+    pausarPrevia();
     // Só arquivos da própria instalação, e no máximo 10 s (como no soundboard).
     if (!/^\/files\/[\w-]+\.(mp3|ogg|wav)$/.test(a.url)) return setErro('Não foi possível tocar a prévia.');
     const el = new Audio(`${servidorUrl}${a.url}`);
     previaAudio.current = el;
-    void el.play().catch(() => setErro('Não foi possível tocar a prévia.'));
-    setTimeout(() => el.pause(), SOM_DURACAO_MAX_MS);
+    const acabou = () => {
+      if (previaAudio.current !== el) return;
+      previaAudio.current = null;
+      setTocandoId(null);
+    };
+    el.onended = acabou;
+    el.onpause = acabou;
+    setTocandoId(a.id);
+    void el.play().catch(() => {
+      acabou();
+      setErro('Não foi possível tocar a prévia.');
+    });
+    setTimeout(() => {
+      el.pause();
+      acabou();
+    }, SOM_DURACAO_MAX_MS);
   }
   const audioDe = (id: number) => catalogo?.audios?.find((a) => a.id === id);
   const nomeItem = (item: ItemLoja) =>
@@ -361,9 +383,15 @@ export function TelaLoja({ estado, api, servidorUrl = '', temaAtual, aoUsarTema,
                           </p>
                         </div>
                         <div className="linha-botoes">
-                          <button type="button" className="secundario" aria-label={`Ouvir ${a.nome}`} onClick={() => ouvir(a)}>
-                            Ouvir
-                          </button>
+                          {tocandoId === a.id ? (
+                            <button type="button" className="secundario" aria-label={`Pausar ${a.nome}`} onClick={pausarPrevia}>
+                              Pausar
+                            </button>
+                          ) : (
+                            <button type="button" className="secundario" aria-label={`Ouvir ${a.nome}`} onClick={() => ouvir(a)}>
+                              Ouvir
+                            </button>
+                          )}
                           {meu ? <span className="selo">{estado.tudoLiberado ? 'Liberado (administrador)' : 'Comprado'}</span> : botaoComprar({ tipo: 'audio', audioId: a.id })}
                         </div>
                       </li>

@@ -130,7 +130,16 @@ export function TelaAudiosLoja({ api, servidorUrl, aoVoltar }: Props) {
                   </span>
                 </span>
               )}
-              <audio controls preload="none" src={`${servidorUrl}${a.url}`} aria-label={`Ouvir ${a.nome}`} />
+              <audio
+                controls
+                preload="none"
+                src={`${servidorUrl}${a.url}`}
+                aria-label={`Ouvir ${a.nome}`}
+                // Item 64 (RN-9): ouvir um áudio para o que estava tocando.
+                onPlay={(e) => {
+                  for (const outro of document.querySelectorAll('audio')) if (outro !== e.currentTarget) outro.pause();
+                }}
+              />
               <label className="so-leitor" htmlFor={`audio-raridade-${a.id}`}>
                 Raridade de {a.nome}
               </label>

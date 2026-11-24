@@ -71,6 +71,35 @@ describe('TelaLoja: áudios', () => {
     expect(tocar).toHaveBeenCalled();
   });
 
+  it('CA-10 (item 64): enquanto toca, "Ouvir" vira "Pausar"; pausar para e volta a "Ouvir"; ouvir outro para o anterior', async () => {
+    const pausados: string[] = [];
+    vi.stubGlobal(
+      'Audio',
+      class {
+        src: string;
+        onpause: (() => void) | null = null;
+        constructor(src: string) {
+          this.src = src;
+        }
+        play = vi.fn(async () => undefined);
+        pause = vi.fn(() => {
+          pausados.push(this.src);
+          this.onpause?.();
+        });
+      },
+    );
+    montar(estado());
+    fireEvent.click(await screen.findByRole('button', { name: 'Ouvir Trovão' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pausar Trovão' }));
+    expect(pausados).toEqual(['http://srv/files/t.wav']);
+    expect(screen.getByRole('button', { name: 'Ouvir Trovão' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Ouvir Trovão' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ouvir Dragão' }));
+    expect(pausados).toEqual(['http://srv/files/t.wav', 'http://srv/files/t.wav']);
+    expect(screen.getByRole('button', { name: 'Pausar Dragão' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ouvir Trovão' })).toBeTruthy();
+  });
+
   it('CA-13: o administrador vê tudo liberado; o extrato mostra o nome do áudio', async () => {
     montar(estado({ tudoLiberado: true }), [{ id: 1, tipo: 'compra', item: 'audio:3', valor: -300, em: 0, nomeItem: 'Trovão' }]);
     expect((await screen.findByRole('heading', { name: 'Dragão' })).closest('li')!.textContent).toContain('Liberado (administrador)');
