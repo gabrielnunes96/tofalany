@@ -84,3 +84,5 @@ export const CORES_PERFIL = ['#00f0ff', '#ff2a6d', '#fcee0a', '#3dffb0', '#b14bf
 
 /** RN-13: intervalo mínimo entre dois sons do soundboard da mesma pessoa. */
 export const SOM_INTERVALO_MS = 3000;
+/** chamar-tocando (RN-3): o chamado toca por 15 s; sem resposta, acaba dos dois lados. */
+export const CHAMADO_DURACAO_MS = 15_000;

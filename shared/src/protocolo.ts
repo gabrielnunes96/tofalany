@@ -360,6 +360,28 @@ export interface ConfiguracoesLocais {
   novidadesVistas?: string;
 }
 
+/** celular (RN-11) e chamar-tocando: alguém na voz está chamando para a sala dele. */
+export interface ChamadoVozDto {
+  porId: number;
+  porNome: string;
+  canalVozId: number;
+  canalNome: string;
+  /** chamar-tocando: identifica o chamado (responder, fim); servidor antigo não manda. */
+  id?: string;
+  /** Quanto tempo o chamado fica aberto (o app para o toque sozinho depois disso). */
+  segundos?: number;
+}
+
+/** Por que o chamado acabou: atendido, recusado, cancelado por quem chamou, ou sem resposta no tempo. */
+export type MotivoFimChamado = 'atendido' | 'recusado' | 'cancelado' | 'tempo';
+
+export interface FimChamadoDto {
+  id: string;
+  motivo: MotivoFimChamado;
+  /** Nome de quem foi chamado (para "<nome> não atendeu"). */
+  nome: string;
+}
+
 export interface PreferenciasAtividade {
   /** "Jogando X": jogos abertos pela Steam. */
   jogos: boolean;
@@ -773,7 +795,7 @@ export interface OlaPayload {
   /** audios-na-loja: áudios da conta para o "Meus sons" (administrador da instalação: todos). */
   audiosLoja?: AudioLojaDto[];
   /** O que este servidor oferece além do básico (servidor antigo não manda; sem ele, o app esconde o recurso). */
-  recursos?: { fixar?: boolean; busca?: boolean; push?: boolean; chamar?: boolean };
+  recursos?: { fixar?: boolean; busca?: boolean; push?: boolean; chamar?: boolean; chamadoV2?: boolean };
 }
 
 /** Eventos servidor → cliente. */
@@ -827,7 +849,9 @@ export interface EventosServidor {
   /** mover-e-afk: alguém moveu você para outra sala (troque de sala) ou desconectou você da chamada. */
   'voz:movido': (payload: { canalVozId: number; canalNome: string; porNome: string }) => void;
   /** celular (RN-11): alguém na voz está me chamando para a sala dele. */
-  'voz:chamado': (payload: { porId: number; porNome: string; canalVozId: number; canalNome: string }) => void;
+  'voz:chamado': (payload: ChamadoVozDto) => void;
+  /** chamar-tocando (RF-4): o chamado acabou (para quem chamou e para quem foi chamado). */
+  'voz:chamado:fim': (payload: FimChamadoDto) => void;
   'voz:desconectado': (payload: { porNome: string }) => void;
   'tela:parada': (payload: { canalVozId: number; usuarioId: number }) => void;
   /** Quem assiste a transmissão do canal mudou. */
@@ -881,6 +905,10 @@ export interface EventosCliente {
   'voz:mover': (dados: { usuarioId: number; canalVozId: number }, ack: Ack) => void;
   /** celular (RN-11): chama alguém do servidor para a sala de voz em que estou. */
   'voz:chamar': (dados: { usuarioId: number }, ack: Ack) => void;
+  /** chamar-tocando (RN-4): quem foi chamado atende (vai para a sala) ou recusa. */
+  'voz:responder': (dados: { id: string; aceitar: boolean }, ack: Ack) => void;
+  /** chamar-tocando (RN-5): quem chamou desiste. */
+  'voz:cancelar': (dados: { id: string }, ack: Ack) => void;
   'voz:desconectar': (dados: { usuarioId: number }, ack: Ack) => void;
   /** RF-23: toca um som para o canal de voz em que estou (RN-12, RN-13). */
   /** Um som do servidor (`somId`) ou um áudio comprado na loja (`audioId`). */
