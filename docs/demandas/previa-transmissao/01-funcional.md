@@ -1,52 +1,38 @@
-# Prévia da transmissão e chat legível — especificação funcional
+# Chat legível com várias transmissões — especificação funcional
 
-> Demanda: `previa-transmissao` · Itens 60 e 61 · Versão 2 · 23/11/2026 · Situação: **aprovada em 23/11/2026** (v2: ícone de ocultar/exibir a prévia, pedido do usuário em 23/11; aguarda nova aprovação)
+> Demanda: `previa-transmissao` · Item 61 · Versão 3 · 23/11/2026 · Situação: **aprovada em 23/11/2026** (v3: prévia da transmissão (item 60) retirada pelo usuário em 23/11 para não pesar a internet; fica só o chat)
 
 ## 1. Objetivo
-Saber o que está sendo transmitido antes de assistir, e continuar lendo o chat com várias transmissões abertas.
+Continuar lendo o chat com várias transmissões abertas.
 
 ## 2. Contexto
-- Na faixa "<nome> está transmitindo a tela" aparecem só o texto, o olho e Assistir.
-- Com duas transmissões assistidas, os painéis empilhados ocupam quase toda a altura e o chat vira uma faixa mínima.
+Com duas transmissões assistidas, os painéis empilhados ocupam quase toda a altura e o chat vira uma faixa mínima.
 
 ## 3. Atores
 | Ator | Papel |
 | --- | --- |
-| Pessoa na voz | Vê a prévia, decide assistir e lê o chat. |
-| Quem transmite | Não tem nada a fazer; a prévia não pode pesar na internet dele. |
+| Pessoa na voz | Assiste transmissões e lê o chat. |
 
 ## 4. Escopo
-**Dentro:** prévia ao vivo pequena na faixa de cada transmissão não assistida; altura mínima do chat.
+**Dentro:** altura mínima do chat.
 
-**Fora:** divisória para arrastar, transmissões lado a lado, recolher transmissões (não escolhidos em 23/11); prévia com som.
+**Fora:** prévia da transmissão antes de assistir (item 60, descartado em 23/11: pesaria a internet de quem transmite); divisória para arrastar, transmissões lado a lado, recolher transmissões.
 
 ## 5. Regras de negócio
 | ID | Regra | Origem |
 | --- | --- | --- |
-| RN-1 | Cada transmissão que a pessoa ainda não assiste mostra, na faixa dela, uma prévia ao vivo pequena, sem som. | Usuário, 23/11 |
-| RN-2 | A prévia usa a menor qualidade disponível e só é recebida enquanto a faixa está visível na tela; fora da tela, para. | Item 60 |
-| RN-3 | Ver a prévia não conta como assistir (o olho não muda) e não exige que quem transmite mande uma qualidade a mais. | Item 60 |
-| RN-4 | Quem tem "dados móveis" ou conexão ruim pode desligar as prévias em Configurações → Voz (ligadas por padrão). | Assistente |
-| RN-6 | Cada faixa tem um ícone para ocultar/exibir a prévia daquela transmissão; oculta, nada é recebido. A escolha vale enquanto o app está aberto (a preferência da RN-4 desliga todas). | Usuário, 23/11 |
 | RN-5 | O chat da conversa aberta nunca fica com menos de 8 linhas de altura visível, por mais transmissões que estejam abertas; as transmissões encolhem (mantendo a proporção) para caber. | Usuário, 23/11 |
 
 ## 6. Requisitos funcionais
 | ID | Requisito | Regras |
 | --- | --- | --- |
-| RF-1 | Prévia ao vivo na faixa de transmissão não assistida, com a opção de desligar. | RN-1 a RN-4 |
-| RF-3 | Ícone de ocultar/exibir a prévia em cada faixa. | RN-6 |
 | RF-2 | Altura mínima do chat com transmissões abertas. | RN-5 |
 
 ## 7. Requisitos não funcionais
-- A prévia gasta no máximo ~150 kbps por transmissão (menor camada; medido na validação manual).
+Não se aplica.
 
 ## 8. Critérios de aceite
-- **CA-1** (RN-1): Dado Ana transmitindo, quando Bia (na sala, sem assistir) olha a faixa, então vê a imagem ao vivo pequena, sem som.
-- **CA-2** (RN-3): Dado a prévia na tela da Bia, quando Ana olha o olho, então ele não conta a Bia.
-- **CA-3** (RN-2): Dado a faixa fora da tela (rolada ou com a conversa escondida), então a prévia não é recebida.
-- **CA-4** (RN-4): Dado "Prévias das transmissões" desligada, quando há transmissão, então a faixa mostra só o texto.
 - **CA-5** (RN-5): Dado duas transmissões assistidas numa janela de 900 px de altura, quando se olha o chat, então ao menos 8 linhas do chat ficam visíveis.
-- **CA-6** (RN-6): Dado a prévia da Ana visível, quando Bia clica no ícone de ocultar, então a faixa mostra só o texto e a prévia deixa de ser recebida; clicando de novo, volta.
 
 ## 9. Impacto em consumidores
 Só o app.
