@@ -76,9 +76,9 @@
         "CA-7"
       ],
       "validacao": "vitest: sons-voz, aviso-temporario, estado/chamar (podeChamar), tempo-real; E2E voz.spec do fluxo Entrar atualizado.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "c2b624a"
     }
   ]
 }
