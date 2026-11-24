@@ -70,9 +70,9 @@ export function criarAtalhos(
 
   /** Trata uma tecla pelo KeyboardEvent.code (o gancho nativo traduz; os testes chamam direto). */
   function tratarCodigo(tipo: 'down' | 'up', codigo: string, m: Modificadores = {}) {
-    if (!atalhos || pausado) return;
-    for (const acao of ACOES_ATALHO) {
-      const a = atalhos[acao];
+    if (pausado) return;
+    for (const acao of atalhos ? ACOES_ATALHO : []) {
+      const a = atalhos![acao];
       if (!a || a.codigo !== codigo) continue;
       if (tipo === 'down') {
         const mods = a.ctrl === !!m.ctrl && a.alt === !!m.alt && a.shift === !!m.shift && a.meta === !!m.meta;
