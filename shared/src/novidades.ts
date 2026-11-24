@@ -9,6 +9,18 @@ export interface NotasVersao {
 }
 
 export const NOVIDADES: Record<string, NotasVersao> = {
+  '0.19.0': {
+    itens: [
+      { titulo: 'Chamar como um telefone', texto: 'o chamado toca por 15 segundos. Quem é chamado pode Entrar ou Recusar, e quem chama vê "Chamando…" com Cancelar. Só dá para chamar quem está online ou ausente.' },
+      { titulo: 'Atalhos de sons', texto: 'em Configurações, Atalhos, ponha uma tecla em cada som (por exemplo F1). O atalho toca o som na voz mesmo com o jogo aberto.' },
+      { titulo: 'Pastas de servidores', texto: 'arraste um servidor para cima de outro para criar uma pasta, e arraste para mudar a ordem. Pelo clique direito também dá para mover, criar pasta, dar nome e cor.' },
+      { titulo: 'Colunas do seu tamanho', texto: 'arraste a divisória das colunas de canais e de membros. Duplo clique volta ao tamanho normal.' },
+      { titulo: 'Chat com várias transmissões', texto: 'com transmissões abertas, o chat sempre mostra pelo menos 8 linhas; os vídeos encolhem para caber.' },
+      { titulo: 'Correções da voz', texto: 'ficar inativo leva para a sala de AFK, sem tirar da voz; entrar de novo numa sala não é mais recusado; o teste de microfone funciona dentro da sala; ao atualizar, o app sai da voz antes.' },
+      { titulo: 'Quem está assistindo', texto: 'sai o contador flutuante. O olho da transmissão mostra o número e a lista abre para o lado que tiver espaço.' },
+      { titulo: 'Loja', texto: 'o botão "Ouvir" vira "Pausar" enquanto o áudio toca.' },
+    ],
+  },
   '0.18.0': {
     chamada: 'A maior atualização até agora',
     itens: [
