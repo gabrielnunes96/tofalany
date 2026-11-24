@@ -57,9 +57,9 @@
         "CA-6"
       ],
       "validacao": "vitest: TelaConfiguracoes, PainelSoundboard; E2E sons.spec com __teclaGlobal('F1').",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "5feab11"
     }
   ]
 }
