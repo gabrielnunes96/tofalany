@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ApiTofalando } from '../../preload/api';
 import icone from '../assets/icone.png';
+import { sairDaVozAntesDeAtualizar } from '../servicos/saida-voz';
 
 type Estado = { versao: string; modo: 'reiniciar' | 'pagina'; pedido?: boolean };
 
@@ -15,6 +16,8 @@ export function AvisoAtualizacao({ atualizacao }: { atualizacao: ApiTofalando['a
   const [instalando, setInstalando] = useState(false);
 
   async function reiniciar() {
+    // Item 54 (RN-5): sai da voz antes; a chamada não continua escondida atrás da tela de espera.
+    await sairDaVozAntesDeAtualizar();
     setInstalando(true);
     // Dá tempo de a tela de espera aparecer antes de o app fechar.
     await new Promise((r) => setTimeout(r, 600));

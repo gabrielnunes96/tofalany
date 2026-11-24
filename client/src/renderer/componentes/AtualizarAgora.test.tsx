@@ -45,6 +45,7 @@ describe('Atualizar o app (qualidade-de-vida, RF-5, T-7)', () => {
     act(() => ouvintes.progresso!(57));
     expect(screen.getByText(/57%/)).toBeTruthy();
     act(() => ouvintes.estado!({ versao: '0.18.0', modo: 'reiniciar', pedido: true }));
+    await act(async () => undefined);
     expect(screen.getByText(/Atualizando o ToFalany para a versão 0.18.0/)).toBeTruthy();
     await act(async () => vi.advanceTimersByTimeAsync(700));
     expect(api.instalar).toHaveBeenCalled();

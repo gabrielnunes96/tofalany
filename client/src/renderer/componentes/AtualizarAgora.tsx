@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { ApiTofalando } from '../../preload/api';
 import { TelaAtualizando } from './AvisoAtualizacao';
 import { TEXTOS_ATUALIZACAO } from './ProcurarAtualizacao';
+import { sairDaVozAntesDeAtualizar } from '../servicos/saida-voz';
 
 type Fase =
   | { tipo: 'parado' }
@@ -38,6 +39,8 @@ export function AtualizarAgora({
 
   const instalar = useCallback(
     async (versao: string) => {
+      // Item 54 (RN-5): "Você vai sair da chamada" passa a ser verdade antes da tela de espera.
+      await sairDaVozAntesDeAtualizar();
       setFase({ tipo: 'instalando', versao });
       // Dá tempo de a tela de espera aparecer antes de o app fechar.
       await new Promise((r) => setTimeout(r, 600));

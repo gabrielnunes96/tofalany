@@ -53,6 +53,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { ContextoLoja, criarLoja } from '../estado/loja';
 import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real';
 import { criarApi, ErroApiCliente } from '../servicos/api';
+import { registrarSaidaVoz } from '../servicos/saida-voz';
 import { PainelFixadas } from '../componentes/PainelFixadas';
 import { ContadorEspectadores } from '../componentes/ContadorEspectadores';
 import { criarFiltroRepeticao, deveTocar, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
@@ -1831,6 +1832,13 @@ function TelaDoServidor({
 
   // "Desconectar" na barra de voz de outro servidor: sai desta voz de verdade (não espera a carência de queda).
   const sairVozPedido = useEffectEvent(() => void sairVoz());
+  // Item 54: enquanto esta tela está na voz, a atualização sai por ela antes de reiniciar.
+  const sairVozAtualizar = useEffectEvent(() => sairVoz());
+  const naVoz = minhaVoz !== null;
+  useEffect(() => {
+    if (!naVoz) return undefined;
+    return registrarSaidaVoz(() => sairVozAtualizar());
+  }, [naVoz]);
   useEffect(() => {
     if (pedidoSairVoz > 0) sairVozPedido();
   }, [pedidoSairVoz]);

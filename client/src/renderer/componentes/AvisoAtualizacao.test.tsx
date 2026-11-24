@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AvisoAtualizacao } from './AvisoAtualizacao';
+import { registrarSaidaVoz } from '../servicos/saida-voz';
 
 afterEach(cleanup);
 
@@ -52,6 +53,7 @@ describe('aviso de versão nova (backlog v2, 1d)', () => {
       render(<AvisoAtualizacao atualizacao={api} />);
       avisar({ versao: '0.16.0', modo: 'reiniciar' });
       fireEvent.click(screen.getByRole('button', { name: 'Reiniciar e atualizar' }));
+      await act(async () => undefined);
       const tela = screen.getByRole('status');
       expect(tela.className).toBe('tela-atualizando');
       expect(tela.textContent).toContain('Atualizando o ToFalany para a versão 0.16.0…');
@@ -62,6 +64,23 @@ describe('aviso de versão nova (backlog v2, 1d)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('CA-6 (item 54): na voz, sai da voz antes da tela de espera e de instalar', async () => {
+    const ordem: string[] = [];
+    const tirar = registrarSaidaVoz(async () => {
+      ordem.push('saiu');
+    });
+    const { api, avisar } = ponte(null);
+    api.instalar.mockImplementation(async () => {
+      ordem.push('instalar');
+    });
+    render(<AvisoAtualizacao atualizacao={api} />);
+    avisar({ versao: '0.19.0', modo: 'reiniciar' });
+    fireEvent.click(screen.getByRole('button', { name: 'Reiniciar e atualizar' }));
+    await screen.findByText(/Atualizando o ToFalany/);
+    await vi.waitFor(() => expect(ordem).toEqual(['saiu', 'instalar']), { timeout: 2000 });
+    tirar();
   });
 
   it('no .deb (só disponível), o botão abre a página da versão; estado já existente aparece ao abrir', async () => {
