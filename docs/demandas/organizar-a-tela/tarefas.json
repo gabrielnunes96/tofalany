@@ -57,9 +57,9 @@
         "CA-8"
       ],
       "validacao": "vitest ColunaServidores e menu; E2E servidores.spec (ordem ao reabrir) e naolidas.spec (soma da pasta).",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "96f595a"
     }
   ]
 }
