@@ -617,6 +617,7 @@ kbd { font-family: inherit; font-size: 0.85rem; padding: 2px 8px; border: 1px so
 .painel-soundboard input[type='range'] { accent-color: var(--cor-aviso); margin: 0; }
 .sons-grade { display: flex; flex-wrap: wrap; gap: 6px; }
 .sons-grade button { margin: 0; padding: 6px 10px; font-size: 0.85rem; }
+.sons-grade kbd.atalho-som { margin-left: 6px; padding: 0 4px; font-size: 0.72rem; border: 1px solid var(--cor-borda); border-radius: 4px; opacity: 0.85; }
 .aviso-som { margin: 0; padding: 6px 10px; font-size: 0.85rem; color: var(--cor-aviso); border-top: 1px solid var(--cor-borda); }
 .aviso-som.vazio { padding: 0; border: 0; }
 

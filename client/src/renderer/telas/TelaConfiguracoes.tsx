@@ -1,8 +1,9 @@
 import { voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ACOES_ATALHO, GANHO_MIC_MIN, GANHO_MIC_MAX, VOLUME_CHAMADA_MAX, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
+import { combosSons, mesmoAtalho, type AtalhosSons, ACOES_ATALHO, GANHO_MIC_MIN, GANHO_MIC_MAX, VOLUME_CHAMADA_MAX, QUALIDADES_TELA, ITENS_TEMA, TEMAS_LOJA, conflitoAtalho, NOME_ACAO, TECLAS_ATALHO, textoAtalho, type AcaoAtalho, type Atalhos, type PreferenciasAudio, type PreferenciasNotificacoes, type PreferenciasSons, type PreferenciasTela, type QualidadeTela, type Tema, type AcaoFechar, type PreferenciasAtividade } from '@tofalando/shared';
 import { abrirMicrofone, criarMedidor, type Medidor, type Microfone } from '../servicos/pipeline-audio';
 import { Icone, type NomeIcone } from '../componentes/Icone';
+import { AtalhosSonsSecao } from '../componentes/AtalhosSons';
 
 /** Seções da janela de configurações (navegação à esquerda). */
 export type SecaoConfig = 'conta' | 'voz' | 'atalhos' | 'transmissao' | 'notificacoes' | 'aparencia' | 'atividade' | 'janela' | 'novidades';
@@ -94,6 +95,8 @@ interface Props {
   aoMudarAtalhos: (atalhos: Atalhos) => void;
   /** Pausa os atalhos globais enquanto captura um novo (senão a combinação testada dispararia a ação). */
   aoCapturar?: (sim: boolean) => void;
+  /** atalhos-de-sons: atalhos dos sons, com os sons deste servidor e os de "Meus sons". */
+  atalhosSons?: { valor: AtalhosSons; servidor: string; sonsDoServidor: { id: number; nome: string }[]; meusSons: { id: number; nome: string }[]; aoMudar: (novo: AtalhosSons) => void };
   /** RF-21/RF-41: sons que dá para desligar. */
   sons?: PreferenciasSons;
   aoMudarSons?: (sons: PreferenciasSons) => void;
@@ -133,7 +136,7 @@ const TEXTO_SUPRESSAO: Record<Microfone['supressao'], string> = {
 const porcento = (db: number) => Math.round(((Math.max(-100, Math.min(0, db)) + 100) / 100) * 100);
 
 /** RF-17, RF-18, RF-20: dispositivos, tratamento de áudio e teste de microfone, salvos por máquina. */
-export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, temasLiberados, aoAbrirLoja, comLoja = false, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, secaoInicial = 'voz', aoMudarSecao, conta, novidades, deps = doNavegador }: Props) {
+export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, aoMudarAtalhos, aoCapturar, atalhosSons, sons, aoMudarSons, notificacoes, aoMudarNotificacoes, aoFechar, aoMudarAoFechar, atividade, aoMudarAtividade, tema, aoMudarTema, temasLiberados, aoAbrirLoja, comLoja = false, tela, aoMudarTela, qualidadesTela = ['720p30'], aoVoltar, secaoInicial = 'voz', aoMudarSecao, conta, novidades, deps = doNavegador }: Props) {
   const [secao, setSecao] = useState<SecaoConfig>(secaoInicial);
   const [capturando, setCapturando] = useState<AcaoAtalho | null>(null);
   const [erroAtalho, setErroAtalho] = useState<string | null>(null);
@@ -151,6 +154,8 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
       const novo = { codigo: e.code, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey };
       const outra = conflitoAtalho(atalhos, capturando, novo);
       if (outra) return setErroAtalho(`${textoAtalho(novo)} já é o atalho de ${NOME_ACAO[outra]}.`);
+      // atalhos-de-sons (RN-1): nem o atalho de um som.
+      if (atalhosSons && combosSons(atalhosSons.valor).some((a) => mesmoAtalho(a, novo))) return setErroAtalho(`${textoAtalho(novo)} já é o atalho de um som.`);
       setErroAtalho(null);
       setCapturando(null);
       aoMudarAtalhos({ ...atalhos, [capturando]: novo });
@@ -160,7 +165,7 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
       window.removeEventListener('keydown', aoTeclar, true);
       aoCapturar?.(false);
     };
-  }, [capturando, atalhos, aoMudarAtalhos, aoCapturar]);
+  }, [capturando, atalhos, aoMudarAtalhos, aoCapturar, atalhosSons]);
 
   const [dispositivos, setDispositivos] = useState<MediaDeviceInfo[]>([]);
   const [testando, setTestando] = useState(false);
@@ -534,6 +539,17 @@ export function TelaConfiguracoes({ audio, aoMudarAudio, aoTestarSom, atalhos, a
             <p className="erro" role="alert">
               {erroAtalho}
             </p>
+          )}
+          {atalhosSons && (
+            <AtalhosSonsSecao
+              atalhos={atalhos}
+              atalhosSons={atalhosSons.valor}
+              servidor={atalhosSons.servidor}
+              sonsDoServidor={atalhosSons.sonsDoServidor}
+              meusSons={atalhosSons.meusSons}
+              aoMudar={atalhosSons.aoMudar}
+              aoCapturar={aoCapturar}
+            />
           )}
 
 

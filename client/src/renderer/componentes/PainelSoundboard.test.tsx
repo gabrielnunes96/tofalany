@@ -62,4 +62,20 @@ describe('PainelSoundboard (RF-23, RF-24)', () => {
     render(<PainelSoundboard sons={sons} naVoz liberadoEm={0} volume={0.8} aoVolume={vi.fn()} aoTocar={vi.fn()} aoFechar={vi.fn()} />);
     expect(screen.queryByText('Meus sons')).toBeNull();
   });
+
+  it('atalhos-de-sons (CA-6): mostra o atalho ao lado do som', () => {
+    render(
+      <PainelSoundboard
+        sons={[{ id: 1, nome: 'Grilo' } as never]}
+        naVoz
+        liberadoEm={0}
+        volume={1}
+        aoVolume={() => undefined}
+        aoTocar={async () => null}
+        atalhoDe={(a) => ('somId' in a && a.somId === 1 ? 'F1' : null)}
+        aoFechar={() => undefined}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /^Grilo/ }).querySelector('kbd')?.textContent).toBe('F1');
+  });
 });

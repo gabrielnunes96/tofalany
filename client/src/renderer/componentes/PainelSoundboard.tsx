@@ -17,10 +17,12 @@ interface Props {
   aoTocarAudio?: (audioId: number) => Promise<string | null>;
   aoAbrirLoja?: () => void;
   aoFechar: () => void;
+  /** atalhos-de-sons (RF-3): o atalho de cada som, se tiver. */
+  atalhoDe?: (alvo: { somId: number } | { audioId: number }) => string | null;
 }
 
 /** RF-23: sons cadastrados para tocar no canal de voz, com o volume local do soundboard. */
-export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, aoTocar, meusSons, aoTocarAudio, aoAbrirLoja, aoFechar }: Props) {
+export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, aoTocar, meusSons, aoTocarAudio, aoAbrirLoja, aoFechar, atalhoDe }: Props) {
   const [agora, setAgora] = useState(() => Date.now());
   const [erro, setErro] = useState<string | null>(null);
   const falta = Math.max(0, liberadoEm - agora);
@@ -73,6 +75,7 @@ export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, ao
               onClick={() => void tocar(aoTocar(s.id))}
             >
               {s.nome}
+              {atalhoDe?.({ somId: s.id }) && <kbd className="atalho-som">{atalhoDe({ somId: s.id })}</kbd>}
             </button>
           ))}
         </div>
@@ -97,12 +100,13 @@ export function PainelSoundboard({ sons, naVoz, liberadoEm, volume, aoVolume, ao
                   type="button"
                   className={`secundario raridade-${a.raridade}`}
                   title={NOMES_RARIDADE[a.raridade]}
-                  aria-label={`${a.nome} (${NOMES_RARIDADE[a.raridade]})`}
+                  aria-label={`${a.nome} (${NOMES_RARIDADE[a.raridade]})${atalhoDe?.({ audioId: a.id }) ? `, atalho ${atalhoDe({ audioId: a.id })}` : ''}`}
                   disabled={!!motivo}
                   aria-describedby={motivo ? 'soundboard-motivo' : undefined}
                   onClick={() => void tocar(aoTocarAudio(a.id))}
                 >
                   {a.nome}
+                  {atalhoDe?.({ audioId: a.id }) && <kbd className="atalho-som">{atalhoDe({ audioId: a.id })}</kbd>}
                 </button>
               ))}
             </div>

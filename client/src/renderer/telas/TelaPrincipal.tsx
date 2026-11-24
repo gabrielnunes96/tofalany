@@ -17,6 +17,11 @@ import {
   type Tema,
   type PartesOcultas,
   type Atalhos,
+  type AtalhosSons,
+  ATALHOS_SONS_PADRAO,
+  limparOrfaos,
+  resolverAtalhoSom,
+  textoAtalho,
   type PreferenciasAudio,
   type PreferenciasPessoas,
   type PreferenciasSons,
@@ -595,6 +600,7 @@ function TelaDoServidor({
         if (c.tema) setTema(c.tema);
         if (c.ocultos) setOcultos(c.ocultos);
         if (c.atividade) setPrefAtividade(c.atividade);
+        if (c.atalhosSons) setAtalhosSons(c.atalhosSons);
         const escolhida = c.statusEscolhido?.[servidorUrl];
         if (escolhida && escolhaRef.current === 'auto') {
           escolhaRef.current = escolhida;
@@ -907,6 +913,45 @@ function TelaDoServidor({
     void ponte()
       .atalhos?.pausar(sim)
       .catch(() => undefined);
+  /** atalhos-de-sons: atalhos dos sons (do servidor, por servidor; de "Meus sons", em todos). */
+  const [atalhosSons, setAtalhosSons] = useState<AtalhosSons>(ATALHOS_SONS_PADRAO);
+  function mudarAtalhosSons(novos: AtalhosSons) {
+    setAtalhosSons(novos);
+    void ponte()
+      .config.gravar({ atalhosSons: novos })
+      .then((c) => setAtalhosSons(c.atalhosSons ?? ATALHOS_SONS_PADRAO))
+      .catch(() => undefined);
+  }
+  /**
+   * atalhos-de-sons (RF-2, RN-3, RN-5): combinação apertada. Só a tela que está na voz toca; lê a configuração na hora
+   * (a troca pode ter sido feita na tela de outro servidor). Fora da voz, no intervalo, som apagado: nada, sem aviso.
+   */
+  const aoAtalhoSom = useEffectEvent((chave: string) => {
+    if (minhaVozRef.current === null || Date.now() < liberadoEm) return;
+    void ponte()
+      .config.ler()
+      .then((c) => {
+        const atuais = c.atalhosSons ?? ATALHOS_SONS_PADRAO;
+        const alvo = resolverAtalhoSom(atuais, servidorUrl, chave);
+        if (!alvo || minhaVozRef.current === null) return;
+        const existe = 'somId' in alvo ? sons.some((s) => s.id === alvo.somId) : audiosLoja.some((a) => a.id === alvo.audioId);
+        if (!existe) {
+          // RN-5: som apagado (ou que saiu de "Meus sons") perde o atalho.
+          const limpos = limparOrfaos(atuais, servidorUrl, sons.map((s) => s.id), pontos?.audiosIds !== undefined ? audiosLoja.map((a) => a.id) : null);
+          if (limpos !== atuais) mudarAtalhosSons(limpos);
+          return;
+        }
+        void ('somId' in alvo ? tocarSom(alvo.somId) : tocarAudio(alvo.audioId)).catch(() => undefined);
+      })
+      .catch(() => undefined);
+  });
+  useEffect(() => ponte().atalhos?.aoSom?.((chave) => aoAtalhoSom(chave)), []);
+  /** RF-3: o texto do atalho de cada som, para o soundboard. */
+  const atalhoDoSom = (alvo: { somId: number } | { audioId: number }) => {
+    const a = 'somId' in alvo ? atalhosSons.porServidor[servidorUrl]?.[alvo.somId] : atalhosSons.globais[alvo.audioId];
+    return a ? textoAtalho(a) : null;
+  };
+
   function mudarAtalhos(novos: Atalhos) {
     setAtalhos(novos);
     void ponte()
@@ -1114,6 +1159,15 @@ function TelaDoServidor({
       aoSonsAtualizados: (lista) => {
         acoes.definirSons(lista);
         tocadorRef.current?.esquecer(lista);
+        // atalhos-de-sons (RN-5): som apagado pelo administrador perde o atalho.
+        void ponte()
+          .config.ler()
+          .then((c) => {
+            const atuais = c.atalhosSons ?? ATALHOS_SONS_PADRAO;
+            const limpos = limparOrfaos(atuais, servidorUrl, lista.map((s) => s.id), null);
+            if (limpos !== atuais) mudarAtalhosSons(limpos);
+          })
+          .catch(() => undefined);
       },
       aoVozEstados: (estados) => {
         // RF-21: alguém entrou ou saiu do canal em que estou.
@@ -2279,6 +2333,7 @@ function TelaDoServidor({
                   volume={prefSons.soundboard}
                   aoVolume={(v) => mudarSons({ ...sonsRef.current, soundboard: v })}
                   aoTocar={tocarSom}
+                  atalhoDe={atalhoDoSom}
                   meusSons={audiosLoja}
                   aoTocarAudio={pontos?.audiosIds !== undefined ? tocarAudio : undefined}
                   aoAbrirLoja={() => setVista('loja')}
@@ -2622,6 +2677,13 @@ function TelaDoServidor({
                 aoTestarSom={testarSom}
                 atalhos={atalhos}
                 aoMudarAtalhos={mudarAtalhos}
+                atalhosSons={{
+                  valor: atalhosSons,
+                  servidor: servidorUrl,
+                  sonsDoServidor: sons.map((s) => ({ id: s.id, nome: s.nome })),
+                  meusSons: pontos?.audiosIds !== undefined ? audiosLoja.map((a) => ({ id: a.id, nome: a.nome })) : [],
+                  aoMudar: mudarAtalhosSons,
+                }}
                 aoCapturar={pausarAtalhos}
                 sons={prefSons}
                 aoMudarSons={mudarSons}

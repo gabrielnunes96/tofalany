@@ -666,6 +666,23 @@ test('CA-32, CA-33, CA-34, CA-35: soundboard no canal de voz', async () => {
   await ana.janela.waitForTimeout(800);
   expect(await tocouNa(ana.janela)).toBe(antesDeafen);
 
+  // atalhos-de-sons (CA-2, CA-6): o dono põe F1 no Grilo; o atalho global (app em segundo plano) toca para a sala.
+  await ana.janela.getByRole('button', { name: 'Desligar áudio', exact: true }).click();
+  await j.getByRole('button', { name: 'Fechar soundboard' }).click();
+  await noMenu(j, 'Configurações');
+  await secaoConfig(j, 'Atalhos');
+  await j.getByRole('button', { name: 'Usar F1 para Grilo' }).click();
+  await expect(j.getByRole('listitem', { name: 'Grilo' }).locator('kbd')).toHaveText('F1');
+  await fecharConfig(j);
+  const antesAtalho = await tocouNa(ana.janela);
+  await expect.poll(async () => {
+    await teclaGlobal(dono.app, 'down', 'F1');
+    await teclaGlobal(dono.app, 'up', 'F1');
+    return tocouNa(ana.janela);
+  }, { timeout: 10_000, intervals: [1000] }).not.toBe(antesAtalho);
+  await j.getByRole('button', { name: 'Tocar sons' }).click();
+  await expect(painel.getByRole('button', { name: /^Grilo/ }).locator('kbd')).toHaveText('F1');
+
   await dono.app.close();
   await ana.app.close();
 });
