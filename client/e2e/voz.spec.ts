@@ -301,8 +301,12 @@ test('celular CA-14: quem está na voz chama alguém pelo menu da pessoa; ela en
   await dono.janela.getByRole('menuitem', { name: 'Chamar para a voz' }).click();
   const aviso = ana.janela.locator('.aviso-chamado');
   await expect(aviso).toContainText('dono está te chamando na sala Papo', { timeout: 10_000 });
+  // chamar-tocando (RN-5): quem chamou vê "Chamando…" com Cancelar até a pessoa atender.
+  await expect(dono.janela.locator('.aviso-chamado.chamando')).toContainText('Chamando ana…');
   await aviso.getByRole('button', { name: 'Entrar' }).click();
   await expect(ana.janela.getByRole('button', { name: 'Papo, você está aqui' })).toBeVisible({ timeout: 15_000 });
+  await expect(dono.janela.locator('.aviso-chamado.chamando')).toHaveCount(0);
+  await expect(aviso).toHaveCount(0);
   await dono.app.close();
   await ana.app.close();
 });

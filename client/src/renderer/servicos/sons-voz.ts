@@ -1,5 +1,5 @@
 /** RF-21: sons curtos da voz, gerados na hora (sem arquivos). */
-export type SomVoz = 'entrar' | 'sair' | 'mudo' | 'desmudo' | 'servidor-entrou' | 'servidor-saiu' | 'tela-abrir' | 'tela-fechar' | 'assistir-comecar' | 'assistir-parar';
+export type SomVoz = 'entrar' | 'sair' | 'mudo' | 'desmudo' | 'servidor-entrou' | 'servidor-saiu' | 'tela-abrir' | 'tela-fechar' | 'assistir-comecar' | 'assistir-parar' | 'chamado';
 
 /** Notas (Hz) e duração de cada nota (s): subir = entrou/desmutou, descer = saiu/mutou. */
 export const NOTAS: Record<SomVoz, { freqs: number[]; duracao: number }> = {
@@ -15,6 +15,8 @@ export const NOTAS: Record<SomVoz, { freqs: number[]; duracao: number }> = {
   'tela-fechar': { freqs: [988, 659], duracao: 0.08 },
   'assistir-comecar': { freqs: [784, 1047], duracao: 0.05 },
   'assistir-parar': { freqs: [1047, 784], duracao: 0.05 },
+  // chamar-tocando (RN-2): o toque do chamado (curto e baixo; repete enquanto o chamado está aberto).
+  chamado: { freqs: [659, 880, 659, 880], duracao: 0.1 },
 };
 
 const VOLUME = 0.12;

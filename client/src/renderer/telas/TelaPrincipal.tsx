@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   ATIVIDADE_PADRAO,
+  type ChamadoVozDto,
   type AtividadeDto,
   type PreferenciasAtividade,
   separarComunidade,
@@ -56,6 +57,7 @@ import { PainelFixadas } from '../componentes/PainelFixadas';
 import { criarFiltroRepeticao, deveTocar, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
 import { useModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { controlesAoTrocar, deveIrParaAfk, INTERVALO_VIGIA_AFK_MS, relogioAfk } from '../estado/afk';
+import { AVISO_CHAMADO_MS, chamavel, deveTocarChamado, textoFimChamado, tocarRepetido } from '../estado/chamar';
 import { PainelBusca } from '../componentes/PainelBusca';
 import { criarKlipy } from '../servicos/gif';
 import { ProcurarAtualizacao } from '../componentes/ProcurarAtualizacao';
@@ -792,8 +794,31 @@ function TelaDoServidor({
   const ultimaFalaRef = useRef(Date.now());
   // RF-26/RF-30: transmissão de tela — seletor, telas dos outros chegando.
   const [seletorTela, setSeletorTela] = useState(false);
-  /** celular (RN-11): chamado para a voz recebido (com o botão de entrar). */
-  const [chamado, setChamado] = useState<{ porId: number; porNome: string; canalVozId: number; canalNome: string } | null>(null);
+  /** celular (RN-11) e chamar-tocando: chamado para a voz recebido (Entrar ou Recusar, com toque). */
+  const [chamado, setChamado] = useState<ChamadoVozDto | null>(null);
+  /** chamar-tocando (RN-5): o chamado que eu fiz e ainda está tocando ("Chamando <nome>…" com Cancelar). */
+  const [chamando, setChamando] = useState<{ id: string; nome: string } | null>(null);
+  /** RN-7: avisos de resultado do chamado, que somem sozinhos em 6 s. */
+  const [avisoChamar, setAvisoChamar] = useState<{ texto: string; n: number } | null>(null);
+  const avisarChamar = (texto: string) => setAvisoChamar((a) => ({ texto, n: (a?.n ?? 0) + 1 }));
+  useEffect(() => {
+    if (!avisoChamar) return;
+    const t = setTimeout(() => setAvisoChamar(null), AVISO_CHAMADO_MS);
+    return () => clearTimeout(t);
+  }, [avisoChamar]);
+  // RN-2, RN-3: o toque repete enquanto o chamado está aberto (respeitando o surdo e a preferência) e, sem resposta,
+  // o aviso some no fim do tempo (servidor antigo não manda o tempo: fica até a pessoa fechar).
+  const surdoAgora = controles.surdo;
+  const tocarChamado = useEffectEvent(() => tocar('chamado'));
+  useEffect(() => {
+    if (!chamado) return undefined;
+    const parar = deveTocarChamado(surdoAgora, notifRef.current.chamados) ? tocarRepetido(() => tocarChamado()) : () => undefined;
+    const fim = chamado.segundos ? setTimeout(() => setChamado(null), chamado.segundos * 1000) : undefined;
+    return () => {
+      parar();
+      clearTimeout(fim);
+    };
+  }, [chamado, surdoAgora]);
   // som-sistema-windows: a porta com o som do sistema chega pela própria janela, logo depois da escolha.
   useEffect(() => escutarPortaSom(), []);
   const [iniciandoTela, setIniciandoTela] = useState(false);
@@ -1168,6 +1193,16 @@ function TelaDoServidor({
         void ponte()
           .notificacoes.mostrar({ titulo: `${p.porNome} está te chamando`, corpo: `Sala ${p.canalNome}`, chave: `u:${p.porId}`, conversaAberta: false })
           .catch(() => undefined);
+      },
+      // chamar-tocando (RF-4): o chamado acabou; quem chamou vê se foi recusado ou não atendido.
+      aoVozChamadoFim: ({ id, motivo, nome }) => {
+        setChamado((c) => (c?.id === id ? null : c));
+        setChamando((c) => {
+          if (c?.id !== id) return c;
+          const texto = textoFimChamado(motivo, nome);
+          if (texto) avisarChamar(texto);
+          return null;
+        });
       },
       aoVozMovido: ({ canalVozId, canalNome, porNome }) => {
         if (minhaVozRef.current === null && entrandoRef.current === null) return;
@@ -1726,13 +1761,33 @@ function TelaDoServidor({
 
   /** celular (RN-11): posso chamar esta pessoa (estou na voz deste servidor e ela não está na minha sala). */
   const podeChamar = (alvoId: number) =>
-    !!recursos.chamar && minhaVoz !== null && alvoId !== usuario.id && usuarios.some((u) => u.id === alvoId) && voz.find((e) => e.usuarioId === alvoId)?.canalVozId !== minhaVoz;
+    !!recursos.chamar &&
+    minhaVoz !== null &&
+    alvoId !== usuario.id &&
+    usuarios.some((u) => u.id === alvoId) &&
+    voz.find((e) => e.usuarioId === alvoId)?.canalVozId !== minhaVoz &&
+    // chamar-tocando (RN-1): só quem está online ou ausente (servidor antigo: como antes).
+    (!recursos.chamadoV2 || chamavel(presencas[alvoId]));
   const chamarParaVoz = (alvoId: number) => {
     const nome = usuarios.find((u) => u.id === alvoId)?.nomeExibicao ?? 'a pessoa';
     void pedir(
       (c) => c.pedir('voz:chamar', { usuarioId: alvoId }),
-      () => setAvisoVoz(`Chamado enviado para ${nome}.`),
-    ).then((falha) => falha && setAvisoVoz(falha));
+      (r) => (r?.id ? setChamando({ id: r.id, nome }) : avisarChamar(`Chamado enviado para ${nome}.`)),
+    ).then((falha) => falha && avisarChamar(falha));
+  };
+  /** RN-5: quem chamou desiste. */
+  const cancelarChamado = () => {
+    const c = chamando;
+    setChamando(null);
+    if (c) void conexaoRef.current?.pedir('voz:cancelar', { id: c.id }).catch(() => undefined);
+  };
+  /** RN-4: quem foi chamado atende (entra na sala) ou recusa. */
+  const responderChamado = (aceitar: boolean) => {
+    const c = chamado;
+    setChamado(null);
+    if (!c) return;
+    if (c.id) void conexaoRef.current?.pedir('voz:responder', { id: c.id, aceitar }).catch(() => undefined);
+    if (aceitar) void entrarVoz(c.canalVozId);
   };
 
   const tocarSom = (somId: number) =>
@@ -2191,20 +2246,26 @@ function TelaDoServidor({
                   <span>
                     <strong>{chamado.porNome}</strong> está te chamando na sala <strong>{chamado.canalNome}</strong>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const c = chamado;
-                      setChamado(null);
-                      void entrarVoz(c.canalVozId);
-                    }}
-                  >
+                  <button type="button" onClick={() => responderChamado(true)}>
                     Entrar
                   </button>
-                  <button type="button" className="secundario" onClick={() => setChamado(null)}>
-                    Agora não
+                  <button type="button" className="secundario" onClick={() => responderChamado(false)}>
+                    Recusar
                   </button>
                 </div>
+              )}
+              {chamando && (
+                <div className="aviso-chamado chamando" role="status">
+                  <span>Chamando {chamando.nome}…</span>
+                  <button type="button" className="secundario" onClick={cancelarChamado}>
+                    Cancelar
+                  </button>
+                </div>
+              )}
+              {avisoChamar && (
+                <p className="aviso-ok" role="status" key={avisoChamar.n}>
+                  {avisoChamar.texto}
+                </p>
               )}
               {/* Região viva sempre montada: o leitor de tela anuncia quando o texto muda. */}
               <p className={`aviso-som${avisoSom ? '' : ' vazio'}`} aria-live="polite" aria-atomic="true">

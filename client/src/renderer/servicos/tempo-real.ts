@@ -3,6 +3,8 @@ import {
   separarComunidade,
   ERRO_HANDSHAKE_NAO_AUTENTICADO,
   type AfkDto,
+  type ChamadoVozDto,
+  type FimChamadoDto,
   type EventosCliente,
   type EventosServidor,
   type MotivoRevogacao,
@@ -60,7 +62,9 @@ export interface OuvintesTempoReal {
   /** mover-e-afk: alguém moveu você para outra sala, ou desconectou você da chamada. */
   aoVozMovido?(p: { canalVozId: number; canalNome: string; porNome: string }): void;
   /** celular (RN-11): alguém está me chamando para a voz. */
-  aoVozChamado?(p: { porId: number; porNome: string; canalVozId: number; canalNome: string }): void;
+  aoVozChamado?(p: ChamadoVozDto): void;
+  /** chamar-tocando: o chamado acabou (para quem chamou e para quem foi chamado). */
+  aoVozChamadoFim?(p: FimChamadoDto): void;
   aoVozDesconectado?(p: { porNome: string }): void;
   /** Moderação: o meu castigo neste servidor começou (com motivo) ou acabou (null). */
   aoCastigo?(castigo: { ate: number; motivo: string | null } | null): void;
@@ -208,6 +212,7 @@ export function conectarTempoReal(
   socket.on('voz:tirado', (p) => ouvintes.aoVozTirado(p?.motivo));
   socket.on('voz:movido', (p) => ouvintes.aoVozMovido?.(p));
   socket.on('voz:chamado', (p) => ouvintes.aoVozChamado?.(p));
+  socket.on('voz:chamado:fim', (p) => ouvintes.aoVozChamadoFim?.(p));
   socket.on('voz:desconectado', (p) => ouvintes.aoVozDesconectado?.(p));
   socket.on('som:tocado', (p) => ouvintes.aoSomTocado(p));
   socket.on('presenca:atualizada', ({ id, status }) => ouvintes.aoPresenca(id, status));
