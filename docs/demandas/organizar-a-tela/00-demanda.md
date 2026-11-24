@@ -1,0 +1,6 @@
+# Demanda: organizar-a-tela
+
+Itens 62 e 63 do backlog:
+
+| 62 | **Colunas de canais e de membros com largura ajustável** | Pedido de 23/11 (junto do item 61): uma divisória para arrastar também entre a lista de canais e a conversa e entre a conversa e a lista de membros, com a largura guardada por computador, limites mínimo e máximo, e duplo clique para voltar ao padrão. Pelo teclado: a divisória recebe foco e as setas mudam a largura. Não vale na tela estreita (lá são gavetas). Hoje as colunas são fixas em `estilos/base.css` (`.layout-colunas`, 250px e 220px). Pequeno a médio. |
+| 63 | **Pastas de servidores na coluna da esquerda** | Pedido de 23/11. Arrastar o círculo de um servidor para cima de outro cria um grupo (pasta) com os dois; arrastar outros para dentro soma ao grupo; arrastar um servidor para fora do grupo tira ele de lá (grupo com um só se desfaz). A pasta mostra as miniaturas dos servidores de dentro, abre e fecha com um clique, soma as não lidas e pode ter nome e cor. Também dá para reordenar os servidores arrastando. Fica guardado por computador (`servidores` em `configuracoes.json`). Pelo teclado: menu do servidor (clique direito) com "Mover para pasta…" e "Tirar da pasta". Componente: `ColunaServidores.tsx`. Médio. |

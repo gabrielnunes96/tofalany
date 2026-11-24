@@ -1,0 +1,5 @@
+# Demanda: chamar-tocando
+
+Item 55 do backlog:
+
+| 55 | **Chamar para a voz como um telefone tocando** | Pedido de 23/11 (0.18.2), com print. **(a) Avisos que não somem:** "Chamado enviado para…" e os erros (ex.: "Calma: espere um pouco para chamar de novo.") ficam fixos no painel até a pessoa fechar; devem sumir sozinhos em alguns segundos. **(b) Tocando:** quem é chamado ouve um toque que se repete (respeitando o surdo e as preferências de som), com o aviso "<nome> está te chamando na sala <sala>" e os botões Entrar e Recusar; quem chama vê "Chamando <nome>…" com Cancelar. Se ninguém atender em ~30 s, o chamado encerra sozinho dos dois lados ("<nome> não atendeu"); recusar ou cancelar encerra na hora e avisa o outro lado. Com o app fechado, o aviso por push (celular) vale o mesmo tempo. **(c) Só para quem está online:** "Chamar para a voz" só aparece (e o servidor só aceita) para quem está online ou ausente, não para quem está offline ou invisível; "não incomodar" continua sem receber. Hoje: `voz:chamar` em `server/src/realtime/chamar.ts`, aviso em `TelaPrincipal.tsx` (`chamado`, `chamarParaVoz`). Médio. |
