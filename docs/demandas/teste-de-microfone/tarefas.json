@@ -94,9 +94,9 @@
         "CA-5"
       ],
       "validacao": "E2E voz.spec novo (sinal no retorno dentro da sala); vitest TelaConfiguracoes (estado antes/depois); validação manual do usuário.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "fe5dba1"
     }
   ]
 }
