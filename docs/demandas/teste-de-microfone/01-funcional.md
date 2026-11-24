@@ -1,6 +1,6 @@
 # Correções da voz e da transmissão (AFK, teste de microfone, atualização, espectadores) — especificação funcional
 
-> Demanda: `teste-de-microfone` · Itens 59, 53, 54 e 58 · Versão 1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `teste-de-microfone` · Itens 59, 53, 54, 58 e 64 · Versão 1 · 23/11/2026 · Situação: **rascunho**
 
 ## 1. Objetivo
 Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a pessoa, o teste de microfone que não funciona dentro da sala, a chamada que continua escondida enquanto o app atualiza, e o contador de espectadores que confunde.
@@ -33,6 +33,7 @@ Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a p
 | RN-6 | O contador de espectadores flutuante deixa de existir, com o arrastar, a posição guardada e as cores em Aparência. | Item 58, usuário 23/11 |
 | RN-7 | O olho do painel da transmissão mostra quantas pessoas estão assistindo aquela transmissão agora, o mesmo número para todos; quem transmite não conta. | Item 58 |
 | RN-8 | A lista de quem assiste abre para o lado que tiver espaço e nunca passa da borda do vídeo ou da janela. | Item 58 |
+| RN-9 | Na loja, "Ouvir" vira "Pausar" enquanto o áudio toca; ouvir outro para o anterior. | Item 64, usuário 23/11 |
 
 ## 6. Requisitos funcionais
 | ID | Requisito | Regras |
@@ -41,6 +42,7 @@ Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a p
 | RF-2 | Teste de microfone que funciona dentro da sala, com mudo automático e volta ao estado anterior. | RN-3, RN-4 |
 | RF-3 | Sair da voz antes de instalar a atualização. | RN-5 |
 | RF-4 | Remover o contador flutuante; contagem única e lista que cabe na tela. | RN-6, RN-7, RN-8 |
+| RF-5 | Pausar a prévia dos áudios na loja. | RN-9 |
 
 ## 7. Requisitos não funcionais
 - O retorno do teste com atraso perceptível de no máximo 300 ms (medido na validação manual).
@@ -55,6 +57,8 @@ Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a p
 - **CA-7** (RN-6): Dado uma transmissão aberta, quando se olha a tela, então não há olho flutuante, e Configurações → Aparência não tem mais as cores do contador.
 - **CA-8** (RN-7): Dado Ana transmitindo e Bia e Caio assistindo, quando Ana, Bia, Caio e Dani (sem assistir) olham o olho, então todos veem 2.
 - **CA-9** (RN-8): Dado a transmissão em tela grande, modo teatro ou tela cheia, quando a pessoa abre a lista do olho perto da borda de baixo, então a lista abre para cima, inteira.
+
+- **CA-10** (RN-9): Dado a prévia de um áudio tocando na loja, quando a pessoa clica em "Pausar", então o som para e o botão volta a "Ouvir"; clicando em "Ouvir" de outro áudio, o anterior para.
 
 ## 9. Impacto em consumidores
 Só o app e o servidor. A preferência `contador` some das configurações locais (ignorada se existir).
