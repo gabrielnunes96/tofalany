@@ -39,9 +39,9 @@
         "CA-8"
       ],
       "validacao": "vitest server: chamar.test com fake timers para cada fim, 404 igual, 409, dono.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "8ef6edc"
     },
     {
       "id": "T3",
