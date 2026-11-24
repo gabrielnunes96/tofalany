@@ -305,7 +305,9 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     aoSair: (u, c) => {
       tela.saiuDaVoz(u, c);
       musica.saiuDaVoz(c);
+      chamar.saiuDaVoz(u);
     },
+    aoEntrar: (u, c) => chamar.entrouNaVoz(u, c),
     aoMudar: () => pontos.atualizar(),
   });
   const tela = criarTela(io, banco, voz, (e) => app.log.error(e));
@@ -327,7 +329,8 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     conectada: (h) => [...io.of('/').sockets.values()].some((s) => s.data.tokenHash === h),
     registrarErro: (e) => app.log.error(e),
   });
-  const chamar = criarChamar(io, banco, voz, (id) => escolhas.get(id), push, (e) => app.log.error(e));
+  // chamar-tocando (RN-1): o status que todos veem (offline e invisível ficam fora do mapa).
+  const chamar = criarChamar(io, banco, voz, (id) => status.get(id), push, (e) => app.log.error(e), config.chamadoDuracaoMs);
   const musica = criarMusica(io, config, voz, (e) => app.log.error(e), banco);
 
   io.use((socket, next) => {
@@ -409,7 +412,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
       conhecidos: conhecidosDe(banco, eu.id, comunidadeId),
       loja: estadoLoja(banco, eu.id),
       audiosLoja: audiosDaConta(banco, eu.id),
-      recursos: { fixar: true, busca: true, push: push.ligado(), chamar: true },
+      recursos: { fixar: true, busca: true, push: push.ligado(), chamar: true, chamadoV2: true },
     };
     registrarEventosCanais(io, socket, banco, armazem, voz, (e) => app.log.error(e));
     voz.registrar(socket);
@@ -551,6 +554,7 @@ export function criarTempoReal(app: FastifyInstance, banco: Banco, config: Confi
     clearInterval(tiquePontos);
     voz.fechar();
     push.fechar();
+    chamar.fechar();
     presenca.iniciarFechamento();
     io.local.disconnectSockets(true);
     io.engine.close();

@@ -904,7 +904,7 @@ export interface EventosCliente {
   /** mover-e-afk: mover quem está em chamada (só com "Mover membros") e desconectar da chamada. */
   'voz:mover': (dados: { usuarioId: number; canalVozId: number }, ack: Ack) => void;
   /** celular (RN-11): chama alguém do servidor para a sala de voz em que estou. */
-  'voz:chamar': (dados: { usuarioId: number }, ack: Ack) => void;
+  'voz:chamar': (dados: { usuarioId: number }, ack: Ack<{ id: string } | undefined>) => void;
   /** chamar-tocando (RN-4): quem foi chamado atende (vai para a sala) ou recusa. */
   'voz:responder': (dados: { id: string; aceitar: boolean }, ack: Ack) => void;
   /** chamar-tocando (RN-5): quem chamou desiste. */

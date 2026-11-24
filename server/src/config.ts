@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { HOSTS_MIDIA_GIF, CARENCIA_OFFLINE_MS_PADRAO, LIMITE_CONTAS_PADRAO, PRAZO_AUDITORIA_DIAS_PADRAO, type PrecosLoja } from '@tofalando/shared';
+import { CHAMADO_DURACAO_MS, HOSTS_MIDIA_GIF, CARENCIA_OFFLINE_MS_PADRAO, LIMITE_CONTAS_PADRAO, PRAZO_AUDITORIA_DIAS_PADRAO, type PrecosLoja } from '@tofalando/shared';
 
 export interface Config {
   porta: number;
@@ -27,6 +27,8 @@ export interface Config {
   carenciaOfflineMs: number;
   /** mover-e-afk (A5): prazo para o app movido sair da sala antiga antes de ser tirado à força. */
   prazoMoverMs: number;
+  /** chamar-tocando (RN-3): quanto tempo o chamado toca (testes encurtam). */
+  chamadoDuracaoMs: number;
   /**
    * Pasta dos arquivos enviados (avatares, anexos, sons). Sem ARQUIVOS: "arquivos" ao lado do banco;
    * com banco em memória (testes), uma pasta temporária.
@@ -116,6 +118,7 @@ export function lerConfig(ambiente: Ambiente = process.env): Config {
     pastaDownloads: ambiente.DOWNLOADS || undefined,
     carenciaOfflineMs: inteiro('CARENCIA_OFFLINE_MS', ambiente.CARENCIA_OFFLINE_MS, CARENCIA_OFFLINE_MS_PADRAO, 0),
     prazoMoverMs: inteiro('PRAZO_MOVER_MS', ambiente.PRAZO_MOVER_MS, 10_000, 0),
+    chamadoDuracaoMs: inteiro('CHAMADO_DURACAO_MS', ambiente.CHAMADO_DURACAO_MS, CHAMADO_DURACAO_MS, 100),
     livekit: lerLivekit(ambiente),
     gif: lerGif(ambiente),
     push: { credencial: ambiente.PUSH_FCM_CREDENCIAL || undefined },

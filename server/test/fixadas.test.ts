@@ -77,7 +77,7 @@ async function preparar() {
 describe('fixar mensagens (chat-fixar-e-buscar, T2)', () => {
   it('o ola anuncia os recursos novos', async () => {
     const { a } = await preparar();
-    expect(a.ola.recursos).toEqual({ fixar: true, busca: true, push: false, chamar: true });
+    expect(a.ola.recursos).toEqual({ fixar: true, busca: true, push: false, chamar: true, chamadoV2: true });
   });
 
   it('CA-1: sem a permissão (membro comum, ou de castigo com ela) não fixa', async () => {

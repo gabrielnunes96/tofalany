@@ -87,6 +87,8 @@ export function criarVoz(
     removerDaMidia?: RemoverDaMidia;
     calarNaMidia?: CalarNaMidia;
     aoSair?: (usuarioId: number, canalVozId: number) => void;
+    /** chamar-tocando: a pessoa entrou numa sala de voz (vinda de fora da voz ou de outra sala). */
+    aoEntrar?: (usuarioId: number, canalVozId: number) => void;
     /** Pontos e loja: a presença na voz mudou (entrou, saiu, surdo, conexão caiu ou voltou). */
     aoMudar?: () => void;
     /** mover-e-afk (A5): quanto o app movido tem para sair da sala antiga antes de ser tirado à força. */
@@ -207,6 +209,7 @@ export function criarVoz(
             }
             if (atual.estado.canalVozId !== canal.id) tirar(usuarioId, 'trocou_de_canal');
           }
+          const entrou = !presentes.has(usuarioId) || atual?.estado.canalVozId !== canal.id;
           if (!presentes.has(usuarioId)) auditar('voz_entrou', usuarioId, canal.id, undefined, canal.nome);
           presentes.set(usuarioId, {
             entrada: atual && atual.socketId === socket.id && atual.estado.canalVozId === canal.id ? atual.entrada : ++entradas,
@@ -214,6 +217,7 @@ export function criarVoz(
             sid: pedido.sid ?? (atual?.estado.canalVozId === canal.id ? atual.sid : undefined),
             estado: { usuarioId, canalVozId: canal.id, mudo: pedido.mudo, surdo: pedido.surdo, camera: pedido.camera },
           });
+          if (entrou) opcoes.aoEntrar?.(usuarioId, canal.id);
           avisar();
           return undefined;
         }),
