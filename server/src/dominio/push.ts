@@ -5,13 +5,15 @@
  * sair, redefinir a senha, remover a conta ou desconectar o aparelho apagam o registro (A3).
  */
 import { randomBytes } from 'node:crypto';
-import type { PreferenciasAvisoDto, ResumoPushDto } from '@tofalando/shared';
+import { CHAMADO_DURACAO_MS, type PreferenciasAvisoDto, type ResumoPushDto } from '@tofalando/shared';
 import type { Banco } from '../db/banco.js';
 import { ErroHttp } from '../erros.js';
 import { membroDe } from './comunidades.js';
 
 /** Resumos pendentes valem 10 min (o app busca logo depois do aviso). */
 export const VALIDADE_PENDENTE_MS = 10 * 60_000;
+/** chamar-tocando (RN-8): o aviso de chamado dura o mesmo que o chamado. */
+const VALIDADE_CHAMADO_MS = CHAMADO_DURACAO_MS;
 /** No máximo 1 aviso a cada 30 s por aparelho (A6: menos metadados para o Google, A19: sem cansar o aparelho). */
 export const INTERVALO_AVISO_MS = 30_000;
 
@@ -91,7 +93,7 @@ export function criarPush(opcoes: { banco: Banco; transporte?: Transporte; conec
     ultimoEnvio.set(sessaoHash, agora());
     let resultado: ResultadoEnvio = 'erro';
     for (let tentativa = 0; tentativa < 3 && resultado === 'erro'; tentativa++) {
-      resultado = await transporte({ fcmToken: a.fcm_token, k: a.k, ttlSegundos: urgente ? 60 : 600, urgente }).catch(() => 'erro' as const);
+      resultado = await transporte({ fcmToken: a.fcm_token, k: a.k, ttlSegundos: urgente ? Math.ceil(VALIDADE_CHAMADO_MS / 1000) : 600, urgente }).catch(() => 'erro' as const);
       if (resultado === 'erro' && tentativa < 2) await new Promise((r) => setTimeout(r, 500 * 2 ** tentativa));
     }
     if (resultado === 'nao_registrado') banco.prepare('DELETE FROM push_aparelhos WHERE sessao_hash = ?').run(sessaoHash);
@@ -157,8 +159,10 @@ export function tomarPendentes(banco: Banco, sessaoHash: string, k: unknown, ago
   if (!a || a.k !== k) throw new ErroHttp(404, 'nao_encontrado', 'Nada pendente.');
   return banco.transaction(() => {
     const linhas = banco
-      .prepare('SELECT id, resumo_json, criado_em FROM push_pendentes WHERE sessao_hash = ? AND criado_em >= ? ORDER BY criado_em LIMIT 20')
-      .all(sessaoHash, agora - VALIDADE_PENDENTE_MS) as { id: string; resumo_json: string; criado_em: number }[];
+      .prepare(
+        "SELECT id, resumo_json, criado_em FROM push_pendentes WHERE sessao_hash = ? AND criado_em >= ? AND (tipo <> 'chamado' OR criado_em >= ?) ORDER BY criado_em LIMIT 20",
+      )
+      .all(sessaoHash, agora - VALIDADE_PENDENTE_MS, agora - VALIDADE_CHAMADO_MS) as { id: string; resumo_json: string; criado_em: number }[];
     banco.prepare('DELETE FROM push_pendentes WHERE sessao_hash = ?').run(sessaoHash);
     const usuarioId = (banco.prepare('SELECT usuario_id FROM sessoes WHERE token_hash = ?').get(sessaoHash) as { usuario_id: number } | undefined)?.usuario_id;
     return (

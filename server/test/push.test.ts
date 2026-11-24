@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { io as conectar, type Socket } from 'socket.io-client';
 import type { CanalDto, DmDto, ResumoPushDto } from '@tofalando/shared';
 import { listarAuditoria } from '../src/dominio/auditoria.js';
-import { criarPush, INTERVALO_AVISO_MS, type Transporte } from '../src/dominio/push.js';
+import { criarPush, INTERVALO_AVISO_MS, tomarPendentes, type Transporte } from '../src/dominio/push.js';
 import { criarTransporteFcm } from '../src/dominio/fcm.js';
 import { appTeste, cadastrar } from './apoio.js';
 
@@ -121,6 +121,22 @@ describe('push sem conteúdo', () => {
 });
 
 describe('serviço de push (agrupamento e falhas)', () => {
+  it('chamar-tocando (RN-8, CA-4): o push do chamado vale 15 s (ttl e pendente); o de mensagem continua 10 min', async () => {
+    app = await appTeste();
+    const bia = (await cadastrar(app, 'bia')).json() as { token: string; usuario: { id: number } };
+    await app.inject({ method: 'POST', url: '/api/push/aparelho', headers: auth(bia.token), payload: { fcmToken: FCM(), k: K() } });
+    let agora = 1_000_000;
+    const ttls: number[] = [];
+    const push = criarPush({ banco: app.banco, transporte: async (a) => (ttls.push(a.ttlSegundos), 'ok'), conectada: () => false, registrarErro: () => undefined, agora: () => agora });
+    push.avisar([bia.usuario.id], { tipo: 'chamado', resumo: { tipo: 'chamado', porNome: 'ana', texto: 'Papo', onde: 'Papo' } });
+    push.avisar([bia.usuario.id], { tipo: 'mensagem', resumo: { tipo: 'mensagem', porNome: 'ana', texto: 'oi', onde: 'Conversa direta' } });
+    await vi.waitFor(() => expect(ttls[0]).toBe(15));
+    agora += 16_000;
+    const h = (app.banco.prepare('SELECT sessao_hash AS h FROM push_aparelhos').get() as { h: string }).h;
+    expect(tomarPendentes(app.banco, h, K(), agora).map((r) => r.tipo)).toEqual(['mensagem']);
+    push.fechar();
+  });
+
   it('A6/A19: várias mensagens seguidas → 1 aviso agora e 1 no fim da janela; chamado não espera; UNREGISTERED apaga o aparelho', async () => {
     app = await appTeste();
     const bia = (await cadastrar(app, 'bia')).json() as { token: string; usuario: { id: number } };
