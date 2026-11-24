@@ -56,9 +56,9 @@
         "CA-4"
       ],
       "validacao": "vitest server: push.test e chamar.test (ttl 15, pendente vencido não sai).",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "b9e04d7"
     },
     {
       "id": "T4",
