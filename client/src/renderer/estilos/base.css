@@ -730,6 +730,26 @@ button.servidor-icone.ativo::before { content: ''; position: absolute; left: -12
 button.servidor-icone.adicionar { background: transparent; border: 1px dashed var(--cor-borda-forte); color: var(--cor-sucesso); font-size: 1.3rem; }
 .servidores-separador { width: 28px; height: 2px; border-radius: 2px; background: var(--cor-borda); }
 @media (prefers-reduced-motion: reduce) { button.servidor-icone { transition: none; } }
+/* organizar-a-tela (RF-2, RF-3): pastas de servidores e onde o arrastado vai cair. */
+.pasta-servidores { display: flex; flex-direction: column; align-items: center; gap: 8px; border-radius: 16px; }
+.pasta-servidores.aberta { padding: 4px 0 6px; background: color-mix(in srgb, var(--cor-pasta) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor-pasta) 45%, transparent); }
+button.servidor-icone.pasta { border-radius: 14px; border-color: color-mix(in srgb, var(--cor-pasta) 70%, transparent); background: color-mix(in srgb, var(--cor-pasta) 22%, var(--cor-superficie-2)); }
+.pasta-servidores.aberta > button.servidor-icone.pasta { height: 26px; }
+.pasta-aberta-marca { color: var(--cor-pasta); font-size: 0.9rem; }
+.pasta-miniaturas { display: grid; grid-template-columns: repeat(2, 16px); grid-auto-rows: 16px; gap: 2px; }
+.pasta-miniaturas > * { width: 16px; height: 16px; border-radius: 5px; overflow: hidden; display: grid; place-items: center; font-size: 0.55rem; background: var(--cor-superficie); color: var(--cor-texto); object-fit: cover; }
+button.servidor-icone.ativo-dentro::before { content: ''; position: absolute; left: -12px; width: 4px; height: 20px; border-radius: 0 4px 4px 0; background: var(--cor-texto); }
+button.servidor-icone.solta-antes { box-shadow: 0 -6px 0 -3px var(--cor-acento); }
+button.servidor-icone.solta-depois { box-shadow: 0 6px 0 -3px var(--cor-acento); }
+button.servidor-icone.solta-dentro { outline: 2px solid var(--cor-acento); outline-offset: 2px; }
+.menu-servidor .editar-pasta { display: flex; flex-direction: column; gap: 6px; padding: 8px; min-width: 200px; }
+.menu-servidor .cores-pasta { display: flex; flex-wrap: wrap; gap: 6px; border: 0; margin: 0; padding: 0; }
+.menu-servidor .cores-pasta legend { font-size: 0.8rem; color: var(--cor-texto-suave); margin-bottom: 4px; }
+.menu-servidor .cores-pasta label { position: relative; }
+.menu-servidor .cores-pasta input { position: absolute; opacity: 0; inset: 0; margin: 0; }
+.menu-servidor .cores-pasta span { display: block; width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; }
+.menu-servidor .cores-pasta input:checked + span { border-color: var(--cor-texto); }
+.menu-servidor .cores-pasta input:focus-visible + span { outline: 2px solid var(--cor-acento); outline-offset: 2px; }
 
 /* Backlog v2, item 10b: links e prévias no chat. */
 .mensagem-texto a { color: var(--cor-acento); word-break: break-all; }

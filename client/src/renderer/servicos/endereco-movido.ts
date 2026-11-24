@@ -49,5 +49,7 @@ export function moverConfiguracoes(c: ConfiguracoesLocais, de: string, para: str
     servidorUrl: c.servidorUrl ? mover(c.servidorUrl, de, para) : c.servidorUrl,
     statusEscolhido: moverChaves(c.statusEscolhido, de, para),
     pessoas: moverChaves(c.pessoas, de, para) ?? {},
+    // organizar-a-tela: o servidor que mudou de endereço continua na pasta dele.
+    ...(c.pastas ? { pastas: c.pastas.map((p) => ({ ...p, urls: [...new Set(p.urls.map((u) => mover(u, de, para)))] })) } : {}),
   };
 }

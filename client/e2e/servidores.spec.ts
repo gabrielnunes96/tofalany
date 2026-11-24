@@ -94,4 +94,22 @@ test('backlog v2, item 7: entra em dois servidores e troca entre eles pela colun
   await expect(de_novo.janela.getByText(/· Família$/)).toBeVisible();
   // Aberto, o servidor não mostra número no ícone (as não lidas ficam na lista de canais).
   await expect(colunaNova.getByRole('button', { name: /Família/ })).toHaveText('FA');
+
+  // organizar-a-tela (CA-7, CA-8): pelo menu, Família vai para cima e depois para uma pasta nova com a Turma; tudo
+  // continua igual ao reabrir.
+  const rotulos = () => colunaNova.locator(':scope > button.servidor-icone:not(.adicionar), :scope > .pasta-servidores > button').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label') ?? ''));
+  await colunaNova.getByRole('button', { name: /Família/ }).click({ button: 'right' });
+  await de_novo.janela.getByRole('menuitem', { name: 'Mover para cima' }).click();
+  await expect.poll(async () => (await rotulos())[0]).toMatch(/^Família/);
+  await colunaNova.getByRole('button', { name: /Família/ }).click({ button: 'right' });
+  await de_novo.janela.getByRole('menuitem', { name: 'Mover para pasta…' }).click();
+  await de_novo.janela.getByRole('menuitem', { name: /Nova pasta/ }).click();
+  await de_novo.janela.getByRole('menuitem', { name: 'Nova pasta com Turma da Faculdade' }).click();
+  await expect(colunaNova.getByRole('button', { name: /^Pasta Pasta, 2 servidores/ })).toBeVisible();
+  await de_novo.janela.screenshot({ path: join(PRINTS, 'pasta-de-servidores.png') });
+  await de_novo.app.close();
+  const terceira = await abrir();
+  const colunaTerceira = terceira.janela.getByRole('navigation', { name: 'Servidores' });
+  await expect(colunaTerceira.getByRole('button', { name: /^Pasta Pasta, 2 servidores/ })).toBeVisible({ timeout: 15_000 });
+  await expect(colunaTerceira.getByRole('button', { name: /Família/ })).toBeVisible();
 });

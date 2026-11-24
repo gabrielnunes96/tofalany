@@ -4,6 +4,8 @@ import {
   decidirNovidades,
   separarComunidade,
   type NotasVersao,
+  type Organizacao,
+  type PastaServidores,
   type ConviteLink,
   type MotivoRevogacao,
   type ServidorConhecido,
@@ -39,6 +41,8 @@ export function App() {
   }, [estado]);
   // Backlog v2, item 7: servidores em que a pessoa entrou (a coluna à esquerda).
   const [servidores, setServidores] = useState<ServidorConhecido[]>([]);
+  /** organizar-a-tela (RF-2, RF-3): pastas da coluna de servidores (a ordem é a de `servidores`). */
+  const [pastas, setPastas] = useState<PastaServidores[]>([]);
   /** Notas da versão, uma vez depois de atualizar. */
   const [notas, setNotas] = useState<NotasVersao | null>(null);
   /** De qual versão são as notas mostradas (quem pula de versão vê as últimas que não viu). */
@@ -122,6 +126,7 @@ export function App() {
       servidoresRef.current = parcial.servidores;
       setServidores(parcial.servidores);
     }
+    if (parcial.pastas) setPastas(parcial.pastas);
     // Sessões: a mesma conta nos dois endereços (o token não muda; só a chave local). Uma sessão que já existe no
     // endereço novo vale; a antiga só sai depois que a nova estiver gravada.
     const urls = new Set([de, config.servidorUrl ?? '', ...(config.servidores ?? []).map((s) => s.url)].filter((u) => u && separarComunidade(u).base === de));
@@ -289,6 +294,7 @@ export function App() {
           .catch(() => undefined);
       // Quem vem da versão sem a lista: o servidor salvo entra nela.
       setServidores(c.servidores?.length ? c.servidores : c.servidorUrl ? [{ url: c.servidorUrl }] : []);
+      setPastas(c.pastas ?? []);
       return c.servidorUrl ? retomar(c.servidorUrl) : setEstado({ fase: 'escolher-servidor', voltar: null });
     })().catch(() => setEstado({ fase: 'escolher-servidor', voltar: null }));
     return parar;
@@ -618,6 +624,18 @@ export function App() {
       </div>
     </div>
   );
+  /** organizar-a-tela: nova ordem e pastas, guardadas neste computador (RN-8). */
+  const organizarColuna = (o: Organizacao) => {
+    const atual = servidoresRef.current;
+    const porUrl = new Map(atual.map((s) => [s.url, s]));
+    const novo = [...o.urls.flatMap((u) => porUrl.get(u) ?? []), ...atual.filter((s) => !o.urls.includes(s.url))];
+    servidoresRef.current = novo;
+    setServidores(novo);
+    setPastas(o.pastas);
+    void ponte()
+      .config.gravar({ servidores: novo, pastas: o.pastas })
+      .catch(() => undefined);
+  };
   const comColuna = (tela: ReactNode) =>
     servidores.length === 0 ? (
       <>
@@ -628,6 +646,8 @@ export function App() {
       <div className="app-com-servidores">
         <ColunaServidores
           servidores={servidores}
+          pastas={pastas}
+          aoOrganizar={organizarColuna}
           ativo={urlAtiva}
           naoLidas={naoLidasOutros}
           aoEscolher={(url) => void irParaServidor(url)}
