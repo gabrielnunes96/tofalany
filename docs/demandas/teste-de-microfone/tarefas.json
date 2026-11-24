@@ -77,9 +77,9 @@
         "CA-10"
       ],
       "validacao": "vitest: previa-audio.test, TelaLoja.audios.test, TelaAudiosLoja.test.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "10bab4c"
     },
     {
       "id": "T6",
