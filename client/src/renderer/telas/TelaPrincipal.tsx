@@ -18,6 +18,11 @@ import {
   type PartesOcultas,
   type Atalhos,
   type AtalhosSons,
+  type LarguraColunas,
+  COLUNA_CANAIS,
+  COLUNA_MEMBROS,
+  limitesColunas,
+  limitar,
   ATALHOS_SONS_PADRAO,
   limparOrfaos,
   resolverAtalhoSom,
@@ -80,6 +85,7 @@ import { AVISO_SEM_SOM_SISTEMA, descartarPortaSom, escutarPortaSom } from '../se
 import { criarSonsVoz, type SomVoz, type SonsVoz } from '../servicos/sons-voz';
 import { criarTocadorSoundboard, type TocadorSoundboard } from '../servicos/soundboard';
 import { PainelSoundboard } from '../componentes/PainelSoundboard';
+import { Divisoria } from '../componentes/Divisoria';
 import { GradeVideos } from '../componentes/GradeVideos';
 import { SeletorTela, somParaLembrar, type FonteTela } from '../componentes/SeletorTela';
 import { PainelTransmissao } from '../componentes/PainelTransmissao';
@@ -399,6 +405,35 @@ function TelaDoServidor({
   /** chat-fixar-e-buscar: o que o servidor oferece e o painel da coluna direita (membros, fixadas ou busca). */
   const recursos = useLoja((s) => s.recursos);
   const [painelDireito, setPainelDireito] = useState<'membros' | 'fixadas' | 'busca'>('membros');
+  /** organizar-a-tela (RF-1): largura escolhida das colunas e a largura da área das colunas (para os limites). */
+  const [colunas, setColunas] = useState<LarguraColunas>({});
+  const [larguraLayout, setLarguraLayout] = useState(0);
+  const observadorLayout = useRef<ResizeObserver | null>(null);
+  const layoutRef = useCallback((el: HTMLDivElement | null) => {
+    observadorLayout.current?.disconnect();
+    observadorLayout.current = null;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(() => setLarguraLayout(el.clientWidth));
+    obs.observe(el);
+    observadorLayout.current = obs;
+    setLarguraLayout(el.clientWidth);
+  }, []);
+  const mostraCanais = !ocultos.canais;
+  const mostraMembros = !(ocultos.membros && painelDireito === 'membros');
+  // A área tem o respiro da direita e um vão entre as colunas: o resto é das colunas e da conversa (RN-1, CA-2).
+  const vao = 10;
+  const disponivel = larguraLayout > 0 ? larguraLayout - vao * ((mostraCanais ? 1 : 0) + (mostraMembros ? 1 : 0) + 1) : 10_000;
+  const membrosQuer = colunas.membros ?? COLUNA_MEMBROS.padrao;
+  const limCanais = limitesColunas('canais', disponivel, mostraMembros ? Math.min(membrosQuer, COLUNA_MEMBROS.max) : 0);
+  const larguraCanais = limitar(colunas.canais ?? COLUNA_CANAIS.padrao, limCanais);
+  const limMembros = limitesColunas('membros', disponivel, mostraCanais ? larguraCanais : 0);
+  const larguraMembros = limitar(membrosQuer, limMembros);
+  function gravarColunas(novo: LarguraColunas) {
+    setColunas(novo);
+    void ponte()
+      .config.gravar({ colunas: novo })
+      .catch(() => undefined);
+  }
   const [erroFixadas, setErroFixadas] = useState<string | null>(null);
   /** Busca: o texto do campo do topo e o pedido (muda a cada Enter, para buscar de novo o mesmo texto). */
   const [termoBusca, setTermoBusca] = useState('');
@@ -601,6 +636,7 @@ function TelaDoServidor({
         if (c.ocultos) setOcultos(c.ocultos);
         if (c.atividade) setPrefAtividade(c.atividade);
         if (c.atalhosSons) setAtalhosSons(c.atalhosSons);
+        if (c.colunas) setColunas(c.colunas);
         const escolhida = c.statusEscolhido?.[servidorUrl];
         if (escolhida && escolhaRef.current === 'auto') {
           escolhaRef.current = escolhida;
@@ -2095,12 +2131,40 @@ function TelaDoServidor({
         <ContextoPerfil.Provider value={abrirPerfil}>
           {estreito && gaveta && <div className="fundo-gaveta" aria-hidden="true" onClick={() => setGaveta(null)} />}
           <div
+            ref={layoutRef}
             className={
               estreito
                 ? `layout-colunas estreito${gaveta ? ` gaveta-${gaveta}` : ''}${painelDireito !== 'membros' ? ' painel-aberto' : ''}`
                 : `layout-colunas${ocultos.canais ? ' sem-canais' : ''}${ocultos.membros && painelDireito === 'membros' ? ' sem-membros' : ''}`
             }
+            style={{ '--largura-canais': `${larguraCanais}px`, '--largura-membros': `${larguraMembros}px` } as CSSProperties}
           >
+            {!estreito && mostraCanais && (
+              <Divisoria
+                className="divisoria-canais"
+                rotulo="Largura da coluna de canais"
+                lado="esquerda"
+                valor={larguraCanais}
+                min={limCanais.min}
+                max={limCanais.max}
+                padrao={COLUNA_CANAIS.padrao}
+                aoMudar={(v) => setColunas((c) => ({ ...c, canais: v }))}
+                aoSoltar={(v) => gravarColunas({ ...colunas, canais: v })}
+              />
+            )}
+            {!estreito && mostraMembros && (
+              <Divisoria
+                className="divisoria-membros"
+                rotulo="Largura da coluna de membros"
+                lado="direita"
+                valor={larguraMembros}
+                min={limMembros.min}
+                max={limMembros.max}
+                padrao={COLUNA_MEMBROS.padrao}
+                aoMudar={(v) => setColunas((c) => ({ ...c, membros: v }))}
+                aoSoltar={(v) => gravarColunas({ ...colunas, membros: v })}
+              />
+            )}
             <aside
               className="coluna-esquerda"
               // celular (T5): tocar num canal (mesmo o que já está aberto) fecha a gaveta.

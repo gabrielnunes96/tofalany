@@ -321,7 +321,7 @@ button.perigo:hover:not(:disabled) { background: color-mix(in srgb, var(--cor-pe
 
 /* Layout logado: canais | conteúdo | membros */
 .layout-principal { height: 100%; display: flex; flex-direction: column; }
-.layout-colunas { flex: 1; min-height: 0; display: grid; grid-template-columns: 250px minmax(0, 1fr) 220px; }
+.layout-colunas { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: var(--largura-canais, 250px) minmax(0, 1fr) var(--largura-membros, 220px); }
 .coluna-esquerda { display: flex; flex-direction: column; min-height: 0; background: color-mix(in srgb, var(--cor-superficie) 85%, transparent); border-right: 1px solid var(--cor-borda); }
 .coluna-direita { background: color-mix(in srgb, var(--cor-superficie) 60%, transparent); border-left: 1px solid var(--cor-borda); padding: 16px 12px; overflow: auto; }
 .layout-colunas > .conteudo { min-height: 0; overflow: auto; }
@@ -704,8 +704,15 @@ button.icone.controle.sair-voz { color: var(--cor-perigo); }
 @media (prefers-reduced-motion: reduce) { .menu-usuario { animation: none; } }
 
 /* Backlog v2, item 10: partes da tela escondidas. */
-.layout-colunas.sem-canais { grid-template-columns: minmax(0, 1fr) 220px; }
-.layout-colunas.sem-membros { grid-template-columns: 250px minmax(0, 1fr); }
+.layout-colunas.sem-canais { grid-template-columns: minmax(0, 1fr) var(--largura-membros, 220px); }
+.layout-colunas.sem-membros { grid-template-columns: var(--largura-canais, 250px) minmax(0, 1fr); }
+/* organizar-a-tela (RF-1): divisórias no vão entre as colunas (fora dos painéis, que cortam o que vaza). */
+.divisoria { position: absolute; top: var(--vao-painel); bottom: var(--vao-painel); width: var(--vao-painel); z-index: 5; cursor: col-resize; touch-action: none; }
+.divisoria-canais { left: var(--largura-canais, 250px); }
+.divisoria-membros { right: calc(var(--vao-painel) + var(--largura-membros, 220px)); }
+.divisoria::after { content: ''; position: absolute; top: 20%; bottom: 20%; left: calc(50% - 1px); width: 2px; border-radius: 2px; background: var(--cor-acento); opacity: 0; transition: opacity var(--dur-rapida) var(--curva-padrao); }
+.divisoria:hover::after, .divisoria:focus-visible::after { opacity: 0.8; }
+.divisoria:focus-visible { outline: none; }
 .layout-colunas.sem-canais.sem-membros { grid-template-columns: minmax(0, 1fr); }
 .layout-colunas.sem-canais > .coluna-esquerda, .layout-colunas.sem-membros > .coluna-direita { display: none; }
 .barra-visao { display: inline-flex; gap: 2px; margin-left: auto; }

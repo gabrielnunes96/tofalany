@@ -170,3 +170,48 @@ test('previa-transmissao CA-5: com duas transmissões assistidas numa janela de 
   }
   await j.screenshot({ path: join(__dirname, '../../docs/demandas/previa-transmissao/chat-com-duas-transmissoes.png') });
 });
+
+test('organizar-a-tela CA-1, CA-2, CA-3: divisória da coluna de canais, guardada ao reabrir; a conversa nunca fica com menos de 360 px', async () => {
+  const dono = await cadastrarDono();
+  const j = dono.janela;
+  await dono.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1400, 860));
+  const divisoria = j.getByRole('separator', { name: 'Largura da coluna de canais' });
+  const largura = () => j.locator('.coluna-esquerda').evaluate((e) => Math.round(e.getBoundingClientRect().width));
+  await expect.poll(largura).toBe(250);
+  // CA-1: arrastar 70 px para a direita.
+  const caixa = (await divisoria.boundingBox())!;
+  await j.mouse.move(caixa.x + caixa.width / 2, caixa.y + caixa.height / 2);
+  await j.mouse.down();
+  await j.mouse.move(caixa.x + caixa.width / 2 + 70, caixa.y + caixa.height / 2, { steps: 5 });
+  await j.mouse.up();
+  await expect.poll(largura).toBe(320);
+  // CA-3: 3 setas para a direita, 30 px a mais.
+  await divisoria.focus();
+  for (let i = 0; i < 3; i++) await j.keyboard.press('ArrowRight');
+  await expect.poll(largura).toBe(350);
+  await j.keyboard.press('ArrowLeft');
+  await j.keyboard.press('ArrowLeft');
+  await j.keyboard.press('ArrowLeft');
+  await expect.poll(largura).toBe(320);
+  await j.waitForTimeout(300);
+  await dono.app.close();
+
+  const reaberto = await abrir('dono');
+  const r = reaberto.janela;
+  await expect(r.getByRole('list', { name: 'Membros' })).toBeVisible({ timeout: 15_000 });
+  await reaberto.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1400, 860));
+  const larguraR = () => r.locator('.coluna-esquerda').evaluate((e) => Math.round(e.getBoundingClientRect().width));
+  await expect.poll(larguraR).toBe(320);
+  // CA-2: numa janela estreita, alargar ao máximo deixa a conversa com pelo menos 360 px.
+  await reaberto.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(900, 860));
+  await r.getByRole('separator', { name: 'Largura da coluna de canais' }).focus();
+  await r.keyboard.press('End');
+  await r.getByRole('separator', { name: 'Largura da coluna de membros' }).focus();
+  await r.keyboard.press('End');
+  await expect.poll(() => r.locator('.layout-colunas > .conteudo').evaluate((e) => e.getBoundingClientRect().width)).toBeGreaterThanOrEqual(359);
+  await r.screenshot({ path: join(__dirname, '../../docs/demandas/organizar-a-tela/colunas-900px.png') });
+  // Duplo clique volta ao padrão.
+  await reaberto.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1400, 860));
+  await r.getByRole('separator', { name: 'Largura da coluna de canais' }).dblclick();
+  await expect.poll(larguraR).toBe(250);
+});
