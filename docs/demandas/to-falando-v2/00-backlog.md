@@ -46,11 +46,11 @@ Decisão de 20/11: **tudo o que está no backlog vai ser feito**, cada bloco com
 | 7 | `mover-e-afk` **(T1–T7 feitas em 22/11, na 0.18.0; falta a T8 manual)** | 43 (mover membros entre salas), 42 (sala de AFK, usa o 43) | Feature | Médio |
 | 8 | `audios-na-loja` **(T1–T7 feitas em 22/11, na 0.18.0; falta a T8 manual; folga de duração na 0.18.1)** | 28 (áudios com raridade) | Feature | Médio |
 | 9 | `som-sistema-windows` **(T1–T5 feitas em 23/11, na 0.18.0; falta a T6 no Windows 11)** | 31 definitivo (captura que exclui o próprio app) | Bug | Grande; precisa de Windows real para validar |
-| 10 | `teste-de-microfone` | 59 (AFK tira da voz, prioridade alta), 65 (não entra na sala da qual foi tirado, prioridade alta), 53 (teste de microfone dentro da sala, com mudo automático), 54 (chamada continua enquanto o app atualiza), 58 (tirar o contador flutuante e conferir a contagem do painel), 64 (pausar a prévia do áudio na loja) | Bug | Pequeno a médio |
-| 11 | `chamar-tocando` | 55 (chamar para a voz como telefone: toque, tempo limite, recusar/cancelar, só online, avisos que somem) | Melhoria | Médio |
-| 12 | `atalhos-de-sons` | 56 (atalho de teclado para cada som do soundboard) | Melhoria | Pequeno a médio |
-| 13 | `previa-transmissao` | 61 (chat espremido com várias transmissões); 60 descartado em 23/11 | Melhoria | Pequeno |
-| 14 | `organizar-a-tela` | 62 (largura ajustável das colunas de canais e membros), 63 (pastas de servidores arrastando) | Melhoria | Médio |
+| 10 | `teste-de-microfone` **(T1–T6 feitas em 24/11; aguardando a versão 0.19.0 e a validação manual)** | 59 (AFK tira da voz, prioridade alta), 65 (não entra na sala da qual foi tirado, prioridade alta), 53 (teste de microfone dentro da sala, com mudo automático), 54 (chamada continua enquanto o app atualiza), 58 (tirar o contador flutuante e conferir a contagem do painel), 64 (pausar a prévia do áudio na loja) | Bug | Pequeno a médio |
+| 11 | `chamar-tocando` **(T1–T4 feitas em 24/11; aguardando a versão 0.19.0 e a validação manual)** | 55 (chamar para a voz como telefone: toque, tempo limite, recusar/cancelar, só online, avisos que somem) | Melhoria | Médio |
+| 12 | `atalhos-de-sons` **(T1–T3 feitas em 24/11; aguardando a versão 0.19.0 e a validação manual)** | 56 (atalho de teclado para cada som do soundboard) | Melhoria | Pequeno a médio |
+| 13 | `previa-transmissao` **(T1 feitas em 24/11; aguardando a versão 0.19.0 e a validação manual)** | 61 (chat espremido com várias transmissões); 60 descartado em 23/11 | Melhoria | Pequeno |
+| 14 | `organizar-a-tela` **(T1–T3 feitas em 24/11; aguardando a versão 0.19.0 e a validação manual)** | 62 (largura ajustável das colunas de canais e membros), 63 (pastas de servidores arrastando) | Melhoria | Médio |
 | 15 | `celular` **(prioridade bem baixa, decisão de 23/11: talvez não seja feito)** | 40 (Android e iOS). T1–T5 feitas na 0.18.0 (aparelhos conectados, push sem conteúdo no servidor, chamar para a voz, layout estreito); parado na T6 (app Android) | Feature | Grande |
 
 ## Prioridades
