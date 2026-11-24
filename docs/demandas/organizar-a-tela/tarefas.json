@@ -17,9 +17,9 @@
         "CA-8"
       ],
       "validacao": "vitest shared e main: normalizar, reordenar, limites, mesclar.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "860431c"
     },
     {
       "id": "T2",
