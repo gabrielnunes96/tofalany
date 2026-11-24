@@ -358,20 +358,7 @@ export interface ConfiguracoesLocais {
   atividade?: PreferenciasAtividade;
   /** Versão cujas notas ("Novidades") a pessoa já viu. */
   novidadesVistas?: string;
-  /** video-teatro-cameras-e-sons (RN-11, RN-12): contador de espectadores flutuante (cores e posição). */
-  contador?: PreferenciasContador;
 }
-
-/** Cores (#rrggbb) e posição do contador de espectadores; a posição é proporcional à janela (0 a 1). */
-export interface PreferenciasContador {
-  cores: { olho: string; fundo: string; numero: string; borda: string };
-  posicao: { x: number; y: number };
-}
-
-export const CONTADOR_PADRAO: PreferenciasContador = {
-  cores: { olho: '#22e4f2', fundo: '#151225', numero: '#efeaff', borda: '#7c6cff' },
-  posicao: { x: 0.98, y: 0.1 },
-};
 
 export interface PreferenciasAtividade {
   /** "Jogando X": jogos abertos pela Steam. */

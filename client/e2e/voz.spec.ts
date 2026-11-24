@@ -962,9 +962,10 @@ test('CA-37, CA-38, CA-41, CA-49: transmissão de tela com seletor, várias no c
   await expect(a.getByRole('list', { name: 'Na voz em Papo' }).getByLabel('transmitindo a tela')).toBeVisible();
   await print(a, 'T21-ana-assiste-tela-do-dono');
 
-  // video-teatro-cameras-e-sons: contador flutuante para os dois (CA-13); modo teatro inteiro na janela (CA-6); a barra
-  // cabe numa janela de 900 px (CA-7).
-  for (const p of [d, a]) await expect(p.locator('.contador-espectadores')).toBeVisible({ timeout: 10_000 });
+  // teste-de-microfone (item 58, CA-7): sem contador flutuante; o olho fica no painel. Modo teatro inteiro na janela
+  // (video-teatro, CA-6); a barra cabe numa janela de 900 px (CA-7).
+  for (const p of [d, a]) await expect(p.locator('.contador-espectadores')).toHaveCount(0);
+  await expect(a.locator('.transmissao-grande .espectadores-botao').first()).toBeVisible({ timeout: 10_000 });
   await a.getByRole('button', { name: 'Modo teatro' }).click();
   const teatro = (await a.locator('.transmissao-grande.teatro').boundingBox())!;
   const vista = await a.evaluate(() => ({ l: window.innerWidth, a: window.innerHeight }));

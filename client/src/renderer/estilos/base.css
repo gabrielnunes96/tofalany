@@ -927,6 +927,7 @@ button.icone.esconder-canais:hover:not(:disabled), button.icone.mostrar-canais:h
 .espectadores-botao { display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 4px 9px; background: transparent; color: var(--cor-texto); border: 1px solid var(--cor-borda); border-radius: 999px; font-variant-numeric: tabular-nums; }
 .espectadores-botao:hover, .espectadores-botao[aria-expanded="true"] { background: color-mix(in srgb, var(--cor-acento) 14%, transparent); }
 .espectadores-lista { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 200px; max-height: 260px; overflow: auto; padding: 8px 10px; background: var(--cor-superficie-2); border: 1px solid var(--cor-borda); border-radius: var(--raio-g); box-shadow: var(--sombra-flutuante); animation: surgir var(--dur-media) var(--curva-entrada); }
+.espectadores-lista.para-cima { top: auto; bottom: calc(100% + 6px); }
 .espectadores-lista strong { display: block; margin-bottom: 4px; font-size: 0.85em; color: var(--cor-texto-suave); }
 .espectadores-lista ul { margin: 0; padding: 0; list-style: none; }
 .espectadores-lista li { padding: 4px 2px; }
@@ -1398,13 +1399,6 @@ body.janela-propria { margin: 0; min-height: 100vh; background: var(--cor-video)
 .transmissao-grande.em-janela .transmissao-acoes .com-icone { color: #fff; }
 .transmissao-grande.em-janela.controles-ocultos { cursor: none; }
 .transmissao-grande.em-janela.controles-ocultos .transmissao-acoes:not(:focus-within) { opacity: 0; transform: translateY(8px); pointer-events: none; }
-/* Contador de espectadores flutuante (RF-7): no <body>, por cima dos painéis (z 46), cores escolhidas pela pessoa. */
-.contador-espectadores { position: fixed; z-index: 46; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1.5px solid; border-radius: 999px; box-shadow: var(--sombra-flutuante); cursor: grab; touch-action: none; user-select: none; font-variant-numeric: tabular-nums; font-weight: 600; }
-.contador-espectadores:active { cursor: grabbing; }
-.contador-espectadores span { display: inline-flex; }
-.contador-previa { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1.5px solid; border-radius: 999px; font-weight: 600; }
-.cores-contador { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px 12px; }
-.cores-contador label { display: flex; align-items: center; gap: 6px; }
 
 /* mover-e-afk: soltar alguém numa sala de voz; submenu "Mover para…"; sala de AFK. */
 .item-voz.alvo-arrasto { outline: 2px dashed var(--cor-acento); outline-offset: 2px; border-radius: var(--raio-p); }

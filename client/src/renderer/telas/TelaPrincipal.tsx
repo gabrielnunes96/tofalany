@@ -31,8 +31,6 @@ import {
   type LojaEstadoDto,
   NOTIFICACOES_PADRAO,
   SONS_PADRAO,
-  CONTADOR_PADRAO,
-  type PreferenciasContador,
   type Destino,
   type GifConfig,
   type MensagemDto,
@@ -55,7 +53,6 @@ import { conectarTempoReal, type ConexaoTempoReal } from '../servicos/tempo-real
 import { criarApi, ErroApiCliente } from '../servicos/api';
 import { registrarSaidaVoz } from '../servicos/saida-voz';
 import { PainelFixadas } from '../componentes/PainelFixadas';
-import { ContadorEspectadores } from '../componentes/ContadorEspectadores';
 import { criarFiltroRepeticao, deveTocar, somAoAbrir, somAoFechar, sonsAoMudarEspectadores, type SomTransmissao } from '../estado/sons-transmissao';
 import { useModoCameras, voltarCamerasAoLugar } from '../servicos/modo-cameras';
 import { controlesAoTrocar, deveIrParaAfk, INTERVALO_VIGIA_AFK_MS, relogioAfk } from '../estado/afk';
@@ -161,7 +158,6 @@ interface GravacaoAdiada {
   pessoas?: { servidor: string; valor: PreferenciasPessoas };
   audio?: PreferenciasAudio;
   sons?: PreferenciasSons;
-  contador?: PreferenciasContador;
 }
 
 /** Qualidades que a loja libera agora: vales ativos; o administrador da instalação, todos os vales (2K só por cargo). */
@@ -597,7 +593,6 @@ function TelaDoServidor({
         if (c.tema) setTema(c.tema);
         if (c.ocultos) setOcultos(c.ocultos);
         if (c.atividade) setPrefAtividade(c.atividade);
-        if (c.contador) setPrefContador(c.contador);
         const escolhida = c.statusEscolhido?.[servidorUrl];
         if (escolhida && escolhaRef.current === 'auto') {
           escolhaRef.current = escolhida;
@@ -628,7 +623,6 @@ function TelaDoServidor({
       ...(p.pessoas ? { pessoas: { [p.pessoas.servidor]: p.pessoas.valor } } : {}),
       ...(p.audio ? { audio: p.audio } : {}),
       ...(p.sons ? { sons: p.sons } : {}),
-      ...(p.contador ? { contador: p.contador } : {}),
     };
     if (Object.keys(parcial).length > 0)
       void ponte()
@@ -724,12 +718,6 @@ function TelaDoServidor({
         .catch(() => undefined);
     }
   });
-  /** video-teatro-cameras-e-sons (RF-7): cores e posição do contador de espectadores flutuante. */
-  const [prefContador, setPrefContador] = useState<PreferenciasContador>(CONTADOR_PADRAO);
-  function mudarContador(novo: PreferenciasContador) {
-    setPrefContador(novo);
-    adiarGravacao({ contador: novo });
-  }
   function mudarSons(novo: PreferenciasSons) {
     sonsRef.current = novo;
     setPrefSons(novo);
@@ -2465,14 +2453,6 @@ function TelaDoServidor({
                     />
                   ))}
                 {!ocultos.cameras && <GradeVideos videos={videos} usuarios={usuarios} euId={usuario.id} />}
-                {/* RN-10: com transmissão aberta no meu canal de voz, todos (inclusive quem transmite) veem o contador. */}
-                {!oculta && minhaVoz !== null && transmissoes.some((t) => t.canalVozId === minhaVoz) && (
-                  <ContadorEspectadores
-                    numero={new Set(transmissoes.filter((t) => t.canalVozId === minhaVoz).flatMap((t) => t.espectadores ?? [])).size}
-                    preferencias={prefContador}
-                    aoMover={(posicao) => mudarContador({ ...prefContador, posicao })}
-                  />
-                )}
                 {vistaAtual === 'auditoria' ? (
                   <TelaAuditoria api={api} pessoas={pessoasAuditoria} canais={canais} aoVoltar={voltar} />
                 ) : vistaAtual === 'membros' ? (
@@ -2584,8 +2564,6 @@ function TelaDoServidor({
                 aoCapturar={pausarAtalhos}
                 sons={prefSons}
                 aoMudarSons={mudarSons}
-                contador={prefContador}
-                aoMudarContador={mudarContador}
                 notificacoes={notif}
                 aoMudarNotificacoes={mudarNotificacoes}
                 tema={tema}

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela,
-  mesclarAtividade, mesclarContador, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
+  mesclarAtividade, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
   ler(): ConfiguracoesLocais;
@@ -31,7 +31,7 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
   if ('notificacoes' in obj) resultado.notificacoes = mesclarNotificacoes(base.notificacoes, obj.notificacoes);
   if ('tela' in obj) resultado.tela = mesclarTela(base.tela, obj.tela);
   if ('atividade' in obj) resultado.atividade = mesclarAtividade(base.atividade, obj.atividade);
-  if ('contador' in obj) resultado.contador = mesclarContador(base.contador, obj.contador);
+  // teste-de-microfone (item 58): o contador flutuante saiu; `contador` de versões antigas é ignorado.
   if (typeof obj.novidadesVistas === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}([-+][\w.-]{1,40})?$/.test(obj.novidadesVistas)) resultado.novidadesVistas = obj.novidadesVistas;
   if (typeof obj.fecharParaBandeja === 'boolean') resultado.fecharParaBandeja = obj.fecharParaBandeja;
   if (obj.aoFechar === 'perguntar' || obj.aoFechar === 'bandeja' || obj.aoFechar === 'sair') resultado.aoFechar = obj.aoFechar;
