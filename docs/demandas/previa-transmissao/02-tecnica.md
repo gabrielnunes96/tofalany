@@ -1,6 +1,6 @@
 # Chat legível com várias transmissões — especificação técnica
 
-> Demanda: `previa-transmissao` · Base: funcional v3 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `previa-transmissao` · Base: funcional v3 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Visão da solução
 Hoje cada painel de transmissão é `flex: none` com `max-height: 60vh` (`base.css:656-658`) e o chat pode ir a zero (`base.css:376-377`). Os painéis passam a ficar num contêiner `.transmissoes` com `max-height: calc(100% - var(--chat-minimo))`; cada painel `flex: 1 1 0; min-height: 0` e o vídeo `object-fit: contain`, para encolher mantendo a proporção. `--chat-minimo` = 8 linhas + caixa de escrever (`calc(8 * var(--linha-chat) + var(--altura-composer))`). A publicação da tela não muda (item 60 descartado).

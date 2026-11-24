@@ -1,0 +1,65 @@
+{
+  "demanda": "organizar-a-tela",
+  "titulo": "Organizar a tela: colunas e pastas",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Shared e main: colunas e pastas na configuração",
+      "descricao": "colunas e pastas em ConfiguracoesLocais; normalizarPastas, reordenar, limitesColunas puras; mesclar no main.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-2",
+        "CA-4",
+        "CA-5",
+        "CA-8"
+      ],
+      "validacao": "vitest shared e main: normalizar, reordenar, limites, mesclar.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Divisórias de largura nas colunas",
+      "descricao": "Divisoria (separator, ponteiro, setas, duplo clique); useLarguraColunas; grid com variáveis; grava ao soltar.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3"
+      ],
+      "validacao": "vitest Divisoria.test; E2E colunas.spec (arrastar, reiniciar, largura mantida).",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "Pastas e ordem na coluna de servidores",
+      "descricao": "Arrastar (linha e destaque), pasta com miniaturas, nome, cor, aberta, soma de não lidas; menu para todos os servidores (Mover para pasta, Tirar, Mover para cima/baixo, Editar/Desfazer pasta); App grava ordem e pastas; troca de endereço atualiza a pasta.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-4",
+        "CA-5",
+        "CA-6",
+        "CA-7",
+        "CA-8"
+      ],
+      "validacao": "vitest ColunaServidores e menu; E2E servidores.spec (ordem ao reabrir) e naolidas.spec (soma da pasta).",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}

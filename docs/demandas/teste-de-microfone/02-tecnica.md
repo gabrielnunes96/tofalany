@@ -1,6 +1,6 @@
 # Correções da voz e da transmissão (AFK, reentrada, teste de microfone, atualização, espectadores, prévia da loja) — especificação técnica
 
-> Demanda: `teste-de-microfone` · Base: funcional v2 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `teste-de-microfone` · Base: funcional v2 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Visão da solução
 Seis correções independentes. As duas do servidor (59 e 65) são as mais urgentes, porque derrubam a pessoa em produção.

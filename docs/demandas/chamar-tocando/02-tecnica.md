@@ -1,6 +1,6 @@
 # Chamar para a voz como um telefone — especificação técnica
 
-> Demanda: `chamar-tocando` · Base: funcional v1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `chamar-tocando` · Base: funcional v1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Visão da solução
 O chamado passa a existir no servidor, só em memória: um mapa `abertos` em `criarChamar` (`server/src/realtime/chamar.ts:22`), indexado por quem é chamado, com `{ id, porId, comunidadeId, canalVozId, timer }`.

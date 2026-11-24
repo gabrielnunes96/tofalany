@@ -1,6 +1,6 @@
 # Atalhos de teclado para os sons — especificação técnica
 
-> Demanda: `atalhos-de-sons` · Base: funcional v1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `atalhos-de-sons` · Base: funcional v1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Visão da solução
 Os atalhos de sons reutilizam o gancho global que já existe (uiohook, `client/src/main/atalhos.ts`).

@@ -1,0 +1,65 @@
+{
+  "demanda": "atalhos-de-sons",
+  "titulo": "Atalhos de teclado para os sons",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Shared: tipo, conflito e mescla dos atalhos de sons",
+      "descricao": "AtalhosSons; conflitoAtalhoSom por conjunto; mesclarAtalhosSons com tetos; resolverAtalhoSom e limparOrfaos puras.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-1",
+        "CA-3",
+        "CA-4",
+        "CA-5"
+      ],
+      "validacao": "vitest shared: atalhos.test com os casos de conflito, tetos, resolução e órfãos.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Main: combos de sons no gancho global",
+      "descricao": "definirSons; tratarCodigo emite atalhos:som; mesclar lê atalhosSons; união dos combos ao carregar e gravar; preload aoSom.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-2"
+      ],
+      "validacao": "vitest main: atalhos.test (combo de som emite atalhos:som; voz continua).",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "App: tocar pelo atalho, seção Sons e atalho no soundboard",
+      "descricao": "aoAtalhoSom na TelaPrincipal na voz; limpeza de órfãos; seção Sons em Configurações → Atalhos com sugestões F1–F5; PainelSoundboard mostra o atalho.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1",
+        "T2"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-6"
+      ],
+      "validacao": "vitest: TelaConfiguracoes, PainelSoundboard; E2E sons.spec com __teclaGlobal('F1').",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "demanda": "chamar-tocando",
+  "titulo": "Chamar para a voz como um telefone",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Contratos do chamado no shared",
+      "descricao": "ChamadoVozDto com id e segundos; voz:responder, voz:cancelar (ack), voz:chamado:fim; CHAMADO_DURACAO_MS; recursos.chamadoV2.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5"
+      ],
+      "validacao": "tsc e vitest shared.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Servidor: chamado aberto, encerrar e regras de quem pode ser chamado",
+      "descricao": "Mapa abertos em criarChamar; encerrar idempotente; 15 s; responder e cancelar com dono conferido; status visível (offline/invisível 404, não incomodar silencioso); 409 antes do limitador; ganchos de sair e entrar na voz (aoEntrar em criarVoz); ola.recursos.chamadoV2.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-3",
+        "CA-4",
+        "CA-5",
+        "CA-8"
+      ],
+      "validacao": "vitest server: chamar.test com fake timers para cada fim, 404 igual, 409, dono.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "Servidor: push do chamado com 15 s",
+      "descricao": "ttl 15 s no envio e validade de 15 s nos pendentes do tipo chamado.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [
+        "T2"
+      ],
+      "criterios": [
+        "CA-4"
+      ],
+      "validacao": "vitest server: push.test e chamar.test (ttl 15, pendente vencido não sai).",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "App: toque, tela de chamado, Chamando…, avisos de 6 s e presença no menu",
+      "descricao": "Listeners novos; som chamado repetido em sons-voz (surdo e preferência local); Entrar/Recusar; Chamando… com Cancelar; avisoTemporario; podeChamar com presença; sem chamadoV2 volta ao fluxo antigo.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [
+        "T1"
+      ],
+      "criterios": [
+        "CA-1",
+        "CA-2",
+        "CA-6",
+        "CA-7"
+      ],
+      "validacao": "vitest: sons-voz, aviso-temporario, estado/chamar (podeChamar), tempo-real; E2E voz.spec do fluxo Entrar atualizado.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}

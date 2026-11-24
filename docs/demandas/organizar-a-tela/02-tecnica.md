@@ -1,6 +1,6 @@
 # Organizar a tela: colunas ajustáveis e pastas de servidores — especificação técnica
 
-> Demanda: `organizar-a-tela` · Base: funcional v1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `organizar-a-tela` · Base: funcional v1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Visão da solução
 **Colunas.**

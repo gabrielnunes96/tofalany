@@ -1,0 +1,22 @@
+{
+  "demanda": "previa-transmissao",
+  "titulo": "Chat legível com várias transmissões",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Chat com pelo menos 8 linhas com transmissões abertas",
+      "descricao": "Contêiner .transmissoes; painéis encolhem com proporção; --chat-minimo.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-5"
+      ],
+      "validacao": "E2E voz.spec: duas transmissões falsas, janela de 900 px, chat ≥ 8 linhas.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}

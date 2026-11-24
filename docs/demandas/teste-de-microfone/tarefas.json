@@ -1,0 +1,102 @@
+{
+  "demanda": "teste-de-microfone",
+  "titulo": "Correções da voz e da transmissão",
+  "item_raiz": null,
+  "tarefas": [
+    {
+      "id": "T1",
+      "titulo": "Servidor: prazo de troca no midiaSaiu (AFK que derruba)",
+      "descricao": "Presente.saidaMidia (timer 10 s, prazoMover); midiaSaiu agenda em vez de tirar; voz:estado da mesma conexão e midiaEntrou da mesma sala limpam; tirar limpa os dois timers; auditoria voz_afk com de.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-1",
+        "CA-2"
+      ],
+      "validacao": "vitest server: afk-voz.test (midiaSaiu e depois afk ok, mudo, auditoria de; outra conexão e após 10 s recusadas); voz.test com webhook participant_left assinado.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T2",
+      "titulo": "Servidor: sem a regra de reincidência no midiaEntrou",
+      "descricao": "Apagar remocoesRecentes e JANELA_REINCIDENCIA_MS; sem permissão tira na hora; fora da presença confere em 10 s.",
+      "repo": ".",
+      "stack": "node",
+      "depende_de": [],
+      "criterios": [
+        "CA-11"
+      ],
+      "validacao": "vitest server: voz-midia.test (tirado e depois reentra antes do voz:estado e fica; sem entrar_voz tirado na hora; fora da presença em 10 s).",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T3",
+      "titulo": "Atualização: sair da voz antes de instalar",
+      "descricao": "servicos/saida-voz.ts (registrar e sairDaVozAntesDeAtualizar com teto de 3 s); TelaPrincipal registra sairVoz; AvisoAtualizacao e AtualizarAgora esperam antes de TelaAtualizando e de instalar().",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-6"
+      ],
+      "validacao": "vitest: saida-voz.test; AvisoAtualizacao e AtualizarAgora com a ordem sair, depois instalar, e o teto.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T4",
+      "titulo": "Espectadores: tirar o contador flutuante e lista que cabe",
+      "descricao": "Remover ContadorEspectadores, prefs contador (shared, main, Configurações, CSS, E2E); Espectadores abre para cima e limita max-height pelo espaço medido.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-7",
+        "CA-8",
+        "CA-9"
+      ],
+      "validacao": "vitest: Espectadores.test (espaço embaixo e em cima), TelaConfiguracoes sem o fieldset, configuracoes ignora contador; E2E voz.spec sem .contador-espectadores.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T5",
+      "titulo": "Loja: Ouvir/Pausar na prévia dos áudios",
+      "descricao": "servicos/previa-audio.ts (tocador único, limite 10 s); TelaLoja com tocandoId e botão Ouvir/Pausar; TelaAudiosLoja pausa os outros no onPlay.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-10"
+      ],
+      "validacao": "vitest: previa-audio.test, TelaLoja.audios.test, TelaAudiosLoja.test.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    },
+    {
+      "id": "T6",
+      "titulo": "Teste de microfone dentro da sala",
+      "descricao": "E2E que reproduz (na sala, sinal no retorno via AnalyserNode); correção pela causa: (a) clone da faixa da sala como fonte do teste ou (b) retorno fora do cancelamento de eco.",
+      "repo": ".",
+      "stack": "front",
+      "depende_de": [],
+      "criterios": [
+        "CA-3",
+        "CA-4",
+        "CA-5"
+      ],
+      "validacao": "E2E voz.spec novo (sinal no retorno dentro da sala); vitest TelaConfiguracoes (estado antes/depois); validação manual do usuário.",
+      "estado": "a_fazer",
+      "wi": null,
+      "commit": null
+    }
+  ]
+}
