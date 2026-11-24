@@ -1,6 +1,6 @@
 # Prévia da transmissão e chat legível — especificação técnica
 
-> Demanda: `previa-transmissao` · Base: funcional v1 · 23/11/2026 · Situação: **rascunho: depende da decisão R-1**
+> Demanda: `previa-transmissao` · Base: funcional v2 · 23/11/2026 · Situação: **rascunho: depende da decisão R-1**
 
 ## 1. Visão da solução
 **Prévia.** Na faixa "<nome> está transmitindo a tela" (`PainelTransmissao.tsx:122-134`), o `<video muted>` passa a ser anexado também quando a pessoa **não** assiste (hoje só em `assistindo`, `:106-111`), num quadro pequeno de 160×90.
@@ -13,7 +13,9 @@
 - o `adaptiveStream` escolhe a camada pelo tamanho do elemento, então a prévia pede a pequena sozinha e quem assiste em tela grande recebe a cheia.
 - Isso exige um ajuste de texto na RN-3 (funcional v2): a camada extra só é enviada enquanto há prévia aberta.
 
-**Desligar.** Nova preferência `previas` em `ConfiguracoesLocais`, ligada por padrão, com uma caixa em Configurações → Voz. Desligada, a faixa fica como hoje.
+**Ocultar uma prévia (RN-6).** Botão de ícone (olho riscado / olho, `aria-pressed`, rótulo "Ocultar prévia"/"Exibir prévia") na faixa; estado `previasOcultas: Set<usuarioId>` na `TelaPrincipal`, só em memória. Oculta → o `<video>` é desanexado (`detach`) e o SDK desassina a camada; com dynacast, se ninguém mais olha a prévia, quem transmite para de codificar a camada pequena.
+
+**Desligar todas.** Nova preferência `previas` em `ConfiguracoesLocais`, ligada por padrão, com uma caixa em Configurações → Voz. Desligada, a faixa fica como hoje.
 
 **Chat legível.** Hoje os painéis de transmissão são `flex: none` com `max-height: 60vh` cada (`base.css:656-658`), e o chat pode ir a zero (`base.css:376-377`). A mudança:
 - os painéis passam a ficar num contêiner `.transmissoes` com `max-height: calc(100% - var(--chat-minimo))`;
@@ -65,6 +67,7 @@ Validação manual de banda pelo `chrome://webrtc-internals`, ou pelas estatíst
 | CA-2 | `transmissao.test.tsx`: prévia não chama `aoAssistir` | `tela.test.ts` (continua) | idem |
 | CA-3 | — (comportamento do SDK) | — | Usuário: rolar ou esconder a conversa; webrtc-internals mostra a faixa parada |
 | CA-4 | `transmissao.test.tsx`: `previas=false` não anexa; `TelaConfiguracoes.test.tsx` caixa; `configuracoes.test.ts` valida | — | — |
+| CA-6 | `transmissao.test.tsx`: clicar em ocultar desanexa e o botão vira "Exibir prévia"; clicar de novo anexa | — | — |
 | CA-5 | — | E2E `voz.spec.ts`: duas transmissões falsas assistidas, janela de 900 px, altura do chat ≥ 8 linhas | — |
 | NFR ~150 kbps | `voz.test.ts`: publica com `simulcast` e a camada | — | Usuário: medir |
 

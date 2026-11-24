@@ -1,6 +1,6 @@
 # Prévia da transmissão e chat legível — especificação funcional
 
-> Demanda: `previa-transmissao` · Itens 60 e 61 · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
+> Demanda: `previa-transmissao` · Itens 60 e 61 · Versão 2 · 23/11/2026 · Situação: **aprovada em 23/11/2026** (v2: ícone de ocultar/exibir a prévia, pedido do usuário em 23/11; aguarda nova aprovação)
 
 ## 1. Objetivo
 Saber o que está sendo transmitido antes de assistir, e continuar lendo o chat com várias transmissões abertas.
@@ -27,12 +27,14 @@ Saber o que está sendo transmitido antes de assistir, e continuar lendo o chat 
 | RN-2 | A prévia usa a menor qualidade disponível e só é recebida enquanto a faixa está visível na tela; fora da tela, para. | Item 60 |
 | RN-3 | Ver a prévia não conta como assistir (o olho não muda) e não exige que quem transmite mande uma qualidade a mais. | Item 60 |
 | RN-4 | Quem tem "dados móveis" ou conexão ruim pode desligar as prévias em Configurações → Voz (ligadas por padrão). | Assistente |
+| RN-6 | Cada faixa tem um ícone para ocultar/exibir a prévia daquela transmissão; oculta, nada é recebido. A escolha vale enquanto o app está aberto (a preferência da RN-4 desliga todas). | Usuário, 23/11 |
 | RN-5 | O chat da conversa aberta nunca fica com menos de 8 linhas de altura visível, por mais transmissões que estejam abertas; as transmissões encolhem (mantendo a proporção) para caber. | Usuário, 23/11 |
 
 ## 6. Requisitos funcionais
 | ID | Requisito | Regras |
 | --- | --- | --- |
 | RF-1 | Prévia ao vivo na faixa de transmissão não assistida, com a opção de desligar. | RN-1 a RN-4 |
+| RF-3 | Ícone de ocultar/exibir a prévia em cada faixa. | RN-6 |
 | RF-2 | Altura mínima do chat com transmissões abertas. | RN-5 |
 
 ## 7. Requisitos não funcionais
@@ -44,6 +46,7 @@ Saber o que está sendo transmitido antes de assistir, e continuar lendo o chat 
 - **CA-3** (RN-2): Dado a faixa fora da tela (rolada ou com a conversa escondida), então a prévia não é recebida.
 - **CA-4** (RN-4): Dado "Prévias das transmissões" desligada, quando há transmissão, então a faixa mostra só o texto.
 - **CA-5** (RN-5): Dado duas transmissões assistidas numa janela de 900 px de altura, quando se olha o chat, então ao menos 8 linhas do chat ficam visíveis.
+- **CA-6** (RN-6): Dado a prévia da Ana visível, quando Bia clica no ícone de ocultar, então a faixa mostra só o texto e a prévia deixa de ser recebida; clicando de novo, volta.
 
 ## 9. Impacto em consumidores
 Só o app.
