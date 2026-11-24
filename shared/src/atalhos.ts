@@ -112,9 +112,11 @@ export interface AtalhosSons {
 export const ATALHOS_SONS_PADRAO: AtalhosSons = { globais: {}, porServidor: {} };
 
 /** Tetos do arquivo de configuração: servidores lembrados, sons por servidor e "Meus sons". */
-const MAX_SERVIDORES_SONS = 20;
-const MAX_SONS_POR_SERVIDOR = 20;
-const MAX_GLOBAIS = 50;
+// Bem acima do real (5 sons por servidor; a loja tem poucas dezenas de áudios): a tela nunca chega neles, e um
+// arquivo adulterado não cresce sem limite.
+const MAX_SERVIDORES_SONS = 50;
+const MAX_SONS_POR_SERVIDOR = 50;
+const MAX_GLOBAIS = 300;
 
 /** Texto que identifica a combinação (é o que o processo principal manda quando ela é apertada). */
 export const chaveAtalho = (a: Atalho) => textoAtalho(a);

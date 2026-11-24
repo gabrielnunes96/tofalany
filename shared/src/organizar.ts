@@ -163,6 +163,8 @@ export const chaveItemColuna = (i: ItemColuna) => (i.tipo === 'servidor' ? i.url
 export function moverItem(o: Organizacao, chave: string, antesDe: string | null): Organizacao {
   if (chave === antesDe) return o;
   const pasta = chave.startsWith('pasta:') ? o.pastas.find((p) => `pasta:${p.id}` === chave) : undefined;
+  // Arraste de uma pasta que já não existe (ou de algo que não está na lista): nada muda.
+  if (chave.startsWith('pasta:') ? !pasta : !o.urls.includes(chave)) return o;
   const bloco = pasta ? pasta.urls : [chave];
   let pastas = o.pastas;
   if (!pasta) pastas = semUrl(pastas, chave);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUDIO_PADRAO, type ConfiguracoesLocais } from '@tofalando/shared';
+import { AUDIO_PADRAO, CONFIGURACOES_PADRAO, type ConfiguracoesLocais } from '@tofalando/shared';
 import { destinoMovido, moverConfiguracoes } from './endereco-movido';
 
 const DE = 'https://168-138-133-232.sslip.io';
@@ -38,5 +38,18 @@ describe('endereço movido (infra-e-atualizacao, RF-4, T-6)', () => {
     ]);
     expect(r.statusEscolhido).toEqual({ [PARA]: 'ausente', 'https://outro.exemplo': 'naoIncomodar' });
     expect(r.pessoas).toEqual({ [`${PARA}/c/2`]: { volumes: { '3': 1.5 }, silenciados: [] } });
+  });
+
+  it('organizar-a-tela e atalhos-de-sons: pastas e atalhos dos sons vão junto com o endereço', () => {
+    const f1 = { codigo: 'F1', ctrl: false, alt: false, shift: false, meta: false };
+    const c = {
+      ...CONFIGURACOES_PADRAO,
+      servidores: [{ url: DE }, { url: 'https://outro.io' }],
+      pastas: [{ id: 'p1', nome: '', cor: '#7c6cff', aberta: true, urls: [DE, 'https://outro.io'] }],
+      atalhosSons: { globais: {}, porServidor: { [DE]: { 1: f1 }, 'https://outro.io': { 2: f1 } } },
+    };
+    const p = moverConfiguracoes(c, DE, PARA);
+    expect(p.pastas![0]!.urls).toEqual([PARA, 'https://outro.io']);
+    expect(Object.keys(p.atalhosSons!.porServidor).sort()).toEqual(['https://outro.io', PARA]);
   });
 });

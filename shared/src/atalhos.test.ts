@@ -67,8 +67,8 @@ describe('atalhos de sons (atalhos-de-sons)', () => {
   it('mescla só ids e atalhos válidos, com tetos', () => {
     const bruto = { globais: { '7': f('F2'), x: f('F5'), '8': { codigo: 'Nada' } }, porServidor: { 'https://a': { '1': f('F1') }, 'https://c': {} } };
     expect(mesclarAtalhosSons(bruto)).toEqual({ globais: { '7': f('F2') }, porServidor: { 'https://a': { '1': f('F1') } } });
-    const muitos = Object.fromEntries(Array.from({ length: 80 }, (_, i) => [String(i + 1), f('F1')]));
-    expect(Object.keys(mesclarAtalhosSons({ globais: muitos }).globais)).toHaveLength(50);
+    const muitos = Object.fromEntries(Array.from({ length: 400 }, (_, i) => [String(i + 1), f('F1')]));
+    expect(Object.keys(mesclarAtalhosSons({ globais: muitos }).globais)).toHaveLength(300);
     expect(mesclarAtalhosSons('lixo')).toEqual(ATALHOS_SONS_PADRAO);
   });
 });

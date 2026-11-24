@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { conflitoAtalhoSom, SUGESTOES_ATALHO_SOM, TECLAS_ATALHO, textoAtalho, type AlvoAtalhoSom, type Atalho, type Atalhos, type AtalhosSons } from '@tofalando/shared';
 
 interface Som {
@@ -58,24 +58,29 @@ export function AtalhosSonsSecao({
 
   const nomeDe = (chave: string) => [...sonsDoServidor.map((s) => [`som:${s.id}`, s.nome]), ...meusSons.map((s) => [`audio:${s.id}`, s.nome])].find(([k]) => k === chave)?.[1] ?? 'o som';
 
-  useEffect(() => {
+  // A tecla lida com o estado mais novo; a escuta só liga e desliga com a captura (uma pausa dos globais por captura).
+  const aoTeclar = useEffectEvent((e: KeyboardEvent) => {
     if (!capturando) return;
-    aoCapturar?.(true);
-    const aoTeclar = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.code === 'Escape') return setCapturando(null);
-      if (/^(Control|Shift|Alt|Meta|OS)(Left|Right)?$/.test(e.code)) return;
-      if (!(e.code in TECLAS_ATALHO)) return setErro('Essa tecla não pode ser usada como atalho.');
-      const novo = { codigo: e.code, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey };
-      if (gravar(alvoDe(capturando), novo, nomeDe(capturando))) setCapturando(null);
-    };
-    window.addEventListener('keydown', aoTeclar, true);
-    return () => {
-      window.removeEventListener('keydown', aoTeclar, true);
-      aoCapturar?.(false);
-    };
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.code === 'Escape') return setCapturando(null);
+    if (/^(Control|Shift|Alt|Meta|OS)(Left|Right)?$/.test(e.code)) return;
+    if (!(e.code in TECLAS_ATALHO)) return setErro('Essa tecla não pode ser usada como atalho.');
+    const novo = { codigo: e.code, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey };
+    if (gravar(alvoDe(capturando), novo, nomeDe(capturando))) setCapturando(null);
   });
+  const pausarGlobais = useEffectEvent((sim: boolean) => aoCapturar?.(sim));
+  const capturandoAgora = capturando !== null;
+  useEffect(() => {
+    if (!capturandoAgora) return;
+    pausarGlobais(true);
+    const ouvir = (e: KeyboardEvent) => aoTeclar(e);
+    window.addEventListener('keydown', ouvir, true);
+    return () => {
+      window.removeEventListener('keydown', ouvir, true);
+      pausarGlobais(false);
+    };
+  }, [capturandoAgora]);
 
   const linha = (chave: string, nome: string) => {
     const alvo = alvoDe(chave);

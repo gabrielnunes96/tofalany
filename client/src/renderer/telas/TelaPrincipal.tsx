@@ -2,6 +2,8 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type
 import {
   ATIVIDADE_PADRAO,
   type ChamadoVozDto,
+  type MotivoFimChamado,
+  CHAMADO_DURACAO_MS,
   type AtividadeDto,
   type PreferenciasAtividade,
   separarComunidade,
@@ -839,10 +841,23 @@ function TelaDoServidor({
   /** celular (RN-11) e chamar-tocando: chamado para a voz recebido (Entrar ou Recusar, com toque). */
   const [chamado, setChamado] = useState<ChamadoVozDto | null>(null);
   /** chamar-tocando (RN-5): o chamado que eu fiz e ainda está tocando ("Chamando <nome>…" com Cancelar). */
-  const [chamando, setChamando] = useState<{ id: string; nome: string } | null>(null);
-  /** RN-7: avisos de resultado do chamado, que somem sozinhos em 6 s. */
-  const [avisoChamar, setAvisoChamar] = useState<{ texto: string; n: number } | null>(null);
-  const avisarChamar = (texto: string) => setAvisoChamar((a) => ({ texto, n: (a?.n ?? 0) + 1 }));
+  const [chamando, setChamandoEstado] = useState<{ id: string; nome: string } | null>(null);
+  const chamandoRef = useRef<{ id: string; nome: string } | null>(null);
+  const setChamando = (c: { id: string; nome: string } | null) => {
+    chamandoRef.current = c;
+    setChamandoEstado(c);
+  };
+  /** Fins que chegaram antes da resposta do pedido (o servidor pode encerrar antes de o ack chegar). */
+  const finsAdiantados = useRef(new Map<string, { motivo: MotivoFimChamado; nome: string }>());
+  /** RN-7: avisos de resultado do chamado, que somem sozinhos em 6 s (os de erro com o estilo de erro). */
+  const [avisoChamar, setAvisoChamar] = useState<{ texto: string; n: number; erro: boolean } | null>(null);
+  const avisarChamar = (texto: string, erro = false) => setAvisoChamar((a) => ({ texto, erro, n: (a?.n ?? 0) + 1 }));
+  // Sem o fim do servidor (queda, servidor reiniciado), o "Chamando…" some depois do tempo do chamado; e ao sair da voz.
+  useEffect(() => {
+    if (!chamando) return undefined;
+    const t = setTimeout(() => setChamando(null), CHAMADO_DURACAO_MS + 3000);
+    return () => clearTimeout(t);
+  }, [chamando]);
   useEffect(() => {
     if (!avisoChamar) return;
     const t = setTimeout(() => setAvisoChamar(null), AVISO_CHAMADO_MS);
@@ -853,14 +868,14 @@ function TelaDoServidor({
   const surdoAgora = controles.surdo;
   const tocarChamado = useEffectEvent(() => tocar('chamado'));
   useEffect(() => {
-    if (!chamado) return undefined;
-    const parar = deveTocarChamado(surdoAgora, notifRef.current.chamados) ? tocarRepetido(() => tocarChamado()) : () => undefined;
-    const fim = chamado.segundos ? setTimeout(() => setChamado(null), chamado.segundos * 1000) : undefined;
-    return () => {
-      parar();
-      clearTimeout(fim);
-    };
+    if (!chamado || !deveTocarChamado(surdoAgora, notifRef.current.chamados)) return undefined;
+    return tocarRepetido(() => tocarChamado());
   }, [chamado, surdoAgora]);
+  useEffect(() => {
+    if (!chamado?.segundos) return undefined;
+    const fim = setTimeout(() => setChamado(null), chamado.segundos * 1000);
+    return () => clearTimeout(fim);
+  }, [chamado]);
   // som-sistema-windows: a porta com o som do sistema chega pela própria janela, logo depois da escolha.
   useEffect(() => escutarPortaSom(), []);
   const [iniciandoTela, setIniciandoTela] = useState(false);
@@ -1287,12 +1302,14 @@ function TelaDoServidor({
       // chamar-tocando (RF-4): o chamado acabou; quem chamou vê se foi recusado ou não atendido.
       aoVozChamadoFim: ({ id, motivo, nome }) => {
         setChamado((c) => (c?.id === id ? null : c));
-        setChamando((c) => {
-          if (c?.id !== id) return c;
-          const texto = textoFimChamado(motivo, nome);
-          if (texto) avisarChamar(texto);
-          return null;
-        });
+        if (chamandoRef.current?.id !== id) {
+          // Fim antes da resposta do pedido: guarda para quando ela chegar.
+          finsAdiantados.current.set(id, { motivo, nome });
+          return;
+        }
+        setChamando(null);
+        const texto = textoFimChamado(motivo, nome);
+        if (texto) avisarChamar(texto);
       },
       aoVozMovido: ({ canalVozId, canalNome, porNome }) => {
         if (minhaVozRef.current === null && entrandoRef.current === null) return;
@@ -1862,8 +1879,15 @@ function TelaDoServidor({
     const nome = usuarios.find((u) => u.id === alvoId)?.nomeExibicao ?? 'a pessoa';
     void pedir(
       (c) => c.pedir('voz:chamar', { usuarioId: alvoId }),
-      (r) => (r?.id ? setChamando({ id: r.id, nome }) : avisarChamar(`Chamado enviado para ${nome}.`)),
-    ).then((falha) => falha && avisarChamar(falha));
+      (r) => {
+        if (!r?.id) return avisarChamar(`Chamado enviado para ${nome}.`);
+        const fim = finsAdiantados.current.get(r.id);
+        finsAdiantados.current.delete(r.id);
+        if (!fim) return setChamando({ id: r.id, nome });
+        const texto = textoFimChamado(fim.motivo, fim.nome);
+        if (texto) avisarChamar(texto);
+      },
+    ).then((falha) => falha && avisarChamar(falha, true));
   };
   /** RN-5: quem chamou desiste. */
   const cancelarChamado = () => {
@@ -2372,7 +2396,7 @@ function TelaDoServidor({
                   </button>
                 </div>
               )}
-              {chamando && (
+              {chamando && minhaVoz !== null && (
                 <div className="aviso-chamado chamando" role="status">
                   <span>Chamando {chamando.nome}…</span>
                   <button type="button" className="secundario" onClick={cancelarChamado}>
@@ -2381,7 +2405,7 @@ function TelaDoServidor({
                 </div>
               )}
               {avisoChamar && (
-                <p className="aviso-ok" role="status" key={avisoChamar.n}>
+                <p className={avisoChamar.erro ? 'erro' : 'aviso-ok'} role="status" key={avisoChamar.n}>
                   {avisoChamar.texto}
                 </p>
               )}

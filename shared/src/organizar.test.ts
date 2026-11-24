@@ -37,6 +37,7 @@ describe('organizar a tela', () => {
   it('CA-8: arrastar C para antes de A; a pasta inteira também anda', () => {
     expect(moverItem(solto, 'c', 'a').urls).toEqual(['c', 'a', 'b', 'd']);
     expect(moverItem(solto, 'a', null).urls).toEqual(['b', 'c', 'd', 'a']);
+    expect(moverItem(solto, 'pasta:sumiu', 'a')).toBe(solto);
     const comPasta = criarPasta(solto, 'c', 'd', 'p1');
     expect(moverItem(comPasta, 'pasta:p1', 'a').urls).toEqual(['d', 'c', 'a', 'b']);
     // Servidor de dentro da pasta levado para fora: sai dela (e a pasta de um só se desfaz).
