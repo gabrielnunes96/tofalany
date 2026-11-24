@@ -138,3 +138,35 @@ test('backlog v2, item 10b: link vira clicável, com cartão de prévia; no YouT
   await cartao.getByRole('button', { name: 'Fechar vídeo' }).click();
   await expect(cartao.locator('iframe')).toHaveCount(0);
 });
+
+test('previa-transmissao CA-5: com duas transmissões assistidas numa janela de 900 px, o chat mostra ao menos 8 linhas', async () => {
+  const dono = await cadastrarDono();
+  const j = dono.janela;
+  await dono.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1200, 900));
+  await expect(j.locator('.conteudo > .canal-aberto .chat .mensagens')).toBeVisible();
+  // Dois painéis de transmissão assistida (16:9), como o PainelTransmissao desenha, antes da conversa.
+  await j.evaluate(() => {
+    const conteudo = document.querySelector('.conteudo')!;
+    const conversa = conteudo.querySelector(':scope > .canal-aberto')!;
+    for (let i = 0; i < 2; i++) {
+      const s = document.createElement('section');
+      s.className = 'transmissao-grande';
+      s.innerHTML = '<video width="1920" height="1080"></video><div class="transmissao-acoes"><span>tela</span><button>x</button></div>';
+      conteudo.insertBefore(s, conversa);
+    }
+  });
+  const medidas = await j.evaluate(() => {
+    const lista = document.querySelector<HTMLElement>('.conteudo > .canal-aberto .chat .mensagens')!;
+    const linha = parseFloat(getComputedStyle(document.body).lineHeight) || 24;
+    const videos = [...document.querySelectorAll<HTMLVideoElement>('.conteudo > .transmissao-grande video')].map((v) => ({ r: v.getBoundingClientRect(), ajuste: getComputedStyle(v).objectFit }));
+    const visivel = Math.min(lista.getBoundingClientRect().bottom, window.innerHeight) - Math.max(lista.getBoundingClientRect().top, 0);
+    return { visivel, linha, videos: videos.map((v) => ({ a: v.r.height, ajuste: v.ajuste })) };
+  });
+  expect(medidas.visivel).toBeGreaterThanOrEqual(8 * medidas.linha);
+  // Os vídeos encolhem (a imagem mantém a proporção dentro do quadro).
+  for (const v of medidas.videos) {
+    expect(v.a).toBeLessThan(0.6 * 900);
+    expect(v.ajuste).toBe('contain');
+  }
+  await j.screenshot({ path: join(__dirname, '../../docs/demandas/previa-transmissao/chat-com-duas-transmissoes.png') });
+});

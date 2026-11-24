@@ -657,6 +657,14 @@ button.icone.controle.ligado { color: var(--cor-acento); background: color-mix(i
 .aviso-transmissao, .transmissao-grande, .grade-videos { flex: none; }
 .transmissao-grande { margin-bottom: 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio-g); overflow: hidden; background: var(--cor-video); }
 .transmissao-grande video { width: 100%; height: auto; max-height: 60vh; display: block; object-fit: contain; }
+/* previa-transmissao (RN-5): com transmissões abertas, o chat da conversa nunca fica com menos de 8 linhas; quem
+   encolhe são os vídeos (mantendo a proporção). Teatro, janela própria e tela cheia não entram na conta. */
+.layout-colunas > .conteudo { --chat-minimo: 340px; }
+.layout-colunas > .conteudo > .canal-aberto { height: auto; flex: 1 1 0; min-height: var(--chat-minimo); }
+.conteudo:has(> .transmissao-grande:not(.teatro, .em-janela)) > .transmissao-grande:not(.teatro, .em-janela) video { max-height: max(120px, min(60vh, calc(100vh - var(--chat-minimo) - 190px))); }
+.conteudo:has(> .transmissao-grande:not(.teatro, .em-janela) ~ .transmissao-grande:not(.teatro, .em-janela)) > .transmissao-grande:not(.teatro, .em-janela) video { max-height: max(90px, calc((100vh - var(--chat-minimo) - 250px) / 2)); }
+.conteudo:has(> .transmissao-grande:not(.teatro, .em-janela) ~ .transmissao-grande:not(.teatro, .em-janela) ~ .transmissao-grande:not(.teatro, .em-janela)) > .transmissao-grande:not(.teatro, .em-janela) video { max-height: max(70px, calc((100vh - var(--chat-minimo) - 310px) / 3)); }
+.conteudo:has(> .transmissao-grande:not(.teatro, .em-janela) ~ .transmissao-grande:not(.teatro, .em-janela) ~ .transmissao-grande:not(.teatro, .em-janela) ~ .transmissao-grande:not(.teatro, .em-janela)) > .transmissao-grande:not(.teatro, .em-janela) video { max-height: max(60px, calc((100vh - var(--chat-minimo) - 370px) / 4)); }
 .transmissao-acoes { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--cor-superficie); }
 .transmissao-acoes span { flex: 1; }
 .transmissao-acoes button { margin: 0; padding: 4px 10px; }
