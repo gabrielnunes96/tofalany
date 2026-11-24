@@ -14,9 +14,9 @@
         "CA-5"
       ],
       "validacao": "E2E voz.spec: duas transmissões falsas, janela de 900 px, chat ≥ 8 linhas.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "564a120"
     }
   ]
 }
