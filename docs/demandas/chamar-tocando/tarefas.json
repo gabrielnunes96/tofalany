@@ -17,9 +17,9 @@
         "CA-5"
       ],
       "validacao": "tsc e vitest shared.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "337dde3"
     },
     {
       "id": "T2",
