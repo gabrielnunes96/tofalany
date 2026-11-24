@@ -17,9 +17,9 @@
         "CA-5"
       ],
       "validacao": "vitest shared: atalhos.test com os casos de conflito, tetos, resolução e órfãos.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "563a162"
     },
     {
       "id": "T2",
