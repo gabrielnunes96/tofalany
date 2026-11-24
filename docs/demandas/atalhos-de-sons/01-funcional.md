@@ -1,6 +1,6 @@
 # Atalhos de teclado para os sons — especificação funcional
 
-> Demanda: `atalhos-de-sons` · Item 56 · Versão 1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `atalhos-de-sons` · Item 56 · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Objetivo
 Tocar sons do soundboard pelo teclado (ex.: F1, F2), inclusive com outra janela em foco (jogando), sem abrir o painel.

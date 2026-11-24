@@ -1,6 +1,6 @@
 # Prévia da transmissão e chat legível — especificação funcional
 
-> Demanda: `previa-transmissao` · Itens 60 e 61 · Versão 1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `previa-transmissao` · Itens 60 e 61 · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Objetivo
 Saber o que está sendo transmitido antes de assistir, e continuar lendo o chat com várias transmissões abertas.

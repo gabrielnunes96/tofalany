@@ -1,6 +1,6 @@
 # Organizar a tela: colunas ajustáveis e pastas de servidores — especificação funcional
 
-> Demanda: `organizar-a-tela` · Itens 62 e 63 · Versão 1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `organizar-a-tela` · Itens 62 e 63 · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Objetivo
 Cada pessoa arruma a tela do seu jeito: largura das colunas de canais e de membros, e servidores agrupados em pastas na coluna da esquerda.

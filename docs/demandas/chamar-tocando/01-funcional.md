@@ -1,6 +1,6 @@
 # Chamar para a voz como um telefone — especificação funcional
 
-> Demanda: `chamar-tocando` · Item 55 · Versão 1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `chamar-tocando` · Item 55 · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Objetivo
 Fazer o "Chamar para a voz" funcionar como um telefone: o chamado toca de verdade, quem chama sabe que está chamando, dá para recusar e cancelar, e ele desiste sozinho se ninguém atender.

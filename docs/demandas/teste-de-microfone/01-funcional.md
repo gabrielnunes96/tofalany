@@ -1,6 +1,6 @@
 # Correções da voz e da transmissão (AFK, teste de microfone, atualização, espectadores) — especificação funcional
 
-> Demanda: `teste-de-microfone` · Itens 59, 53, 54, 58 e 64 · Versão 1 · 23/11/2026 · Situação: **rascunho**
+> Demanda: `teste-de-microfone` · Itens 59, 53, 54, 58 e 64 · Versão 1 · 23/11/2026 · Situação: **aprovada em 23/11/2026**
 
 ## 1. Objetivo
 Acertar quatro coisas que atrapalham a chamada: a ida para a AFK que derruba a pessoa, o teste de microfone que não funciona dentro da sala, a chamada que continua escondida enquanto o app atualiza, e o contador de espectadores que confunde.
