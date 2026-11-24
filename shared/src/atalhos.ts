@@ -99,3 +99,111 @@ export function mesclarAtalhos(base: Atalhos = ATALHOS_PADRAO, bruto: unknown): 
   }
   return r;
 }
+
+/**
+ * atalhos-de-sons: um atalho por som. Os sons do servidor guardam por servidor (chave = URL normalizada, depois o
+ * `somId`); os de "Meus sons" valem em todos (chave = `audioId`) (RN-4).
+ */
+export interface AtalhosSons {
+  globais: Record<string, Atalho>;
+  porServidor: Record<string, Record<string, Atalho>>;
+}
+
+export const ATALHOS_SONS_PADRAO: AtalhosSons = { globais: {}, porServidor: {} };
+
+/** Tetos do arquivo de configuração: servidores lembrados, sons por servidor e "Meus sons". */
+const MAX_SERVIDORES_SONS = 20;
+const MAX_SONS_POR_SERVIDOR = 20;
+const MAX_GLOBAIS = 50;
+
+/** Texto que identifica a combinação (é o que o processo principal manda quando ela é apertada). */
+export const chaveAtalho = (a: Atalho) => textoAtalho(a);
+
+const ehId = (k: string) => /^[1-9]\d{0,9}$/.test(k);
+
+function lerMapa(v: unknown, max: number): Record<string, Atalho> {
+  const r: Record<string, Atalho> = {};
+  if (!v || typeof v !== 'object') return r;
+  for (const [k, bruto] of Object.entries(v as Record<string, unknown>)) {
+    if (Object.keys(r).length >= max) break;
+    const a = lerAtalho(bruto);
+    if (ehId(k) && a) r[k] = a;
+  }
+  return r;
+}
+
+/** Valida o que veio do arquivo: ids numéricos, atalhos válidos e tetos. */
+export function mesclarAtalhosSons(bruto: unknown): AtalhosSons {
+  const r: AtalhosSons = { globais: {}, porServidor: {} };
+  if (!bruto || typeof bruto !== 'object') return r;
+  const o = bruto as Record<string, unknown>;
+  r.globais = lerMapa(o.globais, MAX_GLOBAIS);
+  if (o.porServidor && typeof o.porServidor === 'object') {
+    for (const [url, mapa] of Object.entries(o.porServidor as Record<string, unknown>)) {
+      if (Object.keys(r.porServidor).length >= MAX_SERVIDORES_SONS) break;
+      if (typeof url !== 'string' || url.length > 300) continue;
+      const m = lerMapa(mapa, MAX_SONS_POR_SERVIDOR);
+      if (Object.keys(m).length > 0) r.porServidor[url] = m;
+    }
+  }
+  return r;
+}
+
+/** Um som: do servidor (`somId`) ou de "Meus sons" (`audioId`). */
+export type AlvoAtalhoSom = { somId: number } | { audioId: number };
+
+/**
+ * RN-1: quem já usa este atalho no conjunto que vale junto (atalhos da voz, "Meus sons" e os sons deste servidor).
+ * Devolve o nome para o aviso ("Push-to-talk", "outro som") ou null. O mesmo atalho em outro servidor não conflita.
+ */
+export function conflitoAtalhoSom(voz: Atalhos, sons: AtalhosSons, servidor: string, alvo: AlvoAtalhoSom, novo: Atalho | null): string | null {
+  if (!novo) return null;
+  const acao = ACOES_ATALHO.find((a) => mesmoAtalho(voz[a], novo));
+  if (acao) return NOME_ACAO[acao];
+  const doServidor = sons.porServidor[servidor] ?? {};
+  for (const [id, a] of Object.entries(doServidor)) if (!('somId' in alvo && String(alvo.somId) === id) && mesmoAtalho(a, novo)) return 'outro som';
+  for (const [id, a] of Object.entries(sons.globais)) if (!('audioId' in alvo && String(alvo.audioId) === id) && mesmoAtalho(a, novo)) return 'outro som';
+  return null;
+}
+
+/** RN-4: o som deste atalho no servidor atual: primeiro os do servidor, depois "Meus sons". */
+export function resolverAtalhoSom(sons: AtalhosSons, servidor: string, chave: string): AlvoAtalhoSom | null {
+  for (const [id, a] of Object.entries(sons.porServidor[servidor] ?? {})) if (chaveAtalho(a) === chave) return { somId: Number(id) };
+  for (const [id, a] of Object.entries(sons.globais)) if (chaveAtalho(a) === chave) return { audioId: Number(id) };
+  return null;
+}
+
+/** Todas as combinações de sons (de qualquer servidor): o processo principal só escuta estas. */
+export function combosSons(sons: AtalhosSons): Atalho[] {
+  const todos = [...Object.values(sons.globais), ...Object.values(sons.porServidor).flatMap((m) => Object.values(m))];
+  return todos.filter((a, i) => todos.findIndex((b) => mesmoAtalho(a, b)) === i);
+}
+
+/**
+ * RN-5: som apagado (ou áudio que saiu de "Meus sons") perde o atalho. `somIds` são os sons que o servidor tem agora;
+ * `audioIds`, os de "Meus sons" (null = ainda não se sabe, não mexe). Devolve o mesmo objeto se nada mudou.
+ */
+export function limparOrfaos(sons: AtalhosSons, servidor: string, somIds: number[] | null, audioIds: number[] | null): AtalhosSons {
+  let mudou = false;
+  const porServidor = { ...sons.porServidor };
+  if (somIds && porServidor[servidor]) {
+    const ficam = Object.fromEntries(Object.entries(porServidor[servidor]).filter(([id]) => somIds.includes(Number(id))));
+    if (Object.keys(ficam).length !== Object.keys(porServidor[servidor]).length) {
+      mudou = true;
+      if (Object.keys(ficam).length > 0) porServidor[servidor] = ficam;
+      else delete porServidor[servidor];
+    }
+  }
+  let globais = sons.globais;
+  if (audioIds) {
+    const ficam = Object.fromEntries(Object.entries(sons.globais).filter(([id]) => audioIds.includes(Number(id))));
+    if (Object.keys(ficam).length !== Object.keys(sons.globais).length) {
+      mudou = true;
+      globais = ficam;
+    }
+  }
+  return mudou ? { globais, porServidor } : sons;
+}
+
+/** RN-6: sugestões ao alcance da mão esquerda (a pessoa escolhe; nenhum vem pronto). */
+export const SUGESTOES_ATALHO_SOM = ['F1', 'F2', 'F3', 'F4', 'F5'];

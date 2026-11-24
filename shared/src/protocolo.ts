@@ -1,4 +1,4 @@
-import { ATALHOS_PADRAO, type Atalhos } from './atalhos.js';
+import { ATALHOS_PADRAO, type Atalhos, type AtalhosSons } from './atalhos.js';
 import type { AudioLojaDto, LojaEstadoDto } from './loja.js';
 /** Tempo máximo do teste de conexão com o servidor (RF-1). */
 export const TEMPO_TESTE_SERVIDOR_MS = 5000;
@@ -334,6 +334,8 @@ export interface ConfiguracoesLocais {
   audio: PreferenciasAudio;
   /** RF-15: atalhos globais (PTT, mute, deafen). */
   atalhos: Atalhos;
+  /** atalhos-de-sons: um atalho por som (do servidor, por servidor; de "Meus sons", em todos). */
+  atalhosSons?: AtalhosSons;
   /** RF-19, RF-38: volume e silêncio de cada pessoa, por servidor (chave = URL do servidor). */
   pessoas: Record<string, PreferenciasPessoas>;
   /** RF-21, RF-41: sons que dá para desligar. */
