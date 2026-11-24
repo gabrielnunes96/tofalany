@@ -62,9 +62,9 @@
         "CA-9"
       ],
       "validacao": "vitest: Espectadores.test (espaço embaixo e em cima), TelaConfiguracoes sem o fieldset, configuracoes ignora contador; E2E voz.spec sem .contador-espectadores.",
-      "estado": "a_fazer",
+      "estado": "feito",
       "wi": null,
-      "commit": null
+      "commit": "03cea00"
     },
     {
       "id": "T5",
