@@ -20,6 +20,17 @@ describe('criarArmazemConfiguracoes', () => {
     expect(criarArmazemConfiguracoes(arquivoTemp()).ler()).toEqual({ servidorUrl: null, audio: AUDIO_PADRAO, atalhos: ATALHOS_PADRAO, pessoas: {}, sons: SONS_PADRAO, notificacoes: NOTIFICACOES_PADRAO, tela: TELA_PADRAO });
   });
 
+  it('organizar-a-tela (CA-1, RN-8): larguras e pastas validadas e guardadas; teste-de-microfone: contador antigo é ignorado', () => {
+    const arquivo = arquivoTemp();
+    const c = criarArmazemConfiguracoes(arquivo);
+    c.gravar({ colunas: { canais: 320, membros: 9999 }, pastas: [{ id: 'p1', nome: 'Jogos', cor: '#22e4f2', aberta: false, urls: ['https://a'] }] } as never);
+    const lido = criarArmazemConfiguracoes(arquivo).ler();
+    expect(lido.colunas).toEqual({ canais: 320, membros: 360 });
+    expect(lido.pastas).toEqual([{ id: 'p1', nome: 'Jogos', cor: '#22e4f2', aberta: false, urls: ['https://a'] }]);
+    c.gravar({ contador: { cores: {} } } as never);
+    expect('contador' in criarArmazemConfiguracoes(arquivo).ler()).toBe(false);
+  });
+
   it('grava e relê de outra instância (sobrevive a reinício)', () => {
     const arquivo = arquivoTemp();
     criarArmazemConfiguracoes(arquivo).gravar({ servidorUrl: 'http://100.64.0.1:3000' });

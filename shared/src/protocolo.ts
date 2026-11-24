@@ -1,4 +1,5 @@
 import { ATALHOS_PADRAO, type Atalhos, type AtalhosSons } from './atalhos.js';
+import type { LarguraColunas, PastaServidores } from './organizar.js';
 import type { AudioLojaDto, LojaEstadoDto } from './loja.js';
 /** Tempo máximo do teste de conexão com o servidor (RF-1). */
 export const TEMPO_TESTE_SERVIDOR_MS = 5000;
@@ -352,6 +353,10 @@ export interface ConfiguracoesLocais {
   servidores?: ServidorConhecido[];
   /** Backlog v2, item 10: partes da tela escondidas. */
   ocultos?: PartesOcultas;
+  /** organizar-a-tela: largura das colunas de canais e de membros. */
+  colunas?: LarguraColunas;
+  /** organizar-a-tela: pastas da coluna de servidores (a ordem é a de `servidores`). */
+  pastas?: PastaServidores[];
   /** Backlog v2, item 9: tema da interface (padrão: neon). */
   tema?: Tema;
   /** Backlog v2, item 2: status escolhido em cada servidor (chave = URL do servidor). */

@@ -3,5 +3,6 @@ export * from './protocolo.js';
 export * from './validacao.js';
 export * from './auditoria.js';
 export * from './atalhos.js';
+export * from './organizar.js';
 export * from './novidades.js';
 export * from './loja.js';

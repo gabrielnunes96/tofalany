@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAtalhosSons, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela,
+import { CONFIGURACOES_PADRAO, mesclarAtalhos, mesclarAtalhosSons, mesclarColunas, mesclarPastas, mesclarAudio, mesclarPessoas, mesclarSons, mesclarNotificacoes, mesclarTela,
   mesclarAtividade, normalizarUrlServidor, ESCOLHAS_STATUS, TEMAS, type ConfiguracoesLocais, type EscolhaStatus, type ServidorConhecido, type Tema } from '@tofalando/shared';
 
 export interface ArmazemConfiguracoes {
@@ -64,6 +64,8 @@ function mesclar(base: ConfiguracoesLocais, bruto: unknown): ConfiguracoesLocais
     const o = obj.ocultos as Record<string, unknown>;
     resultado.ocultos = { canais: o.canais === true, membros: o.membros === true, cameras: o.cameras === true };
   }
+  if ('colunas' in obj) resultado.colunas = mesclarColunas(obj.colunas);
+  if ('pastas' in obj) resultado.pastas = mesclarPastas(obj.pastas);
   if (typeof obj.tema === 'string' && (TEMAS as string[]).includes(obj.tema)) resultado.tema = obj.tema as Tema;
   if (obj.statusEscolhido && typeof obj.statusEscolhido === 'object') {
     const validos: Record<string, EscolhaStatus> = {};
