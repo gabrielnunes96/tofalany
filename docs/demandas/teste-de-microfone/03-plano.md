@@ -1,6 +1,6 @@
 # Correções da voz e da transmissão — plano de desenvolvimento
 
-> Demanda: `teste-de-microfone` · Base: técnica (aprovada em 23/11/2026) · Situação: **rascunho**
+> Demanda: `teste-de-microfone` · Base: técnica (aprovada em 23/11/2026) · Situação: **aprovado em 23/11/2026**
 > Fonte da verdade: `tarefas.json`.
 
 ## Ordem

@@ -1,6 +1,6 @@
 # Organizar a tela: colunas e pastas — plano de desenvolvimento
 
-> Demanda: `organizar-a-tela` · Base: técnica (aprovada em 23/11/2026) · Situação: **rascunho**
+> Demanda: `organizar-a-tela` · Base: técnica (aprovada em 23/11/2026) · Situação: **aprovado em 23/11/2026**
 > Fonte da verdade: `tarefas.json`.
 
 ## Ordem

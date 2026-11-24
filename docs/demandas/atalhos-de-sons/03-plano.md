@@ -1,6 +1,6 @@
 # Atalhos de teclado para os sons — plano de desenvolvimento
 
-> Demanda: `atalhos-de-sons` · Base: técnica (aprovada em 23/11/2026) · Situação: **rascunho**
+> Demanda: `atalhos-de-sons` · Base: técnica (aprovada em 23/11/2026) · Situação: **aprovado em 23/11/2026**
 > Fonte da verdade: `tarefas.json`.
 
 ## Ordem

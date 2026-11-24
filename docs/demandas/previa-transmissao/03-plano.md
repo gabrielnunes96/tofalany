@@ -1,6 +1,6 @@
 # Chat legível com várias transmissões — plano de desenvolvimento
 
-> Demanda: `previa-transmissao` · Base: técnica (aprovada em 23/11/2026) · Situação: **rascunho**
+> Demanda: `previa-transmissao` · Base: técnica (aprovada em 23/11/2026) · Situação: **aprovado em 23/11/2026**
 > Fonte da verdade: `tarefas.json`.
 
 ## Ordem

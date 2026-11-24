@@ -1,6 +1,6 @@
 # Chamar para a voz como um telefone — plano de desenvolvimento
 
-> Demanda: `chamar-tocando` · Base: técnica (aprovada em 23/11/2026) · Situação: **rascunho**
+> Demanda: `chamar-tocando` · Base: técnica (aprovada em 23/11/2026) · Situação: **aprovado em 23/11/2026**
 > Fonte da verdade: `tarefas.json`.
 
 ## Ordem
